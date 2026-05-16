@@ -1,0 +1,330 @@
+.profile-container {
+  background-color: var(--background-default);
+  min-height: 100vh;
+  font-family: 'Poppins', sans-serif;
+}
+
+.profile-hero {
+  height: 16rem;
+  background-color: var(--primary-main);
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-hero-decoration-1 {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24rem;
+  height: 24rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  margin-right: -8rem;
+  margin-top: -8rem;
+  filter: blur(3rem);
+}
+
+.profile-hero-decoration-2 {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 16rem;
+  height: 16rem;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  margin-left: -5rem;
+  margin-bottom: -5rem;
+  filter: blur(2rem);
+}
+
+.profile-content {
+  margin-top: -8rem;
+  position: relative;
+  z-index: 10;
+  padding-bottom: 5rem;
+}
+
+.profile-card {
+  padding: 2.5rem;
+  border-radius: 2.5rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(var(--divider-rgb), 0.5);
+  background-color: var(--background-paper);
+  text-align: center;
+}
+
+.profile-avatar-container {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 2rem;
+}
+
+.profile-avatar-edit {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background-color: var(--primary-main);
+  transition: background-color 0.3s ease;
+}
+
+.profile-avatar-edit:hover {
+  background-color: var(--primary-dark);
+}
+
+.profile-name {
+  font-weight: 900;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.025em;
+}
+
+.profile-role {
+  color: var(--primary-main);
+  font-weight: 700;
+  margin-bottom: 2rem;
+}
+
+.profile-social {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.profile-social-button {
+  background-color: var(--background-default);
+  padding: 0.75rem;
+  transition: background-color 0.3s ease;
+}
+
+.profile-social-button:hover {
+  background-color: rgba(var(--primary-main-rgb), 0.1);
+}
+
+.profile-bio {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
+  font-style: italic;
+  padding: 0 1rem;
+}
+
+.profile-share-button {
+  border-radius: 1rem;
+  font-weight: 700;
+  box-shadow: 0 10px 25px rgba(var(--primary-main-rgb), 0.3);
+  font-size: 1.125rem;
+  height: 3.5rem;
+}
+
+.stats-grid {
+  margin-top: 2.5rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.stat-card {
+  padding: 2rem;
+  border-radius: 2rem;
+  border: 1px solid rgba(var(--divider-rgb), 0.5);
+  background-color: var(--background-paper);
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: scale(1.05);
+}
+
+.stat-icon {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.75rem;
+}
+
+.stat-value {
+  font-weight: 900;
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.content-column {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.progress-card {
+  padding: 3rem;
+  border-radius: 2.5rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(var(--divider-rgb), 0.5);
+  background-color: var(--background-paper);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 16rem;
+  height: 16rem;
+  background-color: rgba(var(--primary-main-rgb), 0.05);
+  border-radius: 50%;
+  margin-right: -8rem;
+  margin-top: -8rem;
+}
+
+.progress-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 2.5rem;
+  position: relative;
+  z-index: 10;
+  gap: 1rem;
+}
+
+
+.progress-title {
+  font-weight: 900;
+  margin-bottom: 0.5rem;
+}
+
+.progress-subtitle {
+  color: var(--text-secondary);
+}
+
+.progress-value {
+  font-weight: 900;
+  color: var(--primary-main);
+}
+
+.progress-tags {
+  margin-top: 2.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+}
+
+
+.progress-tag {
+  font-weight: 700;
+  background-color: rgba(var(--primary-main-rgb), 0.1);
+  color: var(--primary-main);
+  border: none;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.activity-card {
+  padding: 3rem;
+  border-radius: 2.5rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(var(--divider-rgb), 0.5);
+  background-color: var(--background-paper);
+}
+
+.activity-title {
+  font-weight: 900;
+  margin-bottom: 2.5rem;
+  text-align: center;
+}
+
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.activity-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 2rem;
+  border-radius: 1.5rem;
+  background-color: var(--background-default);
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+  cursor: pointer;
+  gap: 1.5rem;
+}
+
+
+.activity-item:hover {
+  background-color: var(--action-hover);
+  border-color: rgba(var(--primary-main-rgb), 0.2);
+}
+
+.activity-icon {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 1rem;
+  background-color: rgba(var(--primary-main-rgb), 0.1);
+  color: var(--primary-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+
+.activity-item:hover .activity-icon {
+  transform: scale(1.1);
+}
+
+.activity-content {
+  flex-grow: 1;
+}
+
+.activity-item-title {
+  font-weight: 700;
+  font-size: 1.125rem;
+  margin-bottom: 0.25rem;
+}
+
+.activity-item-desc {
+  color: var(--text-secondary);
+}
+
+.activity-time {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+
+.activity-time-value {
+  font-weight: 900;
+  color: var(--primary-main);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.view-path-button {
+  margin-top: 2.5rem;
+  font-weight: 900;
+  color: var(--primary-main);
+  text-transform: none;
+  font-size: 1.125rem;
+  padding: 0.75rem 1.5rem;
+}
+
+.view-path-button:hover {
+  background-color: transparent;
+}
