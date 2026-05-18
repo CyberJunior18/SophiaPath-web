@@ -9,6 +9,8 @@ import {
   InputAdornment,
   IconButton,
   Alert,
+  Avatar,
+  useTheme
 } from '@mui/material';
 import {
   Email as EmailIcon,
@@ -22,13 +24,24 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Auth.css';
 
+const AVATAR_OPTIONS = [
+  'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80'
+];
+
 const RegisterPage = () => {
+  const theme = useTheme();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
+    age: '',
+    gender: 'Rather Not Say',
   });
+  const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_OPTIONS[0]);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { register } = useAuth();
@@ -38,7 +51,7 @@ const RegisterPage = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -50,8 +63,15 @@ const RegisterPage = () => {
       return setError('Password must be at least 6 characters long');
     }
 
+    if (!formData.age || isNaN(formData.age) || Number(formData.age) <= 0) {
+      return setError('Age must be a valid positive number');
+    }
+
     const { confirmPassword, ...registerData } = formData;
-    const result = register(registerData);
+    const result = await register({
+      ...registerData,
+      avatar: selectedAvatar
+    });
     
     if (result.success) {
       navigate('/');
@@ -160,6 +180,60 @@ const RegisterPage = () => {
               ),
             }}
           />
+
+          <Box sx={{ display: 'flex', gap: 2, mt: 1, mb: 1 }}>
+            <TextField
+              fullWidth
+              label="Age"
+              name="age"
+              type="number"
+              variant="outlined"
+              value={formData.age}
+              onChange={handleChange}
+              required
+              inputProps={{ min: 1 }}
+            />
+
+            <TextField
+              fullWidth
+              select
+              label="Gender"
+              name="gender"
+              variant="outlined"
+              value={formData.gender}
+              onChange={handleChange}
+              SelectProps={{
+                native: true,
+              }}
+              required
+            >
+              <option value="Rather Not Say">Rather Not Say</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </TextField>
+          </Box>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 1, textAlign: 'left', fontWeight: 600 }}>
+            Choose Profile Picture (Optional)
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, mb: 3, justifyContent: 'center' }}>
+            {AVATAR_OPTIONS.map((url, idx) => (
+              <Avatar
+                key={idx}
+                src={url}
+                onClick={() => setSelectedAvatar(url)}
+                sx={{
+                  width: 50,
+                  height: 50,
+                  cursor: 'pointer',
+                  border: selectedAvatar === url ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
+                  transform: selectedAvatar === url ? 'scale(1.1)' : 'none',
+                  transition: 'all 0.2s',
+                  '&:hover': { transform: 'scale(1.15)' }
+                }}
+              />
+            ))}
+          </Box>
 
           <Button
             fullWidth

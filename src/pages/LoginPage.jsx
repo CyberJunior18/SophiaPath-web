@@ -11,11 +11,11 @@ import {
   Alert,
 } from '@mui/material';
 import {
-  Email as EmailIcon,
   Lock as LockIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   AutoAwesome as AutoAwesomeIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -29,11 +29,11 @@ const LoginPage = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     
-    const result = login(email, password);
+    const result = await login(email, password);
     if (result.success) {
       navigate('/');
     } else {
@@ -65,7 +65,7 @@ const LoginPage = () => {
         <form onSubmit={handleSubmit} className="auth-form">
           <TextField
             fullWidth
-            label="Email Address"
+            label="Username or Email"
             variant="outlined"
             margin="normal"
             value={email}
@@ -74,7 +74,7 @@ const LoginPage = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <EmailIcon fontSize="small" />
+                  <PersonIcon fontSize="small" />
                 </InputAdornment>
               ),
             }}

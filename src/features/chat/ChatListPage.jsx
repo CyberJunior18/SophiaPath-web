@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Paper,
@@ -23,35 +23,82 @@ import './Chat.css';
 const ChatListPage = () => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [allUsers, setAllUsers] = useState([]);
+  const [lastMessages, setLastMessages] = useState({});
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Get all users from localStorage to simulate a list of people to chat with
-  const allUsers = useMemo(() => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    // Filter out current user and apply search
-    return users
-      .filter(u => u.id !== user?.id)
-      .filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  }, [user, searchQuery]);
+  useEffect(() => {
+    const fetchUsersAndConversations = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+        // 1. Fetch all users from the backend
+        const usersRes = await fetch('/users', { headers });
+        if (!usersRes.ok) throw new Error('Failed to fetch users');
+        const usersList = await usersRes.json();
+
+        // 2. Fetch all active conversations for the current user
+        const convRes = await fetch(`/api/chat/user/${user.id}/conversations`, { headers });
+        let conversations = [];
+        if (convRes.ok) {
+          conversations = await convRes.json();
+        }
+
+        const msgPreviews = {};
+        conversations.forEach(c => {
+          const otherId = c.userId1 === user.id ? c.userId2 : c.userId1;
+          if (c.lastMessage) {
+            msgPreviews[otherId] = c.lastMessage.senderId === user.id
+              ? `You: ${c.lastMessage.message}`
+              : c.lastMessage.message;
+          }
+        });
+
+        // Exclude current user
+        const filteredUsers = usersList.filter(u => u.id !== user.id);
+
+        setAllUsers(filteredUsers);
+        setLastMessages(msgPreviews);
+      } catch (err) {
+        console.error('Failed to load chat data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.id) {
+      fetchUsersAndConversations();
+    }
+  }, [user]);
+
+  const filteredUsersList = useMemo(() => {
+    return allUsers.filter(u => {
+      const displayName = (u.fullname || u.name || u.username || '').toLowerCase();
+      return displayName.includes(searchQuery.toLowerCase());
+    });
+  }, [allUsers, searchQuery]);
 
   const handleUserClick = (targetUser) => {
-    navigate(`/chat/${targetUser.id}`, { state: { targetUser } });
+    // Map backend user properties to the format expected by ChatPage
+    const normalizedTarget = {
+      id: targetUser.id,
+      name: targetUser.fullname || targetUser.name || targetUser.username,
+      avatar: localStorage.getItem(`avatar_${targetUser.id}`) || targetUser.avatar || '',
+      username: targetUser.username
+    };
+    navigate(`/chat/${targetUser.id}`, { state: { targetUser: normalizedTarget } });
   };
 
-  // Helper to get last message preview (simulated/persisted)
   const getLastMessage = (otherId) => {
-    const chatId = [user.id, otherId].sort().join('_');
-    const messages = JSON.parse(localStorage.getItem(`chat_${chatId}`) || '[]');
-    if (messages.length === 0) return "Start a conversation...";
-    const last = messages[messages.length - 1];
-    return last.senderId === user.id ? `You: ${last.text}` : last.text;
+    return lastMessages[otherId] || "Start a conversation...";
   };
 
   return (
     <Box className="chat-list-container">
       <Paper className="chat-list-card glass-panel-strong">
         <Box className="chat-list-header-new">
-          
           <Box className="chat-search-wrapper">
             <TextField
               fullWidth
@@ -74,31 +121,45 @@ const ChatListPage = () => {
         </Box>
 
         <List className="chat-list">
-          {allUsers.length > 0 ? (
-            allUsers.map((otherUser) => (
-              <ListItemButton 
-                key={otherUser.id} 
-                onClick={() => handleUserClick(otherUser)}
-                className="chat-list-item-new"
-              >
-                <ListItemAvatar>
-                  <Badge 
-                    overlap="circular" 
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                    variant="dot"
-                    color="success"
-                    className="status-badge"
-                  >
-                    <Avatar 
-                      src={otherUser.avatar || `https://i.pravatar.cc/150?u=${otherUser.id}`} 
-                      className="chat-avatar"
-                    />
-                  </Badge>
-                </ListItemAvatar>
+          {loading ? (
+            <Box className="chat-empty-state">
+              <Typography variant="body2">Loading conversations...</Typography>
+            </Box>
+          ) : filteredUsersList.length > 0 ? (
+            filteredUsersList.map((otherUser) => {
+              const userAvatar = localStorage.getItem(`avatar_${otherUser.id}`) || otherUser.avatar || '';
+              const displayName = otherUser.fullname || otherUser.name || otherUser.username || '?';
+              const initials = displayName.charAt(0).toUpperCase();
+
+              return (
+                <ListItemButton 
+                  key={otherUser.id} 
+                  onClick={() => handleUserClick(otherUser)}
+                  className="chat-list-item-new"
+                >
+                  <ListItemAvatar>
+                    <Badge 
+                      overlap="circular" 
+                      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                      variant="dot"
+                      color="success"
+                      className="status-badge"
+                    >
+                      <Avatar 
+                        src={userAvatar} 
+                        className="chat-avatar"
+                        sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 'bold' }}
+                      >
+                        {!userAvatar && initials}
+                      </Avatar>
+                    </Badge>
+                  </ListItemAvatar>
                 <ListItemText 
                   primary={
                     <Box className="chat-item-header">
-                      <Typography className="chat-item-name">{otherUser.name}</Typography>
+                      <Typography className="chat-item-name">
+                        {otherUser.fullname || otherUser.name || otherUser.username}
+                      </Typography>
                       <Typography variant="caption" className="chat-item-time">Active</Typography>
                     </Box>
                   } 
@@ -110,11 +171,12 @@ const ChatListPage = () => {
                   }}
                 />
               </ListItemButton>
-            ))
+              );
+            })
           ) : (
             <Box className="chat-empty-state">
               <ForumIcon sx={{ fontSize: 64, opacity: 0.1, mb: 2 }} />
-              <Typography variant="h6">No conversations yet</Typography>
+              <Typography variant="h6">No learners found</Typography>
               <Typography variant="body2">Find a peer and start sharing knowledge!</Typography>
             </Box>
           )}

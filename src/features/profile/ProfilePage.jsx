@@ -12,7 +12,10 @@ import {
   Button,
   Chip,
   Stack,
-  alpha
+  alpha,
+  TextField,
+  Alert,
+  Divider
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -24,24 +27,47 @@ import {
   GitHub as GitHubIcon,
   LinkedIn as LinkedInIcon,
   Twitter as TwitterIcon,
-  ArrowForward as ArrowForwardIcon
+  ArrowForward as ArrowForwardIcon,
+  CalendarToday as CalendarIcon,
+  Person as PersonIcon,
+  Fingerprint as FingerprintIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './ProfilePage.css';
 
+const AVATAR_OPTIONS = [
+  'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80'
+];
+
 const ProfilePage = () => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   
+  const [isEditing, setIsEditing] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const [editForm, setEditForm] = useState({
+    name: user?.name || '',
+    username: user?.username || '',
+    tag: user?.tag || '',
+    gender: user?.gender || 'Rather Not Say',
+    age: user?.age || '',
+    avatar: user?.avatar || AVATAR_OPTIONS[0]
+  });
+
   const [userData, setUserData] = useState({
     name: user?.name || 'Learner',
     email: user?.email || '',
-    role: 'Aspiring Full-Stack Developer',
+    role: user?.tag || 'Aspiring Full-Stack Developer',
     location: 'New York, USA',
     bio: 'Passionate about building scalable web applications and learning new technologies. Currently mastering React and Node.js.',
-    profileImage: 'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
+    profileImage: user?.avatar || AVATAR_OPTIONS[0],
     progress: 65,
     streak: 12,
     completedCourses: Object.keys(user?.quizScores || {}).length,
@@ -53,11 +79,52 @@ const ProfilePage = () => {
       setUserData(prev => ({ 
         ...prev, 
         name: user.name,
+        role: user.tag || 'Aspiring Full-Stack Developer',
+        profileImage: user.avatar || AVATAR_OPTIONS[0],
         completedCourses: Object.keys(user.quizScores || {}).length
       }));
+      setEditForm({
+        name: user.name || '',
+        username: user.username || '',
+        tag: user.tag || '',
+        gender: user.gender || 'Rather Not Say',
+        age: user.age || '',
+        avatar: user.avatar || AVATAR_OPTIONS[0]
+      });
     }
   }, [user]);
 
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaveError('');
+    setSaving(true);
+
+    if (!editForm.name.trim()) {
+      setSaveError('Name cannot be empty');
+      setSaving(false);
+      return;
+    }
+
+    if (!editForm.username.trim() || editForm.username.length < 4) {
+      setSaveError('Username must be at least 4 characters');
+      setSaving(false);
+      return;
+    }
+
+    if (editForm.age && (isNaN(editForm.age) || Number(editForm.age) <= 0)) {
+      setSaveError('Age must be a valid positive number');
+      setSaving(false);
+      return;
+    }
+
+    const res = await updateProfile(editForm);
+    if (res.success) {
+      setIsEditing(false);
+    } else {
+      setSaveError(res.message || 'Failed to update profile');
+    }
+    setSaving(false);
+  };
 
   const stats = [
     { label: 'Streak', value: userData.streak, icon: <StreakIcon />, color: theme.palette.warning.main },
@@ -84,57 +151,209 @@ const ProfilePage = () => {
           {/* Left Column: Profile Info */}
           <Grid item xs={12} lg={4}>
             <Paper className="profile-card">
-              <Box className="profile-avatar-container">
-                <Avatar
-                  src={userData.profileImage}
-                  sx={{ 
-                    width: 180, 
-                    height: 180, 
-                    border: `8px solid ${theme.palette.background.paper}`,
-                    boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
-                  }}
-                />
-                <IconButton
-                  className="profile-avatar-edit"
-                  size="medium"
-                  sx={{ boxShadow: 4 }}
-                >
-                  <EditIcon sx={{ color: 'white', fontSize: 22 }} />
-                </IconButton>
-              </Box>
+              {!isEditing ? (
+                <>
+                  <Box className="profile-avatar-container">
+                    <Avatar
+                      src={userData.profileImage}
+                      sx={{ 
+                        width: 180, 
+                        height: 180, 
+                        border: `8px solid ${theme.palette.background.paper}`,
+                        boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
+                      }}
+                    />
+                  </Box>
 
-              <Typography variant="h4" className="profile-name">
-                {userData.name}
-              </Typography>
-              <Typography variant="body1" className="profile-role">
-                {userData.role}
-              </Typography>
+                  <Typography variant="h4" className="profile-name">
+                    {userData.name}
+                  </Typography>
+                  <Typography variant="body1" className="profile-role">
+                    {userData.role}
+                  </Typography>
 
-              <Box className="profile-social">
-                <IconButton className="profile-social-button">
-                  <GitHubIcon fontSize="medium" />
-                </IconButton>
-                <IconButton className="profile-social-button">
-                  <LinkedInIcon fontSize="medium" />
-                </IconButton>
-                <IconButton className="profile-social-button">
-                  <TwitterIcon fontSize="medium" />
-                </IconButton>
-              </Box>
+                  <Box className="profile-social">
+                    <IconButton className="profile-social-button">
+                      <GitHubIcon fontSize="medium" />
+                    </IconButton>
+                    <IconButton className="profile-social-button">
+                      <LinkedInIcon fontSize="medium" />
+                    </IconButton>
+                    <IconButton className="profile-social-button">
+                      <TwitterIcon fontSize="medium" />
+                    </IconButton>
+                  </Box>
 
-              <Typography variant="body2" className="profile-bio">
-                "{userData.bio}"
-              </Typography>
+                  <Typography variant="body2" className="profile-bio">
+                    "{userData.bio}"
+                  </Typography>
 
-              <Button 
-                fullWidth 
-                variant="contained" 
-                startIcon={<ShareIcon />}
-                className="profile-share-button"
-                sx={{ height: 56 }}
-              >
-                Share Profile
-              </Button>
+                  <Divider sx={{ my: 3 }} />
+
+                  {/* Backend Meta Details */}
+                  <Stack spacing={2} sx={{ mb: 4, px: 2, textAlign: 'left' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <FingerprintIcon sx={{ color: theme.palette.text.secondary }} />
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Username</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>@{user?.username || 'learner'}</Typography>
+                      </Box>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <PersonIcon sx={{ color: theme.palette.text.secondary }} />
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Gender / Age</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {user?.gender || 'Rather Not Say'} • {user?.age || 20} years old
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <CalendarIcon sx={{ color: theme.palette.text.secondary }} />
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Joined</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {user?.joinedDate ? new Date(user.joinedDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Recently'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Stack>
+
+                  <Button 
+                    fullWidth 
+                    variant="contained" 
+                    startIcon={<EditIcon />}
+                    onClick={() => setIsEditing(true)}
+                    className="profile-share-button"
+                    sx={{ height: 50, mb: 2, borderRadius: 3 }}
+                  >
+                    Edit Profile
+                  </Button>
+                </>
+              ) : (
+                <Box component="form" onSubmit={handleSave} sx={{ p: 2, textAlign: 'left' }}>
+                  <Typography variant="h5" sx={{ mb: 3, fontWeight: 800, textAlign: 'center' }}>
+                    Edit Profile Info
+                  </Typography>
+
+                  {saveError && (
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+                      {saveError}
+                    </Alert>
+                  )}
+
+                  <TextField
+                    fullWidth
+                    label="Full Name"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    margin="normal"
+                    required
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Username"
+                    value={editForm.username}
+                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                    margin="normal"
+                    required
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Tag / Professional Role"
+                    value={editForm.tag}
+                    onChange={(e) => setEditForm({ ...editForm, tag: e.target.value })}
+                    margin="normal"
+                  />
+
+                  <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+                    <TextField
+                      fullWidth
+                      label="Age"
+                      type="number"
+                      value={editForm.age}
+                      onChange={(e) => setEditForm({ ...editForm, age: e.target.value })}
+                      margin="normal"
+                      required
+                      inputProps={{ min: 1 }}
+                    />
+
+                    <TextField
+                      fullWidth
+                      select
+                      label="Gender"
+                      value={editForm.gender}
+                      onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+                      margin="normal"
+                      SelectProps={{ native: true }}
+                      required
+                    >
+                      <option value="Rather Not Say">Rather Not Say</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </TextField>
+                  </Box>
+
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 1, fontWeight: 600 }}>
+                    Select Profile Picture
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 2, mb: 2, justifyContent: 'center' }}>
+                    {AVATAR_OPTIONS.map((url, idx) => (
+                      <Avatar
+                        key={idx}
+                        src={url}
+                        onClick={() => setEditForm({ ...editForm, avatar: url })}
+                        sx={{
+                          width: 50,
+                          height: 50,
+                          cursor: 'pointer',
+                          border: editForm.avatar === url ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
+                          transform: editForm.avatar === url ? 'scale(1.1)' : 'none',
+                          transition: 'all 0.2s',
+                          '&:hover': { transform: 'scale(1.15)' }
+                        }}
+                      />
+                    ))}
+                  </Box>
+
+                  <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      type="submit"
+                      disabled={saving}
+                      sx={{ height: 50, borderRadius: 3 }}
+                    >
+                      {saving ? 'Saving...' : 'Save'}
+                    </Button>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      onClick={() => {
+                        setIsEditing(false);
+                        setSaveError('');
+                        if (user) {
+                          setEditForm({
+                            name: user.name || '',
+                            username: user.username || '',
+                            tag: user.tag || '',
+                            gender: user.gender || 'Rather Not Say',
+                            age: user.age || '',
+                            avatar: user.avatar || AVATAR_OPTIONS[0]
+                          });
+                        }
+                      }}
+                      sx={{ height: 50, borderRadius: 3 }}
+                    >
+                      Cancel
+                    </Button>
+                  </Stack>
+                </Box>
+              )}
             </Paper>
 
             {/* Quick Stats Grid */}
