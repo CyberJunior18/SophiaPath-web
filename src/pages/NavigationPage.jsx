@@ -38,6 +38,7 @@ import SettingsPage from '../features/settings/SettingsPage';
 import CourseDetailPage from './CourseDetailPage';
 import LearningPathPage from './LearningPathPage';
 import QuizPage from './QuizPage';
+import LearningContentPage from './LearningContentPage';
 import ChatListPage from '../features/chat/ChatListPage';
 import ChatPage from '../features/chat/ChatPage';
 import CodeEditorPage from '../features/editor/CodeEditorPage';
@@ -256,6 +257,7 @@ const NavigationPage = () => {
               <Route path="/learning-path/:courseId" element={<AnimatedPage><LearningPathPage /></AnimatedPage>} />
 
               <Route path="/quiz/:courseDomain/:lessonId" element={<AnimatedPage><QuizPage /></AnimatedPage>} />
+              <Route path="/learning/:courseId/:sectionId/:lessonId" element={<AnimatedPage><LearningContentPage /></AnimatedPage>} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </AnimatePresence>

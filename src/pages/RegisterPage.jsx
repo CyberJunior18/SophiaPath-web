@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   Container,
@@ -10,7 +10,8 @@ import {
   IconButton,
   Alert,
   Avatar,
-  useTheme
+  useTheme,
+  Tooltip
 } from '@mui/material';
 import {
   Email as EmailIcon,
@@ -19,6 +20,10 @@ import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   AutoAwesome as AutoAwesomeIcon,
+  PhotoCamera as CameraIcon,
+  CloudUpload as UploadIcon,
+  Delete as DeleteIcon,
+  Check as CheckIcon,
 } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -33,6 +38,7 @@ const AVATAR_OPTIONS = [
 
 const RegisterPage = () => {
   const theme = useTheme();
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -42,6 +48,9 @@ const RegisterPage = () => {
     gender: 'Rather Not Say',
   });
   const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_OPTIONS[0]);
+  const [isCustomAvatar, setIsCustomAvatar] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { register } = useAuth();
@@ -49,6 +58,67 @@ const RegisterPage = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleFile = (file) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Please select a valid image file (PNG, JPG, WebP).');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarError('Profile picture must be smaller than 2MB.');
+      return;
+    }
+
+    setAvatarError('');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setSelectedAvatar(e.target.result);
+      setIsCustomAvatar(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setSelectedAvatar(AVATAR_OPTIONS[0]);
+    setIsCustomAvatar(false);
+    setAvatarError('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -102,6 +172,43 @@ const RegisterPage = () => {
         )}
 
         <form onSubmit={handleSubmit} className="auth-form">
+          {/* Custom Avatar Upload Zone */}
+          <Box className="avatar-upload-section">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              style={{ display: 'none' }}
+            />
+            
+            <Box 
+              className={`avatar-dropzone ${isDragging ? 'dragging' : ''}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={triggerFileInput}
+            >
+              <Avatar
+                src={selectedAvatar}
+                className="avatar-preview"
+                sx={{
+                  width: '100%',
+                  height: '100%'
+                }}
+              />
+              <Box className="avatar-hover-overlay">
+                <CameraIcon sx={{ fontSize: 32 }} />
+              </Box>
+            </Box>
+
+            {avatarError && (
+              <Alert severity="warning" className="avatar-error-alert" sx={{ mt: 1, py: 0, px: 2, borderRadius: 2 }}>
+                {avatarError}
+              </Alert>
+            )}
+          </Box>
+
           <TextField
             fullWidth
             label="Full Name"
@@ -211,28 +318,6 @@ const RegisterPage = () => {
               <option value="Male">Male</option>
               <option value="Female">Female</option>
             </TextField>
-          </Box>
-
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 1, textAlign: 'left', fontWeight: 600 }}>
-            Choose Profile Picture (Optional)
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2, mb: 3, justifyContent: 'center' }}>
-            {AVATAR_OPTIONS.map((url, idx) => (
-              <Avatar
-                key={idx}
-                src={url}
-                onClick={() => setSelectedAvatar(url)}
-                sx={{
-                  width: 50,
-                  height: 50,
-                  cursor: 'pointer',
-                  border: selectedAvatar === url ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
-                  transform: selectedAvatar === url ? 'scale(1.1)' : 'none',
-                  transition: 'all 0.2s',
-                  '&:hover': { transform: 'scale(1.15)' }
-                }}
-              />
-            ))}
           </Box>
 
           <Button

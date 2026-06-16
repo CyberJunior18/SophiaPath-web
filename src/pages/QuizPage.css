@@ -316,3 +316,104 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Premium Syntax-Highlighted C++ Cards & Blanks */
+.quiz-code-card,
+.quiz-code-card-fill {
+  background: #1e1e24 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+.code-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #141416;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+}
+
+.code-header-icon {
+  color: var(--primary-main);
+}
+
+.code-card-body {
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.code-pre {
+  margin: 0;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.code-line {
+  display: flex;
+  align-items: flex-start;
+}
+
+.code-line-number {
+  width: 24px;
+  text-align: right;
+  margin-right: 16px;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 0.8rem;
+  user-select: none;
+}
+
+.code-line-content {
+  flex: 1;
+  white-space: pre;
+}
+
+/* C++ IDE Editor & Interactive Split layout styling */
+.challenge-pane {
+  background: rgba(30, 30, 36, 0.6) !important;
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25) !important;
+}
+
+.quiz-code-editor-card {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2) !important;
+  transition: all 0.25s ease;
+}
+
+.quiz-code-editor-card:focus-within {
+  border-color: var(--primary-main) !important;
+  box-shadow: 0 16px 40px rgba(var(--primary-main-rgb), 0.15) !important;
+}
+
+.quiz-console-panel {
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+}
+
+.challenge-instructions::-webkit-scrollbar {
+  width: 6px;
+}
+
+.challenge-instructions::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+}
+
+.quiz-console-panel pre::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.quiz-console-panel pre::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 99px;
+}
+

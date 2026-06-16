@@ -303,6 +303,42 @@ export const AuthProvider = ({ children }) => {
       console.error('registerCourse error:', err);
     }
   };
+  
+  const unregisterCourse = async (courseTitle) => {
+    if (!user) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      // 1. Fetch courses to match the title
+      const coursesRes = await fetch('/courses');
+      if (!coursesRes.ok) return;
+
+      const coursesList = await coursesRes.json();
+      const course = coursesList.find(c => c.title.toLowerCase() === courseTitle.toLowerCase());
+
+      if (course) {
+        // 2. Call unregister API
+        const regRes = await fetch(`/courses/me/register/${course.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (regRes.ok) {
+          setUser(prev => ({
+            ...prev,
+            registeredCourses: (prev.registeredCourses || []).filter(
+              title => title.toLowerCase() !== courseTitle.toLowerCase()
+            )
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('unregisterCourse error:', err);
+    }
+  };
 
   const updateProfile = async (profileData) => {
     if (!user) return { success: false, message: 'Not logged in' };
@@ -333,13 +369,18 @@ export const AuthProvider = ({ children }) => {
 
       const updatedUser = await res.json();
       
+      if (profileData.avatar) {
+        localStorage.setItem(`avatar_${user.id}`, profileData.avatar);
+      }
+
       setUser(prev => ({
         ...prev,
         name: updatedUser.fullname,
         username: updatedUser.username,
         tag: updatedUser.tag,
         gender: updatedUser.gender,
-        age: updatedUser.age
+        age: updatedUser.age,
+        avatar: profileData.avatar || prev.avatar
       }));
 
       return { success: true };
@@ -350,7 +391,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, deleteAccount, updateQuizScore, registerCourse, updateProfile, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, deleteAccount, updateQuizScore, registerCourse, unregisterCourse, updateProfile, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

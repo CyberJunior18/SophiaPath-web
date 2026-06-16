@@ -31,6 +31,13 @@
   --danger-main: #FF647C;
   --nav-width: 300px;
   --content-width: 1440px;
+  
+  /* Code Card Variables (Light Mode) */
+  --code-bg: #F7F9FC;
+  --code-header-bg: #E9EDF5;
+  --code-border: rgba(61, 92, 255, 0.12);
+  --code-line-num: rgba(45, 45, 77, 0.38);
+  --code-text-default: #2D2D4D;
 }
 
 [data-theme='dark'] {
@@ -63,6 +70,13 @@
   --purple-500-rgb: 167, 139, 250;
   --success-main: #3DDC97;
   --danger-main: #FF647C;
+
+  /* Code Card Variables (Dark Mode) */
+  --code-bg: #0F1424;
+  --code-header-bg: #171D31;
+  --code-border: rgba(255, 255, 255, 0.08);
+  --code-line-num: rgba(255, 255, 255, 0.24);
+  --code-text-default: #E5E9F0;
 }
 
 * {
@@ -189,4 +203,18 @@ button,
   body {
     min-width: auto;
   }
+}
+
+.slide-inline-code {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.9em;
+  background: var(--code-bg);
+  color: var(--primary-main);
+  border: 1px solid var(--code-border);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-weight: 700;
+  word-break: break-all;
+  display: inline;
+  vertical-align: middle;
 }

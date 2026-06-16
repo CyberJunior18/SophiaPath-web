@@ -1,5 +1,5 @@
-import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import './CourseDetailPage.css';
 import {
   Typography,
@@ -8,8 +8,8 @@ import {
   Button,
   IconButton
 } from '@mui/material';
-import { useParams } from 'react-router-dom';
 import { coursesData } from '../data/courses';
+import { useAuth } from '../context/AuthContext';
 
 import {
   ArrowBack as ArrowBackIcon,
@@ -18,18 +18,97 @@ import {
   CheckCircle as CheckCircleIcon,
   AccessTime as TimeIcon,
   MenuBook as BookIcon,
-  EmojiEvents as TrophyIcon
+  EmojiEvents as TrophyIcon,
+  DeleteOutline as DeleteIcon
 } from '@mui/icons-material';
 
 const CourseDetailPage = () => {
   const { courseId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, registerCourse, unregisterCourse } = useAuth();
   
-  const course = location.state?.course || coursesData.find(c => 
-    c.title.toLowerCase().replace(/\s+/g, '-') === courseId
-  );
+  const [course, setCourse] = useState(location.state?.course || null);
+  const [loading, setLoading] = useState(!course);
 
+  useEffect(() => {
+    const loadCourseData = async () => {
+      try {
+        const res = await fetch('/courses/export/all');
+        if (res.ok) {
+          const list = await res.json();
+          const mappedList = list.map(bc => ({
+            id: bc.id,
+            title: bc.title,
+            description: bc.description || '',
+            about: bc.about || '',
+            imageUrl: bc.imageUrl || '',
+            comingsoon: bc.comingsoon || false,
+            sections: (bc.sections || []).map(sec => {
+              const uniqueLessons = [];
+              const seenTitles = new Set();
+              (sec.lessons || []).forEach(les => {
+                const norm = (les.title || '').trim().toLowerCase();
+                if (norm && !seenTitles.has(norm)) {
+                  seenTitles.add(norm);
+                  uniqueLessons.push({
+                    id: les.id,
+                    category: les.category || 'learning',
+                    chapterName: les.chapterName || '',
+                    title: les.title || 'Untitled Lesson',
+                    orderIndex: les.orderIndex || 0,
+                  });
+                }
+              });
+
+              return {
+                id: sec.id,
+                title: sec.title,
+                description: sec.description || '',
+                lessons: uniqueLessons
+              };
+            })
+          }));
+
+          const matched = mappedList.find(c => 
+            String(c.id) === String(courseId) ||
+            c.title.toLowerCase().replace(/\s+/g, '-') === String(courseId).toLowerCase()
+          );
+          if (matched) {
+            setCourse(matched);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load course details from database:', err);
+      }
+
+      // Fallback to local data
+      const fallback = coursesData.find(c => 
+        c.title.toLowerCase().replace(/\s+/g, '-') === courseId ||
+        String(c.id) === String(courseId)
+      );
+      setCourse(fallback);
+      setLoading(false);
+    };
+
+    loadCourseData();
+  }, [courseId]);
+
+  if (loading) {
+    return (
+      <div className="course-not-found" style={{ display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <div className="loading-spinner" style={{ width: '50px', height: '50px', borderRadius: '50%', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary-main)', animation: 'spin 1s linear infinite' }} />
+        <Typography variant="h6" style={{ color: 'var(--text-secondary)' }}>Loading Course Curriculum...</Typography>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   if (!course) {
     return (
@@ -47,22 +126,45 @@ const CourseDetailPage = () => {
     );
   }
 
-  const handleEnroll = () => {
+  const isRegistered = user?.registeredCourses?.some(
+    title => title.toLowerCase() === course.title.toLowerCase()
+  );
+
+  const handleEnroll = async () => {
+    if (!isRegistered) {
+      await registerCourse(course.title);
+    }
     navigate(`/learning-path/${course.id}`, { state: { course } });
   };
 
+  const handleUnregister = async () => {
+    if (window.confirm(`Are you sure you want to unenroll from ${course.title}? Your progress will be reset.`)) {
+      await unregisterCourse(course.title);
+    }
+  };
 
   return (
     <div className="course-detail-container">
       <div className="course-detail-header">
-
         <Container maxWidth="lg" className="course-detail-header-content">
-          <IconButton
-            onClick={() => navigate(-1)}
-            className="course-detail-back-button"
-          >
-            <ArrowBackIcon />
-          </IconButton>
+          <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+            <IconButton
+              onClick={() => navigate(-1)}
+              className="course-detail-back-button"
+            >
+              <ArrowBackIcon />
+            </IconButton>
+            
+            {isRegistered && (
+              <IconButton
+                onClick={handleUnregister}
+                style={{ color: 'var(--danger-main)', marginLeft: 'auto' }}
+                title="Unenroll from course"
+              >
+                <DeleteIcon />
+              </IconButton>
+            )}
+          </div>
 
           <div className="course-detail-copy">
             <Typography variant="overline" className="course-detail-kicker">
@@ -82,7 +184,7 @@ const CourseDetailPage = () => {
               </div>
               <div className="course-detail-meta-item">
                 <BookIcon fontSize="small" />
-                <span>{course.totalLessons} Comprehensive Lessons</span>
+                <span>{course.totalLessons || course.sections?.reduce((sum, s) => sum + (s.lessons?.length || 0), 0) || 6} Comprehensive Lessons</span>
               </div>
             </div>
           </div>
@@ -114,7 +216,7 @@ const CourseDetailPage = () => {
               </Typography>
               <br></br>
               <div className="course-section-list">
-                {course.sections.map((section, index) => {
+                {course.sections?.map((section, index) => {
                   const lessonCount = section.lessons?.length || 0;
 
                   return (
@@ -139,7 +241,7 @@ const CourseDetailPage = () => {
                         </div>
                       </div>
                       <div className="course-section-action">
-                        {index === 0 ? (
+                        {index === 0 || isRegistered ? (
                           <div className="course-section-play-icon">
                             <PlayIcon />
                           </div>
@@ -162,11 +264,14 @@ const CourseDetailPage = () => {
               <div className="course-sidebar-decoration"></div>
 
               <Typography variant="h5" className="course-sidebar-title">
-                Ready to begin?
+                {isRegistered ? "Ready to resume?" : "Ready to begin?"}
               </Typography>
               <div style={{ height: "10px" }}></div>
               <Typography className="course-sidebar-description">
-                Join thousands of students and start your journey in <strong>{course.title}</strong> today.
+                {isRegistered 
+                  ? `Pick up right where you left off and complete your mastery of ${course.title}.`
+                  : `Join thousands of students and start your journey in ${course.title} today.`
+                }
               </Typography>
               <div style={{ height: "20px" }}></div>
               <Button
@@ -176,8 +281,20 @@ const CourseDetailPage = () => {
                 onClick={handleEnroll}
                 className="course-enroll-button"
               >
-                Enroll Now
+                {isRegistered ? "Continue Learning" : "Register Now"}
               </Button>
+
+              {isRegistered && (
+                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                  <Button
+                    size="small"
+                    style={{ color: 'var(--danger-main)', textTransform: 'none' }}
+                    onClick={handleUnregister}
+                  >
+                    Unenroll from Course
+                  </Button>
+                </div>
+              )}
 
               <div className="course-perks">
                 {[

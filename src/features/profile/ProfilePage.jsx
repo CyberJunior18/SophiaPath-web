@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -15,7 +15,8 @@ import {
   alpha,
   TextField,
   Alert,
-  Divider
+  Divider,
+  Tooltip
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -30,7 +31,11 @@ import {
   ArrowForward as ArrowForwardIcon,
   CalendarToday as CalendarIcon,
   Person as PersonIcon,
-  Fingerprint as FingerprintIcon
+  Fingerprint as FingerprintIcon,
+  PhotoCamera as CameraIcon,
+  CloudUpload as UploadIcon,
+  Delete as DeleteIcon,
+  Check as CheckIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -47,6 +52,7 @@ const ProfilePage = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { user, updateProfile } = useAuth();
+  const fileInputRef = useRef(null);
   
   const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -60,6 +66,12 @@ const ProfilePage = () => {
     age: user?.age || '',
     avatar: user?.avatar || AVATAR_OPTIONS[0]
   });
+
+  const [isCustomAvatar, setIsCustomAvatar] = useState(
+    user?.avatar ? !AVATAR_OPTIONS.includes(user.avatar) : false
+  );
+  const [isDragging, setIsDragging] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
 
   const [userData, setUserData] = useState({
     name: user?.name || 'Learner',
@@ -91,8 +103,70 @@ const ProfilePage = () => {
         age: user.age || '',
         avatar: user.avatar || AVATAR_OPTIONS[0]
       });
+      setIsCustomAvatar(user.avatar ? !AVATAR_OPTIONS.includes(user.avatar) : false);
     }
   }, [user]);
+
+  const handleFile = (file) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Please select a valid image file (PNG, JPG, WebP).');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarError('Profile picture must be smaller than 2MB.');
+      return;
+    }
+
+    setAvatarError('');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setEditForm(prev => ({ ...prev, avatar: e.target.result }));
+      setIsCustomAvatar(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setEditForm(prev => ({ ...prev, avatar: AVATAR_OPTIONS[0] }));
+    setIsCustomAvatar(false);
+    setAvatarError('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -244,6 +318,43 @@ const ProfilePage = () => {
                     </Alert>
                   )}
 
+                  {/* Custom Avatar Upload Zone (matching RegisterPage) */}
+                  <Box className="avatar-upload-section" sx={{ mb: 3 }}>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                    />
+                    
+                    <Box 
+                      className={`avatar-dropzone ${isDragging ? 'dragging' : ''}`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={triggerFileInput}
+                    >
+                      <Avatar
+                        src={editForm.avatar}
+                        className="avatar-preview"
+                        sx={{
+                          width: '100%',
+                          height: '100%'
+                        }}
+                      />
+                      <Box className="avatar-hover-overlay">
+                        <CameraIcon sx={{ fontSize: 32 }} />
+                      </Box>
+                    </Box>
+
+                    {avatarError && (
+                      <Alert severity="warning" className="avatar-error-alert" sx={{ mt: 1, py: 0, px: 2, borderRadius: 2 }}>
+                        {avatarError}
+                      </Alert>
+                    )}
+                  </Box>
+
                   <TextField
                     fullWidth
                     label="Full Name"
@@ -270,7 +381,7 @@ const ProfilePage = () => {
                     margin="normal"
                   />
 
-                  <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+                  <Box sx={{ display: 'flex', gap: 2, mt: 1, mb: 2 }}>
                     <TextField
                       fullWidth
                       label="Age"
@@ -296,28 +407,6 @@ const ProfilePage = () => {
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
                     </TextField>
-                  </Box>
-
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 1, fontWeight: 600 }}>
-                    Select Profile Picture
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 2, mb: 2, justifyContent: 'center' }}>
-                    {AVATAR_OPTIONS.map((url, idx) => (
-                      <Avatar
-                        key={idx}
-                        src={url}
-                        onClick={() => setEditForm({ ...editForm, avatar: url })}
-                        sx={{
-                          width: 50,
-                          height: 50,
-                          cursor: 'pointer',
-                          border: editForm.avatar === url ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
-                          transform: editForm.avatar === url ? 'scale(1.1)' : 'none',
-                          transition: 'all 0.2s',
-                          '&:hover': { transform: 'scale(1.15)' }
-                        }}
-                      />
-                    ))}
                   </Box>
 
                   <Stack direction="row" spacing={2} sx={{ mt: 4 }}>

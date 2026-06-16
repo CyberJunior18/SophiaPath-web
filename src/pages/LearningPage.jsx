@@ -29,11 +29,73 @@ import { coursesData } from '../data/courses';
 import './LearningPage.css';
 
 
+const getCourseDomain = (title) => {
+  const t = title.toLowerCase();
+  if (t.includes('cyber') || t.includes('security') || t.includes('network')) {
+    return 'Technology';
+  }
+  if (t.includes('computer') || t.includes('develop') || t.includes('ai') || t.includes('code') || t.includes('basics') || t.includes('programming') || t.includes('mobile')) {
+    return 'Technology';
+  }
+  if (t.includes('physics') || t.includes('science') || t.includes('math') || t.includes('chem')) {
+    return 'Science';
+  }
+  if (t.includes('philosophy') || t.includes('ethics') || t.includes('history') || t.includes('art') || t.includes('humanities')) {
+    return 'Humanities';
+  }
+  if (t.includes('design') || t.includes('graphic') || t.includes('ui') || t.includes('ux') || t.includes('creative')) {
+    return 'Design';
+  }
+  if (t.includes('business') || t.includes('marketing') || t.includes('management') || t.includes('finance')) {
+    return 'Business';
+  }
+  return 'Technology';
+};
+
 const LearningPage = () => {
   const { user, registerCourse } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [courses, setCourses] = useState(coursesData);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadCourses = async () => {
+      try {
+        const res = await fetch('/courses/export/all');
+        if (res.ok) {
+          const backendCourses = await res.json();
+          if (backendCourses && backendCourses.length > 0) {
+            const mapped = backendCourses.map(bc => ({
+              id: bc.id,
+              title: bc.title,
+              description: bc.description || '',
+              about: bc.about || '',
+              imageUrl: bc.imageUrl || '',
+              comingsoon: bc.comingsoon || false,
+              domain: getCourseDomain(bc.title),
+              sections: (bc.sections || []).map(sec => ({
+                id: sec.id,
+                title: sec.title,
+                description: sec.description || '',
+                lessons: (sec.lessons || []).map(les => ({
+                  id: les.id,
+                  category: les.category || 'learning',
+                  chapterName: les.chapterName || '',
+                  title: les.title || 'Untitled Lesson',
+                  orderIndex: les.orderIndex || 0,
+                }))
+              }))
+            }));
+            setCourses(mapped);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load courses from backend export/all:', err);
+      }
+    };
+    loadCourses();
+  }, []);
 
   const categories = ['All', 'Technology', 'Science', 'Humanities', 'Design', 'Business'];
 
@@ -43,15 +105,15 @@ const LearningPage = () => {
     const progress = {};
     if (!user || !user.quizScores) return progress;
 
-    coursesData.forEach(course => {
-      const lessonIds = course.sections.flatMap(s => s.lessons).map(l => l.id);
+    courses.forEach(course => {
+      const lessonIds = course.sections.flatMap(s => s.lessons || []).map(l => l.id);
       const completedCount = lessonIds.filter(id => user.quizScores[id] !== undefined).length;
       progress[course.title] = completedCount;
     });
     return progress;
-  }, [user]);
+  }, [user, courses]);
 
-  const filteredCourses = coursesData.filter(course => {
+  const filteredCourses = courses.filter(course => {
     const matchesSearch =
       course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -61,7 +123,7 @@ const LearningPage = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const totalAvailableCourses = coursesData.length;
+  const totalAvailableCourses = courses.length;
 
   const comingSoon = [
     'Artificial Intelligence',
@@ -101,12 +163,11 @@ const LearningPage = () => {
   };
 
   const dashboardStats = useMemo(() => {
-
     const activeCourses = registeredCourseTitles.length;
     const totalLessonsCompleted = Object.values(courseProgress).reduce((sum, value) => sum + value, 0);
     const totalCoursesCompleted = Object.entries(courseProgress).filter(([title, count]) => {
-      const course = coursesData.find(c => c.title === title);
-      const totalLessons = course?.sections.flatMap(s => s.lessons).length || 0;
+      const course = courses.find(c => c.title === title);
+      const totalLessons = course?.sections.flatMap(s => s.lessons || []).length || 0;
       return count > 0 && count === totalLessons;
     }).length;
 
@@ -115,36 +176,37 @@ const LearningPage = () => {
       { label: 'Lessons Cleared', value: String(totalLessonsCompleted).padStart(2, '0') },
       { label: 'Courses Completed', value: String(totalCoursesCompleted).padStart(2, '0') },
     ];
-  }, [courseProgress, registeredCourseTitles]);
+  }, [courseProgress, registeredCourseTitles, courses]);
 
   const isCourseRegistered = (courseTitle) => {
-    return registeredCourseTitles.includes(courseTitle);
+    return registeredCourseTitles.some(title => title.toLowerCase() === courseTitle.toLowerCase());
   };
-
 
   const getLessonsFinished = (courseTitle) => {
     return courseProgress[courseTitle] || 0;
   };
 
   const getTotalLessons = (courseTitle) => {
-    const course = coursesData.find(c => c.title === courseTitle);
-    return course ? course.sections.flatMap(s => s.lessons).length : 0;
+    const course = courses.find(c => c.title.toLowerCase() === courseTitle.toLowerCase());
+    return course ? course.sections.flatMap(s => s.lessons || []).length : 0;
   };
 
   const handleCourseClick = (course) => {
-    const freshCourse = coursesData.find(c => c.title === course.title) || course;
+    const freshCourse = courses.find(c => c.title.toLowerCase() === course.title.toLowerCase()) || course;
+    const courseUrlSlug = course.title.toLowerCase().replace(/\s+/g, '-');
 
     if (isCourseRegistered(course.title)) {
-      navigate(`/course/${course.title.toLowerCase().replace(' ', '-')}`, {
+      navigate(`/course/${courseUrlSlug}`, {
         state: { course: freshCourse }
       });
     } else {
-      registerCourse(course.title);
-      navigate(`/course/${course.title.toLowerCase().replace(' ', '-')}`, {
+      registerCourse(freshCourse.title);
+      navigate(`/course/${courseUrlSlug}`, {
         state: { course: freshCourse }
       });
     }
   };
+
 
 
 
