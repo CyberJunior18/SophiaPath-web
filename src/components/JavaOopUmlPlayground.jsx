@@ -732,8 +732,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       // Keep inside bounds of 1500x1200 virtual canvas
       const currentClass = umlClasses.find(x => x.title === draggingClass);
       const cardW = currentClass ? calculateCardWidth(currentClass) : 280;
-      const newX = Math.max(0, Math.min(1500 - cardW, e.clientX - dragStartOffset.current.x));
-      const newY = Math.max(0, Math.min(1200 - 320, e.clientY - dragStartOffset.current.y));
+      const newX = Math.max(0, Math.min(1500 - cardW, e.clientX / zoomScale - dragStartOffset.current.x));
+      const newY = Math.max(0, Math.min(1200 - 320, e.clientY / zoomScale - dragStartOffset.current.y));
       setClassPositions(prev => ({
         ...prev,
         [draggingClass]: { x: newX, y: newY }
@@ -750,7 +750,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [draggingClass]);
+  }, [draggingClass, zoomScale]);
 
   // Window listeners for dragging connection lines
   useEffect(() => {
@@ -761,8 +761,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       if (canvasEl) {
         const rect = canvasEl.getBoundingClientRect();
         setConnectionCurrent({
-          x: e.clientX - rect.left + canvasEl.scrollLeft,
-          y: e.clientY - rect.top + canvasEl.scrollTop
+          x: (e.clientX - rect.left + canvasEl.scrollLeft) / zoomScale,
+          y: (e.clientY - rect.top + canvasEl.scrollTop) / zoomScale
         });
       }
     };
@@ -801,7 +801,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [connectingSource]);
+  }, [connectingSource, zoomScale]);
 
   const handlePortMouseDown = (e, className, side) => {
     e.stopPropagation();
@@ -810,8 +810,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     const canvasEl = document.getElementById('uml-canvas-container');
     if (canvasEl) {
       const canvasRect = canvasEl.getBoundingClientRect();
-      const startX = rect.left + rect.width / 2 - canvasRect.left + canvasEl.scrollLeft;
-      const startY = rect.top + rect.height / 2 - canvasRect.top + canvasEl.scrollTop;
+      const startX = (rect.left + rect.width / 2 - canvasRect.left + canvasEl.scrollLeft) / zoomScale;
+      const startY = (rect.top + rect.height / 2 - canvasRect.top + canvasEl.scrollTop) / zoomScale;
       
       setConnectingSource(className);
       setConnectionStart({ x: startX, y: startY, side });
@@ -1722,8 +1722,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 {/* Scroll container wrapper to preserve scroll bounds */}
                 <Box
                   style={{
-                    width: `${1500 * zoomScale}px`,
-                    height: `${1200 * zoomScale}px`,
+                    width: `${1700 * zoomScale}px`,
+                    height: `${1500 * zoomScale}px`,
                     position: 'relative',
                     overflow: 'hidden'
                   }}
@@ -1922,8 +1922,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                             }
                             setDraggingClass(umlClass.title);
                             dragStartOffset.current = {
-                              x: e.clientX - pos.x,
-                              y: e.clientY - pos.y
+                              x: e.clientX / zoomScale - pos.x,
+                              y: e.clientY / zoomScale - pos.y
                             };
                           }}
                         >

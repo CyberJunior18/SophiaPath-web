@@ -439,7 +439,7 @@ const InlineMcqWidget = ({
       <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
         <HelpOutlineIcon style={{ color: 'var(--primary-main)' }} />
         <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-          Quick Check
+          Choose the Right Answer
         </Typography>
       </Box>
       <Typography variant="body1" style={{ fontWeight: 650, marginBottom: '16px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
