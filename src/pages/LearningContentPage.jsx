@@ -46,19 +46,29 @@ import { useAuth } from '../context/AuthContext';
 import { coursesData } from '../data/courses';
 import './LearningContentPage.css';
 
-const parseInlineCode = (text) => {
+const parseFormattedText = (text, allowNewlines = false) => {
   if (!text) return '';
   if (typeof text !== 'string') return text;
   
-  const parts = text.split(/(<code>[\s\S]*?<\/code>)/g);
+  const parts = text.split(/(<code>[\s\S]*?<\/code>|<b>[\s\S]*?<\/b>|\\n)/g);
   
   return parts.map((part, index) => {
+    if (!part) return null;
+    if (part === '\\n') {
+      return allowNewlines ? <br key={index} /> : null;
+    }
     if (part.startsWith('<code>') && part.endsWith('</code>')) {
       const codeContent = part.substring(6, part.length - 7);
       return (
         <code key={index} className="slide-inline-code">
           {codeContent}
         </code>
+      );
+    }
+    if (part.startsWith('<b>') && part.endsWith('</b>')) {
+      const bContent = part.substring(3, part.length - 4);
+      return (
+        <b key={index}>{bContent}</b>
       );
     }
     return part;
@@ -433,7 +443,7 @@ const InlineMcqWidget = ({
         </Typography>
       </Box>
       <Typography variant="body1" style={{ fontWeight: 650, marginBottom: '16px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-        {parseInlineCode(question)}
+        {parseFormattedText(question)}
       </Typography>
 
       {codeSnippet && codeSnippet.lines && codeSnippet.lines.length > 0 && (
@@ -497,7 +507,7 @@ const InlineMcqWidget = ({
                 fontWeight: isSelected ? 700 : 400
               }}
             >
-              <span style={{ flexGrow: 1, fontSize: '0.92rem' }}>{answerText}</span>
+              <span style={{ flexGrow: 1, fontSize: '0.92rem' }}>{parseFormattedText(answerText)}</span>
               {answered && isSelected && (
                 isCorrect ? <SuccessIcon style={{ color: '#4CAF50' }} /> : <CancelIcon style={{ color: '#ef5350' }} />
               )}
@@ -670,7 +680,7 @@ const InlineCodeExerciseWidget = ({
 
       {instruction && (
         <Typography variant="body1" style={{ marginBottom: '16px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-          {instruction}
+          {parseFormattedText(instruction)}
         </Typography>
       )}
 
@@ -1790,7 +1800,7 @@ const LearningContentPage = () => {
             className={`slide-heading slide-h${level}`}
             gutterBottom
           >
-            {parseInlineCode(block.text)}
+            {parseFormattedText(block.text, true)}
           </Typography>
         );
       }
@@ -1798,7 +1808,7 @@ const LearningContentPage = () => {
       case 'paragraph':
         return (
           <Typography key={idx} variant="body1" className="slide-paragraph">
-            {parseInlineCode(block.text)}
+            {parseFormattedText(block.text)}
           </Typography>
         );
 
@@ -1808,7 +1818,7 @@ const LearningContentPage = () => {
             {block.items?.map((item, i) => (
               <li key={i} className="slide-bullet-item">
                 {item.bold && <strong className="slide-bullet-bold">{item.bold}</strong>}
-                <span className="slide-bullet-text">{parseInlineCode(item.text)}</span>
+                <span className="slide-bullet-text">{parseFormattedText(item.text)}</span>
               </li>
             ))}
           </ul>
@@ -1826,7 +1836,7 @@ const LearningContentPage = () => {
           <Box key={idx} className={`slide-callout ${variant}`}>
             {icon}
             <Typography variant="body2" className="callout-text">
-              {parseInlineCode(block.text)}
+              {parseFormattedText(block.text)}
             </Typography>
           </Box>
         );
@@ -1851,7 +1861,7 @@ const LearningContentPage = () => {
                     {row.map((cell, cIdx) => (
                       <td key={cIdx}>
                         {cell.bold && <strong>{cell.bold}</strong>}
-                        {parseInlineCode(cell.text)}
+                        {parseFormattedText(cell.text)}
                       </td>
                     ))}
                   </tr>
@@ -1866,6 +1876,7 @@ const LearningContentPage = () => {
         const language = snippet.language || block.raw?.language || block.language || 'code';
         const rawLines = snippet.lines || block.raw?.lines || block.lines || block.text?.split('\n') || [];
         const isCpp = language.toLowerCase() === 'cpp' || language.toLowerCase() === 'c++';
+        const isRunable = block.runable !== false && (block.raw?.runable !== false);
 
         return (
           <Paper key={idx} className="slide-code-card" elevation={0}>
@@ -1874,7 +1885,7 @@ const LearningContentPage = () => {
                 <CodeIcon fontSize="small" className="code-header-icon" />
                 <span>{language.toUpperCase()}</span>
               </div>
-              {isCpp && isComputerScience && (
+              {isCpp && isComputerScience && isRunable && (
                 <Button
                   size="small"
                   variant="contained"

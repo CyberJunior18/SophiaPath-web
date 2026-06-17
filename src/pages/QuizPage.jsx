@@ -357,19 +357,29 @@ const getCompletedCode = (question, values = null) => {
   }).join('\n');
 };
 
-const parseInlineCode = (text) => {
+const parseFormattedText = (text, allowNewlines = false) => {
   if (!text) return '';
   if (typeof text !== 'string') return text;
   
-  const parts = text.split(/(<code>[\s\S]*?<\/code>)/g);
+  const parts = text.split(/(<code>[\s\S]*?<\/code>|<b>[\s\S]*?<\/b>|\\n)/g);
   
   return parts.map((part, index) => {
+    if (!part) return null;
+    if (part === '\\n') {
+      return allowNewlines ? <br key={index} /> : null;
+    }
     if (part.startsWith('<code>') && part.endsWith('</code>')) {
       const codeContent = part.substring(6, part.length - 7);
       return (
         <code key={index} className="slide-inline-code">
           {codeContent}
         </code>
+      );
+    }
+    if (part.startsWith('<b>') && part.endsWith('</b>')) {
+      const bContent = part.substring(3, part.length - 4);
+      return (
+        <b key={index}>{bContent}</b>
       );
     }
     return part;
@@ -1234,7 +1244,7 @@ const QuizPage = () => {
                         <Box className="challenge-instructions" style={{ flexGrow: 1 }}>
                           <Typography variant="subtitle1" style={{ fontWeight: 700, marginBottom: '6px' }}>Problem Description</Typography>
                           <Typography variant="body2" style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '16px', whiteSpace: 'pre-line' }}>
-                            {parseInlineCode(currentQuestion.problem)}
+                            {parseFormattedText(currentQuestion.problem)}
                           </Typography>
 
                           {currentQuestion.umlDiagram && (
@@ -1634,7 +1644,7 @@ const QuizPage = () => {
                 )}
 
                 <Typography variant="h5" className="quiz-question-prompt">
-                  {parseInlineCode(currentQuestion.prompt || currentQuestion.instruction)}
+                  {parseFormattedText(currentQuestion.prompt || currentQuestion.instruction)}
                 </Typography>
 
                 {/* Render inline blanks for coding slots */}
@@ -1699,7 +1709,7 @@ const QuizPage = () => {
                           className={`quiz-answer-btn ${stateClass}`}
                           disabled={isAnswered && !isSelected && !isCorrect}
                         >
-                          <span className="quiz-answer-text">{parseInlineCode(answer.text)}</span>
+                          <span className="quiz-answer-text">{parseFormattedText(answer.text)}</span>
                           {isAnswered && isCorrect && <CheckCircleIcon className="quiz-feedback-icon" />}
                           {isAnswered && isSelected && !isCorrect && <CancelIcon className="quiz-feedback-icon" />}
                         </Button>
