@@ -551,6 +551,7 @@ const InlineCodeExerciseWidget = ({
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
+  const [validationError, setValidationError] = useState('');
 
   useEffect(() => {
     setAnswered(initiallyAnswered);
@@ -573,6 +574,7 @@ const InlineCodeExerciseWidget = ({
 
   const handleInputChange = (idx, value) => {
     if (answered) return;
+    setValidationError('');
     setInputValues(prev => ({
       ...prev,
       [idx]: value
@@ -581,6 +583,21 @@ const InlineCodeExerciseWidget = ({
 
   const handleCheck = async () => {
     if (isChecking) return;
+
+    // Check if any blank is empty or only whitespace
+    const hasEmptyField = codeLines.some((line, idx) => {
+      if (line.type === 'input') {
+        const val = inputValues[idx];
+        return !val || val.trim() === '';
+      }
+      return false;
+    });
+
+    if (hasEmptyField) {
+      setValidationError('Please fill in all blanks before checking.');
+      return;
+    }
+
     setIsChecking(true);
     setFeedbackMessage('');
 
@@ -740,22 +757,29 @@ const InlineCodeExerciseWidget = ({
       </Box>
 
       {!answered ? (
-        <Button
-          variant="contained"
-          onClick={handleCheck}
-          disabled={isChecking}
-          style={{
-            background: 'var(--hero-gradient)',
-            color: '#fff',
-            borderRadius: '12px',
-            textTransform: 'none',
-            fontWeight: 800,
-            padding: '10px 24px',
-            boxShadow: '0 4px 10px rgba(var(--primary-main-rgb), 0.2)'
-          }}
-        >
-          {isChecking ? 'Checking...' : 'Check Answer'}
-        </Button>
+        <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
+          <Button
+            variant="contained"
+            onClick={handleCheck}
+            disabled={isChecking}
+            style={{
+              background: 'var(--hero-gradient)',
+              color: '#fff',
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 800,
+              padding: '10px 24px',
+              boxShadow: '0 4px 10px rgba(var(--primary-main-rgb), 0.2)'
+            }}
+          >
+            {isChecking ? 'Checking...' : 'Check Answer'}
+          </Button>
+          {validationError && (
+            <Typography variant="body2" style={{ color: '#ef5350', fontWeight: 600, marginTop: '4px' }}>
+              {validationError}
+            </Typography>
+          )}
+        </Box>
       ) : (
         <Box style={{
           padding: '14px 16px',
@@ -843,6 +867,10 @@ const ChallengePlaygroundDialog = ({
 
   const runTestCases = () => {
     if (isCompiling) return;
+    if (!code || code.trim() === '') {
+      alert("Please write some code before running.");
+      return;
+    }
     setIsCompiling(true);
     setIsConsoleOpen(true);
     setActiveConsoleTab('result');
@@ -881,6 +909,10 @@ const ChallengePlaygroundDialog = ({
   };
 
   const handleSubmit = () => {
+    if (!code || code.trim() === '') {
+      alert("Please write some code before submitting.");
+      return;
+    }
     const lang = challenge.starterCode?.language || challenge.language || 'cpp';
     let allPassed = true;
     const testCasesList = challenge.testCases || [];

@@ -751,6 +751,12 @@ const QuizPage = () => {
     if (isAnswered) return;
 
     const inputLines = currentQuestion.codeTemplateLines.filter(l => l.type === 'input');
+    const hasEmptyBlank = inputLines.some((_, idx) => !blankValues[idx] || blankValues[idx].trim() === '');
+    if (hasEmptyBlank) {
+      alert("Please fill in all blanks before checking.");
+      return;
+    }
+
     const statuses = {};
     let allCorrect = true;
 
@@ -842,6 +848,10 @@ const QuizPage = () => {
   // Compiles and runs C++ / Java code challenge on the client-side runner
   const handleRunCodeChallenge = () => {
     if (isCompiling) return;
+    if (!userCode || userCode.trim() === '') {
+      alert("Please write some code before running.");
+      return;
+    }
     setIsCompiling(true);
     setIsConsoleOpen(true);
     setActiveConsoleTab('result');
@@ -897,6 +907,10 @@ const QuizPage = () => {
 
   const handleSubmitCodeChallenge = () => {
     if (!codeRunCompleted) return;
+    if (!userCode || userCode.trim() === '') {
+      alert("Please write some code before submitting.");
+      return;
+    }
     setIsAnswered(true);
     if (allCasesPassed) {
       setScore(prev => prev + 1);
