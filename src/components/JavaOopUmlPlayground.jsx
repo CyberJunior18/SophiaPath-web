@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import { simulateCodeExecution } from './CppPlaygroundDialog';
+import { simulateCodeExecution, executeCodeAsync } from './CppPlaygroundDialog';
 import {
   Dialog,
   DialogTitle,
@@ -28,7 +28,9 @@ import {
   Loop as SyncIcon,
   PlayArrow as PlayIcon,
   Terminal as TerminalIcon,
-  HelpOutline as HelpIcon
+  HelpOutline as HelpIcon,
+  Remove as RemoveIcon,
+  Visibility as PreviewIcon
 } from '@mui/icons-material';
 
 // Preloaded OOP Examples
@@ -278,6 +280,39 @@ const parseAttributeSignature = (sig, uml) => {
   }
 };
 
+const calculateCardWidth = (umlClass) => {
+  let maxWidth = 280; // Minimum default width
+  
+  // Calculate width from attributes
+  (umlClass.attributes || []).forEach(attr => {
+    const typeLen = attr.type ? attr.type.length : 0;
+    const nameLen = attr.name ? attr.name.length : 0;
+    const typeSelectWidth = Math.max(70, typeLen * 8 + 24);
+    const nameInputWidth = Math.max(60, nameLen * 8 + 12);
+    // Visibility select (32) + typeSelectWidth + nameInputWidth + Static checkbox (36) + Delete button (24) + gaps/padding (36)
+    const rowWidth = 32 + typeSelectWidth + nameInputWidth + 36 + 24 + 36;
+    if (rowWidth > maxWidth) {
+      maxWidth = rowWidth;
+    }
+  });
+
+  // Calculate width from methods
+  (umlClass.methods || []).forEach(method => {
+    const typeLen = method.returnType ? method.returnType.length : 0;
+    const nameLen = method.name ? method.name.length : 0;
+    const typeSelectWidth = Math.max(70, typeLen * 8 + 24);
+    const nameInputWidth = Math.max(60, nameLen * 8 + 12);
+    // Visibility select (32) + typeSelectWidth + nameInputWidth + Static & Abstract checkboxes (68) + Delete button (24) + gaps/padding (36)
+    const rowWidth = 32 + typeSelectWidth + nameInputWidth + 68 + 24 + 36;
+    if (rowWidth > maxWidth) {
+      maxWidth = rowWidth;
+    }
+  });
+
+  // Add safety padding and cap at 600px
+  return Math.min(600, maxWidth);
+};
+
 const javaToUmlClasses = (code) => {
   let cleanCode = code
     .replace(/\/\/.*$/gm, "") 
@@ -471,12 +506,10 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [splitPercent, setSplitPercent] = useState(55);
-  const isDraggingSplitRef = useRef(false);
 
   // 2D Interactive Canvas States
   const [classPositions, setClassPositions] = useState({});
   const [draggingClass, setDraggingClass] = useState(null);
-  const dragStartOffset = useRef({ x: 0, y: 0 });
 
   const [connectingSource, setConnectingSource] = useState(null);
   const [connectionStart, setConnectionStart] = useState(null);
@@ -487,6 +520,30 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const [newFieldName, setNewFieldName] = useState('');
   const [newRelationType, setNewRelationType] = useState('extends');
 
+  // Zoom and Preview States
+  const [zoomScale, setZoomScale] = useState(1.0);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewZoomScale, setPreviewZoomScale] = useState(1.0);
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false);
+  const [currentInputVal, setCurrentInputVal] = useState('');
+
+  // Refs (All declared at the top of the component to prevent TDZ/initialization errors in hooks)
+  const isDraggingSplitRef = useRef(false);
+  const dragStartOffset = useRef({ x: 0, y: 0 });
+  const internalUpdateRef = useRef(false);
+  const isTypingRef = useRef(false);
+  const typingTimeoutRef = useRef(null);
+  const umlEditorRef = useRef(null);
+  const execEditorRef = useRef(null);
+  const runnerEditorRef = useRef(null);
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+  const canvasContainerRef = useRef(null);
+  const inputResolverRef = useRef(null);
+  const isPanningPreviewRef = useRef(false);
+  const panStartPreviewRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+  const previewCanvasContainerRef = useRef(null);
+
   // Pre-fill attribute name for composition relationship
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -496,22 +553,47 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     }
   }, [newConnectionData.target]);
 
-  // Window listeners for dragging the divider in the resizable split view
+  // Window listeners for dragging the divider in the resizable split view and canvas panning
   useEffect(() => {
     const handleMouseMove = (e) => {
-      if (!isDraggingSplitRef.current) return;
-      const container = document.getElementById('split-container');
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        const offset = e.clientX - rect.left;
-        const newPercent = Math.max(25, Math.min(75, (offset / rect.width) * 100));
-        setSplitPercent(newPercent);
+      if (isDraggingSplitRef.current) {
+        const container = document.getElementById('split-container');
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const offset = e.clientX - rect.left;
+          const newPercent = Math.max(25, Math.min(75, (offset / rect.width) * 100));
+          setSplitPercent(newPercent);
+        }
+      } else if (isPanningRef.current) {
+        const dx = e.clientX - panStartRef.current.x;
+        const dy = e.clientY - panStartRef.current.y;
+        if (canvasContainerRef.current) {
+          canvasContainerRef.current.scrollLeft = panStartRef.current.scrollLeft - dx;
+          canvasContainerRef.current.scrollTop = panStartRef.current.scrollTop - dy;
+        }
+      } else if (isPanningPreviewRef.current) {
+        const dx = e.clientX - panStartPreviewRef.current.x;
+        const dy = e.clientY - panStartPreviewRef.current.y;
+        if (previewCanvasContainerRef.current) {
+          previewCanvasContainerRef.current.scrollLeft = panStartPreviewRef.current.scrollLeft - dx;
+          previewCanvasContainerRef.current.scrollTop = panStartPreviewRef.current.scrollTop - dy;
+        }
       }
     };
 
     const handleMouseUp = () => {
       if (isDraggingSplitRef.current) {
         isDraggingSplitRef.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+      if (isPanningRef.current) {
+        isPanningRef.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+      if (isPanningPreviewRef.current) {
+        isPanningPreviewRef.current = false;
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
       }
@@ -524,6 +606,87 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, []);
+
+  const handleCanvasMouseDown = (e) => {
+    // Only pan if clicked on the background grid canvas, not inside a class card, port, menu, dialog, or buttons.
+    if (
+      e.target.closest('.uml-class-card') || 
+      e.target.closest('.uml-port') || 
+      e.target.closest('button') || 
+      e.target.closest('.MuiSelect-select') ||
+      e.target.closest('.MuiSelect-root')
+    ) {
+      return;
+    }
+
+    e.preventDefault();
+    isPanningRef.current = true;
+    panStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: canvasContainerRef.current ? canvasContainerRef.current.scrollLeft : 0,
+      scrollTop: canvasContainerRef.current ? canvasContainerRef.current.scrollTop : 0
+    };
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+  };
+
+  const handlePreviewCanvasMouseDown = (e) => {
+    if (
+      e.target.closest('.uml-class-card') || 
+      e.target.closest('button')
+    ) {
+      return;
+    }
+
+    e.preventDefault();
+    isPanningPreviewRef.current = true;
+    panStartPreviewRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: previewCanvasContainerRef.current ? previewCanvasContainerRef.current.scrollLeft : 0,
+      scrollTop: previewCanvasContainerRef.current ? previewCanvasContainerRef.current.scrollTop : 0
+    };
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+  };
+
+  // Non-passive wheel event listeners for smooth Ctrl + Mousewheel zooming
+  useEffect(() => {
+    const container = canvasContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const step = 0.05;
+        setZoomScale(prev => Math.max(0.4, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [canvasContainerRef.current]);
+
+  useEffect(() => {
+    const container = previewCanvasContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const step = 0.05;
+        setPreviewZoomScale(prev => Math.max(0.4, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [previewCanvasContainerRef.current, isPreviewOpen]);
 
   // Clear editor references on tab change to prevent calling methods on unmounted/disposed editor instances
   useEffect(() => {
@@ -566,7 +729,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
     const handleMouseMove = (e) => {
       // Keep inside bounds of 1500x1200 virtual canvas
-      const newX = Math.max(0, Math.min(1500 - 280, e.clientX - dragStartOffset.current.x));
+      const currentClass = umlClasses.find(x => x.title === draggingClass);
+      const cardW = currentClass ? calculateCardWidth(currentClass) : 280;
+      const newX = Math.max(0, Math.min(1500 - cardW, e.clientX - dragStartOffset.current.x));
       const newY = Math.max(0, Math.min(1200 - 320, e.clientY - dragStartOffset.current.y));
       setClassPositions(prev => ({
         ...prev,
@@ -743,22 +908,25 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
   const getBestConnectionPoints = (posA, posB) => {
     if (!posA || !posB) return { start: { x: 0, y: 0 }, end: { x: 0, y: 0 } };
-    const w = 280;
+    const classA = umlClasses.find(x => x.title === posA.title);
+    const classB = umlClasses.find(x => x.title === posB.title);
+    const wA = classA ? calculateCardWidth(classA) : 280;
+    const wB = classB ? calculateCardWidth(classB) : 280;
     const hA = getEstimatedHeight(posA.title);
     const hB = getEstimatedHeight(posB.title);
 
     const anchorsA = [
-      { x: posA.x + w / 2, y: posA.y, side: 'top' },
-      { x: posA.x + w / 2, y: posA.y + hA, side: 'bottom' },
+      { x: posA.x + wA / 2, y: posA.y, side: 'top' },
+      { x: posA.x + wA / 2, y: posA.y + hA, side: 'bottom' },
       { x: posA.x, y: posA.y + hA / 2, side: 'left' },
-      { x: posA.x + w, y: posA.y + hA / 2, side: 'right' }
+      { x: posA.x + wA, y: posA.y + hA / 2, side: 'right' }
     ];
 
     const anchorsB = [
-      { x: posB.x + w / 2, y: posB.y, side: 'top' },
-      { x: posB.x + w / 2, y: posB.y + hB, side: 'bottom' },
+      { x: posB.x + wB / 2, y: posB.y, side: 'top' },
+      { x: posB.x + wB / 2, y: posB.y + hB, side: 'bottom' },
       { x: posB.x, y: posB.y + hB / 2, side: 'left' },
-      { x: posB.x + w, y: posB.y + hB / 2, side: 'right' }
+      { x: posB.x + wB, y: posB.y + hB / 2, side: 'right' }
     ];
 
     let minDist = Infinity;
@@ -829,12 +997,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   }, [open]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const internalUpdateRef = useRef(false);
-  const isTypingRef = useRef(false);
-  const typingTimeoutRef = useRef(null);
-  const umlEditorRef = useRef(null);
-  const execEditorRef = useRef(null);
-  const runnerEditorRef = useRef(null);
+  // Refs relocated to the top of the component
 
   // Sync editor values when tab changes or state updates to avoid stale values
   useEffect(() => {
@@ -1105,24 +1268,50 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     handleUmlClassesChange(newClasses);
   };
 
-  const handleRun = () => {
+  const handleRun = async () => {
     setIsRunning(true);
-    setTerminalOutput('Compiling and executing Java code...');
+    setTerminalOutput('');
+    setIsWaitingForInput(false);
+    setCurrentInputVal('');
     
-    setTimeout(() => {
+    try {
       const combinedCode = code + "\n\n// === RUNNER_SECTION_START ===\n\n" + mainCode;
-      const res = simulateCodeExecution(combinedCode, inputStr, 'java');
-      if (res.isError) {
-        setTerminalOutput(`❌ COMPILATION / RUNTIME ERROR:\n\n${res.output}`);
-      } else {
-        setTerminalOutput(`▶️ OUTPUT:\n\n${res.output || "(Successful execution with no output)"}`);
-      }
+      
+      const onStdout = (text) => {
+        setTerminalOutput(prev => prev + text);
+      };
+      
+      const onReadInput = () => {
+        return new Promise((resolve) => {
+          setIsWaitingForInput(true);
+          inputResolverRef.current = resolve;
+        });
+      };
+      
+      await executeCodeAsync(combinedCode, 'java', onStdout, onReadInput);
+    } catch (err) {
+      setTerminalOutput(prev => prev + `\n❌ COMPILATION / RUNTIME ERROR: ${err.message}\n`);
+    } finally {
       setIsRunning(false);
-    }, 450);
+      setIsWaitingForInput(false);
+    }
+  };
+
+  const handleInputSubmit = (e) => {
+    if (e.key === 'Enter') {
+      const val = currentInputVal;
+      setTerminalOutput(prev => prev + val + '\n');
+      setCurrentInputVal('');
+      setIsWaitingForInput(false);
+      if (inputResolverRef.current) {
+        inputResolverRef.current(val);
+      }
+    }
   };
 
   return (
-    <Dialog
+    <>
+      <Dialog
       open={open}
       onClose={onClose}
       fullWidth
@@ -1200,7 +1389,25 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
       <DialogContent style={{ padding: '24px', overflowY: 'auto' }}>
         {activeTab === 'uml' && (
-          <Box style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+          <Box style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '16px' }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => {
+                setPreviewZoomScale(zoomScale);
+                setIsPreviewOpen(true);
+              }}
+              startIcon={<PreviewIcon />}
+              style={{
+                borderRadius: '8px',
+                fontWeight: 800,
+                fontSize: '0.75rem',
+                borderColor: 'var(--primary-main)',
+                color: 'var(--primary-main)'
+              }}
+            >
+              Preview UML
+            </Button>
             <Button
               variant="outlined"
               size="small"
@@ -1414,6 +1621,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
               <Paper
                 id="uml-canvas-container"
+                ref={canvasContainerRef}
+                onMouseDown={handleCanvasMouseDown}
                 elevation={0}
                 style={{
                   background: isDarkMode ? '#0b0f19' : '#f3f4f6',
@@ -1423,7 +1632,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   width: '100%',
                   position: 'relative',
                   overflow: 'auto',
-                  boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.15)'
+                  boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.15)',
+                  cursor: 'grab'
                 }}
               >
                 {/* CSS styles injection */}
@@ -1478,19 +1688,32 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   }
                 `}} />
 
-                {/* Virtual Canvas Box */}
+                {/* Scroll container wrapper to preserve scroll bounds */}
                 <Box
                   style={{
-                    width: '1500px',
-                    height: '1200px',
+                    width: `${1500 * zoomScale}px`,
+                    height: `${1200 * zoomScale}px`,
                     position: 'relative',
-                    backgroundImage: isDarkMode
-                      ? 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)'
-                      : 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
-                    backgroundSize: '24px 24px',
-                    backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc'
+                    overflow: 'hidden'
                   }}
                 >
+                  {/* Virtual Canvas Box */}
+                  <Box
+                    style={{
+                      width: '1500px',
+                      height: '1200px',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      transform: `scale(${zoomScale})`,
+                      transformOrigin: 'top left',
+                      backgroundImage: isDarkMode
+                        ? 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)'
+                        : 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
+                      backgroundSize: '24px 24px',
+                      backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc'
+                    }}
+                  >
                   <svg
                     style={{
                       position: 'absolute',
@@ -1634,7 +1857,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                           position: 'absolute',
                           left: `${pos.x}px`,
                           top: `${pos.y}px`,
-                          width: '280px',
+                          width: `${calculateCardWidth(umlClass)}px`,
                           border: `2px solid ${theme.palette.primary.main}80`,
                           borderRadius: '12px',
                           background: isDarkMode ? '#1E1E2F' : '#FFFFFF',
@@ -1772,7 +1995,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                                     border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
                                     borderRadius: '4px',
                                     color: isDarkMode ? '#ffffff' : '#1e1e2f',
-                                    minWidth: '70px',
+                                    width: `${Math.max(70, (attr.type ? attr.type.length : 0) * 8 + 24)}px`,
                                     padding: 0
                                   }}
                                   sx={{
@@ -1863,7 +2086,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                                   border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
                                   borderRadius: '4px',
                                   color: isDarkMode ? '#ffffff' : '#1e1e2f',
-                                  minWidth: '70px',
+                                  width: `${Math.max(70, (method.returnType ? method.returnType.length : 0) * 8 + 24)}px`,
                                   padding: 0
                                 }}
                                 sx={{
@@ -1934,6 +2157,50 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       </Box>
                     );
                   })}
+                  </Box>
+                </Box>
+                {/* Floating zoom control panel */}
+                <Box
+                  style={{
+                    position: 'absolute',
+                    bottom: '16px',
+                    right: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: isDarkMode ? 'rgba(30, 30, 47, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+                    backdropFilter: 'blur(10px)',
+                    border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
+                    zIndex: 10
+                  }}
+                >
+                  <IconButton 
+                    size="small" 
+                    onClick={() => setZoomScale(prev => Math.max(0.4, prev - 0.1))}
+                    style={{ color: isDarkMode ? '#e0e0e0' : '#333' }}
+                  >
+                    <RemoveIcon fontSize="small" />
+                  </IconButton>
+                  <Typography variant="caption" style={{ fontFamily: 'monospace', fontWeight: 800, minWidth: '40px', textAlign: 'center', color: isDarkMode ? '#fff' : '#000' }}>
+                    {Math.round(zoomScale * 100)}%
+                  </Typography>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => setZoomScale(prev => Math.min(2.0, prev + 0.1))}
+                    style={{ color: isDarkMode ? '#e0e0e0' : '#333' }}
+                  >
+                    <AddIcon fontSize="small" />
+                  </IconButton>
+                  <Button 
+                    size="small" 
+                    onClick={() => setZoomScale(1.0)}
+                    style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'none', color: 'var(--primary-main)', minWidth: 0, padding: '2px 6px' }}
+                  >
+                    Reset
+                  </Button>
                 </Box>
               </Paper>
             </Box>
@@ -1957,28 +2224,6 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   overflowY: 'auto'
                 }}
               >
-                {/* Standard Input */}
-                <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-                    Console Input (Stdin)
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="e.g. 500.0 (inputs separated by spaces)"
-                    value={inputStr}
-                    onChange={(e) => setInputStr(e.target.value)}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '12px',
-                        fontFamily: '"Roboto Mono", monospace',
-                        fontSize: '0.82rem',
-                        backgroundColor: isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
-                      }
-                    }}
-                  />
-                </Box>
-
                 {/* Run button */}
                 <Button
                   variant="contained"
@@ -2018,10 +2263,38 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       whiteSpace: 'pre-wrap',
                       overflowY: 'auto',
                       minHeight: '180px',
-                      boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.5)'
+                      boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.5)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-start'
                     }}
                   >
-                    {terminalOutput}
+                    <div style={{ flexGrow: 1, overflowY: 'auto' }}>
+                      {terminalOutput}
+                      {isWaitingForInput && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                          <span style={{ color: '#FF9F43', fontWeight: 800 }}>{`> `}</span>
+                          <input
+                            type="text"
+                            value={currentInputVal}
+                            onChange={(e) => setCurrentInputVal(e.target.value)}
+                            onKeyDown={handleInputSubmit}
+                            autoFocus
+                            placeholder="Type input and press Enter..."
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              outline: 'none',
+                              color: '#3DDC97',
+                              fontFamily: '"Roboto Mono", monospace',
+                              fontSize: '0.82rem',
+                              flexGrow: 1,
+                              caretColor: '#3DDC97'
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </Paper>
                 </Box>
               </Paper>
@@ -2136,5 +2409,330 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         </DialogActions>
       </Dialog>
     </Dialog>
+
+    {/* Fullscreen UML Preview Dialog */}
+    <Dialog
+      open={isPreviewOpen}
+      onClose={() => setIsPreviewOpen(false)}
+      fullScreen
+      PaperProps={{
+        style: {
+          background: isDarkMode ? '#0b0f19' : '#f3f4f6',
+        }
+      }}
+    >
+      <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <Box style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <PreviewIcon style={{ color: 'var(--primary-main)' }} />
+          <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: isDarkMode ? '#fff' : '#000' }}>
+            UML Diagram Fullscreen Preview
+          </Typography>
+        </Box>
+        <Button variant="outlined" onClick={() => setIsPreviewOpen(false)} style={{ borderRadius: '12px', fontWeight: 800 }}>
+          Close Preview
+        </Button>
+      </DialogTitle>
+      
+      <DialogContent style={{ padding: 0, overflow: 'hidden', position: 'relative', height: '100%', width: '100%' }}>
+        <Paper
+          id="uml-preview-canvas-container"
+          ref={previewCanvasContainerRef}
+          onMouseDown={handlePreviewCanvasMouseDown}
+          elevation={0}
+          style={{
+            background: isDarkMode ? '#0b0f19' : '#f3f4f6',
+            height: '100%',
+            width: '100%',
+            position: 'relative',
+            overflow: 'auto',
+            cursor: 'grab'
+          }}
+        >
+          {/* Virtual Canvas Box */}
+          <Box
+            style={{
+              width: `${1500 * previewZoomScale}px`,
+              height: `${1200 * previewZoomScale}px`,
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+          >
+            <Box
+              style={{
+                width: '1500px',
+                height: '1200px',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                transform: `scale(${previewZoomScale})`,
+                transformOrigin: 'top left',
+                backgroundImage: isDarkMode
+                  ? 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)'
+                  : 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
+                backgroundSize: '24px 24px',
+                backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc'
+              }}
+            >
+              {/* SVG lines */}
+              <svg
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  zIndex: 2
+                }}
+              >
+                <defs>
+                  <marker
+                    id="preview-inheritance-arrow"
+                    viewBox="0 0 10 10"
+                    refX="9"
+                    refY="5"
+                    markerWidth="8"
+                    markerHeight="8"
+                    orient="auto-start-reverse"
+                  >
+                    <polygon
+                      points="0,1.5 9,5 0,8.5"
+                      fill={isDarkMode ? '#0f172a' : '#f8fafc'}
+                      stroke={isDarkMode ? '#3b82f6' : '#1d4ed8'}
+                      strokeWidth="1.5"
+                    />
+                  </marker>
+                  <marker
+                    id="preview-association-arrow"
+                    viewBox="0 0 10 10"
+                    refX="9"
+                    refY="5"
+                    markerWidth="8"
+                    markerHeight="8"
+                    orient="auto-start-reverse"
+                  >
+                    <path
+                      d="M 1,2 L 9,5 L 1,8"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </marker>
+                  <marker
+                    id="preview-composition-diamond"
+                    viewBox="0 0 16 10"
+                    refX="2"
+                    refY="5"
+                    markerWidth="10"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <polygon points="0,5 8,1 16,5 8,9" fill="#8b5cf6" stroke="#8b5cf6" strokeWidth="1.5" />
+                  </marker>
+                  <marker
+                    id="preview-aggregation-diamond"
+                    viewBox="0 0 16 10"
+                    refX="2"
+                    refY="5"
+                    markerWidth="10"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <polygon points="0,5 8,1 16,5 8,9" fill={isDarkMode ? '#0f172a' : '#f8fafc'} stroke="#6366f1" strokeWidth="1.8" />
+                  </marker>
+                </defs>
+
+                {analyzeRelationships(umlClasses).map((rel) => {
+                  const sourcePos = classPositions[rel.source];
+                  const targetPos = classPositions[rel.target];
+                  if (sourcePos && targetPos) {
+                    const pts = getBestConnectionPoints(
+                      { title: rel.source, x: sourcePos.x, y: sourcePos.y },
+                      { title: rel.target, x: targetPos.x, y: targetPos.y }
+                    );
+                    const pathData = getBezierPath(pts.start, pts.end);
+                    
+                    let strokeColor = '#8b5cf6';
+                    let dashArray = 'none';
+                    let markerStart = 'none';
+                    let markerEnd = 'url(#preview-association-arrow)';
+                    
+                    if (rel.type === 'extends') {
+                      strokeColor = isDarkMode ? '#3b82f6' : '#1d4ed8';
+                      markerEnd = 'url(#preview-inheritance-arrow)';
+                    } else if (rel.type === 'composition') {
+                      strokeColor = '#8b5cf6';
+                      markerStart = 'url(#preview-composition-diamond)';
+                    } else if (rel.type === 'aggregation') {
+                      strokeColor = '#6366f1';
+                      markerStart = 'url(#preview-aggregation-diamond)';
+                    } else if (rel.type === 'association') {
+                      strokeColor = '#14b8a6';
+                    } else if (rel.type === 'dependency') {
+                      strokeColor = '#f59e0b';
+                      dashArray = '4 4';
+                    }
+                    
+                    return (
+                      <path
+                        key={`preview-${rel.type}-line-${rel.source}-${rel.target}-${rel.fieldName || ''}`}
+                        d={pathData}
+                        fill="none"
+                        stroke={strokeColor}
+                        strokeWidth="2.5"
+                        strokeDasharray={dashArray}
+                        markerStart={markerStart}
+                        markerEnd={markerEnd}
+                      />
+                    );
+                  }
+                  return null;
+                })}
+              </svg>
+
+              {/* Absolute Read-only Cards */}
+              {umlClasses.map((umlClass, classIdx) => {
+                const pos = classPositions[umlClass.title] || {
+                  x: 40 + (classIdx % 3) * 320,
+                  y: 40 + Math.floor(classIdx / 3) * 360
+                };
+                return (
+                  <Box
+                    key={`preview-${umlClass.title}`}
+                    style={{
+                      position: 'absolute',
+                      left: `${pos.x}px`,
+                      top: `${pos.y}px`,
+                      width: `${calculateCardWidth(umlClass)}px`,
+                      border: `2.5px solid ${theme.palette.primary.main}`,
+                      borderRadius: '12px',
+                      background: isDarkMode ? '#1E1E2F' : '#FFFFFF',
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+                      zIndex: 3,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '10px'
+                    }}
+                  >
+                    {/* Class Title */}
+                    <Box style={{ borderBottom: '1.5px solid rgba(28,176,246,0.15)', paddingBottom: '6px', marginBottom: '8px', textAlign: 'center' }}>
+                      {umlClass.abstract && (
+                        <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800, display: 'block', fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                          &lt;&lt;Abstract&gt;&gt;
+                        </Typography>
+                      )}
+                      <Typography variant="subtitle2" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: isDarkMode ? '#fff' : '#000' }}>
+                        {umlClass.title}
+                      </Typography>
+                      {umlClass.extends && (
+                        <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>
+                          extends {umlClass.extends}
+                        </Typography>
+                      )}
+                    </Box>
+
+                    {/* Attributes List */}
+                    {umlClass.attributes.length > 0 && (
+                      <Box style={{ borderBottom: '1.5px solid rgba(28,176,246,0.15)', paddingBottom: '6px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        {umlClass.attributes.map((attr, attrIdx) => {
+                          const visSign = attr.visibility === 'public' ? '+' : (attr.visibility === 'protected' ? '#' : '-');
+                          return (
+                            <Typography
+                              key={attrIdx}
+                              variant="caption"
+                              style={{
+                                fontFamily: 'monospace',
+                                color: isDarkMode ? '#e0e0e0' : '#333',
+                                textDecoration: attr.isStatic ? 'underline' : 'none',
+                                fontWeight: attr.isStatic ? 800 : 400
+                              }}
+                            >
+                              {visSign} {attr.name}: {attr.type}
+                            </Typography>
+                          );
+                        })}
+                      </Box>
+                    )}
+
+                    {/* Methods List */}
+                    {umlClass.methods.length > 0 && (
+                      <Box style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        {umlClass.methods.map((method, methodIdx) => {
+                          const visSign = method.visibility === 'public' ? '+' : (method.visibility === 'protected' ? '#' : '-');
+                          const paramsText = (method.parameters || []).map(p => `${p.name}: ${p.type}`).join(', ');
+                          const retText = method.returnType === 'constructor' ? '' : `: ${method.returnType}`;
+                          return (
+                            <Typography
+                              key={methodIdx}
+                              variant="caption"
+                              style={{
+                                fontFamily: 'monospace',
+                                color: isDarkMode ? '#e0e0e0' : '#333',
+                                textDecoration: method.isStatic ? 'underline' : 'none',
+                                fontStyle: method.isAbstract ? 'italic' : 'normal',
+                                fontWeight: (method.isStatic || method.isAbstract) ? 800 : 400
+                              }}
+                            >
+                              {visSign} {method.name}({paramsText}){retText}
+                            </Typography>
+                          );
+                        })}
+                      </Box>
+                    )}
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Floating zoom control bar in preview */}
+        <Box
+          style={{
+            position: 'absolute',
+            bottom: '16px',
+            right: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: isDarkMode ? 'rgba(30, 30, 47, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+            backdropFilter: 'blur(10px)',
+            border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+            padding: '4px 12px',
+            borderRadius: '20px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
+            zIndex: 10
+          }}
+        >
+          <IconButton 
+            size="small" 
+            onClick={() => setPreviewZoomScale(prev => Math.max(0.4, prev - 0.1))}
+            style={{ color: isDarkMode ? '#e0e0e0' : '#333' }}
+          >
+            <RemoveIcon fontSize="small" />
+          </IconButton>
+          <Typography variant="caption" style={{ fontFamily: 'monospace', fontWeight: 800, minWidth: '40px', textAlign: 'center', color: isDarkMode ? '#fff' : '#000' }}>
+            {Math.round(previewZoomScale * 100)}%
+          </Typography>
+          <IconButton 
+            size="small" 
+            onClick={() => setPreviewZoomScale(prev => Math.min(2.0, prev + 0.1))}
+            style={{ color: isDarkMode ? '#e0e0e0' : '#333' }}
+          >
+            <AddIcon fontSize="small" />
+          </IconButton>
+          <Button 
+            size="small" 
+            onClick={() => setPreviewZoomScale(1.0)}
+            style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'none', color: 'var(--primary-main)', minWidth: 0, padding: '2px 6px' }}
+          >
+            Reset
+          </Button>
+        </Box>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };

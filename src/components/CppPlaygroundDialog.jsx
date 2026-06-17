@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -18,8 +18,11 @@ import {
   PlayArrow as PlayIcon,
   ContentCopy as CopyIcon,
   Terminal as TerminalIcon,
-  Refresh as ResetIcon
+  Refresh as ResetIcon,
+  GetApp as DownloadIcon
 } from '@mui/icons-material';
+import Editor from '@monaco-editor/react';
+import html2canvas from 'html2canvas';
 
 const translateCppToJs = (cppCode, inputStr) => {
   // 1. Clean comments
@@ -485,6 +488,228 @@ export const simulateCodeExecution = (code, inputStr = "", language = "cpp") => 
     };
   }
 };
+
+export const translateCppToJsAsync = (cppCode) => {
+  // 1. Clean comments
+  let code = cppCode
+    .replace(/\/\/.*$/gm, "") 
+    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+
+  // 2. Find int main()
+  const mainBodyMatch = /int\s+main\s*\(\s*\)\s*\{([\s\S]*)\}/.exec(code);
+  if (!mainBodyMatch) {
+    throw new Error("Missing int main() structure.");
+  }
+  let body = mainBodyMatch[1].trim();
+
+  // 3. Remove standard return statement
+  body = body.replace(/\breturn\s+0\s*;/g, "");
+
+  // 4. Set up helper variables and context in the generated JS
+  let js = `
+    const readInput = async () => {
+      const token = await onReadInput();
+      if (!token) return "";
+      if (/^-?\\d+(\\.\\d+)?$/.test(String(token))) {
+        return parseFloat(token);
+      }
+      return token;
+    };
+  `;
+
+  // 5. Clean namespace prefixes
+  body = body.replace(/std::cout/g, "cout").replace(/std::cin/g, "cin").replace(/std::endl/g, "endl");
+
+  // 6. Translate C++ variable declarations
+  const types = ['int', 'double', 'float', 'string', 'bool', 'char', 'auto'];
+  types.forEach(type => {
+    const regex = new RegExp(`\\b${type}\\b`, 'g');
+    body = body.replace(regex, 'let');
+  });
+
+  // 7. Translate cin >> var1 >> var2;
+  const cinRegex = /cin\s*(>>\s*[a-zA-Z_][a-zA-Z0-9_]*\s*)+;/g;
+  body = body.replace(cinRegex, (match) => {
+    const vars = match.split('>>').slice(1).map(v => v.replace(/;$/, '').trim());
+    return vars.map(v => `${v} = await readInput();`).join(' ');
+  });
+
+  // 8. Translate cout << var1 << "string" << endl;
+  const coutRegex = /cout\s*(<<\s*[^;]+)+;/g;
+  body = body.replace(coutRegex, (match) => {
+    const parts = match.split('<<').slice(1).map(p => p.replace(/;$/, '').trim());
+    const pushes = parts.map(part => {
+      if (part === 'endl' || part === '"\\n"' || part === "'\\n'") {
+        return `onStdout("\\n");`;
+      }
+      return `onStdout(${part});`;
+    });
+    return pushes.join(' ');
+  });
+
+  // Append translated body
+  js += "\n" + body;
+
+  return js;
+};
+
+export const translateJavaToJsAsync = (javaCode) => {
+  let code = javaCode
+    .replace(/\/\/.*$/gm, "") 
+    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+
+  const stringLiterals = [];
+  code = code.replace(/"(\\.|[^"\\])*"/g, (match) => {
+    stringLiterals.push(match);
+    return `__STR_LITERAL_${stringLiterals.length - 1}__`;
+  });
+  code = code.replace(/'(\\.|[^'\\])*'/g, (match) => {
+    stringLiterals.push(match);
+    return `__STR_LITERAL_${stringLiterals.length - 1}__`;
+  });
+
+  let classesCode = code;
+  let mainBody = "";
+
+  if (code.includes("// === RUNNER_SECTION_START ===")) {
+    const parts = code.split("// === RUNNER_SECTION_START ===");
+    classesCode = parts[0];
+    const runnerCode = parts[1] || "";
+    mainBody = extractMainMethodBodyFromRunner(runnerCode);
+  } else {
+    const extracted = extractMainMethodBody(code);
+    mainBody = extracted.mainBody;
+    classesCode = extracted.remainingCode;
+  }
+  
+  let finalMainBody = mainBody;
+  code = classesCode;
+
+  code = code.replace(/(?:public|protected|private)?\s*abstract\s+[\w<>[\]]+\s+\w+\s*\([^)]*\)\s*;/g, "");
+
+  const attributes = parseClassAttributes(code);
+  
+  code = code.replace(/\b(public\s+|abstract\s+)*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+[\w\s,]+)?/g, (match, modifiers, className, parentClass) => {
+    let res = `class ${className}`;
+    if (parentClass) {
+      res += ` extends ${parentClass}`;
+    }
+    return res;
+  });
+
+  code = code.replace(/\bimplements\s+[\w\s,]+/g, "");
+
+  const classRegex = /class\s+(\w+)/g;
+  let match;
+  const classNames = [];
+  while ((match = classRegex.exec(code)) !== null) {
+    classNames.push(match[1]);
+  }
+
+  classNames.forEach(className => {
+    const constrRegex = new RegExp(`\\b(?:public|private|protected|internal)?\\s*${className}\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
+    code = code.replace(constrRegex, (match, paramStr) => {
+      const cleaned = cleanParamTypes(paramStr);
+      return `constructor(${cleaned}) {`;
+    });
+  });
+
+  code = code.replace(/\b(public|private|protected|final|abstract|synchronized|transient|volatile)\b/g, "");
+
+  const types = [
+    'int', 'double', 'float', 'boolean', 'char', 'String', 'auto', 
+    'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Object',
+    'Shape', 'Circle', 'Rectangle', 'Employee', 'Contractor', 'Appliance', 
+    'WashingMachine', 'Refrigerator', 'Product', 'Payable', 'BankAccount', 'Scanner'
+  ];
+  const allTypes = [...types, ...classNames];
+  
+  const varDeclRegex = /\b([A-Z][a-zA-Z0-9_]*|int|double|float|boolean|char|byte|short|long|void)(?:<[a-zA-Z0-9_,\s<>?]*>)?(?:\[\])?\s+([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\()(?=\s*=[^=]|\s*;|\s*,)/g;
+  
+  code = code.replace(varDeclRegex, 'let $2');
+  finalMainBody = finalMainBody.replace(varDeclRegex, 'let $2');
+
+  allTypes.concat(['void']).forEach(type => {
+    const methodRegex = new RegExp(`\\b${type}(?:\\[\\])?\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
+    code = code.replace(methodRegex, (match, methodName, paramStr) => {
+      const cleaned = cleanParamTypes(paramStr);
+      return `${methodName}(${cleaned}) {`;
+    });
+  });
+
+  attributes.forEach(attr => {
+    const letDeclRegex = new RegExp(`\\blet\\s+${attr}\\s*;`, 'g');
+    code = code.replace(letDeclRegex, '');
+  });
+
+  attributes.forEach(attr => {
+    const regex = new RegExp(`(?<!this\\.|let\\s+|const\\s+|var\\s+|class\\s+|extends\\s+|new\\s+|public\\s+|private\\s+|protected\\s+|\\.\\s*)\\b${attr}\\b`, 'g');
+    code = code.replace(regex, `this.${attr}`);
+  });
+
+  finalMainBody = finalMainBody.replace(/System\.out\.println\s*\(([^;]*)\)\s*;/g, 'onStdout($1); onStdout("\\n");');
+  finalMainBody = finalMainBody.replace(/System\.out\.print\s*\(([^;]*)\)\s*;/g, 'onStdout($1);');
+  finalMainBody = finalMainBody.replace(/System\.out\.printf\s*\(([^;]*)\)\s*;/g, 'onStdout(sprintf($1));');
+  finalMainBody = finalMainBody.replace(/\be\.getMessage\(\)/g, "e.message");
+  finalMainBody = finalMainBody.replace(/new\s+Scanner\s*\([^)]*\)/g, "null");
+  finalMainBody = finalMainBody.replace(/\b[a-zA-Z0-9_]+\.(?:nextInt|nextDouble|next|nextLine)\(\)/g, "await readInput()");
+
+  code = code.replace(/System\.out\.println\s*\(([^;]*)\)\s*;/g, 'onStdout($1); onStdout("\\n");');
+  code = code.replace(/System\.out\.print\s*\(([^;]*)\)\s*;/g, 'onStdout($1);');
+  code = code.replace(/System\.out\.printf\s*\(([^;]*)\)\s*;/g, 'onStdout(sprintf($1));');
+  code = code.replace(/\be\.getMessage\(\)/g, "e.message");
+  code = code.replace(/new\s+Scanner\s*\([^)]*\)/g, "null");
+  code = code.replace(/\b[a-zA-Z0-9_]+\.(?:nextInt|nextDouble|next|nextLine)\(\)/g, "await readInput()");
+
+  let js = `
+    const readInput = async () => {
+      const token = await onReadInput();
+      if (!token) return "";
+      if (/^-?\\d+(\\.\\d+)?$/.test(String(token))) {
+        return parseFloat(token);
+      }
+      return token;
+    };
+
+    const sprintf = (format, ...args) => {
+      let str = format;
+      args.forEach(arg => {
+        if (str.includes("%.2f")) {
+          str = str.replace("%.2f", Number(arg).toFixed(2));
+        } else if (str.includes("%.1f")) {
+          str = str.replace("%.1f", Number(arg).toFixed(1));
+        } else if (str.includes("%s")) {
+          str = str.replace("%s", String(arg));
+        } else if (str.includes("%d")) {
+          str = str.replace("%d", Math.round(Number(arg)));
+        } else {
+          str = str.replace(/%[a-zA-Z]/, String(arg));
+        }
+      });
+      return str;
+    };
+  `;
+
+  js += "\n" + code;
+  js += `\n// Execute main\nawait (async function() {\n${finalMainBody}\n})();`;
+
+  stringLiterals.forEach((str, idx) => {
+    js = js.replace(new RegExp(`__STR_LITERAL_${idx}__`, 'g'), str);
+  });
+
+  return js;
+};
+
+export const executeCodeAsync = async (code, language, onStdout, onReadInput) => {
+  const isJava = language.toLowerCase() === 'java' || code.includes('class ') || code.includes('System.out');
+  const jsCode = isJava ? translateJavaToJsAsync(code) : translateCppToJsAsync(code);
+  const runnerFn = new Function('onStdout', 'onReadInput', `
+    return (async () => {
+      \n${jsCode}\n
+    })();
+  `);
+  return runnerFn(onStdout, onReadInput);
+};
 const normalizeCppCode = (cppCode) => {
   // Strip comments
   let code = cppCode
@@ -743,12 +968,31 @@ const parsePseudocodeToTree = (pseudocodeText) => {
         
         result.push(node);
       } else if (upper.startsWith('WHILE ') || upper.startsWith('FOR ') || upper.startsWith('LOOP ')) {
-        const type = 'loop';
-        const label = line;
-        const color = '#8B5CF6'; // purple
-        const shape = 'diamond';
-        result.push({ type, label, color, shape });
-        i++;
+        const condition = line;
+        const node = {
+          type: 'loop',
+          condition: condition,
+          body: [],
+          color: '#8B5CF6'
+        };
+        
+        i++; // move past WHILE/FOR/LOOP
+        
+        // Parse loop body
+        const bodyRes = parseHelper(i);
+        node.body = bodyRes.nodes;
+        i = bodyRes.nextIndex;
+        
+        // Move past END WHILE / END FOR / END LOOP
+        if (i < lines.length && (
+          lines[i].toUpperCase().startsWith('END WHILE') || 
+          lines[i].toUpperCase().startsWith('END FOR') || 
+          lines[i].toUpperCase().startsWith('END LOOP')
+        )) {
+          i++;
+        }
+        
+        result.push(node);
       } else if (upper === 'END WHILE' || upper === 'END FOR' || upper === 'END LOOP') {
         i++; // skip loop endings
       } else {
@@ -814,9 +1058,11 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
   const [activeTab, setActiveTab] = useState('compiler'); // 'compiler' | 'flowchart'
   const [code, setCode] = useState(initialCode || DEFAULT_STARTER);
   const [pseudocode, setPseudocode] = useState('');
-  const [inputStr, setInputStr] = useState('');
   const [terminalOutput, setTerminalOutput] = useState('Terminal ready. Click "RUN CODE" to execute.');
   const [isRunning, setIsRunning] = useState(false);
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false);
+  const [currentInputVal, setCurrentInputVal] = useState('');
+  const inputResolverRef = useRef(null);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -831,21 +1077,69 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
   }, [initialCode, open]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const handleRun = () => {
+  const handleRun = async () => {
     setIsRunning(true);
-    setTerminalOutput('Compiling and executing code...');
+    setTerminalOutput('');
+    setIsWaitingForInput(false);
+    setCurrentInputVal('');
     
-    setTimeout(() => {
+    try {
       const isJava = code.includes('class ') || code.includes('System.out') || code.includes('public static void main');
       const lang = isJava ? 'java' : 'cpp';
-      const res = simulateCodeExecution(code, inputStr, lang);
-      if (res.isError) {
-        setTerminalOutput(`❌ COMPILATION / RUNTIME ERROR:\n\n${res.output}`);
-      } else {
-        setTerminalOutput(`▶️ OUTPUT:\n\n${res.output || "(Successful execution with no output)"}`);
-      }
+      
+      const onStdout = (text) => {
+        setTerminalOutput(prev => prev + text);
+      };
+      
+      const onReadInput = () => {
+        return new Promise((resolve) => {
+          setIsWaitingForInput(true);
+          inputResolverRef.current = resolve;
+        });
+      };
+      
+      await executeCodeAsync(code, lang, onStdout, onReadInput);
+      
+    } catch (err) {
+      setTerminalOutput(prev => prev + `\n❌ COMPILATION / RUNTIME ERROR: ${err.message}\n`);
+    } finally {
       setIsRunning(false);
-    }, 450);
+      setIsWaitingForInput(false);
+    }
+  };
+
+  const handleInputSubmit = (e) => {
+    if (e.key === 'Enter') {
+      const val = currentInputVal;
+      setTerminalOutput(prev => prev + val + '\n');
+      setCurrentInputVal('');
+      setIsWaitingForInput(false);
+      if (inputResolverRef.current) {
+        inputResolverRef.current(val);
+      }
+    }
+  };
+
+  const handleDownloadPng = async () => {
+    try {
+      const element = document.getElementById('flowchart-capture-content');
+      if (!element) return;
+      
+      const canvas = await html2canvas(element, {
+        backgroundColor: theme.palette.mode === 'dark' ? '#0A0C16' : '#FAFAFC',
+        scale: 2,
+        logging: false,
+        useCORS: true
+      });
+      
+      const link = document.createElement('a');
+      link.download = 'flowchart.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.error('Error exporting flowchart to PNG:', err);
+      alert('Failed to generate PNG of flowchart: ' + err.message);
+    }
   };
 
   const handleReset = () => {
@@ -1166,6 +1460,147 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
     );
   };
 
+  const renderLoopNode = (node) => {
+    return (
+      <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', margin: '15px 0' }}>
+        {/* Loop Diamond */}
+        <Box
+          style={{
+            width: '110px',
+            height: '110px',
+            background: 'rgba(139, 92, 246, 0.08)',
+            border: '2.5px solid #8B5CF6',
+            transform: 'rotate(45deg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 2
+          }}
+        >
+          <Typography
+            variant="caption"
+            style={{
+              fontFamily: '"Roboto Mono", monospace',
+              fontWeight: 800,
+              color: '#fff',
+              transform: 'rotate(-45deg)',
+              textAlign: 'center',
+              fontSize: '0.75rem',
+              lineHeight: 1.2,
+              padding: '10px',
+              maxWidth: '90px',
+              wordBreak: 'break-word'
+            }}
+          >
+            {node.condition}
+          </Typography>
+        </Box>
+
+        {/* Horizontal split for Loop Body vs. Exit */}
+        <Box style={{ display: 'flex', width: '100%', position: 'relative', marginTop: '10px' }}>
+          
+          {/* Connecting line */}
+          <Box style={{
+            position: 'absolute',
+            top: '0',
+            left: '25%',
+            right: '25%',
+            height: '2px',
+            borderTop: '2px dashed rgba(255, 255, 255, 0.15)',
+            zIndex: 1
+          }} />
+
+          {/* Left Column: Loop Body (True) */}
+          <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative', paddingRight: '10px', borderLeft: '2px dashed rgba(139, 92, 246, 0.25)', borderRadius: '8px 0 0 8px', marginLeft: '5px' }}>
+            <Box style={{ width: '2px', height: '15px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
+            
+            <Box style={{
+              background: 'rgba(139, 92, 246, 0.12)',
+              border: '1px solid #8B5CF6',
+              borderRadius: '12px',
+              padding: '2px 8px',
+              marginBottom: '15px'
+            }}>
+              <Typography variant="caption" style={{ color: '#8B5CF6', fontWeight: 800, fontSize: '0.65rem' }}>
+                LOOP BODY ✔️
+              </Typography>
+            </Box>
+
+            <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+              {node.body && node.body.length > 0 ? (
+                renderTreeNodes(node.body)
+              ) : (
+                <Box style={{
+                  width: '80px',
+                  height: '30px',
+                  border: '1.5px dashed rgba(255,255,255,0.15)',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.65rem' }}>
+                    pass
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+            
+            {/* Arrow looping back up */}
+            <Box style={{ width: '2px', flexGrow: 1, minHeight: '20px', borderLeft: '2px dashed rgba(139, 92, 246, 0.5)', zIndex: 1 }} />
+            <Typography variant="caption" style={{ color: '#8B5CF6', fontSize: '0.6rem', fontWeight: 800, marginTop: '-5px', marginBottom: '10px' }}>
+              ▲ loop back
+            </Typography>
+          </Box>
+
+          {/* Right Column: Loop Exit (False) */}
+          <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative', paddingLeft: '10px' }}>
+            <Box style={{ width: '2px', height: '15px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
+            
+            <Box style={{
+              background: 'rgba(255, 100, 124, 0.12)',
+              border: '1px solid #FF647C',
+              borderRadius: '12px',
+              padding: '2px 8px',
+              marginBottom: '15px'
+            }}>
+              <Typography variant="caption" style={{ color: '#FF647C', fontWeight: 800, fontSize: '0.65rem' }}>
+                EXIT ❌
+              </Typography>
+            </Box>
+
+            <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '40px' }}>
+              <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', fontSize: '0.7rem' }}>
+                Exit Loop
+              </Typography>
+            </Box>
+            
+            <Box style={{ width: '2px', flexGrow: 1, minHeight: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
+          </Box>
+
+        </Box>
+
+        {/* Bottom Horizontal Merge Line (Dashed) */}
+        <Box style={{ display: 'flex', width: '100%', position: 'relative', height: '2px', marginTop: '-2px' }}>
+          <Box style={{
+            position: 'absolute',
+            bottom: '0',
+            left: '25%',
+            right: '25%',
+            height: '2px',
+            borderTop: '2px dashed rgba(255, 255, 255, 0.15)',
+            zIndex: 1
+          }} />
+        </Box>
+
+        {/* Final arrow down from loop exit merge */}
+        <Box style={{ width: '2px', height: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
+      </Box>
+    );
+  };
+
   const renderTreeNodes = (nodes) => {
     if (!nodes || nodes.length === 0) return null;
     
@@ -1175,6 +1610,8 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
       
       if (node.type === 'branch') {
         element = renderBranchNode(node);
+      } else if (node.type === 'loop') {
+        element = renderLoopNode(node);
       } else {
         element = renderStandardNode(node);
       }
@@ -1201,7 +1638,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
     }
 
     return (
-      <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', padding: '10px 0' }}>
+      <Box id="flowchart-capture-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', padding: '10px 0' }}>
         {renderTreeNodes(treeNodes)}
       </Box>
     );
@@ -1212,7 +1649,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
       open={open}
       onClose={onClose}
       fullWidth
-      maxWidth="md"
+      maxWidth="xl"
       PaperProps={{
         style: {
           borderRadius: '24px',
@@ -1220,6 +1657,8 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
           backdropFilter: 'blur(20px)',
           border: '1px solid var(--divider)',
           boxShadow: 'var(--shadow-card)',
+          maxHeight: '95vh',
+          width: '95vw',
           overflow: 'hidden'
         }
       }}
@@ -1278,9 +1717,9 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
 
       <DialogContent style={{ padding: '20px 24px', overflowY: 'auto' }}>
         {activeTab === 'compiler' ? (
-          <Box style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '20px', minHeight: '400px' }}>
+          <Box style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '24px', minHeight: '400px', alignItems: 'stretch' }}>
             {/* Editor Column */}
-            <Box style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <Box style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0 }}>
               <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Source Code Editor
@@ -1294,56 +1733,39 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   </IconButton>
                 </Box>
               </Box>
-              <TextField
-                multiline
-                fullWidth
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                variant="outlined"
-                inputProps={{
-                  style: {
-                    fontFamily: '"Roboto Mono", monospace',
-                    fontSize: '0.85rem',
-                    lineHeight: 1.6,
-                    color: theme.palette.mode === 'dark' ? '#E5E9F0' : '#2D2D4D',
-                    backgroundColor: theme.palette.mode === 'dark' ? '#0F1424' : '#F7F9FC',
-                    padding: '16px',
-                    borderRadius: '14px',
-                    border: '1px solid var(--code-border)',
-                    minHeight: '280px'
-                  }
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': { padding: 0, '& fieldset': { border: 'none' } }
-                }}
-              />
+              
+              <Box style={{
+                borderRadius: '16px',
+                overflow: 'hidden',
+                border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#fffffe',
+                height: '380px',
+                width: '100%',
+                boxShadow: '0 4px 25px rgba(0,0,0,0.15)'
+              }}>
+                <Editor
+                  height="100%"
+                  language="cpp"
+                  value={code}
+                  onChange={(val) => setCode(val || '')}
+                  theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
+                  options={{
+                    fontSize: 13,
+                    minimap: { enabled: false },
+                    automaticLayout: true,
+                    scrollBeyondLastLine: false,
+                    padding: { top: 12, bottom: 12 },
+                    lineNumbersMinChars: 3
+                  }}
+                />
+              </Box>
             </Box>
 
             {/* Console / Terminal Column */}
-            <Box style={{ flex: 0.8, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Input Stream */}
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Standard Input (cin)
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="e.g. 5 10 (separated by spaces)"
-                value={inputStr}
-                onChange={(e) => setInputStr(e.target.value)}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '12px',
-                    fontFamily: '"Roboto Mono", monospace',
-                    fontSize: '0.85rem',
-                    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
-                  }
-                }}
-              />
-
+            <Box style={{ flex: 0.8, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0 }}>
               {/* Output terminal */}
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '4px' }}>
-                Output Terminal (stdout)
+              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Interactive Terminal Output
               </Typography>
               <Paper
                 elevation={0}
@@ -1358,11 +1780,39 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   color: '#3DDC97',
                   whiteSpace: 'pre-wrap',
                   overflowY: 'auto',
-                  minHeight: '180px',
-                  boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.5)'
+                  height: '380px',
+                  boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.5)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-start'
                 }}
               >
-                {terminalOutput}
+                <div style={{ flexGrow: 1, overflowY: 'auto' }}>
+                  {terminalOutput}
+                  {isWaitingForInput && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                      <span style={{ color: '#FF9F43', fontWeight: 800 }}>{`> `}</span>
+                      <input
+                        type="text"
+                        value={currentInputVal}
+                        onChange={(e) => setCurrentInputVal(e.target.value)}
+                        onKeyDown={handleInputSubmit}
+                        autoFocus
+                        placeholder="Type input and press Enter..."
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          outline: 'none',
+                          color: '#3DDC97',
+                          fontFamily: '"Roboto Mono", monospace',
+                          fontSize: '0.82rem',
+                          flexGrow: 1,
+                          caretColor: '#3DDC97'
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </Paper>
             </Box>
           </Box>
@@ -1464,21 +1914,38 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
             <Typography variant="caption" style={{ color: 'var(--text-secondary)', maxWidth: '70%' }}>
               Green = START/END, Blue = Input/Output, Grey = Process, Orange/Purple = Branch.
             </Typography>
-            <Button
-              variant="outlined"
-              onClick={handleGenerateFromCpp}
-              startIcon={<ResetIcon />}
-              style={{
-                padding: '10px 20px',
-                borderRadius: '12px',
-                fontWeight: 800,
-                textTransform: 'none',
-                borderColor: 'var(--primary-main)',
-                color: 'var(--primary-main)'
-              }}
-            >
-              Sync from C++
-            </Button>
+            <Box style={{ display: 'flex', gap: '8px' }}>
+              <Button
+                variant="outlined"
+                onClick={handleDownloadPng}
+                startIcon={<DownloadIcon />}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '12px',
+                  fontWeight: 800,
+                  textTransform: 'none',
+                  borderColor: 'var(--primary-main)',
+                  color: 'var(--primary-main)'
+                }}
+              >
+                Download PNG
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={handleGenerateFromCpp}
+                startIcon={<ResetIcon />}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '12px',
+                  fontWeight: 800,
+                  textTransform: 'none',
+                  borderColor: 'var(--primary-main)',
+                  color: 'var(--primary-main)'
+                }}
+              >
+                Sync from C++
+              </Button>
+            </Box>
           </>
         )}
       </DialogActions>
