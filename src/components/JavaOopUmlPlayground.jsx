@@ -1169,7 +1169,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
         <Grid container spacing={3}>
           {/* Left Pane: Code Editor */}
-          <Grid item xs={12} md={9} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <Grid item xs={12} md={3} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {activeTab === 'runner' ? (
               <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {/* Top: Class Definitions */}
@@ -1251,7 +1251,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   display: 'flex',
                   flexDirection: 'column',
                   height: '540px',
-                  width: '700px'
+                  width: '100%'
                 }}>
                   {/* Editor mockup header bar */}
                   <Box style={{
@@ -1326,7 +1326,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   border: isDarkMode ? '1.5px solid rgba(255,255,255,0.06)' : '1.5px solid rgba(0,0,0,0.08)',
                   borderRadius: '16px',
                   height: '540px',
-                  width: '500px',
+                  width: '100%',
                   position: 'relative',
                   overflow: 'auto',
                   boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.15)'

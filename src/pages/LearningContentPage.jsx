@@ -1102,6 +1102,8 @@ const LearningContentPage = () => {
   const location = useLocation();
   const { user, updateQuizScore } = useAuth();
 
+  const isComputerScience = courseId?.toLowerCase()?.includes('computer-science') || String(courseId) === '2';
+
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
 
@@ -1167,8 +1169,28 @@ const LearningContentPage = () => {
           }
         }
 
+        let targetSectionId = sectionId;
+
+        // Query the database to find which course and section this lesson ID actually belongs to
+        const exportRes = await fetch('/courses/export/all');
+        if (exportRes.ok) {
+          const allCourses = await exportRes.json();
+          let found = false;
+          for (const c of allCourses) {
+            for (const s of (c.sections || [])) {
+              if (s.lessons && s.lessons.some(l => String(l.id) === String(lessonId))) {
+                dbId = c.id;
+                targetSectionId = s.id;
+                found = true;
+                break;
+              }
+            }
+            if (found) break;
+          }
+        }
+
         // Call the backend endpoint to get specific lesson
-        const lessonRes = await fetch(`/courses/${dbId}/sections/${sectionId}/lessons/${lessonId}`, {
+        const lessonRes = await fetch(`/courses/${dbId}/sections/${targetSectionId}/lessons/${lessonId}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -1183,10 +1205,25 @@ const LearningContentPage = () => {
       } catch (err) {
         console.warn('Backend lesson not found, loading local fallback:', err);
         // Fallback to local mock data
-        const localCourse = location.state?.course || coursesData.find(c => c.id === courseId);
-        const localLesson = localCourse?.sections
+        let localCourse = location.state?.course || coursesData.find(c => c.id === courseId);
+        let localLesson = localCourse?.sections
           ?.find(s => String(s.id) === String(sectionId))
           ?.lessons?.find(l => String(l.id) === String(lessonId));
+        
+        // If not found in the current course, search all other local courses
+        if (!localLesson) {
+          for (const c of coursesData) {
+            for (const s of c.sections || []) {
+              const les = (s.lessons || []).find(l => String(l.id) === String(lessonId));
+              if (les) {
+                localCourse = c;
+                localLesson = les;
+                break;
+              }
+            }
+            if (localLesson) break;
+          }
+        }
         
         if (localLesson) {
           // Structure it similar to backend response
@@ -1294,7 +1331,8 @@ const LearningContentPage = () => {
       });
     }
     
-    navigate(`/learning-path/${courseId}`, { state: location.state });
+    const originalCourseId = location.state?.course?.id || courseId;
+    navigate(`/learning-path/${originalCourseId}`, { state: location.state });
   };
 
   const renderBlock = (block, idx) => {
@@ -1496,7 +1534,7 @@ const LearningContentPage = () => {
                 <CodeIcon fontSize="small" className="code-header-icon" />
                 <span>{language.toUpperCase()}</span>
               </div>
-              {isCpp && (
+              {isCpp && isComputerScience && (
                 <Button
                   size="small"
                   variant="contained"
@@ -2362,7 +2400,10 @@ const LearningContentPage = () => {
               </Typography>
             </div>
           </div>
-          <IconButton onClick={() => navigate(`/learning-path/${courseId}`, { state: location.state })} className="learning-close-btn">
+          <IconButton onClick={() => {
+            const originalCourseId = location.state?.course?.id || courseId;
+            navigate(`/learning-path/${originalCourseId}`, { state: location.state });
+          }} className="learning-close-btn">
             <CloseIcon />
           </IconButton>
         </Container>

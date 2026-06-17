@@ -109,6 +109,7 @@ const LearningPathPage = () => {
             }))
           }));
 
+          
           const matched = mappedList.find(c => 
             String(c.id) === String(courseId) ||
             c.title.toLowerCase().replace(/\s+/g, '-') === String(courseId).toLowerCase()
@@ -280,6 +281,10 @@ const LearningPathPage = () => {
       return title.startsWith('cheatsheet:') || title.startsWith('cheatsheet ') || title === 'cheatsheet';
     });
   }, [activeSection, backendLessons]);
+
+  const isComputerScience = useMemo(() => {
+    return course?.title?.toLowerCase()?.includes('computer science') || String(course?.id) === '2';
+  }, [course]);
 
   const lessons = useMemo(() => {
     let rawLessons = [];
@@ -633,42 +638,46 @@ const LearningPathPage = () => {
             Course Roadmap
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'stretch' }}>
-            <Button
-              variant="contained"
-              startIcon={<TerminalIcon />}
-              onClick={() => setIsCompilerOpen(true)}
-              style={{
-                padding: '8px 18px',
-                borderRadius: '12px',
-                fontWeight: 800,
-                fontSize: '0.85rem',
-                textTransform: 'none',
-                background: 'var(--hero-gradient)',
-                color: '#fff',
-                boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.25)',
-                fontFamily: '"Outfit", sans-serif'
-              }}
-            >
-              C++ Compiler Playground
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<SchoolIcon />}
-              onClick={() => setIsJavaUmlPlaygroundOpen(true)}
-              style={{
-                padding: '8px 18px',
-                borderRadius: '12px',
-                fontWeight: 800,
-                fontSize: '0.85rem',
-                textTransform: 'none',
-                background: 'linear-gradient(135deg, #6e8efb, #a777e3)',
-                color: '#fff',
-                boxShadow: '0 6px 15px rgba(167, 119, 227, 0.25)',
-                fontFamily: '"Outfit", sans-serif'
-              }}
-            >
-              Java OOP UML Playground
-            </Button>
+            {isComputerScience && (
+              <>
+                <Button
+                  variant="contained"
+                  startIcon={<TerminalIcon />}
+                  onClick={() => setIsCompilerOpen(true)}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                    textTransform: 'none',
+                    background: 'var(--hero-gradient)',
+                    color: '#fff',
+                    boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.25)',
+                    fontFamily: '"Outfit", sans-serif'
+                  }}
+                >
+                  C++ Compiler Playground
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<SchoolIcon />}
+                  onClick={() => setIsJavaUmlPlaygroundOpen(true)}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                    textTransform: 'none',
+                    background: 'linear-gradient(135deg, #6e8efb, #a777e3)',
+                    color: '#fff',
+                    boxShadow: '0 6px 15px rgba(167, 119, 227, 0.25)',
+                    fontFamily: '"Outfit", sans-serif'
+                  }}
+                >
+                  Java OOP UML Playground
+                </Button>
+              </>
+            )}
             {cheatsheetLesson && (
               <Button
                 variant="outlined"
@@ -691,6 +700,7 @@ const LearningPathPage = () => {
                 View Cheatsheet
               </Button>
             )}
+            
           </Box>
         </Box>
 
