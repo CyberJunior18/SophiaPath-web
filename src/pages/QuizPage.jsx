@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import Editor from '@monaco-editor/react';
+import { UmlDiagram } from '../components/course/UmlDiagram';
 import {
   Box,
   Container,
@@ -13,7 +15,8 @@ import {
   Backdrop,
   TextField,
   Chip,
-  Grid
+  Grid,
+  useTheme
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -430,6 +433,15 @@ const QuizPage = () => {
   const [codeRunCompleted, setCodeRunCompleted] = useState(false);
   const [allCasesPassed, setAllCasesPassed] = useState(false);
 
+  // Leetcode-style code challenge states
+  const [splitPercent, setSplitPercent] = useState(40);
+  const isDraggingSplitRef = useRef(false);
+  const [activeChallengeTab, setActiveChallengeTab] = useState('problem');
+  const [activeConsoleTab, setActiveConsoleTab] = useState('testcase');
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const [testCaseStatuses, setTestCaseStatuses] = useState([]);
+  const [selectedTestCaseIdx, setSelectedTestCaseIdx] = useState(0);
+
   // Dynamic database course loading
   useEffect(() => {
     if (course) return;
@@ -461,6 +473,36 @@ const QuizPage = () => {
 
     loadCourse();
   }, [lessonId, course]);
+
+  // Leetcode-style Split Drag Event Listeners
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (isDraggingSplitRef.current) {
+        const container = document.getElementById('quiz-challenge-split-container');
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const offset = e.clientX - rect.left;
+          const newPercent = Math.max(25, Math.min(75, (offset / rect.width) * 100));
+          setSplitPercent(newPercent);
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingSplitRef.current) {
+        isDraggingSplitRef.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // Exact JavaScript implementation of the mobile app's MCQ/Exercise extractor
   const extractQuestions = (lessonData) => {
@@ -495,18 +537,21 @@ const QuizPage = () => {
       }
 
       if (type === 'code_challenge') {
+        const rawChallenge = map.raw || map;
         return {
           type,
-          id: map.id || Math.random().toString(36).substring(2, 9),
-          instruction: map.problem || 'Write a program to solve this challenge:',
-          problem: map.problem || '',
-          starterCode: map.starterCode || {},
-          example: map.example || {},
-          testCases: map.testCases || [],
-          hiddenTestCases: map.hiddenTestCases || [],
-          outputFormat: map.outputFormat || '',
-          inputFormat: map.inputFormat || '',
-          constraints: map.constraints || ''
+          id: rawChallenge.id || Math.random().toString(36).substring(2, 9),
+          instruction: rawChallenge.problem || rawChallenge.instruction || 'Write a program to solve this challenge:',
+          problem: rawChallenge.problem || '',
+          starterCode: rawChallenge.starterCode || {},
+          example: rawChallenge.example || {},
+          testCases: rawChallenge.testCases || [],
+          hiddenTestCases: rawChallenge.hiddenTestCases || [],
+          outputFormat: rawChallenge.outputFormat || '',
+          inputFormat: rawChallenge.inputFormat || '',
+          constraints: rawChallenge.constraints || '',
+          codeLanguage: rawChallenge.starterCode?.language || rawChallenge.language || 'cpp',
+          umlDiagram: rawChallenge.umlDiagram || null
         };
       }
 
@@ -630,9 +675,19 @@ const QuizPage = () => {
     setFocusedBlankIndex(0);
     setBlankStatuses({});
 
-    // Reset C++ Code challenge
+    // Reset Code challenge
     if (currentQuestion.type === 'code_challenge') {
-      const codeLines = currentQuestion.starterCode?.lines || [
+      const isJava = currentQuestion.codeLanguage === 'java';
+      const defaultLines = isJava ? [
+        'import java.util.*;',
+        '',
+        'public class Main {',
+        '    public static void main(String[] args) {',
+        '        // Write your Java code here',
+        '        ',
+        '    }',
+        '}'
+      ] : [
         '#include <iostream>',
         'using namespace std;',
         '',
@@ -642,10 +697,16 @@ const QuizPage = () => {
         '    return 0;',
         '}'
       ];
+      const codeLines = currentQuestion.starterCode?.lines || currentQuestion.starterCode?.codeSnippet?.lines || defaultLines;
       setUserCode(codeLines.join('\n'));
-      setConsoleLogs('Click "Compile & Run" to execute test cases.');
+      setConsoleLogs('Click "Run Code" to execute test cases.');
       setCodeRunCompleted(false);
       setAllCasesPassed(false);
+      setTestCaseStatuses(currentQuestion.testCases?.map(() => ({ status: 'idle', actual: '' })) || []);
+      setActiveChallengeTab('problem');
+      setActiveConsoleTab('testcase');
+      setIsConsoleOpen(false);
+      setSelectedTestCaseIdx(0);
     }
   }, [currentQuestion, currentQuestionIndex]);
 
@@ -778,39 +839,55 @@ const QuizPage = () => {
     }
   };
 
-  // Compiles and runs C++ code challenge on the client-side C++ runner
+  // Compiles and runs C++ / Java code challenge on the client-side runner
   const handleRunCodeChallenge = () => {
     if (isCompiling) return;
     setIsCompiling(true);
-    setConsoleLogs('Compiling main.cpp...\nLinking variables...\nRunning test cases...');
+    setIsConsoleOpen(true);
+    setActiveConsoleTab('result');
+    setConsoleLogs('Compiling program...\nRunning test cases...');
 
     setTimeout(() => {
       const testCases = currentQuestion.testCases || [];
+      const lang = currentQuestion.codeLanguage || 'cpp';
       const logs = [];
       let allPassed = true;
 
-      testCases.forEach((tc, index) => {
+      const newStatuses = testCases.map((tc, index) => {
         logs.push(`\n[Test Case ${index + 1}] Input: "${tc.input}"`);
-        const runRes = simulateCppExecution(userCode, tc.input);
+        const runRes = simulateCodeExecution(userCode, tc.input, lang);
 
         if (runRes.isError) {
           logs.push(`Result: FAILED\n${runRes.output}`);
           allPassed = false;
+          return {
+            status: 'fail',
+            actual: runRes.output,
+            isError: true
+          };
         } else {
-          const expected = tc.expectedOutput.trim().replace(/\r/g, "");
+          const expected = (tc.expectedOutput || '').trim().replace(/\r/g, "");
           const actual = runRes.output.trim().replace(/\r/g, "");
           logs.push(`Expected stdout:\n${expected}`);
           logs.push(`Actual stdout:\n${actual}`);
 
-          if (expected === actual) {
+          const pass = expected === actual;
+          if (pass) {
             logs.push(`Result: PASSED ✅`);
           } else {
             logs.push(`Result: FAILED ❌ (Outputs do not match)`);
             allPassed = false;
           }
+
+          return {
+            status: pass ? 'pass' : 'fail',
+            actual: runRes.output,
+            isError: false
+          };
         }
       });
 
+      setTestCaseStatuses(newStatuses);
       setConsoleLogs(logs.join('\n'));
       setAllCasesPassed(allPassed);
       setCodeRunCompleted(true);
@@ -1077,130 +1154,448 @@ const QuizPage = () => {
           >
             {/* 1. CODE CHALLENGE SPLIT PANELS RENDERER */}
             {currentQuestion.type === 'code_challenge' ? (
-              <Grid container spacing={3} style={{ marginTop: '1rem' }}>
-                <Grid item xs={12} md={5}>
-                  <Paper className="quiz-question-container glass-panel-strong challenge-pane" elevation={0} style={{ padding: '24px', minHeight: '65vh', display: 'flex', flexDirection: 'column' }}>
-                    <Typography variant="overline" style={{ color: 'var(--primary-main)', fontWeight: 800, letterSpacing: '0.12em' }}>
-                      C++ INTERACTIVE CHALLENGE
-                    </Typography>
-                    <Typography variant="h5" className="challenge-title" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', margin: '8px 0 16px' }}>
-                      C++ Coding Practice
-                    </Typography>
-                    
-                    <Box className="challenge-instructions" style={{ flexGrow: 1, overflowY: 'auto', paddingRight: '8px' }}>
-                      <Typography variant="subtitle1" style={{ fontWeight: 700, marginBottom: '6px' }}>Problem Description</Typography>
-                      <Typography variant="body2" style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '16px' }}>
-                        {parseInlineCode(currentQuestion.problem)}
-                      </Typography>
+              <Box
+                id="quiz-challenge-split-container"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  marginTop: '1.5rem',
+                  alignItems: 'stretch',
+                  position: 'relative',
+                  minHeight: '65vh',
+                  height: 'calc(100vh - 240px)',
+                  width: '100%',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* Left Pane: Problem Description & Testcases */}
+                <Box style={{ width: `${splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '300px', height: '100%', overflowY: 'hidden', paddingRight: '8px' }}>
+                  {/* Tabs Header */}
+                  <Box style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', alignSelf: 'flex-start' }}>
+                    <button
+                      onClick={() => setActiveChallengeTab('problem')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: activeChallengeTab === 'problem' ? 'var(--primary-main)' : 'transparent',
+                        color: activeChallengeTab === 'problem' ? '#fff' : 'var(--text-secondary)',
+                        fontSize: '0.8rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        transition: 'all 0.25s ease'
+                      }}
+                    >
+                      Problem Description
+                    </button>
+                    <button
+                      onClick={() => setActiveChallengeTab('testcases')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: activeChallengeTab === 'testcases' ? 'var(--primary-main)' : 'transparent',
+                        color: activeChallengeTab === 'testcases' ? '#fff' : 'var(--text-secondary)',
+                        fontSize: '0.8rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        transition: 'all 0.25s ease'
+                      }}
+                    >
+                      Test Cases ({currentQuestion.testCases?.length || 0})
+                    </button>
+                  </Box>
 
-                      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '16px' }}>
-                        <div>
-                          <Typography variant="caption" style={{ fontWeight: 800, display: 'block', color: 'var(--text-secondary)' }}>INPUT FORMAT</Typography>
-                          <Typography variant="body2" style={{ fontSize: '0.85rem' }}>{currentQuestion.inputFormat || "Standard terminal stream."}</Typography>
-                        </div>
-                        <div>
-                          <Typography variant="caption" style={{ fontWeight: 800, display: 'block', color: 'var(--text-secondary)' }}>OUTPUT FORMAT</Typography>
-                          <Typography variant="body2" style={{ fontSize: '0.85rem' }}>{currentQuestion.outputFormat || "stdout match."}</Typography>
-                        </div>
-                      </div>
-
-                      {currentQuestion.constraints && (
-                        <div style={{ marginBottom: '16px' }}>
-                          <Typography variant="caption" style={{ fontWeight: 800, display: 'block', color: 'var(--text-secondary)' }}>CONSTRAINTS</Typography>
-                          <code style={{ fontSize: '0.8rem', backgroundColor: 'rgba(0,0,0,0.2)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
-                            {currentQuestion.constraints}
-                          </code>
-                        </div>
-                      )}
-
-                      {currentQuestion.example && (
-                        <Paper style={{ backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px', marginTop: '16px' }} elevation={0}>
-                          <Typography variant="subtitle2" style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                            <HelpOutlineIcon fontSize="small" style={{ color: 'var(--primary-main)' }} /> Sample Example Case
+                  {/* Tab Body */}
+                  <Box style={{ flexGrow: 1, overflowY: 'auto', paddingRight: '4px' }}>
+                    {activeChallengeTab === 'problem' ? (
+                      <Paper className="quiz-question-container glass-panel-strong challenge-pane" elevation={0} style={{ padding: '24px', minHeight: '90%', display: 'flex', flexDirection: 'column', margin: 0, borderRadius: '16px' }}>
+                        <Typography variant="overline" style={{ color: 'var(--primary-main)', fontWeight: 800, letterSpacing: '0.12em' }}>
+                          {currentQuestion.codeLanguage === 'java' ? 'JAVA' : 'C++'} INTERACTIVE CHALLENGE
+                        </Typography>
+                        <Typography variant="h5" className="challenge-title" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', margin: '8px 0 16px' }}>
+                          {currentQuestion.codeLanguage === 'java' ? 'Java' : 'C++'} Coding Practice
+                        </Typography>
+                        
+                        <Box className="challenge-instructions" style={{ flexGrow: 1 }}>
+                          <Typography variant="subtitle1" style={{ fontWeight: 700, marginBottom: '6px' }}>Problem Description</Typography>
+                          <Typography variant="body2" style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '16px', whiteSpace: 'pre-line' }}>
+                            {parseInlineCode(currentQuestion.problem)}
                           </Typography>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+
+                          {currentQuestion.umlDiagram && (
+                            <Box style={{ marginTop: '12px', marginBottom: '16px' }}>
+                              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', marginBottom: '8px', fontFamily: '"Outfit", sans-serif' }}>
+                                UML Class Diagram
+                              </Typography>
+                              <UmlDiagram data={currentQuestion.umlDiagram[0] || currentQuestion.umlDiagram} compact />
+                            </Box>
+                          )}
+
+                          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '16px' }}>
                             <div>
-                              <Typography variant="caption" style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>SAMPLE INPUT</Typography>
-                              <pre style={{ backgroundColor: 'rgba(255,255,255,0.04)', padding: '6px 10px', borderRadius: '6px', margin: '4px 0 0', fontSize: '0.8rem', fontFamily: 'monospace' }}>{currentQuestion.example.input}</pre>
+                              <Typography variant="caption" style={{ fontWeight: 800, display: 'block', color: 'var(--text-secondary)' }}>INPUT FORMAT</Typography>
+                              <Typography variant="body2" style={{ fontSize: '0.85rem' }}>{currentQuestion.inputFormat || "Standard terminal stream."}</Typography>
                             </div>
                             <div>
-                              <Typography variant="caption" style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>SAMPLE OUTPUT</Typography>
-                              <pre style={{ backgroundColor: 'rgba(255,255,255,0.04)', padding: '6px 10px', borderRadius: '6px', margin: '4px 0 0', fontSize: '0.8rem', fontFamily: 'monospace' }}>{currentQuestion.example.output}</pre>
+                              <Typography variant="caption" style={{ fontWeight: 800, display: 'block', color: 'var(--text-secondary)' }}>OUTPUT FORMAT</Typography>
+                              <Typography variant="body2" style={{ fontSize: '0.85rem' }}>{currentQuestion.outputFormat || "stdout match."}</Typography>
                             </div>
                           </div>
-                          {currentQuestion.example.explanation && (
-                            <Typography variant="caption" style={{ display: 'block', marginTop: '8px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                              Explanation: {currentQuestion.example.explanation}
-                            </Typography>
+
+                          {currentQuestion.constraints && (
+                            <div style={{ marginBottom: '16px' }}>
+                              <Typography variant="caption" style={{ fontWeight: 800, display: 'block', color: 'var(--text-secondary)' }}>CONSTRAINTS</Typography>
+                              <code style={{ fontSize: '0.8rem', backgroundColor: 'rgba(0,0,0,0.2)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
+                                {currentQuestion.constraints}
+                              </code>
+                            </div>
                           )}
-                        </Paper>
-                      )}
-                    </Box>
-                  </Paper>
-                </Grid>
 
-                <Grid item xs={12} md={7}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {/* C++ IDE Editor Panel */}
-                    <Paper className="quiz-code-editor-card" elevation={0} style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', backgroundColor: 'var(--bg-card)', overflow: 'hidden' }}>
-                      <div className="code-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <CodeIcon fontSize="small" style={{ color: 'var(--primary-main)' }} />
-                          <Typography variant="body2" style={{ fontFamily: 'monospace', fontWeight: 800 }}>main.cpp</Typography>
-                        </div>
-                        <Button 
-                          variant="contained" 
-                          size="small" 
-                          startIcon={<PlayArrowIcon />} 
-                          disabled={isCompiling}
-                          onClick={handleRunCodeChallenge}
-                          style={{ textTransform: 'none', backgroundColor: '#58CC02', color: '#fff', borderRadius: '8px' }}
-                        >
-                          Compile & Run
-                        </Button>
+                          {currentQuestion.example && (
+                            <Paper style={{ backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px', marginTop: '16px' }} elevation={0}>
+                              <Typography variant="subtitle2" style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                                <HelpOutlineIcon fontSize="small" style={{ color: 'var(--primary-main)' }} /> Sample Example Case
+                              </Typography>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                                <div>
+                                  <Typography variant="caption" style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>SAMPLE INPUT</Typography>
+                                  <pre style={{ backgroundColor: 'rgba(255,255,255,0.04)', padding: '6px 10px', borderRadius: '6px', margin: '4px 0 0', fontSize: '0.8rem', fontFamily: 'monospace' }}>{currentQuestion.example.input}</pre>
+                                </div>
+                                <div>
+                                  <Typography variant="caption" style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>SAMPLE OUTPUT</Typography>
+                                  <pre style={{ backgroundColor: 'rgba(255,255,255,0.04)', padding: '6px 10px', borderRadius: '6px', margin: '4px 0 0', fontSize: '0.8rem', fontFamily: 'monospace' }}>{currentQuestion.example.output}</pre>
+                                </div>
+                              </div>
+                              {currentQuestion.example.explanation && (
+                                <Typography variant="caption" style={{ display: 'block', marginTop: '8px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                                  Explanation: {currentQuestion.example.explanation}
+                                </Typography>
+                              )}
+                            </Paper>
+                          )}
+                        </Box>
+                      </Paper>
+                    ) : (
+                      <Paper className="quiz-question-container glass-panel-strong challenge-pane" elevation={0} style={{ padding: '24px', minHeight: '90%', display: 'flex', flexDirection: 'column', margin: 0, borderRadius: '16px' }}>
+                        <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px' }}>
+                          Test Cases Results
+                        </Typography>
+                        <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {(currentQuestion.testCases || []).map((tc, idx) => {
+                            const statusInfo = testCaseStatuses[idx] || { status: 'idle', actual: '' };
+                            const isPass = statusInfo.status === 'pass';
+                            const isFail = statusInfo.status === 'fail';
+
+                            return (
+                              <Paper key={idx} style={{ padding: '12px', borderRadius: '12px', border: `1px solid ${isPass ? '#4CAF50' : isFail ? '#ef5350' : 'rgba(255,255,255,0.06)'}`, background: 'rgba(0,0,0,0.15)' }}>
+                                <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                  <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+                                    Test Case #{idx + 1}
+                                  </Typography>
+                                  <Chip
+                                    size="small"
+                                    label={isPass ? 'PASS' : isFail ? 'FAIL' : 'UNRUN'}
+                                    style={{
+                                      background: isPass ? 'rgba(76, 175, 80, 0.15)' : isFail ? 'rgba(239, 83, 80, 0.15)' : 'rgba(255,255,255,0.05)',
+                                      color: isPass ? '#66bb6a' : isFail ? '#ef5350' : 'var(--text-secondary)',
+                                      fontWeight: 800,
+                                      fontSize: '0.68rem'
+                                    }}
+                                  />
+                                </Box>
+                                <Typography variant="caption" style={{ display: 'block', color: 'var(--text-secondary)', fontFamily: '"Roboto Mono", monospace', marginBottom: '2px' }}>
+                                  <strong>Input:</strong> {tc.input || '(empty stream)'}
+                                </Typography>
+                                <Typography variant="caption" style={{ display: 'block', color: 'var(--text-secondary)', fontFamily: '"Roboto Mono", monospace', marginBottom: '4px' }}>
+                                  <strong>Expected:</strong> {tc.expectedOutput}
+                                </Typography>
+                                {statusInfo.actual && (
+                                  <Typography variant="caption" style={{ display: 'block', color: isPass ? '#4CAF50' : '#ef5350', fontFamily: '"Roboto Mono", monospace', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '4px', marginTop: '4px' }}>
+                                    <strong>Output:</strong> {statusInfo.actual}
+                                  </Typography>
+                                )}
+                              </Paper>
+                            );
+                          })}
+                        </Box>
+                      </Paper>
+                    )}
+                  </Box>
+                </Box>
+
+                {/* Resizable Divider */}
+                <Box
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    isDraggingSplitRef.current = true;
+                    document.body.style.cursor = 'col-resize';
+                    document.body.style.userSelect = 'none';
+                  }}
+                  style={{
+                    width: '8px',
+                    cursor: 'col-resize',
+                    backgroundColor: 'transparent',
+                    position: 'relative',
+                    zIndex: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginLeft: '-4px',
+                    marginRight: '-4px',
+                  }}
+                  sx={{
+                    '&:hover, &:active': {
+                      '&::after': {
+                        backgroundColor: 'var(--primary-main)',
+                      }
+                    },
+                    '&::after': {
+                      content: '""',
+                      width: '2px',
+                      height: '40px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      borderRadius: '1px',
+                      transition: 'background-color 0.2s'
+                    }
+                  }}
+                />
+
+                {/* Right Pane: Monaco Editor + Console Drawer */}
+                <Box style={{ width: `${100 - splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '300px', height: '100%' }}>
+                  {/* Monaco Editor Wrapper */}
+                  <Box style={{
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    backgroundColor: '#1e1e1e',
+                    boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
+                    position: 'relative',
+                    height: isConsoleOpen ? '32vh' : '56vh',
+                    transition: 'height 0.2s ease-in-out'
+                  }}>
+                    {/* Header */}
+                    <div className="code-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CodeIcon fontSize="small" style={{ color: 'var(--primary-main)' }} />
+                        <Typography variant="body2" style={{ fontFamily: 'monospace', fontWeight: 800 }}>
+                          {currentQuestion.codeLanguage === 'java' ? 'Main.java' : 'main.cpp'}
+                        </Typography>
                       </div>
-                      <textarea
-                        value={userCode}
-                        disabled={isAnswered}
-                        onChange={(e) => setUserCode(e.target.value)}
-                        style={{
-                          width: '100%',
-                          minHeight: '32vh',
-                          padding: '16px',
-                          fontSize: '0.9rem',
-                          fontFamily: '"Roboto Mono", monospace',
-                          color: '#e0e0e0',
-                          backgroundColor: 'rgba(0,0,0,0.18)',
-                          border: 'none',
-                          outline: 'none',
-                          resize: 'vertical',
-                          lineHeight: 1.55
-                        }}
-                      />
-                    </Paper>
+                      <Button 
+                        variant="contained" 
+                        size="small" 
+                        startIcon={<PlayArrowIcon />} 
+                        disabled={isCompiling || isAnswered}
+                        onClick={handleRunCodeChallenge}
+                        style={{ textTransform: 'none', backgroundColor: '#58CC02', color: '#fff', borderRadius: '8px' }}
+                      >
+                        Run Code
+                      </Button>
+                    </div>
 
-                    {/* Compile Logs Console */}
-                    <Paper className="quiz-console-panel" elevation={0} style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', backgroundColor: '#121214', padding: '16px' }}>
-                      <Typography variant="subtitle2" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, color: 'rgba(255,255,255,0.7)', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px', marginBottom: '8px' }}>
-                        <TerminalIcon fontSize="small" style={{ color: 'var(--primary-main)' }} /> EXECUTION CONSOLE
+                    <Editor
+                      height="calc(100% - 41px)"
+                      language={currentQuestion.codeLanguage === 'java' ? 'java' : 'cpp'}
+                      value={userCode}
+                      onChange={(val) => {
+                        if (!isAnswered) setUserCode(val || '');
+                      }}
+                      theme="vs-dark"
+                      options={{
+                        fontSize: 13,
+                        minimap: { enabled: false },
+                        automaticLayout: true,
+                        scrollBeyondLastLine: false,
+                        padding: { top: 12, bottom: 12 },
+                        lineNumbersMinChars: 3,
+                        readOnly: isAnswered
+                      }}
+                    />
+                  </Box>
+
+                  {/* LeetCode-style Tabbed Bottom Console Drawer */}
+                  <Box style={{
+                    border: '1.5px solid rgba(255,255,255,0.06)',
+                    borderRadius: '16px',
+                    background: '#141418',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: isConsoleOpen ? '260px' : '40px',
+                    transition: 'height 0.2s ease-in-out'
+                  }}>
+                    {/* Header bar */}
+                    <Box
+                      style={{
+                        padding: '6px 16px',
+                        background: '#1e1e24',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        borderBottom: isConsoleOpen ? '1px solid rgba(255,255,255,0.05)' : 'none'
+                      }}
+                      onClick={() => setIsConsoleOpen(prev => !prev)}
+                    >
+                      <Box style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <Box style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <TerminalIcon style={{ fontSize: '0.9rem', color: 'var(--primary-main)' }} />
+                          <Typography variant="caption" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Console
+                          </Typography>
+                        </Box>
+                        
+                        {isConsoleOpen && (
+                          <Box style={{ display: 'flex', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => setActiveConsoleTab('testcase')}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                borderBottom: activeConsoleTab === 'testcase' ? '2px solid var(--primary-main)' : '2px solid transparent',
+                                color: activeConsoleTab === 'testcase' ? '#fff' : 'rgba(255,255,255,0.5)',
+                                padding: '2px 8px',
+                                cursor: 'pointer',
+                                fontSize: '0.75rem',
+                                fontWeight: 800
+                              }}
+                            >
+                              Testcases
+                            </button>
+                            <button
+                              onClick={() => setActiveConsoleTab('result')}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                borderBottom: activeConsoleTab === 'result' ? '2px solid var(--primary-main)' : '2px solid transparent',
+                                color: activeConsoleTab === 'result' ? '#fff' : 'rgba(255,255,255,0.5)',
+                                padding: '2px 8px',
+                                cursor: 'pointer',
+                                fontSize: '0.75rem',
+                                fontWeight: 800
+                              }}
+                            >
+                              Result
+                            </button>
+                          </Box>
+                        )}
+                      </Box>
+                      <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                        {isConsoleOpen ? '▼ Minimize' : '▲ Expand'}
                       </Typography>
-                      <pre style={{
-                        maxHeight: '18vh',
-                        overflowY: 'auto',
-                        margin: 0,
-                        padding: '6px',
-                        fontSize: '0.82rem',
-                        fontFamily: '"Roboto Mono", monospace',
-                        color: allCasesPassed ? '#81C784' : '#e0e0e0',
-                        lineHeight: 1.45,
-                        whiteSpace: 'pre-wrap'
-                      }}>
-                        {consoleLogs}
-                      </pre>
-                    </Paper>
-                  </div>
-                </Grid>
-              </Grid>
+                    </Box>
+
+                    {/* Drawer Content */}
+                    {isConsoleOpen && (
+                      <Box style={{ padding: '16px', flexGrow: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                        {activeConsoleTab === 'testcase' ? (
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <Box style={{ display: 'flex', gap: '8px' }}>
+                              {(currentQuestion.testCases || []).map((_, idx) => (
+                                <Chip
+                                  key={idx}
+                                  label={`Case ${idx + 1}`}
+                                  size="small"
+                                  onClick={() => setSelectedTestCaseIdx(idx)}
+                                  style={{
+                                    background: selectedTestCaseIdx === idx ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)',
+                                    color: '#fff',
+                                    fontWeight: selectedTestCaseIdx === idx ? 800 : 400
+                                  }}
+                                />
+                              ))}
+                            </Box>
+                            {currentQuestion.testCases && currentQuestion.testCases[selectedTestCaseIdx] && (
+                              <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                                <Box>
+                                  <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 800, display: 'block' }}>INPUT</Typography>
+                                  <pre style={{ margin: '4px 0 0', padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.8rem', color: '#fff' }}>
+                                    {currentQuestion.testCases[selectedTestCaseIdx].input || '(empty input)'}
+                                  </pre>
+                                </Box>
+                                <Box>
+                                  <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 800, display: 'block' }}>EXPECTED OUTPUT</Typography>
+                                  <pre style={{ margin: '4px 0 0', padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.8rem', color: '#fff' }}>
+                                    {currentQuestion.testCases[selectedTestCaseIdx].expectedOutput}
+                                  </pre>
+                                </Box>
+                              </Box>
+                            )}
+                          </Box>
+                        ) : (
+                          // Result Tab
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
+                            {isCompiling ? (
+                              <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                                Compiling & running test cases...
+                              </Typography>
+                            ) : testCaseStatuses.length > 0 ? (
+                              <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <Typography variant="subtitle2" style={{ fontWeight: 800, color: allCasesPassed ? '#4CAF50' : '#ef5350' }}>
+                                    {allCasesPassed ? 'Accepted ✅' : 'Wrong Answer ❌'}
+                                  </Typography>
+                                  <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                    ({testCaseStatuses.filter(s => s.status === 'pass').length}/{testCaseStatuses.length} cases passed)
+                                  </Typography>
+                                </Box>
+
+                                <Box style={{ display: 'flex', gap: '8px' }}>
+                                  {testCaseStatuses.map((st, idx) => (
+                                    <Chip
+                                      key={idx}
+                                      label={`Case ${idx + 1}`}
+                                      size="small"
+                                      onClick={() => setSelectedTestCaseIdx(idx)}
+                                      style={{
+                                        background: selectedTestCaseIdx === idx ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)',
+                                        color: st.status === 'pass' ? '#66bb6a' : '#ef5350',
+                                        fontWeight: selectedTestCaseIdx === idx ? 800 : 400,
+                                        border: `1.5px solid ${st.status === 'pass' ? 'rgba(102,187,106,0.3)' : 'rgba(239,83,80,0.3)'}`
+                                      }}
+                                    />
+                                  ))}
+                                </Box>
+
+                                {currentQuestion.testCases && currentQuestion.testCases[selectedTestCaseIdx] && (
+                                  <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>
+                                      <strong>Input:</strong> {currentQuestion.testCases[selectedTestCaseIdx].input || '(empty)'}
+                                    </Typography>
+                                    <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>
+                                      <strong>Expected:</strong> {currentQuestion.testCases[selectedTestCaseIdx].expectedOutput}
+                                    </Typography>
+                                    {testCaseStatuses[selectedTestCaseIdx] && (
+                                      <Typography variant="caption" style={{
+                                        color: testCaseStatuses[selectedTestCaseIdx].status === 'pass' ? '#66bb6a' : '#ef5350',
+                                        fontFamily: 'monospace',
+                                        background: 'rgba(0,0,0,0.2)',
+                                        padding: '6px',
+                                        borderRadius: '4px',
+                                        marginTop: '4px',
+                                        whiteSpace: 'pre-wrap',
+                                        display: 'block'
+                                      }}>
+                                        <strong>Actual Output:</strong> {testCaseStatuses[selectedTestCaseIdx].actual}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                )}
+                              </Box>
+                            ) : (
+                              <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                Please run your code to see the test case results.
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+              </Box>
             ) : (
               // 2. STANDARD MCQ / INTERACTIVE FILL BLANKS RENDERER
               <Paper className="quiz-question-container glass-panel" elevation={0}>
@@ -1318,16 +1713,60 @@ const QuizPage = () => {
           )}
 
           {!isAnswered && currentQuestion.type === 'code_challenge' && (
-            <Button
-              variant="contained"
-              size="large"
-              disabled={!codeRunCompleted}
-              onClick={handleSubmitCodeChallenge}
-              className="quiz-next-btn primary"
-              style={{ padding: '10px 28px', borderRadius: '12px' }}
-            >
-              Submit Solution
-            </Button>
+            <Box style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+              <Box style={{ display: 'flex', gap: '8px' }}>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={() => setIsConsoleOpen(prev => !prev)}
+                  startIcon={<TerminalIcon />}
+                  style={{
+                    borderRadius: '12px',
+                    textTransform: 'none',
+                    fontWeight: 800,
+                    borderColor: 'rgba(255,255,255,0.15)',
+                    color: '#fff',
+                    padding: '10px 20px',
+                    height: '48px'
+                  }}
+                >
+                  Console
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={handleRunCodeChallenge}
+                  style={{
+                    borderRadius: '12px',
+                    textTransform: 'none',
+                    fontWeight: 800,
+                    borderColor: 'rgba(255,255,255,0.15)',
+                    color: '#fff',
+                    padding: '10px 20px',
+                    height: '48px'
+                  }}
+                >
+                  Test Code
+                </Button>
+              </Box>
+              <Button
+                variant="contained"
+                size="large"
+                disabled={!codeRunCompleted}
+                onClick={handleSubmitCodeChallenge}
+                style={{
+                  background: !codeRunCompleted ? 'rgba(255,255,255,0.05)' : 'var(--hero-gradient)',
+                  color: !codeRunCompleted ? 'rgba(255,255,255,0.3)' : '#fff',
+                  borderRadius: '12px',
+                  textTransform: 'none',
+                  fontWeight: 800,
+                  padding: '10px 28px',
+                  height: '48px'
+                }}
+              >
+                Submit Solution
+              </Button>
+            </Box>
           )}
 
           {isAnswered && (

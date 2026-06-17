@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import Editor from '@monaco-editor/react';
 import { CppPlaygroundDialog } from '../components/CppPlaygroundDialog';
 import { UmlDiagram } from '../components/course/UmlDiagram';
 import {
@@ -788,42 +789,95 @@ const ChallengePlaygroundDialog = ({
 }) => {
   const starter = challenge.starterCode?.lines?.join('\n') || challenge.starterCode?.codeSnippet?.lines?.join('\n') || '';
   const [code, setCode] = useState(starter);
-  const [customInput, setCustomInput] = useState('');
-  const [customOutput, setCustomOutput] = useState('');
   const [testCaseStatuses, setTestCaseStatuses] = useState([]);
   const [activeTab, setActiveTab] = useState('problem');
+  const [splitPercent, setSplitPercent] = useState(40);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const [activeConsoleTab, setActiveConsoleTab] = useState('testcase');
+  const [selectedTestCaseIdx, setSelectedTestCaseIdx] = useState(0);
+  const [allCasesPassed, setAllCasesPassed] = useState(false);
+  const [isCompiling, setIsCompiling] = useState(false);
+  const isDraggingSplitRef = useRef(false);
 
   useEffect(() => {
     if (open) {
       setCode(starter);
-      setCustomInput('');
-      setCustomOutput('');
       setTestCaseStatuses(challenge.testCases?.map(() => ({ status: 'idle', actual: '' })) || []);
       setActiveTab('problem');
+      setIsConsoleOpen(false);
+      setActiveConsoleTab('testcase');
+      setSelectedTestCaseIdx(0);
+      setAllCasesPassed(false);
+      setIsCompiling(false);
     }
   }, [open, challenge]);
 
-  const runCustom = () => {
-    const lang = challenge.starterCode?.language || challenge.language || 'cpp';
-    const res = simulateCodeExecution(code, customInput, lang);
-    setCustomOutput(res.output);
-  };
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (isDraggingSplitRef.current) {
+        const container = document.getElementById('challenge-split-container');
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const offset = e.clientX - rect.left;
+          const newPercent = Math.max(25, Math.min(75, (offset / rect.width) * 100));
+          setSplitPercent(newPercent);
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingSplitRef.current) {
+        isDraggingSplitRef.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   const runTestCases = () => {
-    const lang = challenge.starterCode?.language || challenge.language || 'cpp';
-    const newStatuses = (challenge.testCases || []).map((tc) => {
-      const res = simulateCodeExecution(code, tc.input || '', lang);
-      const actual = res.output.replace(/\r\n/g, '\n').trim();
-      const expected = (tc.expectedOutput || '').replace(/\r\n/g, '\n').trim();
-      
-      const pass = actual === expected;
-      return {
-        status: pass ? 'pass' : 'fail',
-        actual: res.output
-      };
-    });
-    setTestCaseStatuses(newStatuses);
-    setActiveTab('testcases');
+    if (isCompiling) return;
+    setIsCompiling(true);
+    setIsConsoleOpen(true);
+    setActiveConsoleTab('result');
+
+    setTimeout(() => {
+      const lang = challenge.starterCode?.language || challenge.language || 'cpp';
+      const testCasesList = challenge.testCases || [];
+      let allPassed = true;
+
+      const newStatuses = testCasesList.map((tc) => {
+        const res = simulateCodeExecution(code, tc.input || '', lang);
+        if (res.isError) {
+          allPassed = false;
+          return {
+            status: 'fail',
+            actual: res.output,
+            isError: true
+          };
+        } else {
+          const actual = res.output.trim().replace(/\r/g, "");
+          const expected = (tc.expectedOutput || '').trim().replace(/\r/g, "");
+          const pass = actual === expected;
+          if (!pass) allPassed = false;
+          return {
+            status: pass ? 'pass' : 'fail',
+            actual: res.output,
+            isError: false
+          };
+        }
+      });
+
+      setTestCaseStatuses(newStatuses);
+      setAllCasesPassed(allPassed);
+      setIsCompiling(false);
+    }, 700);
   };
 
   const handleSubmit = () => {
@@ -838,254 +892,508 @@ const ChallengePlaygroundDialog = ({
 
     const newStatuses = testCasesList.map((tc) => {
       const res = simulateCodeExecution(code, tc.input || '', lang);
-      const actual = res.output.replace(/\r\n/g, '\n').trim();
-      const expected = (tc.expectedOutput || '').replace(/\r\n/g, '\n').trim();
+      const actual = res.output.trim().replace(/\r/g, "");
+      const expected = (tc.expectedOutput || '').trim().replace(/\r/g, "");
       
-      const pass = actual === expected;
+      const pass = actual === expected && !res.isError;
       if (!pass) allPassed = false;
       return {
         status: pass ? 'pass' : 'fail',
-        actual: res.output
+        actual: res.output,
+        isError: res.isError
       };
     });
     setTestCaseStatuses(newStatuses);
-    setActiveTab('testcases');
+    setAllCasesPassed(allPassed);
 
     if (allPassed) {
       onSolved();
       onClose();
+    } else {
+      setIsConsoleOpen(true);
+      setActiveConsoleTab('result');
     }
   };
 
   const hasUml = challenge.umlDiagram && challenge.umlDiagram.length > 0;
+  const lang = challenge.starterCode?.language || challenge.language || 'cpp';
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
       fullWidth
-      maxWidth="lg"
+      maxWidth="xl"
       PaperProps={{
         style: {
           borderRadius: '24px',
-          background: isDarkMode ? 'rgba(22, 22, 50, 0.96)' : 'rgba(252, 253, 255, 0.96)',
+          background: isDarkMode ? 'rgba(20, 20, 42, 0.98)' : 'rgba(252, 253, 255, 0.98)',
           backdropFilter: 'blur(20px)',
           border: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-          maxHeight: '90vh'
+          boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+          maxHeight: '95vh',
+          width: '95vw'
         }
       }}
     >
-      <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif' }}>
-          Code Challenge Playroom
-        </Typography>
+      <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <TrophyIcon style={{ color: 'var(--primary-main)' }} />
+          <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif' }}>
+            LeetCode Challenge Playground
+          </Typography>
+        </Box>
         <IconButton onClick={onClose} style={{ color: 'var(--text-secondary)' }}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent style={{ padding: '24px', overflowY: 'auto' }}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4} style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '72vh', overflowY: 'auto', paddingRight: '8px' }}>
-            <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <Typography variant="body1" style={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
-                Problem Statement
-              </Typography>
-              <Typography variant="body2" style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line', lineHeight: 1.6, fontSize: '0.88rem' }}>
-                {challenge.problem}
-              </Typography>
-            </Box>
-
-            {hasUml && (
-              <Box style={{ marginTop: '4px' }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', marginBottom: '8px', fontFamily: '"Outfit", sans-serif' }}>
-                  UML Class Diagram
-                </Typography>
-                <UmlDiagram data={challenge.umlDiagram[0] || challenge.umlDiagram} compact />
-              </Box>
-            )}
-
-            {(challenge.inputFormat || challenge.outputFormat || challenge.constraints) && (
-              <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
-                {challenge.inputFormat && (
-                  <Box>
-                    <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.8rem', textTransform: 'uppercase' }}>
-                      Input Format
-                    </Typography>
-                    <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                      {challenge.inputFormat}
-                    </Typography>
-                  </Box>
-                )}
-                {challenge.outputFormat && (
-                  <Box>
-                    <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.8rem', textTransform: 'uppercase' }}>
-                      Output Format
-                    </Typography>
-                    <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                      {challenge.outputFormat}
-                    </Typography>
-                  </Box>
-                )}
-                {challenge.constraints && (
-                  <Box>
-                    <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.8rem', textTransform: 'uppercase' }}>
-                      Constraints
-                    </Typography>
-                    <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontFamily: '"Roboto Mono", monospace', fontSize: '0.78rem' }}>
-                      {challenge.constraints}
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-            )}
-
-            {challenge.example && (
-              <Paper style={{ padding: '12px', background: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--divider)', marginTop: '4px' }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--success-main)', marginBottom: '6px', fontSize: '0.8rem', textTransform: 'uppercase' }}>
-                  Example Case
-                </Typography>
-                <Typography variant="body2" style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '4px', fontFamily: '"Roboto Mono", monospace', fontSize: '0.8rem' }}>
-                  <strong>Input:</strong> {challenge.example.input}
-                </Typography>
-                <Typography variant="body2" style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '4px', fontFamily: '"Roboto Mono", monospace', fontSize: '0.8rem' }}>
-                  <strong>Output:</strong> {challenge.example.output}
-                </Typography>
-                {challenge.example.explanation && (
-                  <Typography variant="caption" style={{ display: 'block', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: '4px', lineHeight: 1.4, fontSize: '0.78rem' }}>
-                    <strong>Explanation:</strong> {challenge.example.explanation}
-                  </Typography>
-                )}
-              </Paper>
-            )}
-
-            <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.08)', margin: '8px 0' }} />
-
-            <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <Typography variant="body1" style={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
-                Test Cases Results
-              </Typography>
-              {(challenge.testCases || []).map((tc, idx) => {
-                const statusInfo = testCaseStatuses[idx] || { status: 'idle', actual: '' };
-                const isPass = statusInfo.status === 'pass';
-                const isFail = statusInfo.status === 'fail';
-
-                return (
-                  <Paper key={idx} style={{ padding: '12px', borderRadius: '12px', border: `1px solid ${isPass ? '#4CAF50' : isFail ? '#ef5350' : 'rgba(255,255,255,0.06)'}`, background: 'rgba(0,0,0,0.15)' }}>
-                    <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
-                        Test Case #{idx + 1}
-                      </Typography>
-                      <Chip
-                        size="small"
-                        label={isPass ? 'PASS' : isFail ? 'FAIL' : 'UNRUN'}
-                        style={{
-                          background: isPass ? 'rgba(76, 175, 80, 0.15)' : isFail ? 'rgba(239, 83, 80, 0.15)' : 'rgba(255,255,255,0.05)',
-                          color: isPass ? '#66bb6a' : isFail ? '#ef5350' : 'var(--text-secondary)',
-                          fontWeight: 800,
-                          fontSize: '0.68rem'
-                        }}
-                      />
-                    </Box>
-                    <Typography variant="caption" style={{ display: 'block', color: 'var(--text-secondary)', fontFamily: '"Roboto Mono", monospace', marginBottom: '2px' }}>
-                      <strong>Input:</strong> {tc.input || '(empty stream)'}
-                    </Typography>
-                    <Typography variant="caption" style={{ display: 'block', color: 'var(--text-secondary)', fontFamily: '"Roboto Mono", monospace', marginBottom: '4px' }}>
-                      <strong>Expected:</strong> {tc.expectedOutput}
-                    </Typography>
-                    {statusInfo.actual && (
-                      <Typography variant="caption" style={{ display: 'block', color: isPass ? '#4CAF50' : '#ef5350', fontFamily: '"Roboto Mono", monospace', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '4px', marginTop: '4px' }}>
-                        <strong>Output:</strong> {statusInfo.actual}
-                      </Typography>
-                    )}
-                  </Paper>
-                );
-              })}
-            </Box>
-          </Grid>
-
-          <Grid item xs={12} md={8} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Challenge Code Editor
-              </Typography>
-            </Box>
-
-            <TextField
-              multiline
-              fullWidth
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              variant="outlined"
-              inputProps={{
-                style: {
-                  fontFamily: '"Roboto Mono", monospace',
-                  fontSize: '0.85rem',
-                  lineHeight: 1.6,
-                  color: isDarkMode ? '#E5E9F0' : '#2D2D4D',
-                  backgroundColor: isDarkMode ? '#0F1424' : '#F7F9FC',
-                  padding: '16px',
-                  borderRadius: '14px',
-                  border: '1px solid var(--code-border)',
-                  minHeight: '260px'
-                }
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': { padding: 0, '& fieldset': { border: 'none' } }
-              }}
-            />
-
-            <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)' }}>
-                CUSTOM PLAYGROUND INPUT STREAM
-              </Typography>
-              <TextField
-                size="small"
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="Type inputs separated by spaces..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                    fontFamily: '"Roboto Mono", monospace',
-                    fontSize: '0.82rem',
-                    backgroundColor: 'rgba(0,0,0,0.15)'
-                  }
+      <DialogContent style={{ padding: '20px 24px', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <Box id="challenge-split-container" style={{ display: 'flex', flexDirection: 'row', flexGrow: 1, height: '100%', minHeight: '50vh', alignItems: 'stretch', position: 'relative', overflow: 'hidden' }}>
+          
+          {/* Left Pane: Tabs (Description vs Testcases) */}
+          <Box style={{ width: `${splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%', overflowY: 'hidden', paddingRight: '8px' }}>
+            {/* Tabs Header */}
+            <Box style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', alignSelf: 'flex-start' }}>
+              <button
+                onClick={() => setActiveTab('problem')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: activeTab === 'problem' ? 'var(--primary-main)' : 'transparent',
+                  color: activeTab === 'problem' ? '#fff' : 'var(--text-secondary)',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 0.25s ease'
                 }}
-              />
-              <Box style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                <Button variant="outlined" size="small" onClick={runCustom} style={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}>
-                  Run Custom Input
-                </Button>
-                <Button variant="outlined" size="small" onClick={runTestCases} style={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}>
-                  Execute Test Cases
-                </Button>
-              </Box>
-              {customOutput && (
-                <Paper style={{ padding: '12px', background: '#05070f', color: '#3DDC97', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', fontFamily: '"Roboto Mono", monospace', fontSize: '0.82rem', minHeight: '60px', whiteSpace: 'pre-wrap' }}>
-                  {customOutput}
-                </Paper>
+              >
+                Problem Description
+              </button>
+              <button
+                onClick={() => setActiveTab('testcases')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: activeTab === 'testcases' ? 'var(--primary-main)' : 'transparent',
+                  color: activeTab === 'testcases' ? '#fff' : 'var(--text-secondary)',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 0.25s ease'
+                }}
+              >
+                Test Cases
+              </button>
+            </Box>
+
+            {/* Tab Body */}
+            <Box style={{ flexGrow: 1, overflowY: 'auto', paddingRight: '4px' }}>
+              {activeTab === 'problem' ? (
+                <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <Box>
+                    <Box style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                      <Typography variant="h5" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
+                        Coding Challenge
+                      </Typography>
+                      <Chip label="Medium" size="small" style={{ background: 'rgba(255, 184, 0, 0.15)', color: '#FFB800', fontWeight: 800, fontSize: '0.7rem' }} />
+                    </Box>
+                    <Typography variant="body2" style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line', lineHeight: 1.6, fontSize: '0.88rem' }}>
+                      {challenge.problem}
+                    </Typography>
+                  </Box>
+
+                  {hasUml && (
+                    <Box style={{ marginTop: '4px' }}>
+                      <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', marginBottom: '8px', fontFamily: '"Outfit", sans-serif' }}>
+                        UML Class Diagram
+                      </Typography>
+                      <UmlDiagram data={challenge.umlDiagram[0] || challenge.umlDiagram} compact />
+                    </Box>
+                  )}
+
+                  {(challenge.inputFormat || challenge.outputFormat || challenge.constraints) && (
+                    <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
+                      {challenge.inputFormat && (
+                        <Box>
+                          <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                            Input Format
+                          </Typography>
+                          <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                            {challenge.inputFormat}
+                          </Typography>
+                        </Box>
+                      )}
+                      {challenge.outputFormat && (
+                        <Box>
+                          <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                            Output Format
+                          </Typography>
+                          <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                            {challenge.outputFormat}
+                          </Typography>
+                        </Box>
+                      )}
+                      {challenge.constraints && (
+                        <Box>
+                          <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                            Constraints
+                          </Typography>
+                          <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontFamily: '"Roboto Mono", monospace', fontSize: '0.78rem' }}>
+                            {challenge.constraints}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+
+                  {challenge.example && (
+                    <Paper style={{ padding: '14px', background: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--divider)', marginTop: '4px' }}>
+                      <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--success-main)', marginBottom: '8px', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                        Example Case
+                      </Typography>
+                      <Typography variant="body2" style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '6px', fontFamily: '"Roboto Mono", monospace', fontSize: '0.8rem' }}>
+                        <strong>Input:</strong> {challenge.example.input}
+                      </Typography>
+                      <Typography variant="body2" style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '6px', fontFamily: '"Roboto Mono", monospace', fontSize: '0.8rem' }}>
+                        <strong>Output:</strong> {challenge.example.output}
+                      </Typography>
+                      {challenge.example.explanation && (
+                        <Typography variant="caption" style={{ display: 'block', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: '6px', lineHeight: 1.4, fontSize: '0.78rem' }}>
+                          <strong>Explanation:</strong> {challenge.example.explanation}
+                        </Typography>
+                      )}
+                    </Paper>
+                  )}
+                </Box>
+              ) : (
+                <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+                    Test Cases Results
+                  </Typography>
+                  {(challenge.testCases || []).map((tc, idx) => {
+                    const statusInfo = testCaseStatuses[idx] || { status: 'idle', actual: '' };
+                    const isPass = statusInfo.status === 'pass';
+                    const isFail = statusInfo.status === 'fail';
+
+                    return (
+                      <Paper key={idx} style={{ padding: '12px', borderRadius: '12px', border: `1px solid ${isPass ? '#4CAF50' : isFail ? '#ef5350' : 'rgba(255,255,255,0.06)'}`, background: 'rgba(0,0,0,0.15)' }}>
+                        <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+                            Test Case #{idx + 1}
+                          </Typography>
+                          <Chip
+                            size="small"
+                            label={isPass ? 'PASS' : isFail ? 'FAIL' : 'UNRUN'}
+                            style={{
+                              background: isPass ? 'rgba(76, 175, 80, 0.15)' : isFail ? 'rgba(239, 83, 80, 0.15)' : 'rgba(255,255,255,0.05)',
+                              color: isPass ? '#66bb6a' : isFail ? '#ef5350' : 'var(--text-secondary)',
+                              fontWeight: 800,
+                              fontSize: '0.68rem'
+                            }}
+                          />
+                        </Box>
+                        <Typography variant="caption" style={{ display: 'block', color: 'var(--text-secondary)', fontFamily: '"Roboto Mono", monospace', marginBottom: '2px' }}>
+                          <strong>Input:</strong> {tc.input || '(empty stream)'}
+                        </Typography>
+                        <Typography variant="caption" style={{ display: 'block', color: 'var(--text-secondary)', fontFamily: '"Roboto Mono", monospace', marginBottom: '4px' }}>
+                          <strong>Expected:</strong> {tc.expectedOutput}
+                        </Typography>
+                        {statusInfo.actual && (
+                          <Typography variant="caption" style={{ display: 'block', color: isPass ? '#4CAF50' : '#ef5350', fontFamily: '"Roboto Mono", monospace', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '4px', marginTop: '4px' }}>
+                            <strong>Output:</strong> {statusInfo.actual}
+                          </Typography>
+                        )}
+                      </Paper>
+                    );
+                  })}
+                </Box>
               )}
             </Box>
-          </Grid>
-        </Grid>
+          </Box>
+
+          {/* Resizable Divider */}
+          <Box
+            onMouseDown={(e) => {
+              e.preventDefault();
+              isDraggingSplitRef.current = true;
+              document.body.style.cursor = 'col-resize';
+              document.body.style.userSelect = 'none';
+            }}
+            style={{
+              width: '8px',
+              cursor: 'col-resize',
+              backgroundColor: 'transparent',
+              position: 'relative',
+              zIndex: 10,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginLeft: '-4px',
+              marginRight: '-4px',
+            }}
+            sx={{
+              '&:hover, &:active': {
+                backgroundColor: 'var(--primary-main)',
+              },
+              '&::after': {
+                content: '""',
+                width: '2px',
+                height: '40px',
+                backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                borderRadius: '1px',
+              }
+            }}
+          />
+
+          {/* Right Pane: Editor + Console drawer */}
+          <Box style={{ width: `${100 - splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%' }}>
+            {/* Monaco Editor Wrapper */}
+            <Box style={{
+              borderRadius: '16px',
+              overflow: 'hidden',
+              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+              backgroundColor: isDarkMode ? '#1e1e1e' : '#fffffe',
+              boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
+              position: 'relative',
+              height: isConsoleOpen ? '32vh' : '56vh',
+              transition: 'height 0.2s ease-in-out'
+            }}>
+              <Editor
+                height="100%"
+                language={lang === 'cpp' ? 'cpp' : 'java'}
+                value={code}
+                onChange={(val) => setCode(val || '')}
+                theme={isDarkMode ? 'vs-dark' : 'light'}
+                options={{
+                  fontSize: 13,
+                  minimap: { enabled: false },
+                  automaticLayout: true,
+                  scrollBeyondLastLine: false,
+                  padding: { top: 12, bottom: 12 },
+                  lineNumbersMinChars: 3
+                }}
+              />
+            </Box>
+
+            {/* LeetCode-style Collapsible Console Drawer */}
+            <Box style={{
+              border: '1.5px solid rgba(255,255,255,0.06)',
+              borderRadius: '16px',
+              background: isDarkMode ? '#141418' : '#fafafa',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              height: isConsoleOpen ? '260px' : '40px',
+              transition: 'height 0.2s ease-in-out'
+            }}>
+              {/* Header bar */}
+              <Box
+                style={{
+                  padding: '6px 16px',
+                  background: isDarkMode ? '#1e1e24' : '#eaeaea',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  borderBottom: isConsoleOpen ? '1px solid rgba(255,255,255,0.05)' : 'none'
+                }}
+                onClick={() => setIsConsoleOpen(prev => !prev)}
+              >
+                <Box style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <Box style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <TerminalIcon style={{ fontSize: '0.9rem', color: 'var(--primary-main)' }} />
+                    <Typography variant="caption" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Console
+                    </Typography>
+                  </Box>
+                  
+                  {isConsoleOpen && (
+                    <Box style={{ display: 'flex', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => setActiveConsoleTab('testcase')}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          borderBottom: activeConsoleTab === 'testcase' ? '2px solid var(--primary-main)' : '2px solid transparent',
+                          color: activeConsoleTab === 'testcase' ? (isDarkMode ? '#fff' : '#000') : 'rgba(128,128,128,0.7)',
+                          padding: '2px 8px',
+                          cursor: 'pointer',
+                          fontSize: '0.75rem',
+                          fontWeight: 800
+                        }}
+                      >
+                        Testcases
+                      </button>
+                      <button
+                        onClick={() => setActiveConsoleTab('result')}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          borderBottom: activeConsoleTab === 'result' ? '2px solid var(--primary-main)' : '2px solid transparent',
+                          color: activeConsoleTab === 'result' ? (isDarkMode ? '#fff' : '#000') : 'rgba(128,128,128,0.7)',
+                          padding: '2px 8px',
+                          cursor: 'pointer',
+                          fontSize: '0.75rem',
+                          fontWeight: 800
+                        }}
+                      >
+                        Result
+                      </button>
+                    </Box>
+                  )}
+                </Box>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                  {isConsoleOpen ? '▼ Minimize' : '▲ Expand'}
+                </Typography>
+              </Box>
+
+              {/* Drawer Content */}
+              {isConsoleOpen && (
+                <Box style={{ padding: '16px', flexGrow: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                  {activeConsoleTab === 'testcase' ? (
+                    <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <Box style={{ display: 'flex', gap: '8px' }}>
+                        {(challenge.testCases || []).map((_, idx) => (
+                          <Chip
+                            key={idx}
+                            label={`Case ${idx + 1}`}
+                            size="small"
+                            onClick={() => setSelectedTestCaseIdx(idx)}
+                            style={{
+                              background: selectedTestCaseIdx === idx ? (isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)') : (isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'),
+                              color: isDarkMode ? '#fff' : '#000',
+                              fontWeight: selectedTestCaseIdx === idx ? 800 : 400
+                            }}
+                          />
+                        ))}
+                      </Box>
+                      {challenge.testCases && challenge.testCases[selectedTestCaseIdx] && (
+                        <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                          <Box>
+                            <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block' }}>INPUT</Typography>
+                            <pre style={{ margin: '4px 0 0', padding: '8px', background: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.8rem', color: isDarkMode ? '#fff' : '#000' }}>
+                              {challenge.testCases[selectedTestCaseIdx].input || '(empty input)'}
+                            </pre>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block' }}>EXPECTED OUTPUT</Typography>
+                            <pre style={{ margin: '4px 0 0', padding: '8px', background: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.8rem', color: isDarkMode ? '#fff' : '#000' }}>
+                              {challenge.testCases[selectedTestCaseIdx].expectedOutput}
+                            </pre>
+                          </Box>
+                        </Box>
+                      )}
+                    </Box>
+                  ) : (
+                    // Result Tab
+                    <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
+                      {isCompiling ? (
+                        <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                          Compiling & running test cases...
+                        </Typography>
+                      ) : testCaseStatuses.length > 0 ? (
+                        <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Typography variant="subtitle2" style={{ fontWeight: 800, color: allCasesPassed ? '#4CAF50' : '#ef5350' }}>
+                              {allCasesPassed ? 'Accepted ✅' : 'Wrong Answer ❌'}
+                            </Typography>
+                            <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                              ({testCaseStatuses.filter(s => s.status === 'pass').length}/{testCaseStatuses.length} cases passed)
+                            </Typography>
+                          </Box>
+
+                          <Box style={{ display: 'flex', gap: '8px' }}>
+                            {testCaseStatuses.map((st, idx) => (
+                              <Chip
+                                key={idx}
+                                label={`Case ${idx + 1}`}
+                                size="small"
+                                onClick={() => setSelectedTestCaseIdx(idx)}
+                                style={{
+                                  background: selectedTestCaseIdx === idx ? (isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)') : (isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'),
+                                  color: st.status === 'pass' ? '#66bb6a' : '#ef5350',
+                                  fontWeight: selectedTestCaseIdx === idx ? 800 : 400,
+                                  border: `1.5px solid ${st.status === 'pass' ? 'rgba(102,187,106,0.3)' : 'rgba(239,83,80,0.3)'}`
+                                }}
+                              />
+                            ))}
+                          </Box>
+
+                          {challenge.testCases && challenge.testCases[selectedTestCaseIdx] && (
+                            <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                                <strong>Input:</strong> {challenge.testCases[selectedTestCaseIdx].input || '(empty)'}
+                              </Typography>
+                              <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                                <strong>Expected:</strong> {challenge.testCases[selectedTestCaseIdx].expectedOutput}
+                              </Typography>
+                              {testCaseStatuses[selectedTestCaseIdx] && (
+                                <Typography variant="caption" style={{
+                                  color: testCaseStatuses[selectedTestCaseIdx].status === 'pass' ? '#66bb6a' : '#ef5350',
+                                  fontFamily: 'monospace',
+                                  background: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.03)',
+                                  padding: '6px',
+                                  borderRadius: '4px',
+                                  marginTop: '4px',
+                                  whiteSpace: 'pre-wrap',
+                                  display: 'block'
+                                }}>
+                                  <strong>Actual Output:</strong> {testCaseStatuses[selectedTestCaseIdx].actual}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+                        </Box>
+                      ) : (
+                        <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                          Please run your code to see the test case results.
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                </Box>
+              )}
+            </Box>
+          </Box>
+
+        </Box>
       </DialogContent>
 
-      <DialogActions style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between' }}>
-        <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
-          Run tests first to verify logic before final submission.
-        </Typography>
+      <DialogActions style={{ padding: '12px 24px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box style={{ display: 'flex', gap: '8px' }}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => setIsConsoleOpen(prev => !prev)}
+            startIcon={<TerminalIcon />}
+            style={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800 }}
+          >
+            Console
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={runTestCases}
+            style={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800 }}
+          >
+            Test Code
+          </Button>
+        </Box>
+
         <Button
           variant="contained"
           onClick={handleSubmit}
           style={{
             background: 'var(--hero-gradient)',
             color: '#fff',
-            borderRadius: '12px',
+            borderRadius: '10px',
             textTransform: 'none',
             fontWeight: 800,
-            padding: '10px 24px',
+            padding: '6px 20px',
             boxShadow: '0 4px 12px rgba(var(--primary-main-rgb), 0.2)'
           }}
         >
