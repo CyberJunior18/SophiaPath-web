@@ -470,6 +470,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const [isRunning, setIsRunning] = useState(false);
 
   const [isEditorReady, setIsEditorReady] = useState(false);
+  const [splitPercent, setSplitPercent] = useState(55);
+  const isDraggingSplitRef = useRef(false);
 
   // 2D Interactive Canvas States
   const [classPositions, setClassPositions] = useState({});
@@ -493,6 +495,42 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       setNewFieldName(defaultName);
     }
   }, [newConnectionData.target]);
+
+  // Window listeners for dragging the divider in the resizable split view
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDraggingSplitRef.current) return;
+      const container = document.getElementById('split-container');
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const offset = e.clientX - rect.left;
+        const newPercent = Math.max(25, Math.min(75, (offset / rect.width) * 100));
+        setSplitPercent(newPercent);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingSplitRef.current) {
+        isDraggingSplitRef.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  // Clear editor references on tab change to prevent calling methods on unmounted/disposed editor instances
+  useEffect(() => {
+    umlEditorRef.current = null;
+    execEditorRef.current = null;
+    runnerEditorRef.current = null;
+  }, [activeTab]);
 
   // Position assigner/cleaner
   useEffect(() => {
@@ -792,30 +830,48 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const internalUpdateRef = useRef(false);
+  const isTypingRef = useRef(false);
+  const typingTimeoutRef = useRef(null);
   const umlEditorRef = useRef(null);
   const execEditorRef = useRef(null);
   const runnerEditorRef = useRef(null);
 
   // Sync editor values when tab changes or state updates to avoid stale values
   useEffect(() => {
+    if (isTypingRef.current) return;
+    
+    const clean = (str) => (str || "").replace(/\r\n/g, "\n").trim();
+    
     if (activeTab === 'uml') {
       if (umlEditorRef.current) {
-        const currentVal = umlEditorRef.current.getValue();
-        if (currentVal !== code) {
-          umlEditorRef.current.setValue(code);
+        try {
+          const currentVal = umlEditorRef.current.getValue();
+          if (clean(currentVal) !== clean(code)) {
+            umlEditorRef.current.setValue(code);
+          }
+        } catch (e) {
+          console.warn("Failed to sync UML editor (likely disposed):", e);
         }
       }
     } else if (activeTab === 'runner') {
       if (execEditorRef.current) {
-        const currentVal = execEditorRef.current.getValue();
-        if (currentVal !== code) {
-          execEditorRef.current.setValue(code);
+        try {
+          const currentVal = execEditorRef.current.getValue();
+          if (clean(currentVal) !== clean(code)) {
+            execEditorRef.current.setValue(code);
+          }
+        } catch (e) {
+          console.warn("Failed to sync Exec editor (likely disposed):", e);
         }
       }
       if (runnerEditorRef.current) {
-        const currentVal = runnerEditorRef.current.getValue();
-        if (currentVal !== mainCode) {
-          runnerEditorRef.current.setValue(mainCode);
+        try {
+          const currentVal = runnerEditorRef.current.getValue();
+          if (clean(currentVal) !== clean(mainCode)) {
+            runnerEditorRef.current.setValue(mainCode);
+          }
+        } catch (e) {
+          console.warn("Failed to sync Runner editor (likely disposed):", e);
         }
       }
     }
@@ -846,6 +902,12 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
   // Sync Code -> UML
   const handleCodeChange = (newCode) => {
+    isTypingRef.current = true;
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+    }, 1000);
+
     setCode(newCode);
     if (internalUpdateRef.current) return;
     try {
@@ -1088,7 +1150,12 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         {/* Dialog Switcher Tabs */}
         <Box style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
           <button
-            onClick={() => setActiveTab('uml')}
+            onClick={() => {
+              setActiveTab('uml');
+              umlEditorRef.current = null;
+              execEditorRef.current = null;
+              runnerEditorRef.current = null;
+            }}
             style={{
               padding: '6px 14px',
               borderRadius: '8px',
@@ -1104,7 +1171,12 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             2D Visual Class Map
           </button>
           <button
-            onClick={() => setActiveTab('runner')}
+            onClick={() => {
+              setActiveTab('runner');
+              umlEditorRef.current = null;
+              execEditorRef.current = null;
+              runnerEditorRef.current = null;
+            }}
             style={{
               padding: '6px 14px',
               borderRadius: '8px',
@@ -1127,28 +1199,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       </DialogTitle>
 
       <DialogContent style={{ padding: '24px', overflowY: 'auto' }}>
-        {/* Preloaded Example selector */}
-        <Box style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-            <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', marginRight: '6px' }}>
-              Choose OOP Scenario:
-            </Typography>
-            {EXAMPLES.map((ex, idx) => (
-              <Chip
-                key={idx}
-                label={ex.name}
-                onClick={() => loadExample(idx)}
-                style={{
-                  background: activeExampleIndex === idx ? 'var(--primary-main)' : 'rgba(255,255,255,0.04)',
-                  color: activeExampleIndex === idx ? '#fff' : 'var(--text-primary)',
-                  fontWeight: 800,
-                  cursor: 'pointer'
-                }}
-              />
-            ))}
-          </Box>
-
-          {activeTab === 'uml' && (
+        {activeTab === 'uml' && (
+          <Box style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
             <Button
               variant="outlined"
               size="small"
@@ -1164,12 +1216,12 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             >
               Create New Class
             </Button>
-          )}
-        </Box>
+          </Box>
+        )}
 
-        <Grid container spacing={3}>
+        <Box id="split-container" style={{ display: 'flex', flexDirection: 'row', height: '580px', width: '100%', alignItems: 'stretch', position: 'relative' }}>
           {/* Left Pane: Code Editor */}
-          <Grid item xs={12} md={3} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <Box style={{ width: `${splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%' }}>
             {activeTab === 'runner' ? (
               <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {/* Top: Class Definitions */}
@@ -1182,7 +1234,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     overflow: 'hidden',
                     border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
                     height: '220px',
-                    width: '700px'
+                    width: '100%'
                   }}>
                     <Editor
                       key="runner-classes-editor"
@@ -1222,7 +1274,14 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       language="java"
                       defaultValue={mainCode}
                       onMount={(editor) => { runnerEditorRef.current = editor; }}
-                      onChange={(val) => setMainCode(val || '')}
+                      onChange={(val) => {
+                        isTypingRef.current = true;
+                        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                        typingTimeoutRef.current = setTimeout(() => {
+                          isTypingRef.current = false;
+                        }, 1000);
+                        setMainCode(val || '');
+                      }}
                       theme={isDarkMode ? 'vs-dark' : 'light'}
                       options={{
                         fontSize: 13,
@@ -1238,7 +1297,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
               </Box>
             ) : (
               // Tab 1: Full height editor
-              <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', height: '100%' }}>
                 <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   Class Source Code (Java)
                 </Typography>
@@ -1250,7 +1309,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
                   display: 'flex',
                   flexDirection: 'column',
-                  height: '540px',
+                  height: '100%',
                   width: '100%'
                 }}>
                   {/* Editor mockup header bar */}
@@ -1304,11 +1363,46 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 </Box>
               </Box>
             )}
-          </Grid>
+          </Box>
+
+          {/* Draggable Divider */}
+          <Box
+            onMouseDown={(e) => {
+              e.preventDefault();
+              isDraggingSplitRef.current = true;
+              document.body.style.cursor = 'col-resize';
+              document.body.style.userSelect = 'none';
+            }}
+            style={{
+              width: '8px',
+              cursor: 'col-resize',
+              backgroundColor: 'transparent',
+              position: 'relative',
+              zIndex: 10,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'background-color 0.2s',
+              marginLeft: '-4px',
+              marginRight: '-4px',
+            }}
+            sx={{
+              '&:hover, &:active': {
+                backgroundColor: 'var(--primary-main)',
+              },
+              '&::after': {
+                content: '""',
+                width: '2px',
+                height: '40px',
+                backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                borderRadius: '1px',
+              }
+            }}
+          />
 
           {/* Right Pane: Swappable Tab Views (UML Class Lab vs. Code Runner) */}
           {activeTab === 'uml' ? (
-            <Grid item xs={12} md={3} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <Box style={{ width: `${100 - splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%' }}>
               <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   Interactive 2D UML Map
@@ -1325,7 +1419,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   background: isDarkMode ? '#0b0f19' : '#f3f4f6',
                   border: isDarkMode ? '1.5px solid rgba(255,255,255,0.06)' : '1.5px solid rgba(0,0,0,0.08)',
                   borderRadius: '16px',
-                  height: '540px',
+                  height: '100%',
                   width: '100%',
                   position: 'relative',
                   overflow: 'auto',
@@ -1842,9 +1936,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   })}
                 </Box>
               </Paper>
-            </Grid>
+            </Box>
           ) : (
-            <Grid item xs={12} md={3} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <Box style={{ width: `${100 - splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%' }}>
               <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Interactive Java Console
               </Typography>
@@ -1856,7 +1950,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   border: '1.5px solid rgba(255,255,255,0.06)',
                   borderRadius: '16px',
                   padding: '20px',
-                  height: '540px',
+                  height: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '16px',
@@ -1931,9 +2025,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   </Paper>
                 </Box>
               </Paper>
-            </Grid>
+            </Box>
           )}
-        </Grid>
+        </Box>
       </DialogContent>
 
       <DialogActions style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between' }}>
