@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
+import html2canvas from 'html2canvas';
 import { simulateCodeExecution, executeCodeAsync } from './CppPlaygroundDialog';
 import {
   Dialog,
@@ -1309,6 +1310,36 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     }
   };
 
+  const handleDownloadPreviewPng = async () => {
+    try {
+      const element = document.getElementById('uml-preview-capture-content');
+      if (!element) return;
+      
+      const oldScale = previewZoomScale;
+      setPreviewZoomScale(1.0);
+      
+      // Wait for React to apply the scale reset
+      await new Promise(r => setTimeout(r, 120));
+
+      const canvas = await html2canvas(element, {
+        backgroundColor: isDarkMode ? '#0b0f19' : '#f8fafc',
+        scale: 2,
+        logging: false,
+        useCORS: true
+      });
+      
+      setPreviewZoomScale(oldScale);
+
+      const link = document.createElement('a');
+      link.download = 'uml_diagram.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.error('Error exporting UML to PNG:', err);
+      alert('Failed to generate PNG of UML diagram: ' + err.message);
+    }
+  };
+
   return (
     <>
       <Dialog
@@ -2164,7 +2195,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   style={{
                     position: 'absolute',
                     bottom: '16px',
-                    right: '16px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
@@ -2428,9 +2460,14 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             UML Diagram Fullscreen Preview
           </Typography>
         </Box>
-        <Button variant="outlined" onClick={() => setIsPreviewOpen(false)} style={{ borderRadius: '12px', fontWeight: 800 }}>
-          Close Preview
-        </Button>
+        <Box style={{ display: 'flex', gap: '12px' }}>
+          <Button variant="outlined" onClick={handleDownloadPreviewPng} style={{ borderRadius: '12px', fontWeight: 800 }}>
+            Download PNG
+          </Button>
+          <Button variant="outlined" onClick={() => setIsPreviewOpen(false)} style={{ borderRadius: '12px', fontWeight: 800 }}>
+            Close Preview
+          </Button>
+        </Box>
       </DialogTitle>
       
       <DialogContent style={{ padding: 0, overflow: 'hidden', position: 'relative', height: '100%', width: '100%' }}>
@@ -2458,6 +2495,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             }}
           >
             <Box
+              id="uml-preview-capture-content"
               style={{
                 width: '1500px',
                 height: '1200px',
@@ -2693,7 +2731,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           style={{
             position: 'absolute',
             bottom: '16px',
-            right: '16px',
+            left: '50%',
+            transform: 'translateX(-50%)',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
