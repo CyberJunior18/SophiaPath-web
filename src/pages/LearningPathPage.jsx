@@ -45,7 +45,7 @@ const getNodeIcon = (node) => {
   if (node.status === 'upcoming') {
     return <LockIcon sx={{ fontSize: 24 }} />;
   }
-  
+
   const cat = node.category?.toLowerCase() || 'learning';
   if (cat === 'exercise' || cat === 'quiz' || cat === 'mcq') {
     return <ExerciseIcon sx={{ fontSize: 28 }} />;
@@ -63,10 +63,10 @@ const LearningPathPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, updateQuizScore } = useAuth();
-  
+
   const [isCompilerOpen, setIsCompilerOpen] = useState(false);
   const [isJavaUmlPlaygroundOpen, setIsJavaUmlPlaygroundOpen] = useState(false);
-  
+
   const [course, setCourse] = useState(location.state?.course || null);
   const [courseLoading, setCourseLoading] = useState(!course);
   const [backendLessons, setBackendLessons] = useState({});
@@ -109,8 +109,8 @@ const LearningPathPage = () => {
             }))
           }));
 
-          
-          const matched = mappedList.find(c => 
+
+          const matched = mappedList.find(c =>
             String(c.id) === String(courseId) ||
             c.title.toLowerCase().replace(/\s+/g, '-') === String(courseId).toLowerCase()
           );
@@ -123,8 +123,8 @@ const LearningPathPage = () => {
       } catch (err) {
         console.error('Failed to load course path from database:', err);
       }
-      
-      const fallback = coursesData.find(c => 
+
+      const fallback = coursesData.find(c =>
         String(c.id) === String(courseId) ||
         c.title.toLowerCase().replace(/\s+/g, '-') === String(courseId).toLowerCase()
       );
@@ -151,7 +151,7 @@ const LearningPathPage = () => {
 
     return course.sections.map((section, sIndex) => {
       const currentLessons = backendLessons[section.id] || section.lessons || [];
-      
+
       // Title-based deduplication for section lessons progress calculation
       const uniqueLessons = [];
       const seenTitles = new Set();
@@ -174,7 +174,7 @@ const LearningPathPage = () => {
       if (sIndex > 0) {
         const prevSection = course.sections[sIndex - 1];
         const prevLessons = backendLessons[prevSection.id] || prevSection.lessons || [];
-        
+
         const uniquePrevLessons = [];
         const seenPrevTitles = new Set();
         prevLessons.forEach(pl => {
@@ -329,7 +329,7 @@ const LearningPathPage = () => {
     return lessons.map((lesson, index) => {
       // Find all database duplicates of this unique lesson title
       const duplicates = rawList.filter(dl => (dl.title || '').trim().toLowerCase() === (lesson.title || '').trim().toLowerCase());
-      
+
       // Consolidate the highest score among duplicates
       let score = 0;
       duplicates.forEach(dl => {
@@ -353,11 +353,21 @@ const LearningPathPage = () => {
       // Group and calculate dynamic height gap for new chapters
       const rawChapter = lesson.chapterName || 'General';
       const chapterName = rawChapter.trim().length > 0 ? rawChapter.trim() : 'General';
-      
-      let isNewChapter = false;
-      currentY += index === 0 ? 80 : 150;
 
-      const x = index % 2 === 0 ? 75 : 225; // Keep horizontal zigzag within 300px visual container
+      let isNewChapter = false;
+      if (index === 0) {
+        isNewChapter = true;
+      } else {
+        const prevRawChapter = lessons[index - 1].chapterName || 'General';
+        const prevChapterName = prevRawChapter.trim().length > 0 ? prevRawChapter.trim() : 'General';
+        if (chapterName !== prevChapterName) {
+          isNewChapter = true;
+        }
+      }
+
+      currentY += index === 0 ? 160 : (isNewChapter ? 360 : 150);
+
+      const x = index % 2 === 0 ? 45 : 255; // Larger horizontal zigzag within 300px visual container
       const y = currentY;
       const category = lesson.category || 'learning';
 
@@ -399,7 +409,7 @@ const LearningPathPage = () => {
       const rect = activeNodeEl.getBoundingClientRect();
       // Element is visible if it is fully or partially within the vertical viewport bounds
       const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
-      
+
       setShowScrollArrow(!isVisible);
 
       if (rect.top < 0) {
@@ -435,11 +445,15 @@ const LearningPathPage = () => {
     if (nodes.length < 2) return "";
     let d = `M ${nodes[0].pos.x} ${nodes[0].pos.y}`;
     for (let i = 1; i < nodes.length; i++) {
-      const prev = nodes[i - 1].pos;
       const curr = nodes[i].pos;
-      const cp1y = prev.y + (curr.y - prev.y) * 0.5;
-      const cp2y = prev.y + (curr.y - prev.y) * 0.5;
-      d += ` C ${prev.x} ${cp1y}, ${curr.x} ${cp2y}, ${curr.x} ${curr.y}`;
+      if (nodes[i].isNewChapter) {
+        d += ` M ${curr.x} ${curr.y}`;
+      } else {
+        const prev = nodes[i - 1].pos;
+        const cp1y = prev.y + (curr.y - prev.y) * 0.5;
+        const cp2y = prev.y + (curr.y - prev.y) * 0.5;
+        d += ` C ${prev.x} ${cp1y}, ${curr.x} ${cp2y}, ${curr.x} ${curr.y}`;
+      }
     }
     return d;
   };
@@ -448,7 +462,7 @@ const LearningPathPage = () => {
   const handleNodeClick = (event, node) => {
     if (node.status === 'upcoming') return;
     setSelectedNode(node);
-    
+
     // Check viewport width for adaptive UX
     const isMobile = window.innerWidth < 768;
     if (isMobile) {
@@ -476,7 +490,7 @@ const LearningPathPage = () => {
     const accentColor = isCompleted ? '#58CC02' : 'var(--primary-main)';
     const buttonLabel = isCompleted ? 'RETAKE THE LESSON' : 'START THE LESSON';
     const categoryLabel = isCompleted ? 'COMPLETED LESSON' : (selectedNode.category === 'exercise' ? 'PRACTICE QUIZ' : 'ROADMAP LESSON');
-    
+
     // Premium dynamic description based on category/title
     const description = selectedNode.category === 'exercise'
       ? `Test your knowledge with a quiz on "${selectedNode.title}". Answer the questions to prove your mastery and earn points!`
@@ -700,7 +714,7 @@ const LearningPathPage = () => {
                 View Cheatsheet
               </Button>
             )}
-            
+
           </Box>
         </Box>
 
@@ -759,8 +773,49 @@ const LearningPathPage = () => {
               />
             </svg>
 
-            {nodes.map((node) => (
+            {nodes.map((node, index) => (
               <React.Fragment key={node.id}>
+                {node.isNewChapter && (
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      left: '150px',
+                      top: `${node.pos.y - (index === 0 ? 126 : 220)}px`,
+                      transform: 'translateX(-50%)',
+                      zIndex: 5,
+                      width: '1200px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      pointerEvents: 'none',
+                      gap: '24px'
+                    }}
+                  >
+                    {index > 0 && (
+                      <Box style={{ width: '100%', height: '0', borderTop: '3px dotted var(--text-secondary)', opacity: 0.4 }} />
+                    )}
+                    <Typography
+                      variant="h5"
+                      style={{
+                        fontWeight: 900,
+                        color: 'var(--text-primary)',
+                        background: 'var(--surface-glass)',
+                        padding: '12px 32px',
+                        borderRadius: '30px',
+                        border: '1px solid var(--divider)',
+                        backdropFilter: 'blur(12px)',
+                        fontFamily: '"Outfit", sans-serif',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                        textAlign: 'center',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1.5px',
+                        fontSize: '1.35rem'
+                      }}
+                    >
+                      {node.chapterName}
+                    </Typography>
+                  </Box>
+                )}
 
 
                 <Box
@@ -773,71 +828,71 @@ const LearningPathPage = () => {
                   }}
                   onClick={(e) => handleNodeClick(e, node)}
                 >
-                <Box className="path-node-wrapper">
-                  {node.status === 'active' && (
-                    <Box className="path-node-pulse" />
-                  )}
+                  <Box className="path-node-wrapper">
+                    {node.status === 'active' && (
+                      <Box className="path-node-pulse" />
+                    )}
 
-                  <Box className={`path-node path-node-${node.status}`}>
-                    {getNodeIcon(node)}
-                  </Box>
-
-                  {/* Top-right completed check badge matching mobile app */}
-                  {node.status === 'completed' && (
-                    <Box
-                      style={{
-                        position: 'absolute',
-                        top: '-4px',
-                        right: '-4px',
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        backgroundColor: '#fff',
-                        border: '2.5px solid #29c57b',
-                        display: 'grid',
-                        placeItems: 'center',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                        zIndex: 10
-                      }}
-                    >
-                      <CheckIcon style={{ color: '#29c57b', fontSize: '12px', fontWeight: 'bold' }} />
+                    <Box className={`path-node path-node-${node.status}`}>
+                      {getNodeIcon(node)}
                     </Box>
-                  )}
 
-                  {/* Bottom percentage badge matching mobile app */}
-                  {node.status === 'completed' && node.score > 0 && (
-                    <Box
-                      style={{
-                        position: 'absolute',
-                        bottom: '-8px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        padding: '2px 8px',
-                        borderRadius: '10px',
-                        backgroundColor: node.score < 50 ? '#ff4d4d' : node.score < 80 ? '#ff9900' : '#29c57b',
-                        border: '1.5px solid #fff',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                        zIndex: 10
-                      }}
-                    >
-                      <Typography
+                    {/* Top-right completed check badge matching mobile app */}
+                    {node.status === 'completed' && (
+                      <Box
                         style={{
-                          color: '#fff',
-                          fontWeight: 900,
-                          fontSize: '0.68rem',
-                          lineHeight: 1,
-                          fontFamily: '"Nunito", sans-serif'
+                          position: 'absolute',
+                          top: '-4px',
+                          right: '-4px',
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '50%',
+                          backgroundColor: '#fff',
+                          border: '2.5px solid #29c57b',
+                          display: 'grid',
+                          placeItems: 'center',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                          zIndex: 10
                         }}
                       >
-                        {node.score}%
-                      </Typography>
-                    </Box>
-                  )}
+                        <CheckIcon style={{ color: '#29c57b', fontSize: '12px', fontWeight: 'bold' }} />
+                      </Box>
+                    )}
 
-                  <Typography className={`path-node-caption-title status-${node.status}`}>
-                    {node.title}
-                  </Typography>
-                </Box>
+                    {/* Bottom percentage badge matching mobile app */}
+                    {node.status === 'completed' && node.score > 0 && (
+                      <Box
+                        style={{
+                          position: 'absolute',
+                          bottom: '-8px',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          backgroundColor: node.score < 50 ? '#ff4d4d' : node.score < 80 ? '#ff9900' : '#29c57b',
+                          border: '1.5px solid #fff',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                          zIndex: 10
+                        }}
+                      >
+                        <Typography
+                          style={{
+                            color: '#fff',
+                            fontWeight: 900,
+                            fontSize: '0.68rem',
+                            lineHeight: 1,
+                            fontFamily: '"Nunito", sans-serif'
+                          }}
+                        >
+                          {node.score}%
+                        </Typography>
+                      </Box>
+                    )}
+
+                    <Typography className={`path-node-caption-title status-${node.status}`}>
+                      {node.title}
+                    </Typography>
+                  </Box>
                 </Box>
               </React.Fragment>
             ))}
