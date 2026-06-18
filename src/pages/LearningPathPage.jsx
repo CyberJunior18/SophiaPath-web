@@ -992,7 +992,7 @@ const LearningPathPage = () => {
         </Dialog>
 
       </Container>
-      {showScrollArrow && createPortal(
+      {(showScrollArrow && !isCompilerOpen && !isJavaUmlPlaygroundOpen) && createPortal(
         <IconButton
           className="path-floating-action-btn"
           onClick={handleScrollToActive}
