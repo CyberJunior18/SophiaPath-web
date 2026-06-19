@@ -1,9 +1,8 @@
 .learning-content-page {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: auto;
   background-color: var(--background-default);
-  padding-bottom: 80px; /* Leave space for footer */
 }
 
 /* Header */
@@ -312,16 +311,20 @@
 
 /* Footer Actions */
 .learning-content-footer {
-  position: fixed;
+  position: sticky;
   bottom: 0;
-  left: 0;
-  right: 0;
+  width: 100%;
   height: 80px;
   display: flex;
   align-items: center;
   z-index: 100;
   border-radius: 20px 20px 0 0;
   border-bottom: none;
+  background: var(--surface-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--divider);
+  margin-top: auto;
 }
 
 .learning-footer-content {

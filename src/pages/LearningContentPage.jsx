@@ -21,7 +21,8 @@ import {
   Chip,
   Modal,
   Fade,
-  Backdrop
+  Backdrop,
+  Avatar
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -45,6 +46,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { coursesData } from '../data/courses';
 import './LearningContentPage.css';
+import {
+  SocraticDialogueWidget,
+  TruthTableWidget,
+  FallacySorterWidget,
+  ShipOfTheseusWidget,
+  TrolleyProblemWidget,
+  PlatosCaveWidget
+} from './PhilosophyLabPage';
 
 const parseFormattedText = (text, allowNewlines = false) => {
   if (!text) return '';
@@ -1687,6 +1696,20 @@ const LearningContentPage = () => {
 
   const renderBlock = (block, idx) => {
     switch (block.type) {
+      case 'socratic_dialogue':
+        return <SocraticDialogueWidget key={idx} isDarkMode={isDarkMode} />;
+      case 'logic_truth_table':
+        return <TruthTableWidget key={idx} />;
+      case 'fallacies_sorter':
+        return <FallacySorterWidget key={idx} />;
+      case 'thought_experiment_ship':
+        return <ShipOfTheseusWidget key={idx} />;
+      case 'thought_experiment_trolley':
+        return <TrolleyProblemWidget key={idx} />;
+      case 'thought_experiment_experience_machine':
+      case 'thought_experiment_platos_cave':
+        return <PlatosCaveWidget key={idx} />;
+
       case 'uml_diagram':
         return (
           <UmlDiagram key={idx} data={block.raw || block} />

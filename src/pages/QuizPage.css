@@ -1,13 +1,9 @@
 .quiz-page {
-  min-height: 100vh;
+  min-height: auto;
   display: flex;
   flex-direction: column;
   background-color: var(--background-default);
   color: var(--text-primary);
-  /* Offset for the sidebar in NavigationPage if needed, but since it's a full page, 
-     it might be better to keep it within the nav shell or as a standalone overlay.
-     In NavigationPage.jsx, it's inside <section className="nav-content">.
-  */
 }
 
 .quiz-header {
@@ -145,10 +141,35 @@
   font-size: 1.75rem !important;
 }
 
+.quiz-content-footer {
+  position: sticky;
+  bottom: 0;
+  width: 100%;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  z-index: 100;
+  border-radius: 20px 20px 0 0;
+  border-bottom: none;
+  background: var(--surface-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--divider);
+  margin-top: auto;
+}
+
+.quiz-footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+}
+
 .quiz-actions {
   display: flex;
   justify-content: center;
-  height: 72px;
+  align-items: center;
+  width: 100%;
 }
 
 .quiz-next-btn {

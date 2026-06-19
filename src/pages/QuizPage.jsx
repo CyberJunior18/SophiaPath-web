@@ -1722,94 +1722,99 @@ const QuizPage = () => {
           </motion.div>
         </AnimatePresence>
 
-        <div className="quiz-actions" style={{ display: 'flex', gap: '14px', justifyContent: 'flex-end', marginTop: '24px' }}>
-          {/* Submit / Check Answer Button */}
-          {!isAnswered && (currentQuestion.type === 'fill_code' || currentQuestion.type === 'fill_code_options' || currentQuestion.type === 'write_line') && (
-            <Button
-              variant="contained"
-              size="large"
-              onClick={handleCheckCodeAnswers}
-              className="quiz-next-btn primary"
-              style={{ padding: '10px 28px', borderRadius: '12px' }}
-            >
-              Check Answers
-            </Button>
-          )}
+      </Container>
 
-          {!isAnswered && currentQuestion.type === 'code_challenge' && (
-            <Box style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-              <Box style={{ display: 'flex', gap: '8px' }}>
-                <Button
-                  variant="outlined"
-                  size="large"
-                  onClick={() => setIsConsoleOpen(prev => !prev)}
-                  startIcon={<TerminalIcon />}
-                  style={{
-                    borderRadius: '12px',
-                    textTransform: 'none',
-                    fontWeight: 800,
-                    borderColor: 'rgba(255,255,255,0.15)',
-                    color: '#fff',
-                    padding: '10px 20px',
-                    height: '48px'
-                  }}
-                >
-                  Console
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="large"
-                  onClick={handleRunCodeChallenge}
-                  style={{
-                    borderRadius: '12px',
-                    textTransform: 'none',
-                    fontWeight: 800,
-                    borderColor: 'rgba(255,255,255,0.15)',
-                    color: '#fff',
-                    padding: '10px 20px',
-                    height: '48px'
-                  }}
-                >
-                  Test Code
-                </Button>
-              </Box>
+      <footer className="quiz-content-footer glass-panel">
+        <Container maxWidth={currentQuestion.type === 'code_challenge' ? "xl" : "md"} className="quiz-footer-content">
+          <div className="quiz-actions" style={{ display: 'flex', gap: '14px', justifyContent: 'flex-end', width: '100%' }}>
+            {/* Submit / Check Answer Button */}
+            {!isAnswered && (currentQuestion.type === 'fill_code' || currentQuestion.type === 'fill_code_options' || currentQuestion.type === 'write_line') && (
               <Button
                 variant="contained"
                 size="large"
-                disabled={!codeRunCompleted}
-                onClick={handleSubmitCodeChallenge}
-                style={{
-                  background: !codeRunCompleted ? 'rgba(255,255,255,0.05)' : 'var(--hero-gradient)',
-                  color: !codeRunCompleted ? 'rgba(255,255,255,0.3)' : '#fff',
-                  borderRadius: '12px',
-                  textTransform: 'none',
-                  fontWeight: 800,
-                  padding: '10px 28px',
-                  height: '48px'
-                }}
+                onClick={handleCheckCodeAnswers}
+                className="quiz-next-btn primary"
+                style={{ padding: '10px 28px', borderRadius: '12px' }}
               >
-                Submit Solution
+                Check Answers
               </Button>
-            </Box>
-          )}
+            )}
 
-          {isAnswered && (
-            <Button
-              variant="contained"
-              size="large"
-              endIcon={<ArrowForwardIcon />}
-              onClick={handleNext}
-              className="quiz-next-btn"
-              component={motion.button}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              style={{ padding: '10px 28px', borderRadius: '12px' }}
-            >
-              {currentQuestionIndex === quizQuestions.length - 1 ? 'Finish Quiz' : 'Next Question'}
-            </Button>
-          )}
-        </div>
-      </Container>
+            {!isAnswered && currentQuestion.type === 'code_challenge' && (
+              <Box style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                <Box style={{ display: 'flex', gap: '8px' }}>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    onClick={() => setIsConsoleOpen(prev => !prev)}
+                    startIcon={<TerminalIcon />}
+                    style={{
+                      borderRadius: '12px',
+                      textTransform: 'none',
+                      fontWeight: 800,
+                      borderColor: 'rgba(255,255,255,0.15)',
+                      color: '#fff',
+                      padding: '10px 20px',
+                      height: '48px'
+                    }}
+                  >
+                    Console
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    onClick={handleRunCodeChallenge}
+                    style={{
+                      borderRadius: '12px',
+                      textTransform: 'none',
+                      fontWeight: 800,
+                      borderColor: 'rgba(255,255,255,0.15)',
+                      color: '#fff',
+                      padding: '10px 20px',
+                      height: '48px'
+                    }}
+                  >
+                    Test Code
+                  </Button>
+                </Box>
+                <Button
+                  variant="contained"
+                  size="large"
+                  disabled={!codeRunCompleted}
+                  onClick={handleSubmitCodeChallenge}
+                  style={{
+                    background: !codeRunCompleted ? 'rgba(255,255,255,0.05)' : 'var(--hero-gradient)',
+                    color: !codeRunCompleted ? 'rgba(255,255,255,0.3)' : '#fff',
+                    borderRadius: '12px',
+                    textTransform: 'none',
+                    fontWeight: 800,
+                    padding: '10px 28px',
+                    height: '48px'
+                  }}
+                >
+                  Submit Solution
+                </Button>
+              </Box>
+            )}
+
+            {isAnswered && (
+              <Button
+                variant="contained"
+                size="large"
+                endIcon={<ArrowForwardIcon />}
+                onClick={handleNext}
+                className="quiz-next-btn"
+                component={motion.button}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{ padding: '10px 28px', borderRadius: '12px' }}
+              >
+                {currentQuestionIndex === quizQuestions.length - 1 ? 'Finish Quiz' : 'Next Question'}
+              </Button>
+            )}
+          </div>
+        </Container>
+      </footer>
 
       <Modal
         open={showResult}

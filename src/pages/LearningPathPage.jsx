@@ -286,6 +286,19 @@ const LearningPathPage = () => {
     return course?.title?.toLowerCase()?.includes('computer science') || String(course?.id) === '2';
   }, [course]);
 
+  const showCppPlayground = useMemo(() => {
+    if (!isComputerScience || !activeSection) return false;
+    const title = (activeSection.title || '').toLowerCase();
+    const isJavaOop = title.includes('java') || title.includes('oop') || title.includes('object') || title.includes('uml') || title.includes('design') || title.includes('pattern') || title.includes('class') || title.includes('inheritance') || title.includes('polymorphism') || title.includes('exception');
+    return !isJavaOop;
+  }, [isComputerScience, activeSection]);
+
+  const showJavaPlayground = useMemo(() => {
+    if (!isComputerScience || !activeSection) return false;
+    const title = (activeSection.title || '').toLowerCase();
+    return title.includes('java') || title.includes('oop') || title.includes('object') || title.includes('uml') || title.includes('design') || title.includes('pattern') || title.includes('class') || title.includes('inheritance') || title.includes('polymorphism') || title.includes('exception');
+  }, [isComputerScience, activeSection]);
+
   const lessons = useMemo(() => {
     let rawLessons = [];
     if (activeSection && backendLessons[activeSection.id] && backendLessons[activeSection.id].length > 0) {
@@ -652,45 +665,45 @@ const LearningPathPage = () => {
             Course Roadmap
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'stretch' }}>
-            {isComputerScience && (
-              <>
-                <Button
-                  variant="contained"
-                  startIcon={<TerminalIcon />}
-                  onClick={() => setIsCompilerOpen(true)}
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: '12px',
-                    fontWeight: 800,
-                    fontSize: '0.85rem',
-                    textTransform: 'none',
-                    background: 'var(--hero-gradient)',
-                    color: '#fff',
-                    boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.25)',
-                    fontFamily: '"Outfit", sans-serif'
-                  }}
-                >
-                  C++ Compiler Playground
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<SchoolIcon />}
-                  onClick={() => setIsJavaUmlPlaygroundOpen(true)}
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: '12px',
-                    fontWeight: 800,
-                    fontSize: '0.85rem',
-                    textTransform: 'none',
-                    background: 'linear-gradient(135deg, #6e8efb, #a777e3)',
-                    color: '#fff',
-                    boxShadow: '0 6px 15px rgba(167, 119, 227, 0.25)',
-                    fontFamily: '"Outfit", sans-serif'
-                  }}
-                >
-                  Java OOP UML Playground
-                </Button>
-              </>
+            {showCppPlayground && (
+              <Button
+                variant="contained"
+                startIcon={<TerminalIcon />}
+                onClick={() => setIsCompilerOpen(true)}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '12px',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  textTransform: 'none',
+                  background: 'var(--hero-gradient)',
+                  color: '#fff',
+                  boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.25)',
+                  fontFamily: '"Outfit", sans-serif'
+                }}
+              >
+                C++ Compiler Playground
+              </Button>
+            )}
+            {showJavaPlayground && (
+              <Button
+                variant="contained"
+                startIcon={<SchoolIcon />}
+                onClick={() => setIsJavaUmlPlaygroundOpen(true)}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '12px',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  textTransform: 'none',
+                  background: 'linear-gradient(135deg, #6e8efb, #a777e3)',
+                  color: '#fff',
+                  boxShadow: '0 6px 15px rgba(167, 119, 227, 0.25)',
+                  fontFamily: '"Outfit", sans-serif'
+                }}
+              >
+                Java OOP UML Playground
+              </Button>
             )}
             {cheatsheetLesson && (
               <Button
@@ -712,6 +725,26 @@ const LearningPathPage = () => {
                 }}
               >
                 View Cheatsheet
+              </Button>
+            )}
+            {(courseId?.toLowerCase()?.includes('philosophy') || course?.title?.toLowerCase()?.includes('philosophy')) && (
+              <Button
+                variant="contained"
+                startIcon={<SchoolIcon />}
+                onClick={() => navigate('/philosophy-lab', { state: { course } })}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '12px',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  textTransform: 'none',
+                  background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
+                  color: '#fff',
+                  boxShadow: '0 6px 15px rgba(255, 107, 107, 0.25)',
+                  fontFamily: '"Outfit", sans-serif'
+                }}
+              >
+                Interactive Philosophy Lab
               </Button>
             )}
 

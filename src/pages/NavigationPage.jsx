@@ -40,6 +40,7 @@ import LearningPathPage from './LearningPathPage';
 import QuizPage from './QuizPage';
 import LearningContentPage from './LearningContentPage';
 import ChallengePage from './ChallengePage';
+import PhilosophyLabPage from './PhilosophyLabPage';
 import ChatListPage from '../features/chat/ChatListPage';
 import ChatPage from '../features/chat/ChatPage';
 import CodeEditorPage from '../features/editor/CodeEditorPage';
@@ -55,10 +56,10 @@ import RegisterPage from './RegisterPage';
 
 const AnimatedPage = ({ children }) => (
   <motion.div
-    initial={{ opacity: 0, y: 22, filter: 'blur(10px)' }}
-    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-    exit={{ opacity: 0, y: -18, filter: 'blur(10px)' }}
-    transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    transition={{ duration: 0.2 }}
     className="nav-page-motion"
   >
     {children}
@@ -263,6 +264,7 @@ const NavigationPage = () => {
 
               <Route path="/quiz/:courseDomain/:lessonId" element={<AnimatedPage><QuizPage /></AnimatedPage>} />
               <Route path="/learning/:courseId/:sectionId/:lessonId" element={<AnimatedPage><LearningContentPage /></AnimatedPage>} />
+              <Route path="/philosophy-lab" element={<AnimatedPage><PhilosophyLabPage /></AnimatedPage>} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </AnimatePresence>

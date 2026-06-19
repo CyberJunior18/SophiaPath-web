@@ -4132,7 +4132,145 @@ export const philosophyCourse = {
           ]
         }
       ]
+    },
+    {
+      "id": "philosophy-sec-4",
+      "title": "Interactive Philosophy Lab (Syllabus Demo)",
+      "lessons": [
+        {
+          "id": "philosophy-sec-4-lesson-1",
+          "title": "Socratic Dialectic & Intro",
+          "description": "Engage in a live Socratic dialogue simulation to test definitions of justice and virtue.",
+          "category": "learning",
+          "pages": [
+            {
+              "id": "p-philosophy-sec-4-l-1-p-1",
+              "pageTitle": "Socratic Dialogue Simulator",
+              "blocks": [
+                {
+                  "type": "heading",
+                  "level": 1,
+                  "text": "The Socratic Method"
+                },
+                {
+                  "type": "paragraph",
+                  "text": "The core of philosophical progress is dialectic—reasoning through dialogue. Socrates did not lecture; he questioned others to reveal contradictions in their beliefs. This is called the Socratic <code>elenchus</code> (refutation)."
+                },
+                {
+                  "type": "socratic_dialogue"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "philosophy-sec-4-lesson-2",
+          "title": "Logic & Fallacies",
+          "description": "Build truth tables to check logical soundness and sort informal fallacies.",
+          "category": "learning",
+          "pages": [
+            {
+              "id": "p-philosophy-sec-4-l-2-p-1",
+              "pageTitle": "Truth Table Builder",
+              "blocks": [
+                {
+                  "type": "heading",
+                  "level": 1,
+                  "text": "Propositional Logic"
+                },
+                {
+                  "type": "paragraph",
+                  "text": "In formal logic, we check the validity of arguments using truth tables. Let's practice with a classic rule of inference: <b>Modus Ponens</b> (If P implies Q, and P is true, then Q must be true)."
+                },
+                {
+                  "type": "logic_truth_table"
+                }
+              ]
+            },
+            {
+              "id": "p-philosophy-sec-4-l-2-p-2",
+              "pageTitle": "Informal Fallacies Sorter",
+              "blocks": [
+                {
+                  "type": "heading",
+                  "level": 1,
+                  "text": "Common Reasoning Flaws"
+                },
+                {
+                  "type": "paragraph",
+                  "text": "An informal fallacy is an argument whose premises fail to support its conclusion due to structural or logical relevance errors. Match each everyday argument to its corresponding fallacy name."
+                },
+                {
+                  "type": "fallacies_sorter"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "philosophy-sec-4-lesson-3",
+          "title": "Thought Experiments",
+          "description": "Simulate and analyze classic thought experiments in Metaphysics and Ethics.",
+          "category": "learning",
+          "pages": [
+            {
+              "id": "p-philosophy-sec-4-l-3-p-1",
+              "pageTitle": "Ship of Theseus",
+              "blocks": [
+                {
+                  "type": "heading",
+                  "level": 1,
+                  "text": "Metaphysical Identity"
+                },
+                {
+                  "type": "paragraph",
+                  "text": "If you replace every single wooden plank of a ship with steel, is it still the same ship? What if you take all the discarded wood planks and build a new ship? Which one is the real Ship of Theseus?"
+                },
+                {
+                  "type": "thought_experiment_ship"
+                }
+              ]
+            },
+            {
+              "id": "p-philosophy-sec-4-l-3-p-2",
+              "pageTitle": "The Trolley Problem",
+              "blocks": [
+                {
+                  "type": "heading",
+                  "level": 1,
+                  "text": "Ethical Frameworks"
+                },
+                {
+                  "type": "paragraph",
+                  "text": "A classic ethical thought experiment: a runaway trolley is heading toward five people. You can pull a lever to divert it to a side track where only one person is standing. Do you pull the lever?"
+                },
+                {
+                  "type": "thought_experiment_trolley"
+                }
+              ]
+            },
+            {
+              "id": "p-philosophy-sec-4-l-3-p-3",
+              "pageTitle": "Plato's Allegory of the Cave",
+              "blocks": [
+                {
+                  "type": "heading",
+                  "level": 1,
+                  "text": "The Allegory of the Cave"
+                },
+                {
+                  "type": "paragraph",
+                  "text": "Plato's famous allegory from 'The Republic' describes a prisoner who escapes a cave of shadows to discover the real world outside under the light of the Sun."
+                },
+                {
+                  "type": "thought_experiment_platos_cave"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
-  "totalLessons": 30
+  "totalLessons": 33
 };
