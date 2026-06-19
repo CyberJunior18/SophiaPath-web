@@ -39,6 +39,7 @@ import CourseDetailPage from './CourseDetailPage';
 import LearningPathPage from './LearningPathPage';
 import QuizPage from './QuizPage';
 import LearningContentPage from './LearningContentPage';
+import ChallengePage from './ChallengePage';
 import ChatListPage from '../features/chat/ChatListPage';
 import ChatPage from '../features/chat/ChatPage';
 import CodeEditorPage from '../features/editor/CodeEditorPage';
@@ -80,6 +81,7 @@ const NavigationPage = () => {
 
   const navigationItems = [
     { label: 'Dashboard', path: '/', icon: <DashboardRoundedIcon /> },
+    { label: 'Chapter Challenge', path: '/challenge', icon: <AutoAwesomeIcon /> },
     { label: 'Achievements', path: '/achievements', icon: <EmojiEventsIcon /> },
     { label: 'HTML Editor', path: '/editor', icon: <CodeIcon /> },
     { label: 'Chats', path: '/chats', icon: <ChatIcon /> },
@@ -92,6 +94,7 @@ const NavigationPage = () => {
   const pageTitles = {
     '/': 'Learning Dashboard',
     '/learning-path': 'Your Roadmap',
+    '/challenge': 'Chapter Challenge',
     '/achievements': 'Your Achievements',
     '/editor': 'HTML Playground',
     '/chats': 'Messages',
@@ -104,6 +107,7 @@ const NavigationPage = () => {
   const pageDescriptions = {
     '/': 'Explore courses, track progress, and launch your next module.',
     '/learning-path': 'See the full roadmap and unlock your next milestone.',
+    '/challenge': 'Test your skills in interactive hacking and coding exercises.',
     '/achievements': 'Monitor trophies, streaks, and progression signals.',
     '/editor': 'Experiment with HTML, CSS, and JS in a live environment.',
     '/chats': 'Connect with other learners and share your insights.',
@@ -245,6 +249,7 @@ const NavigationPage = () => {
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               <Route path="/" element={<AnimatedPage><LearningPage /></AnimatedPage>} />
+              <Route path="/challenge" element={<AnimatedPage><ChallengePage /></AnimatedPage>} />
               <Route path="/profile" element={<AnimatedPage><ProfilePage /></AnimatedPage>} />
               <Route path="/achievements" element={<AnimatedPage><AchievementsPage /></AnimatedPage>} />
               <Route path="/chats" element={<AnimatedPage><ChatListPage /></AnimatedPage>} />
