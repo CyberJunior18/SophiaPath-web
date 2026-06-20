@@ -248,14 +248,17 @@ const LearningPage = () => {
         </div>
 
         <div className="learning-intro-side">
-          <div className="learning-stat-grid">
+          <Paper className="learning-stats-panel glass-panel" elevation={0} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'center', height: '100%', borderRadius: '24px' }}>
+            <Typography variant="h6" style={{ fontWeight: 800, textAlign: 'left', borderBottom: '1px solid var(--divider)', paddingBottom: '10px', fontSize: '0.9rem', color: 'var(--primary-main)', letterSpacing: '0.05em' }}>
+              YOUR PROGRESS DASHBOARD
+            </Typography>
             {dashboardStats.map((stat) => (
-              <Paper key={stat.label} className="learning-stat-card glass-panel" elevation={0}>
-                <Typography className="learning-stat-value">{stat.value}</Typography>
-                <Typography className="learning-stat-label">{stat.label}</Typography>
-              </Paper>
+              <Box key={stat.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                <Typography style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>{stat.label}</Typography>
+                <Typography style={{ fontWeight: 900, fontSize: '1.6rem', color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>{stat.value}</Typography>
+              </Box>
             ))}
-          </div>
+          </Paper>
         </div>
       </section>
 
@@ -340,29 +343,34 @@ const LearningPage = () => {
         )}
       </section>
 
-      <section className="learning-section">
-        <div className="learning-section-head">
-          <div>
-            <Typography variant="h4" className="learning-section-title">
-              Coming Soon
-            </Typography>
-            <Typography variant="body1" className="learning-section-copy">
-              Upcoming specializations prepared for the next wave of the platform.
-            </Typography>
-          </div>
-        </div>
+      <section className="learning-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', marginTop: '2rem' }}>
+        <Box style={{ textAlign: 'center' }}>
+          <Typography variant="h4" className="learning-section-title">
+            Coming Soon Specializations
+          </Typography>
+          <Typography variant="body1" className="learning-section-copy">
+            Upcoming specializations queued for the next release cycle
+          </Typography>
+        </Box>
 
-        <div className="learning-coming-grid">
+        <Box style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '12px', maxWidth: '800px' }}>
           {comingSoon.map((title) => (
-            <Paper key={title} className="learning-coming-card glass-panel" elevation={0}>
-              <div className="learning-coming-icon">{getCourseIcon(title)}</div>
-              <div>
-                <Typography className="learning-coming-title">{title}</Typography>
-                <Typography className="learning-coming-copy">Queued for a future release cycle</Typography>
-              </div>
-            </Paper>
+            <Chip
+              key={title}
+              icon={getCourseIcon(title)}
+              label={title}
+              style={{
+                background: 'var(--surface-glass)',
+                border: '1px solid var(--divider)',
+                padding: '8px 12px',
+                height: 'auto',
+                fontWeight: 700,
+                color: 'var(--text-secondary)',
+                fontSize: '0.85rem'
+              }}
+            />
           ))}
-        </div>
+        </Box>
       </section>
     </Box>
   );

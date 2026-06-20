@@ -32,7 +32,9 @@ import {
   HelpOutline as HelpIcon,
   Remove as RemoveIcon,
   Visibility as PreviewIcon,
-  ErrorOutline as ErrorIcon
+  ErrorOutline as ErrorIcon,
+  GetApp as DownloadIcon,
+  FileUpload as UploadIcon
 } from '@mui/icons-material';
 
 // Preloaded OOP Examples
@@ -220,18 +222,72 @@ const umlClassesToJava = (classes) => {
   return code.trim() + "\n";
 };
 
-const parseParams = (rawParams) => {
-  return rawParams.split(",").map(p => p.trim()).filter(p => p.length > 0).map(p => {
-    const parts = p.split(/\s+/);
-    if (parts.length >= 2) {
-      return { type: parts[0], name: parts[1] };
+const STRICT_KNOWN_TYPES = new Set([
+  'void', 'int', 'double', 'float', 'boolean', 'char', 'byte', 'short', 'long',
+  'String', 'Object',
+  'Integer', 'Double', 'Float', 'Boolean', 'Character', 'Byte', 'Short', 'Long',
+  'List', 'Map', 'Set', 'ArrayList', 'HashMap', 'HashSet',
+  'System', 'Scanner', 'Math', 'PrintStream'
+]);
+
+const validateJavaType = (typeStr, declaredClasses = []) => {
+  const words = typeStr.match(/[A-Za-z0-9_]+/g);
+  if (!words || words.length === 0) {
+    throw new Error(`Type '${typeStr}' is not valid`);
+  }
+  for (const word of words) {
+    if (/^\d+$/.test(word)) continue;
+    if (!STRICT_KNOWN_TYPES.has(word) && !declaredClasses.includes(word)) {
+      throw new Error(`Type '${word}' in type expression '${typeStr}' is not a recognized type. Allowed types are Java primitives, standard collections (List, Map, Set, etc.), and classes defined in the workspace.`);
     }
-    return { type: "Object", name: p };
+  }
+};
+
+const parseParams = (rawParams, declaredClasses = []) => {
+  if (!rawParams.trim()) return [];
+  
+  // Split parameters by commas at depth 0 (avoid splitting generic types like Map<K,V>)
+  const parts = [];
+  let current = "";
+  let depth = 0;
+  for (let i = 0; i < rawParams.length; i++) {
+    const char = rawParams[i];
+    if (char === '<') depth++;
+    else if (char === '>') depth--;
+    
+    if (char === ',' && depth === 0) {
+      parts.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  if (current) parts.push(current);
+
+  return parts.map(p => {
+    const clean = p.trim();
+    const match = /^([A-Za-z0-9_$<>[\]]+)\s+([A-Za-z0-9_$]+)$/.exec(clean);
+    if (!match) {
+      throw new Error(`Invalid parameter declaration: '${clean}'`);
+    }
+    const type = match[1];
+    const name = match[2];
+    
+    if (!/^[A-Za-z_]+[0-9]*$/.test(name)) {
+      throw new Error(`Parameter name '${name}' is not a valid Java identifier (numbers only come at the end, no special characters allowed)`);
+    }
+    const baseType = type.split('<')[0].split('[')[0];
+    if (!/^[A-Za-z_]+[0-9]*$/.test(baseType)) {
+      throw new Error(`Type '${type}' is not a valid type identifier`);
+    }
+    validateJavaType(type, declaredClasses);
+
+    return { type, name };
   });
 };
 
-const parseMethodSignature = (sig, uml) => {
-  const methodRegex = /^(public|private|protected)?\s*(static\s+)?(abstract\s+)?([A-Za-z0-9_<>[\]]+)\s+([A-Za-z0-9_]+)\s*\(([^)]*)\)/;
+const parseMethodSignature = (sig, uml, declaredClasses = []) => {
+  const methodRegex = /^(public|private|protected)?\s*(static\s+)?(abstract\s+)?([A-Za-z0-9_$<>[\]]+)\s+([A-Za-z0-9_$]+)\s*\(([^)]*)\)/;
   let match = methodRegex.exec(sig);
   
   if (match) {
@@ -242,7 +298,27 @@ const parseMethodSignature = (sig, uml) => {
     const name = match[5];
     const rawParams = match[6] || "";
 
-    const parameters = parseParams(rawParams);
+    if (!/^[A-Za-z_]+[0-9]*$/.test(name)) {
+      throw new Error(`Method name '${name}' is not a valid Java identifier (numbers only come at the end, no special characters allowed)`);
+    }
+    const baseType = returnType.split('<')[0].split('[')[0];
+    if (!/^[A-Za-z_]+[0-9]*$/.test(baseType) && returnType !== "void") {
+      throw new Error(`Return type '${returnType}' is not a valid type identifier`);
+    }
+    if (name !== uml.title && returnType !== "void") {
+      validateJavaType(returnType, declaredClasses);
+    }
+
+    const parameters = parseParams(rawParams, declaredClasses);
+
+    const paramSignature = parameters.map(p => p.type).join(",");
+    const isDuplicate = uml.methods.some(m => 
+      m.name === name && 
+      m.parameters.map(p => p.type).join(",") === paramSignature
+    );
+    if (isDuplicate) {
+      throw new Error(`Duplicate method signature '${name}(${paramSignature})' in class/interface '${uml.title}'`);
+    }
 
     uml.methods.push({
       name,
@@ -252,8 +328,9 @@ const parseMethodSignature = (sig, uml) => {
       isAbstract,
       parameters
     });
+    return true;
   } else {
-    const constrRegex = /^(public|private|protected)?\s*([A-Za-z0-9_]+)\s*\(([^)]*)\)/;
+    const constrRegex = /^(public|private|protected)?\s*([A-Za-z0-9_$]+)\s*\(([^)]*)\)/;
     match = constrRegex.exec(sig);
     if (match) {
       const visibility = match[1] || "public";
@@ -261,7 +338,16 @@ const parseMethodSignature = (sig, uml) => {
       const rawParams = match[3] || "";
       
       if (name === uml.title) {
-        const parameters = parseParams(rawParams);
+        if (!/^[A-Za-z_]+[0-9]*$/.test(name)) {
+          throw new Error(`Constructor name '${name}' is not a valid Java identifier`);
+        }
+        const parameters = parseParams(rawParams, declaredClasses);
+        
+        const paramSignature = parameters.map(p => p.type).join(",");
+        if (uml.methods.some(m => m.name === name && m.returnType === "constructor" && m.parameters.map(p => p.type).join(",") === paramSignature)) {
+          throw new Error(`Duplicate constructor signature '${name}(${paramSignature})' in class/interface '${uml.title}'`);
+        }
+
         uml.methods.push({
           name,
           returnType: "constructor",
@@ -270,27 +356,46 @@ const parseMethodSignature = (sig, uml) => {
           isAbstract: false,
           parameters
         });
+        return true;
       }
     }
   }
+  throw new Error(`Invalid method or constructor declaration syntax: '${sig}'`);
 };
 
-const parseAttributeSignature = (sig, uml) => {
-  const attrRegex = /^(public|private|protected)?\s*(static\s+)?([A-Za-z0-9_<>[\]]+)\s+([A-Za-z0-9_]+)\s*(?:=.*)?$/;
+const parseAttributeSignature = (sig, uml, declaredClasses = []) => {
+  const attrRegex = /^(public|private|protected)?\s*(static\s+)?([A-Za-z0-9_$<>[\]]+)\s+([A-Za-z0-9_$]+)\s*(?:=.*)?$/;
   const match = attrRegex.exec(sig);
-  if (match) {
-    const visibility = match[1] || "private";
-    const isStatic = !!match[2];
-    const type = match[3];
-    const name = match[4];
-
-    uml.attributes.push({
-      name,
-      type,
-      visibility,
-      isStatic
-    });
+  if (!match) {
+    throw new Error(`Invalid field declaration syntax: '${sig}'`);
   }
+
+  const visibility = match[1] || "private";
+  const isStatic = !!match[2];
+  const type = match[3];
+  const name = match[4];
+
+  if (!/^[A-Za-z_]+[0-9]*$/.test(name)) {
+    throw new Error(`Variable name '${name}' is not a valid Java identifier (numbers only come at the end, no special characters allowed)`);
+  }
+
+  const baseType = type.split('<')[0].split('[')[0];
+  if (!/^[A-Za-z_]+[0-9]*$/.test(baseType)) {
+    throw new Error(`Type '${type}' is not a valid type identifier`);
+  }
+  validateJavaType(type, declaredClasses);
+
+  if (uml.attributes.some(a => a.name === name)) {
+    throw new Error(`Duplicate variable name '${name}' in class/interface '${uml.title}'`);
+  }
+
+  uml.attributes.push({
+    name,
+    type,
+    visibility,
+    isStatic
+  });
+  return true;
 };
 
 const calculateCardWidth = (umlClass) => {
@@ -368,6 +473,14 @@ const javaToUmlClasses = (code) => {
     .replace(/\/\/.*$/gm, "") 
     .replace(/\/\*[\s\S]*?\*\//g, ""); 
 
+  // Collect all declared classes/interfaces in the code first
+  const declaredClasses = [];
+  const classDeclRegexForNames = /(?:(public|protected|private)\s+)?(?:(abstract)\s+)?(class|interface)\s+([A-Za-z0-9_]+)/g;
+  let cnMatch;
+  while ((cnMatch = classDeclRegexForNames.exec(cleanCode)) !== null) {
+    declaredClasses.push(cnMatch[4]);
+  }
+
   const classes = [];
   const classDeclRegex = /(?:(public|protected|private)\s+)?(?:(abstract)\s+)?(class|interface)\s+([A-Za-z0-9_]+)/g;
   let match;
@@ -376,8 +489,12 @@ const javaToUmlClasses = (code) => {
     const isAbstract = !!match[2];
     const type = match[3]; // 'class' | 'interface'
     const className = match[4];
-    
     const searchStart = match.index + match[0].length;
+    
+    if (!/^[A-Za-z_]+[0-9]*$/.test(className)) {
+      const lineNum = code.substring(0, code.indexOf(className) || 0).split('\n').length;
+      throw new Error(`Class/Interface name '${className}' at line ${lineNum} is not a valid Java identifier. Suggestion: Class names must start with a letter and contain only letters and underscores with numbers only at the end (no digits in middle/start, no special characters).`);
+    }
     const openBraceIdx = cleanCode.indexOf("{", searchStart);
     if (openBraceIdx === -1) continue;
     
@@ -391,7 +508,8 @@ const javaToUmlClasses = (code) => {
     const implementsIdx = signatureText.indexOf("implements");
     
     if (extendsIdx !== -1 && implementsIdx !== -1 && implementsIdx < extendsIdx) {
-      throw new Error(`'extends' must come before 'implements' in class/interface '${className}' declaration signature`);
+      const lineNum = code.substring(0, code.indexOf(className) || 0).split('\n').length;
+      throw new Error(`Syntax Error in class '${className}' declaration signature around line ${lineNum}: 'extends' must come before 'implements'. Suggestion: Reorder the signature as: class A extends B implements C.`);
     }
     
     let extendsPart = "";
@@ -412,7 +530,8 @@ const javaToUmlClasses = (code) => {
       extendsList = extendsPart.split(",").map(s => s.trim()).filter(s => s.length > 0);
       if (type === 'class') {
         if (extendsList.length > 1) {
-          throw new Error(`Class '${className}' cannot extend multiple classes: ${extendsList.join(", ")}`);
+          const lineNum = code.substring(0, code.indexOf(className) || 0).split('\n').length;
+          throw new Error(`Inheritance Error: Class '${className}' around line ${lineNum} cannot extend multiple classes: ${extendsList.join(", ")}. Suggestion: Java does not support multiple class inheritance. Extend only one base class, and implement other interfaces instead.`);
         }
         extendsClass = extendsList[0] || null;
       }
@@ -421,7 +540,8 @@ const javaToUmlClasses = (code) => {
     if (implementsPart) {
       implementsList = implementsPart.split(",").map(s => s.trim()).filter(s => s.length > 0);
       if (type === 'interface') {
-        throw new Error(`Interface '${className}' cannot use 'implements' keyword. Interfaces must use 'extends' to inherit other interfaces.`);
+        const lineNum = code.substring(0, code.indexOf(className) || 0).split('\n').length;
+        throw new Error(`Inheritance Error: Interface '${className}' around line ${lineNum} cannot use 'implements' keyword. Suggestion: Interfaces can only use 'extends' to inherit from other interfaces. Remove the 'implements' clause.`);
       }
     }
     
@@ -438,7 +558,8 @@ const javaToUmlClasses = (code) => {
       }
     }
     if (closeBraceIdx === -1) {
-      throw new Error(`Class/Interface '${className}' is missing closing brace '}'`);
+      const lineNum = code.substring(0, code.indexOf(className) || 0).split('\n').length;
+      throw new Error(`Syntax Error: Class/Interface '${className}' body starting on line ${lineNum} is missing closing brace '}'. Suggestion: Add a matching closing brace '}' at the end of the class declaration.`);
     }
     const classBody = cleanCode.substring(openBraceIdx + 1, closeBraceIdx);
     classDeclRegex.lastIndex = closeBraceIdx + 1;
@@ -466,7 +587,7 @@ const javaToUmlClasses = (code) => {
         if (bodyDepth === 0) {
           const sig = accumulated.trim();
           if (sig.length > 0) {
-            parseMethodSignature(sig, uml);
+            parseMethodSignature(sig, uml, declaredClasses);
             currentMethodIndex = uml.methods.length - 1;
           }
           accumulated = "";
@@ -495,9 +616,9 @@ const javaToUmlClasses = (code) => {
           const decl = accumulated.trim();
           if (decl.length > 0) {
             if (decl.includes("(")) {
-              parseMethodSignature(decl, uml);
+              parseMethodSignature(decl, uml, declaredClasses);
             } else {
-              parseAttributeSignature(decl, uml);
+              parseAttributeSignature(decl, uml, declaredClasses);
             }
           }
           accumulated = "";
@@ -514,7 +635,9 @@ const javaToUmlClasses = (code) => {
     }
     
     if (accumulated.trim().length > 0) {
-      throw new Error(`Leftover token '${accumulated.trim()}' in class/interface '${className}' body - missing semicolon ';' or brace '{'`);
+      const tokenIdx = code.indexOf(accumulated.trim(), code.indexOf(className));
+      const lineNum = tokenIdx !== -1 ? code.substring(0, tokenIdx).split('\n').length : 1;
+      throw new Error(`Syntax Error: Unexpected leftover token '${accumulated.trim()}' inside class '${className}' around line ${lineNum}. Suggestion: Check if you are missing a semicolon ';' or a method body opening brace '{'.`);
     }
     
     classes.push(uml);
@@ -635,6 +758,87 @@ const validateProposedClasses = (classes) => {
   return null;
 };
 
+const getDeclaredLocalVars = (bodyText, validTypes) => {
+  const declared = new Set();
+  const cleanText = bodyText
+    .replace(/"(\\.|[^"\\])*"/g, "")
+    .replace(/'(\\.|[^'\\])*'/g, "")
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+
+  // 1. Regex search anywhere for type followed by identifier
+  const declRegex = /\b([A-Za-z0-9_]+)(?:<[^>]+>)?(?:\[\])?\s+([A-Za-z_][A-Za-z0-9_]*)\b/g;
+  let match;
+  while ((match = declRegex.exec(cleanText)) !== null) {
+    const type = match[1];
+    const varName = match[2];
+    if (validTypes.has(type)) {
+      declared.add(varName);
+    }
+  }
+  
+  // 2. Comma-separated declarations (e.g. int a, b, c;)
+  const segments = cleanText.split(/[;{}]/);
+  segments.forEach(segment => {
+    const trimmed = segment.trim();
+    const typeMatch = trimmed.match(/^\b([A-Za-z0-9_]+)(?:<[^>]+>)?(?:\[\])?\s+([A-Za-z_][A-Za-z0-9_]*)/);
+    if (typeMatch && validTypes.has(typeMatch[1])) {
+      const rest = trimmed.substring(typeMatch[0].length);
+      declared.add(typeMatch[2]);
+      const parts = rest.split(',');
+      parts.forEach(part => {
+        const partMatch = part.trim().match(/^([A-Za-z_][A-Za-z0-9_]*)/);
+        if (partMatch) {
+          declared.add(partMatch[1]);
+        }
+      });
+    }
+  });
+
+  return declared;
+};
+
+const getUsedIdentifiers = (bodyText) => {
+  const cleanText = bodyText
+    .replace(/"(\\.|[^"\\])*"/g, "")
+    .replace(/'(\\.|[^'\\])*'/g, "")
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+
+  const used = [];
+  const identRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
+  let match;
+  while ((match = identRegex.exec(cleanText)) !== null) {
+    const name = match[1];
+    const index = match.index;
+    
+    // Check if preceded by '.'
+    let isPrecededByDot = false;
+    let checkIdx = index - 1;
+    while (checkIdx >= 0 && /\s/.test(cleanText[checkIdx])) {
+      checkIdx--;
+    }
+    if (checkIdx >= 0 && cleanText[checkIdx] === '.') {
+      isPrecededByDot = true;
+    }
+    
+    // Check if followed by '('
+    let isFollowedByParen = false;
+    let followIdx = index + name.length;
+    while (followIdx < cleanText.length && /\s/.test(cleanText[followIdx])) {
+      followIdx++;
+    }
+    if (followIdx < cleanText.length && cleanText[followIdx] === '(') {
+      isFollowedByParen = true;
+    }
+
+    if (!isPrecededByDot && !isFollowedByParen) {
+      used.push({ name, index });
+    }
+  }
+  return used;
+};
+
 const checkJavaSyntax = (code) => {
   let braceStack = [];
   let parenStack = [];
@@ -707,7 +911,7 @@ const checkJavaSyntax = (code) => {
         braceStack.push({ line: i + 1, col: j + 1 });
       } else if (char === '}') {
         if (braceStack.length === 0) {
-          return { error: `Mismatched closing brace '}' at line ${i + 1}, column ${j + 1}`, line: i + 1 };
+          return { error: `Mismatched closing brace '}' at line ${i + 1}, column ${j + 1}. Suggestion: Check if you have an extra '}' or are missing an opening '{' before this line.`, line: i + 1 };
         }
         braceStack.pop();
       }
@@ -716,7 +920,7 @@ const checkJavaSyntax = (code) => {
         parenStack.push({ line: i + 1, col: j + 1 });
       } else if (char === ')') {
         if (parenStack.length === 0) {
-          return { error: `Mismatched closing parenthesis ')' at line ${i + 1}, column ${j + 1}`, line: i + 1 };
+          return { error: `Mismatched closing parenthesis ')' at line ${i + 1}, column ${j + 1}. Suggestion: Check if you have an extra ')' or are missing an opening '(' before this line.`, line: i + 1 };
         }
         parenStack.pop();
       }
@@ -724,18 +928,18 @@ const checkJavaSyntax = (code) => {
   }
   
   if (inMultiLineComment) {
-    return { error: "Unclosed block comment (/*)", line: lines.length };
+    return { error: "Syntax Error: Unclosed block comment (/*). Suggestion: Add '*/' at the end of the comment block to close it.", line: lines.length };
   }
   if (inString) {
-    return { error: "Unclosed string literal", line: lines.length };
+    return { error: "Syntax Error: Unclosed string literal. Suggestion: Add a double quote (\") at the end of the line to close the string.", line: lines.length };
   }
   if (braceStack.length > 0) {
     const lastBrace = braceStack[braceStack.length - 1];
-    return { error: `Unclosed curly brace '{' starting at line ${lastBrace.line}, column ${lastBrace.col}`, line: lastBrace.line };
+    return { error: `Syntax Error: Unclosed curly brace '{' starting at line ${lastBrace.line}, column ${lastBrace.col}. Suggestion: Add a matching closing brace '}' to close this code block.`, line: lastBrace.line };
   }
   if (parenStack.length > 0) {
     const lastParen = parenStack[parenStack.length - 1];
-    return { error: `Unclosed parenthesis '(' starting at line ${lastParen.line}, column ${lastParen.col}`, line: lastParen.line };
+    return { error: `Syntax Error: Unclosed parenthesis '(' starting at line ${lastParen.line}, column ${lastParen.col}. Suggestion: Add a matching closing parenthesis ')' to close this expression.`, line: lastParen.line };
   }
   
   try {
@@ -758,7 +962,8 @@ const checkJavaSyntax = (code) => {
       const searchStart = classMatch.index + classMatch[0].length;
       const openBraceIdx = tempCode.indexOf("{", searchStart);
       if (openBraceIdx === -1) {
-        return { error: `Class/Interface declaration '${classMatch[4]}' is missing body opening brace '{'`, line: 1 };
+        const lineNum = code.substring(0, classMatch.index).split('\n').length;
+        return { error: `Class/Interface declaration '${classMatch[4]}' is missing body opening brace '{' (around line ${lineNum}). Suggestion: Add '{' to start the class body.`, line: lineNum };
       }
       
       let depth = 1;
@@ -775,7 +980,8 @@ const checkJavaSyntax = (code) => {
       }
       
       if (closeBraceIdx === -1) {
-        return { error: `Class/Interface '${classMatch[4]}' body is missing closing brace '}'`, line: 1 };
+        const lineNum = code.substring(0, openBraceIdx).split('\n').length;
+        return { error: `Class/Interface '${classMatch[4]}' body is missing closing brace '}' (starting on line ${lineNum}). Suggestion: Add a closing brace '}' at the end of the class body.`, line: lineNum };
       }
       lastIdx = closeBraceIdx + 1;
     }
@@ -784,7 +990,12 @@ const checkJavaSyntax = (code) => {
     if (strippedCode.trim().length > 0) {
       const leftover = strippedCode.trim();
       const truncatedLeftover = leftover.length > 30 ? leftover.substring(0, 30) + "..." : leftover;
-      return { error: `Unexpected top-level code or token: '${truncatedLeftover}'`, line: 1 };
+      const leftoverIndex = code.indexOf(leftover);
+      let leftoverLine = 1;
+      if (leftoverIndex !== -1) {
+        leftoverLine = code.substring(0, leftoverIndex).split('\n').length;
+      }
+      return { error: `Unexpected top-level code or token: '${truncatedLeftover}' around line ${leftoverLine}. Suggestion: In Java, all statements and variable definitions must be inside a class body. Only class/interface declarations, imports, or packages are allowed at the top level.`, line: leftoverLine };
     }
   } catch (err) {
     return { error: `Syntax error during top-level scan: ${err.message}`, line: 1 };
@@ -796,8 +1007,85 @@ const checkJavaSyntax = (code) => {
     if (err) {
       return { error: err, line: 1 };
     }
+
+    const declaredClassNames = new Set(classes.map(c => c.title));
+    const KNOWN_TYPES = new Set([
+      'int', 'double', 'float', 'boolean', 'char', 'byte', 'short', 'long', 'void',
+      'String', 'Integer', 'Double', 'Float', 'Boolean', 'Character', 'Byte', 'Short', 'Long', 'Object',
+      'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Collection', 'Iterator',
+      'Scanner', 'System', 'Math', 'Exception', 'Throwable', 'PrintStream', 'Thread', 'Runnable',
+      'StringTokenizer', 'StringBuilder', 'StringBuffer'
+    ]);
+    const validTypes = new Set([...KNOWN_TYPES, ...declaredClassNames]);
+
+    const JAVA_KEYWORDS = new Set([
+      'abstract', 'assert', 'boolean', 'break', 'byte', 'case', 'catch', 'char', 'class', 'const',
+      'continue', 'default', 'do', 'double', 'else', 'enum', 'extends', 'final', 'finally', 'float',
+      'for', 'goto', 'if', 'implements', 'import', 'instanceof', 'int', 'interface', 'long', 'native',
+      'new', 'package', 'private', 'protected', 'public', 'return', 'short', 'static', 'strictfp',
+      'super', 'switch', 'synchronized', 'this', 'throw', 'throws', 'transient', 'try', 'void',
+      'volatile', 'while', 'true', 'false', 'null', 'String', 'Integer', 'Double', 'Float',
+      'Boolean', 'Character', 'Byte', 'Short', 'Long', 'Object', 'List', 'ArrayList', 'Map',
+      'HashMap', 'Set', 'HashSet', 'System', 'Scanner', 'Math', 'Exception', 'PrintStream'
+    ]);
+
+    for (let c of classes) {
+      // Visible attributes in this class
+      const classAttributes = new Set(c.attributes.map(a => a.name));
+      
+      // Inherited public/protected fields
+      let parentName = c.extends;
+      let depth = 0;
+      while (parentName && depth < 10) {
+        const parent = classes.find(p => p.title === parentName);
+        if (parent) {
+          parent.attributes.forEach(a => {
+            if (a.visibility === 'public' || a.visibility === 'protected') {
+              classAttributes.add(a.name);
+            }
+          });
+          parentName = parent.extends;
+        } else {
+          break;
+        }
+        depth++;
+      }
+
+      for (let m of c.methods) {
+        if (m.body) {
+          const methodParams = new Set((m.parameters || []).map(p => p.name));
+          const localVars = getDeclaredLocalVars(m.body, validTypes);
+          
+          const declaredInScope = new Set([
+            ...classAttributes,
+            ...methodParams,
+            ...localVars
+          ]);
+
+          const usedIdentifiers = getUsedIdentifiers(m.body);
+
+          for (let ident of usedIdentifiers) {
+            if (!declaredInScope.has(ident.name) && 
+                !JAVA_KEYWORDS.has(ident.name) && 
+                !declaredClassNames.has(ident.name)) {
+              
+              const classIdx = code.indexOf(c.title);
+              const methodSigStart = code.indexOf(m.name, classIdx !== -1 ? classIdx : 0);
+              const bodyStart = code.indexOf(m.body, methodSigStart !== -1 ? methodSigStart : 0);
+              const absoluteIndex = (bodyStart !== -1 ? bodyStart : 0) + ident.index;
+              const lineNum = code.substring(0, absoluteIndex).split('\n').length;
+              
+              return {
+                error: `Compilation Error: Variable '${ident.name}' cannot be resolved. It has not been declared in this scope (around line ${lineNum}). Suggestion: Declare '${ident.name}' as a local variable, method parameter, or class attribute before using it.`,
+                line: lineNum
+              };
+            }
+          }
+        }
+      }
+    }
   } catch (err) {
-    return { error: `Parser error: ${err.message}`, line: 1 };
+    return { error: `Parser error: ${err.message}. Suggestion: Check the syntax of your class declarations, field/method types, and signatures.`, line: 1 };
   }
   
   return null;
@@ -898,6 +1186,132 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const [mainCode, setMainCode] = useState(EXAMPLES[0].mainCode);
   const [terminalOutput, setTerminalOutput] = useState('Terminal ready. Click "RUN JAVA CODE" to execute.');
   const [isRunning, setIsRunning] = useState(false);
+
+  const fileInputRef = useRef(null);
+
+  const handleDownloadCode = () => {
+    const metadata = {
+      classPositions
+    };
+    const metadataJson = JSON.stringify(metadata, null, 2);
+    // Format metadata as java comments
+    const metadataComments = "\n\n// === UML_METADATA_START ===\n" + 
+      metadataJson.split('\n').map(line => `// ${line}`).join('\n') + 
+      "\n// === UML_METADATA_END ===\n";
+
+    const combined = code + metadataComments + "\n\n// === RUNNER_SECTION_START ===\n\n" + mainCode;
+    const blob = new Blob([combined], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'Playground.java';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportCode = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        let classesPart = '';
+        let mainPart = '';
+
+        if (text.includes('// === RUNNER_SECTION_START ===')) {
+          const parts = text.split('// === RUNNER_SECTION_START ===');
+          classesPart = parts[0].trim();
+          mainPart = parts[1].trim();
+        } else if (text.includes('public static void main')) {
+          // Smart extraction of the class enclosing 'public static void main'
+          const mainMethodIndex = text.indexOf('public static void main');
+          const classIndex = text.lastIndexOf('class', mainMethodIndex);
+          if (classIndex !== -1) {
+            const openBraceIndex = text.indexOf('{', classIndex);
+            if (openBraceIndex !== -1 && openBraceIndex < mainMethodIndex) {
+              // Find matching closing brace
+              let braceCount = 1;
+              let i = openBraceIndex + 1;
+              while (i < text.length && braceCount > 0) {
+                if (text[i] === '{') braceCount++;
+                else if (text[i] === '}') braceCount--;
+                i++;
+              }
+              if (braceCount === 0) {
+                // Backtrack from classIndex to include class modifiers (like public)
+                let startOfClass = classIndex;
+                const prefix = text.substring(0, classIndex).trim();
+                const lastWord = prefix.split(/\s+/).pop();
+                if (lastWord === 'public' || lastWord === 'protected' || lastWord === 'private') {
+                  startOfClass = text.lastIndexOf(lastWord, classIndex);
+                }
+                
+                mainPart = text.substring(startOfClass, i).trim();
+                classesPart = (text.substring(0, startOfClass) + '\n' + text.substring(i)).trim();
+              } else {
+                classesPart = text.trim();
+              }
+            } else {
+              classesPart = text.trim();
+            }
+          } else {
+            classesPart = text.trim();
+          }
+        } else {
+          classesPart = text.trim();
+        }
+
+        // Parse UML metadata if present
+        let importedPositions = null;
+        if (text.includes('// === UML_METADATA_START ===')) {
+          try {
+            const startTag = '// === UML_METADATA_START ===';
+            const endTag = '// === UML_METADATA_END ===';
+            const startIndex = text.indexOf(startTag);
+            const endIndex = text.indexOf(endTag);
+            if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+              const metadataSection = text.substring(startIndex + startTag.length, endIndex);
+              const jsonLines = metadataSection.split('\n')
+                .map(line => line.trim().replace(/^\/\/\s*/, ''))
+                .filter(line => line.length > 0)
+                .join('');
+              importedPositions = JSON.parse(jsonLines).classPositions;
+            }
+          } catch (err) {
+            console.error("Failed to parse UML metadata on import:", err);
+          }
+        }
+
+        // Strip metadata comments from classesPart so it remains clean Java code in the editor
+        let cleanClassesPart = classesPart;
+        if (classesPart.includes('// === UML_METADATA_START ===')) {
+          const startIdx = classesPart.indexOf('// === UML_METADATA_START ===');
+          const endIdx = classesPart.indexOf('// === UML_METADATA_END ===');
+          if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+            cleanClassesPart = (classesPart.substring(0, startIdx) + classesPart.substring(endIdx + '// === UML_METADATA_END ==='.length)).trim();
+          }
+        }
+
+        setCode(cleanClassesPart);
+        if (mainPart) {
+          setMainCode(mainPart);
+        }
+        if (importedPositions) {
+          setClassPositions(importedPositions);
+        }
+        
+        try {
+          const parsed = javaToUmlClasses(cleanClassesPart);
+          setUmlClasses(parsed);
+        } catch (err) {
+          console.error("UML parsing failed on import:", err);
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
 
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [splitPercent, setSplitPercent] = useState(55);
@@ -2097,9 +2511,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       PaperProps={{
         style: {
           borderRadius: '24px',
-          background: isDarkMode ? 'rgba(20, 20, 42, 0.96)' : 'rgba(250, 252, 255, 0.96)',
+          background: 'var(--background-paper)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          border: '1px solid var(--divider)',
           boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
           height: '95vh',
           maxHeight: '95vh',
@@ -2161,6 +2575,22 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           >
             Interactive Code Runner
           </button>
+        </Box>
+
+        <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', marginRight: '8px' }}>
+          <IconButton size="small" onClick={handleDownloadCode} title="Download Java File" style={{ color: 'var(--success-main)' }}>
+            <DownloadIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={() => fileInputRef.current?.click()} title="Import Java File" style={{ color: 'var(--orange-500)' }}>
+            <UploadIcon fontSize="small" />
+          </IconButton>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportCode}
+            accept=".java,.txt"
+            style={{ display: 'none' }}
+          />
         </Box>
 
         <IconButton onClick={onClose} style={{ color: 'var(--text-secondary)' }}>
@@ -2464,10 +2894,10 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   elevation={0}
                   style={{
                     background: isDarkMode 
-                      ? '#0f172a linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)' 
-                      : '#f8fafc linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px)',
+                      ? 'var(--background-default) linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)' 
+                      : 'var(--background-default) linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px)',
                     backgroundSize: '24px 24px',
-                    border: isDarkMode ? '1.5px solid rgba(255,255,255,0.06)' : '1.5px solid rgba(0,0,0,0.08)',
+                    border: '1.5px solid var(--divider)',
                     borderRadius: '16px',
                     height: '100%',
                     width: '100%',
@@ -2570,7 +3000,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                           ? 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)'
                           : 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
                         backgroundSize: '24px 24px',
-                        backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc'
+                        backgroundColor: 'var(--background-default)'
                       }}
                     >
                     <svg
@@ -2598,8 +3028,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       >
                         <polygon
                           points="0,1.5 9,5 0,8.5"
-                          fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'}
-                          stroke={isDarkMode ? '#3b82f6' : '#1d4ed8'}
+                          fill="var(--background-paper)"
+                          stroke="var(--primary-main)"
                           strokeWidth="1.5"
                         />
                       </marker>
@@ -2667,7 +3097,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                         markerHeight="6"
                         orient="auto-start-reverse"
                       >
-                        <polygon points="0,5 8,1 16,5 8,9" fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'} stroke="#6366f1" strokeWidth="1.8" />
+                        <polygon points="0,5 8,1 16,5 8,9" fill="var(--background-paper)" stroke="#6366f1" strokeWidth="1.8" />
                       </marker>
 
                       {/* Realization / Implementation (Dashed line with hollow closed triangle pointing to parent/interface) */}
@@ -2682,7 +3112,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       >
                         <polygon
                           points="0,1.5 9,5 0,8.5"
-                          fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'}
+                          fill="var(--background-paper)"
                           stroke="#10b981"
                           strokeWidth="1.8"
                         />
@@ -2710,7 +3140,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                         let markerEnd = 'none';
                         
                         if (rel.type === 'extends') {
-                          strokeColor = isDarkMode ? '#3b82f6' : '#1d4ed8';
+                          strokeColor = 'var(--primary-main)';
                           markerEnd = 'url(#inheritance-arrow)';
                         } else if (rel.type === 'implements') {
                           strokeColor = '#10b981';
@@ -2777,7 +3207,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                           width: `${calculateCardWidth(umlClass)}px`,
                           border: `2px solid ${theme.palette.primary.main}80`,
                           borderRadius: '12px',
-                          background: isDarkMode ? '#1E1E2F' : '#FFFFFF',
+                          background: 'var(--background-paper)',
                           boxShadow: draggingClass === umlClass.title
                             ? '0 12px 30px rgba(0,0,0,0.35)'
                             : '0 4px 15px rgba(0,0,0,0.15)',
@@ -2796,9 +3226,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                         {/* Header Block (Class Title / Abstract / Extends) */}
                         <Box
                           style={{
-                            background: 'rgba(28,176,246,0.08)',
+                            background: 'rgba(var(--primary-main-rgb), 0.08)',
                             padding: '10px',
-                            borderBottom: '1.5px solid rgba(28,176,246,0.15)',
+                            borderBottom: '1.5px solid var(--divider)',
                             cursor: draggingClass === umlClass.title ? 'grabbing' : 'grab',
                             userSelect: 'none'
                           }}
@@ -3129,7 +3559,6 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 </Box>
               </Paper>
 
-              {/* Floating zoom control panel - centered relative to visible UML editor space */}
               <Box
                 style={{
                   position: 'absolute',
@@ -3139,9 +3568,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  background: isDarkMode ? 'rgba(30, 30, 47, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+                  background: 'var(--surface-glass)',
                   backdropFilter: 'blur(10px)',
-                  border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+                  border: '1px solid var(--divider)',
                   padding: '4px 12px',
                   borderRadius: '20px',
                   boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
@@ -3162,7 +3591,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     }
                     setZoomScale(prev => Math.max(dynamicMinZoom, prev - 0.1));
                   }}
-                  style={{ color: zoomScale <= dynamicMinZoom ? (isDarkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : (isDarkMode ? '#e0e0e0' : '#333') }}
+                  style={{ color: zoomScale <= dynamicMinZoom ? 'var(--text-disabled)' : 'var(--text-primary)' }}
                 >
                   <RemoveIcon fontSize="small" />
                 </IconButton>
@@ -3180,7 +3609,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     }
                     setZoomScale(prev => Math.min(2.0, prev + 0.1));
                   }}
-                  style={{ color: zoomScale >= 2.0 ? (isDarkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : (isDarkMode ? '#e0e0e0' : '#333') }}
+                  style={{ color: zoomScale >= 2.0 ? 'var(--text-disabled)' : 'var(--text-primary)' }}
                 >
                   <AddIcon fontSize="small" />
                 </IconButton>
@@ -3256,12 +3685,12 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     style={{
                       flexGrow: 1,
                       padding: '16px',
-                      backgroundColor: '#05070f',
+                      backgroundColor: 'var(--code-bg)',
                       borderRadius: '16px',
-                      border: '1px solid rgba(255,255,255,0.06)',
+                      border: '1px solid var(--code-border)',
                       fontFamily: '"Roboto Mono", monospace',
                       fontSize: '0.8rem',
-                      color: '#3DDC97',
+                      color: 'var(--code-text-default)',
                       whiteSpace: 'pre-wrap',
                       overflowY: 'auto',
                       minHeight: 0,
@@ -3324,8 +3753,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         PaperProps={{
           style: {
             borderRadius: '16px',
-            background: isDarkMode ? '#1e1e2f' : '#ffffff',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'var(--background-paper)',
+            border: '1px solid var(--divider)',
             padding: '16px',
             width: '400px'
           }
@@ -3420,14 +3849,14 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       fullScreen
       PaperProps={{
         style: {
-          background: isDarkMode ? '#0b0f19' : '#f3f4f6',
+          background: 'var(--background-default)',
         }
       }}
     >
-      <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+      <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--divider)' }}>
         <Box style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <PreviewIcon style={{ color: 'var(--primary-main)' }} />
-          <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: isDarkMode ? '#fff' : '#000' }}>
+          <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
             UML Diagram Fullscreen Preview
           </Typography>
         </Box>
@@ -3448,7 +3877,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           onMouseDown={handlePreviewCanvasMouseDown}
           elevation={0}
           style={{
-            background: isDarkMode ? '#0b0f19' : '#f3f4f6',
+            background: 'var(--background-default)',
             height: '100%',
             width: '100%',
             position: 'relative',
@@ -3475,11 +3904,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 left: 0,
                 transform: `scale(${previewZoomScale})`,
                 transformOrigin: 'top left',
-                backgroundImage: isDarkMode
-                  ? 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)'
-                  : 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
+                backgroundImage: 'linear-gradient(var(--divider) 1px, transparent 1px), linear-gradient(90deg, var(--divider) 1px, transparent 1px)',
                 backgroundSize: '24px 24px',
-                backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc'
+                backgroundColor: 'var(--background-default)'
               }}
             >
               {/* SVG lines */}
@@ -3508,8 +3935,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   >
                     <polygon
                       points="0,1.5 9,5 0,8.5"
-                      fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'}
-                      stroke={isDarkMode ? '#3b82f6' : '#1d4ed8'}
+                      fill="var(--background-paper)"
+                      stroke="var(--primary-main)"
                       strokeWidth="1.5"
                     />
                   </marker>
@@ -3577,7 +4004,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     markerHeight="6"
                     orient="auto-start-reverse"
                   >
-                    <polygon points="0,5 8,1 16,5 8,9" fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'} stroke="#6366f1" strokeWidth="1.8" />
+                    <polygon points="0,5 8,1 16,5 8,9" fill="var(--background-paper)" stroke="#6366f1" strokeWidth="1.8" />
                   </marker>
 
                   {/* Realization / Implementation (Dashed line with hollow closed triangle pointing to parent/interface) */}
@@ -3592,7 +4019,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   >
                     <polygon
                       points="0,1.5 9,5 0,8.5"
-                      fill={isDarkMode ? '#1E1E2F' : '#FFFFFF'}
+                      fill="var(--background-paper)"
                       stroke="#10b981"
                       strokeWidth="1.8"
                     />
@@ -3620,7 +4047,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     let markerEnd = 'none';
                     
                     if (rel.type === 'extends') {
-                      strokeColor = isDarkMode ? '#3b82f6' : '#1d4ed8';
+                      strokeColor = 'var(--primary-main)';
                       markerEnd = 'url(#preview-inheritance-arrow)';
                     } else if (rel.type === 'implements') {
                       strokeColor = '#10b981';
@@ -3677,7 +4104,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       width: `${calculateCompressedCardWidth(umlClass)}px`,
                       border: `2.5px solid ${theme.palette.primary.main}`,
                       borderRadius: '12px',
-                      background: isDarkMode ? '#1E1E2F' : '#FFFFFF',
+                      background: 'var(--background-paper)',
                       boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
                       zIndex: 3,
                       display: 'flex',
@@ -3686,7 +4113,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     }}
                   >
                     {/* Class Title */}
-                    <Box style={{ borderBottom: '1.5px solid rgba(28,176,246,0.15)', paddingBottom: '6px', marginBottom: '8px', textAlign: 'center' }}>
+                    <Box style={{ borderBottom: '1.5px solid var(--divider)', paddingBottom: '6px', marginBottom: '8px', textAlign: 'center' }}>
                       {umlClass.type === 'interface' ? (
                         <Typography variant="caption" style={{ color: '#10b981', fontWeight: 800, display: 'block', fontSize: '0.65rem', textTransform: 'uppercase' }}>
                           &lt;&lt;Interface&gt;&gt;
@@ -3698,7 +4125,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                           </Typography>
                         )
                       )}
-                      <Typography variant="subtitle2" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: isDarkMode ? '#fff' : '#000' }}>
+                      <Typography variant="subtitle2" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
                         {umlClass.title}
                       </Typography>
                       {umlClass.extends && (
@@ -3715,7 +4142,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
                     {/* Attributes List */}
                     {umlClass.attributes.length > 0 && (
-                      <Box style={{ borderBottom: '1.5px solid rgba(28,176,246,0.15)', paddingBottom: '6px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <Box style={{ borderBottom: '1.5px solid var(--divider)', paddingBottom: '6px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                         {umlClass.attributes.map((attr, attrIdx) => {
                           const visSign = attr.visibility === 'public' ? '+' : (attr.visibility === 'protected' ? '#' : '-');
                           return (
@@ -3724,7 +4151,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                               variant="caption"
                               style={{
                                 fontFamily: 'monospace',
-                                color: isDarkMode ? '#e0e0e0' : '#333',
+                                color: 'var(--text-primary)',
                                 textDecoration: attr.isStatic ? 'underline' : 'none',
                                 fontWeight: attr.isStatic ? 800 : 400
                               }}
@@ -3749,7 +4176,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                               variant="caption"
                               style={{
                                 fontFamily: 'monospace',
-                                color: isDarkMode ? '#e0e0e0' : '#333',
+                                color: 'var(--text-primary)',
                                 textDecoration: method.isStatic ? 'underline' : 'none',
                                 fontStyle: method.isAbstract ? 'italic' : 'normal',
                                 fontWeight: (method.isStatic || method.isAbstract) ? 800 : 400
@@ -3778,9 +4205,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            background: isDarkMode ? 'rgba(30, 30, 47, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+            background: 'var(--surface-glass)',
             backdropFilter: 'blur(10px)',
-            border: isDarkMode ? '1px solid rgba(30, 30, 47, 0.15)' : '1px solid rgba(0, 0, 0, 0.1)',
+            border: '1px solid var(--divider)',
             padding: '4px 12px',
             borderRadius: '20px',
             boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
@@ -3801,7 +4228,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
               }
               setPreviewZoomScale(prev => Math.max(dynamicPreviewMinZoom, prev - 0.1));
             }}
-            style={{ color: previewZoomScale <= dynamicPreviewMinZoom ? (isDarkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : (isDarkMode ? '#e0e0e0' : '#333') }}
+            style={{ color: previewZoomScale <= dynamicPreviewMinZoom ? 'var(--text-disabled)' : 'var(--text-primary)' }}
           >
             <RemoveIcon fontSize="small" />
           </IconButton>
@@ -3819,7 +4246,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
               }
               setPreviewZoomScale(prev => Math.min(2.0, prev + 0.1));
             }}
-            style={{ color: previewZoomScale >= 2.0 ? (isDarkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : (isDarkMode ? '#e0e0e0' : '#333') }}
+            style={{ color: previewZoomScale >= 2.0 ? 'var(--text-disabled)' : 'var(--text-primary)' }}
           >
             <AddIcon fontSize="small" />
           </IconButton>

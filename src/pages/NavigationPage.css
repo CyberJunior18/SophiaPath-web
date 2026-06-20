@@ -1,22 +1,35 @@
 .nav-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: var(--nav-width) minmax(0, 1fr);
-  gap: 2rem;
-  padding: 2rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.5rem;
+  padding: 1.5rem;
   align-items: start;
+  transition: gap 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-shell.has-sticky-footer {
+  padding-bottom: 0 !important;
+}
+
+.nav-shell.sidebar-collapsed {
+  gap: 0;
 }
 
 .nav-desktop-rail {
   position: sticky;
-  top: 2rem;
-  height: calc(100vh - 4rem);
+  top: 1.5rem;
+  height: calc(100vh - 3rem);
+  overflow: hidden;
 }
 
 .nav-shell-sidebar {
+  width: 260px;
+  min-width: 260px;
+  box-sizing: border-box;
   height: 100%;
-  padding: 1.5rem;
-  border-radius: 24px;
+  padding: 1rem;
+  border-radius: 20px;
   background: var(--surface-glass);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -63,9 +76,9 @@
 .nav-profile-card {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 16px;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 12px;
   background: rgba(var(--primary-main-rgb), 0.02);
   border: 1px solid var(--divider);
 }
@@ -91,7 +104,7 @@
 }
 
 .nav-menu-item {
-  min-height: 52px;
+  min-height: 44px;
   border-radius: 12px;
   border: 1px solid transparent;
   color: var(--text-secondary);
@@ -165,14 +178,14 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.25rem 1.5rem;
-  border-radius: 20px;
+  padding: 0.85rem 1.25rem;
+  border-radius: 16px;
 }
 
 .nav-topbar-copy {
   display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .nav-menu-trigger {
@@ -180,20 +193,17 @@
 }
 
 .nav-topbar-title {
-  margin-top: 0.9rem;
-  font-size: clamp(1.6rem, 1.2vw + 1.2rem, 2.8rem);
+  font-size: clamp(1.3rem, 1vw + 0.9rem, 1.75rem);
   font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
-  word-break: keep-all;
-  overflow-wrap: break-word;
-  max-width: 100%;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 
 .nav-topbar-description {
-  margin-top: 0.45rem;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
-  line-height: 1.7;
+  line-height: 1.5;
 }
 
 .nav-topbar-actions {
@@ -264,4 +274,8 @@
     justify-content: space-between;
     flex-wrap: wrap;
   }
+}
+
+.nav-collapse-trigger {
+  color: var(--text-primary) !important;
 }

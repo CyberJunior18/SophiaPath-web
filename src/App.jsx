@@ -7,12 +7,15 @@ import NavigationPage from './pages/NavigationPage';
 import CodeEditorPage from './features/editor/CodeEditorPage';
 
 
+import ScrollToTop from './components/ScrollToTop';
+
 function App() {
   return (
     <CustomThemeProvider>
       <AuthProvider>
         <CssBaseline />
         <Router>
+          <ScrollToTop />
           <Routes>
             {/* Editor opens in a full window without nav */}
             <Route path="/editor" element={<CodeEditorPage />} />

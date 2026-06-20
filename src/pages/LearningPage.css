@@ -16,15 +16,15 @@
 }
 
 .learning-intro {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 3rem 2rem;
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  align-items: stretch;
+  text-align: left;
+  padding: 3rem;
   border-radius: 32px;
   position: relative;
   overflow: hidden;
-  gap: 2rem;
+  gap: 3rem;
 }
 
 
@@ -42,9 +42,10 @@
 .learning-intro-copy {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   position: relative;
   z-index: 1;
+  text-align: left;
 }
 
 .learning-intro-side {
@@ -71,7 +72,7 @@
 
 
 .learning-intro-search {
-  margin-top: 2rem;
+  margin-top: 1.5rem;
   width: 100%;
   max-width: 600px;
 }
@@ -102,9 +103,9 @@
 .learning-category-row {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.8rem;
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
 }
 
 
@@ -222,11 +223,10 @@
   color: var(--text-secondary);
 }
 
-.learning-course-grid,
-.learning-coming-grid {
+.learning-course-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
 }
 
 .learning-course-card {
@@ -393,26 +393,36 @@
   font-size: 0.875rem;
 }
 
-@media (max-width: 1279px) {
-  .learning-intro,
-  .learning-course-grid,
-  .learning-coming-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
+@media (max-width: 1024px) {
   .learning-intro {
     grid-template-columns: 1fr;
+    text-align: center;
+    padding: 2rem;
+    gap: 2rem;
+  }
+
+  .learning-intro-copy {
+    align-items: center;
+    text-align: center;
+  }
+
+  .learning-category-row {
+    justify-content: center;
   }
 }
 
-@media (max-width: 767px) {
-  .learning-course-grid,
-  .learning-coming-grid,
-  .learning-stat-grid {
+@media (max-width: 959px) {
+  .learning-course-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .learning-course-grid {
     grid-template-columns: 1fr;
   }
 
   .learning-intro {
-    padding: 1.3rem;
+    padding: 1.5rem 1rem;
   }
 }

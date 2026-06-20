@@ -70,12 +70,12 @@ const NavigationPage = () => {
   const { user, logout } = useAuth();
   const { toggleTheme, isDarkMode } = useAppTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
-  const location = useLocation();
-
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  const isStickyFooterPage = location.pathname.startsWith('/quiz/') || location.pathname.startsWith('/learning/');
 
   const userName = user?.name || 'Learner';
 
@@ -135,18 +135,62 @@ const NavigationPage = () => {
   };
 
 
+  const containerVariants = {
+    expanded: {
+      transition: {
+        staggerChildren: 0.05,
+        delayChildren: 0.06
+      }
+    },
+    collapsed: {
+      transition: {
+        staggerChildren: 0.03,
+        staggerDirection: -1
+      }
+    }
+  };
+
+  const itemVariants = {
+    expanded: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      filter: "blur(0px)",
+      transition: { 
+        type: "spring", 
+        stiffness: 300, 
+        damping: 25,
+        mass: 0.8
+      }
+    },
+    collapsed: {
+      opacity: 0,
+      y: 60,
+      scale: 0.9,
+      filter: "blur(4px)",
+      transition: { 
+        type: "spring",
+        stiffness: 300,
+        damping: 28
+      }
+    }
+  };
+
   const shellNav = (
-    <div className="nav-shell-sidebar">
-      <div className="nav-brand">
+    <motion.div 
+      className="nav-shell-sidebar"
+      variants={containerVariants}
+    >
+      <motion.div className="nav-brand" variants={itemVariants}>
         <div className="nav-brand-mark">
           <AutoAwesomeIcon fontSize="small" />
         </div>
         <div>
           <Typography className="nav-brand-title">SophiaPath</Typography>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="nav-profile-card">
+      <motion.div className="nav-profile-card" variants={itemVariants}>
         <Avatar
           src="https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"
           sx={{ width: 56, height: 56 }}
@@ -154,25 +198,26 @@ const NavigationPage = () => {
         <div className="nav-profile-copy">
           <Typography className="nav-profile-name">{userName}</Typography>
         </div>
-      </div>
+      </motion.div>
 
       <List className="nav-menu-list">
         {navigationItems.map((item) => {
           const active = location.pathname === item.path;
           return (
-            <ListItemButton
-              key={item.path}
-              selected={active}
-              className={`nav-menu-item ${active ? 'is-active' : ''}`}
-              onClick={() => handleNavigation(item.path)}
-            >
-              <ListItemIcon className="nav-menu-icon">{item.icon}</ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItemButton>
+            <motion.div key={item.path} variants={itemVariants}>
+              <ListItemButton
+                selected={active}
+                className={`nav-menu-item ${active ? 'is-active' : ''}`}
+                onClick={() => handleNavigation(item.path)}
+              >
+                <ListItemIcon className="nav-menu-icon">{item.icon}</ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            </motion.div>
           );
         })}
       </List>
-    </div>
+    </motion.div>
   );
 
   const renderDrawer = () => (
@@ -182,7 +227,9 @@ const NavigationPage = () => {
       onClose={() => setDrawerOpen(false)}
       className="nav-mobile-drawer"
     >
-      {shellNav}
+      <motion.div initial="expanded" animate="expanded" style={{ height: '100%' }}>
+        {shellNav}
+      </motion.div>
     </Drawer>
   );
 
@@ -207,8 +254,25 @@ const NavigationPage = () => {
   }
 
   return (
-    <Box className="nav-shell">
-      {!isMobile && <aside className="nav-desktop-rail">{shellNav}</aside>}
+    <Box className={`nav-shell ${isStickyFooterPage ? 'has-sticky-footer' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      {!isMobile && (
+        <motion.aside
+          animate={sidebarCollapsed ? "collapsed" : "expanded"}
+          variants={{
+            expanded: {
+              width: 260,
+              transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] }
+            },
+            collapsed: {
+              width: 0,
+              transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1], delay: 0.08 }
+            }
+          }}
+          className="nav-desktop-rail"
+        >
+          {shellNav}
+        </motion.aside>
+      )}
       {isMobile && renderDrawer()}
 
       <main className="nav-main">
@@ -216,6 +280,11 @@ const NavigationPage = () => {
           <div className="nav-topbar-copy">
             {isMobile && (
               <IconButton onClick={() => setDrawerOpen(true)} className="nav-menu-trigger">
+                <MenuIcon />
+              </IconButton>
+            )}
+            {!isMobile && (
+              <IconButton onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="nav-collapse-trigger" title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
                 <MenuIcon />
               </IconButton>
             )}

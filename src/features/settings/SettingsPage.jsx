@@ -28,10 +28,23 @@ import './SettingsPage.css';
 
 
 const SettingsPage = () => {
-  const { isDarkMode, toggleTheme } = useTheme();
+  const { themeMode, setThemeMode } = useTheme();
   const { user, deleteAccount } = useAuth();
   const [notifications, setNotifications] = useState(true);
   const [emailUpdates, setEmailUpdates] = useState(false);
+
+  const themes = [
+    { id: 'light', name: 'Default Light', bg: '#FCFDFF', border: '#E9EDF5', text: '#2D2D4D', dot: '#3D5CFF' },
+    { id: 'dark', name: 'Default Dark', bg: '#161632', border: 'rgba(255,255,255,0.08)', text: '#FFFFFF', dot: '#3D5CFF' },
+    { id: 'sepia', name: 'Warm Sepia', bg: '#FDF6E3', border: '#EFE6CE', text: '#5C3E21', dot: '#856404' },
+    { id: 'lava', name: 'Volcanic Lava', bg: '#1c0a0a', border: 'rgba(255,69,0,0.2)', text: '#ffc83b', dot: '#ff4500' },
+    { id: 'ocean', name: 'Deep Ocean', bg: '#0f3057', border: 'rgba(0,188,212,0.2)', text: '#e0f7fa', dot: '#00bcd4' },
+    { id: 'forest', name: 'Emerald Forest', bg: '#0c2617', border: 'rgba(16,185,129,0.2)', text: '#e2f3eb', dot: '#10b981' },
+    { id: 'amber', name: 'Solarized Amber', bg: '#002b36', border: 'rgba(181,137,0,0.2)', text: '#fdf6e3', dot: '#b58900' },
+    { id: 'dracula', name: 'Dracula Vampire', bg: '#1e1f29', border: 'rgba(255,121,198,0.2)', text: '#f8f8f2', dot: '#ff79c6' },
+    { id: 'amethyst', name: 'Royal Amethyst', bg: '#29153a', border: 'rgba(212,175,55,0.2)', text: '#fae8ff', dot: '#d4af37' },
+    { id: 'nordic', name: 'Nordic Ice', bg: '#3b4252', border: 'rgba(136,192,208,0.2)', text: '#eceff4', dot: '#88c0d0' },
+  ];
 
   const handleDeleteAccount = () => {
     if (window.confirm('Are you sure you want to delete your account? This action is permanent.')) {
@@ -95,15 +108,39 @@ const SettingsPage = () => {
             </Typography>
             <Paper className="settings-card glass-panel" elevation={0}>
               <List disablePadding>
-                <ListItem className="settings-row">
-                  <ListItemIcon className="settings-row-icon">
+                <ListItem className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '16px', padding: '20px 24px' }}>
+                  <Box style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <PaletteIcon className="settings-primary-icon" />
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={<Typography className="settings-row-title">Dark Mode</Typography>}
-                    secondary="Adjust the app's visual appearance"
-                  />
-                  <Switch checked={isDarkMode} onChange={toggleTheme} color="primary" />
+                    <ListItemText 
+                      primary={<Typography className="settings-row-title">App Theme Preset</Typography>}
+                      secondary="Customize the visual colors and appearance of the application"
+                    />
+                  </Box>
+                  <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginTop: '8px', width: '100%' }}>
+                    {themes.map((t) => (
+                      <Box
+                        key={t.id}
+                        onClick={() => setThemeMode(t.id)}
+                        style={{
+                          cursor: 'pointer',
+                          padding: '16px 12px',
+                          borderRadius: '16px',
+                          background: t.bg,
+                          border: themeMode === t.id ? `2px solid ${t.dot}` : '1.5px solid var(--divider)',
+                          boxShadow: themeMode === t.id ? `0 0 16px ${t.dot}33` : 'none',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '8px',
+                          transition: 'all 0.2s ease',
+                          textAlign: 'center'
+                        }}
+                      >
+                        <Box style={{ width: '20px', height: '20px', borderRadius: '50%', background: t.dot, border: '2.5px solid #fff', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} />
+                        <Typography style={{ fontSize: '0.8rem', fontWeight: 800, color: t.text }}>{t.name}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
                 </ListItem>
                 <Divider />
                 <ListItem className="settings-row">

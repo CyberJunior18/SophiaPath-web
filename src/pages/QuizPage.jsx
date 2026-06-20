@@ -426,6 +426,12 @@ const QuizPage = () => {
   // Quiz and Question States
   const [quizQuestions, setQuizQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+  // Reset scroll position to top when switching questions
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentQuestionIndex]);
+
   const [selectedAnswerId, setSelectedAnswerId] = useState(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
@@ -1391,15 +1397,15 @@ const QuizPage = () => {
                   <Box style={{
                     borderRadius: '16px',
                     overflow: 'hidden',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    backgroundColor: '#1e1e1e',
+                    border: '1px solid var(--code-border)',
+                    backgroundColor: 'var(--code-bg)',
                     boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
                     position: 'relative',
                     height: isConsoleOpen ? '32vh' : '56vh',
                     transition: 'height 0.2s ease-in-out'
                   }}>
                     {/* Header */}
-                    <div className="code-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div className="code-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--code-border)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <CodeIcon fontSize="small" style={{ color: 'var(--primary-main)' }} />
                         <Typography variant="body2" style={{ fontFamily: 'monospace', fontWeight: 800 }}>
@@ -1438,11 +1444,10 @@ const QuizPage = () => {
                     />
                   </Box>
 
-                  {/* LeetCode-style Tabbed Bottom Console Drawer */}
                   <Box style={{
-                    border: '1.5px solid rgba(255,255,255,0.06)',
+                    border: '1.5px solid var(--code-border)',
                     borderRadius: '16px',
-                    background: '#141418',
+                    background: 'var(--code-bg)',
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
@@ -1453,13 +1458,13 @@ const QuizPage = () => {
                     <Box
                       style={{
                         padding: '6px 16px',
-                        background: '#1e1e24',
+                        background: 'var(--code-header-bg)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         cursor: 'pointer',
                         userSelect: 'none',
-                        borderBottom: isConsoleOpen ? '1px solid rgba(255,255,255,0.05)' : 'none'
+                        borderBottom: isConsoleOpen ? '1px solid var(--code-border)' : 'none'
                       }}
                       onClick={() => setIsConsoleOpen(prev => !prev)}
                     >
@@ -1479,7 +1484,7 @@ const QuizPage = () => {
                                 background: 'transparent',
                                 border: 'none',
                                 borderBottom: activeConsoleTab === 'testcase' ? '2px solid var(--primary-main)' : '2px solid transparent',
-                                color: activeConsoleTab === 'testcase' ? '#fff' : 'rgba(255,255,255,0.5)',
+                                color: activeConsoleTab === 'testcase' ? 'var(--text-primary)' : 'var(--text-secondary)',
                                 padding: '2px 8px',
                                 cursor: 'pointer',
                                 fontSize: '0.75rem',
@@ -1494,7 +1499,7 @@ const QuizPage = () => {
                                 background: 'transparent',
                                 border: 'none',
                                 borderBottom: activeConsoleTab === 'result' ? '2px solid var(--primary-main)' : '2px solid transparent',
-                                color: activeConsoleTab === 'result' ? '#fff' : 'rgba(255,255,255,0.5)',
+                                color: activeConsoleTab === 'result' ? 'var(--text-primary)' : 'var(--text-secondary)',
                                 padding: '2px 8px',
                                 cursor: 'pointer',
                                 fontSize: '0.75rem',
@@ -1524,8 +1529,8 @@ const QuizPage = () => {
                                   size="small"
                                   onClick={() => setSelectedTestCaseIdx(idx)}
                                   style={{
-                                    background: selectedTestCaseIdx === idx ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)',
-                                    color: '#fff',
+                                    background: selectedTestCaseIdx === idx ? 'var(--divider)' : 'var(--action-hover)',
+                                    color: 'var(--text-primary)',
                                     fontWeight: selectedTestCaseIdx === idx ? 800 : 400
                                   }}
                                 />
@@ -1534,14 +1539,14 @@ const QuizPage = () => {
                             {currentQuestion.testCases && currentQuestion.testCases[selectedTestCaseIdx] && (
                               <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
                                 <Box>
-                                  <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 800, display: 'block' }}>INPUT</Typography>
-                                  <pre style={{ margin: '4px 0 0', padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.8rem', color: '#fff' }}>
+                                  <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block' }}>INPUT</Typography>
+                                  <pre style={{ margin: '4px 0 0', padding: '8px', background: 'var(--action-hover)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
                                     {currentQuestion.testCases[selectedTestCaseIdx].input || '(empty input)'}
                                   </pre>
                                 </Box>
                                 <Box>
-                                  <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 800, display: 'block' }}>EXPECTED OUTPUT</Typography>
-                                  <pre style={{ margin: '4px 0 0', padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.8rem', color: '#fff' }}>
+                                  <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block' }}>EXPECTED OUTPUT</Typography>
+                                  <pre style={{ margin: '4px 0 0', padding: '8px', background: 'var(--action-hover)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
                                     {currentQuestion.testCases[selectedTestCaseIdx].expectedOutput}
                                   </pre>
                                 </Box>
@@ -1561,7 +1566,7 @@ const QuizPage = () => {
                                   <Typography variant="subtitle2" style={{ fontWeight: 800, color: allCasesPassed ? '#4CAF50' : '#ef5350' }}>
                                     {allCasesPassed ? 'Accepted ✅' : 'Wrong Answer ❌'}
                                   </Typography>
-                                  <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                  <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
                                     ({testCaseStatuses.filter(s => s.status === 'pass').length}/{testCaseStatuses.length} cases passed)
                                   </Typography>
                                 </Box>
@@ -1574,7 +1579,7 @@ const QuizPage = () => {
                                       size="small"
                                       onClick={() => setSelectedTestCaseIdx(idx)}
                                       style={{
-                                        background: selectedTestCaseIdx === idx ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)',
+                                        background: selectedTestCaseIdx === idx ? 'var(--divider)' : 'var(--action-hover)',
                                         color: st.status === 'pass' ? '#66bb6a' : '#ef5350',
                                         fontWeight: selectedTestCaseIdx === idx ? 800 : 400,
                                         border: `1.5px solid ${st.status === 'pass' ? 'rgba(102,187,106,0.3)' : 'rgba(239,83,80,0.3)'}`
@@ -1585,10 +1590,10 @@ const QuizPage = () => {
 
                                 {currentQuestion.testCases && currentQuestion.testCases[selectedTestCaseIdx] && (
                                   <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>
+                                    <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
                                       <strong>Input:</strong> {currentQuestion.testCases[selectedTestCaseIdx].input || '(empty)'}
                                     </Typography>
-                                    <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>
+                                    <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
                                       <strong>Expected:</strong> {currentQuestion.testCases[selectedTestCaseIdx].expectedOutput}
                                     </Typography>
                                     {testCaseStatuses[selectedTestCaseIdx] && (

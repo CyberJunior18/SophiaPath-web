@@ -1468,6 +1468,12 @@ const LearningContentPage = () => {
 
   const [lesson, setLesson] = useState(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+
+  // Reset scroll position to top when switching slides
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentPageIndex]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [completionSaved, setCompletionSaved] = useState(false);
 
@@ -1691,7 +1697,7 @@ const LearningContentPage = () => {
     }
     
     const originalCourseId = location.state?.course?.id || courseId;
-    navigate(`/learning-path/${originalCourseId}`, { state: location.state });
+    navigate(`/learning-path/${originalCourseId}`, { state: { ...location.state, lessonFinished: { lessonId: lesson.id } } });
   };
 
   const renderBlock = (block, idx) => {

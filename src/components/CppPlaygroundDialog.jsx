@@ -19,22 +19,173 @@ import {
   ContentCopy as CopyIcon,
   Terminal as TerminalIcon,
   Refresh as ResetIcon,
-  GetApp as DownloadIcon
+  GetApp as DownloadIcon,
+  FileUpload as UploadIcon
 } from '@mui/icons-material';
 import Editor from '@monaco-editor/react';
 import html2canvas from 'html2canvas';
 
+const validateCppSyntax = (cppCode) => {
+  let line = 1;
+  let braceStack = [];
+  let parenStack = [];
+  let inString = false;
+  let inChar = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < cppCode.length; i++) {
+    const char = cppCode[i];
+    
+    if (char === '\n') {
+      line++;
+      if (inLineComment) {
+        inLineComment = false;
+      }
+    }
+
+    if (inLineComment) continue;
+    if (inBlockComment) {
+      if (char === '/' && cppCode[i - 1] === '*') {
+        inBlockComment = false;
+      }
+      continue;
+    }
+
+    if (inString) {
+      if (char === '"' && cppCode[i - 1] !== '\\') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (inChar) {
+      if (char === "'" && cppCode[i - 1] !== '\\') {
+        inChar = false;
+      }
+      continue;
+    }
+
+    // Check for comments
+    if (char === '/' && cppCode[i + 1] === '/') {
+      inLineComment = true;
+      i++;
+      continue;
+    }
+    if (char === '/' && cppCode[i + 1] === '*') {
+      inBlockComment = true;
+      i++;
+      continue;
+    }
+
+    // Check for literals
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === "'") {
+      inChar = true;
+      continue;
+    }
+
+    // Check braces/parens
+    if (char === '{') {
+      braceStack.push({ line, col: i + 1 });
+    } else if (char === '}') {
+      if (braceStack.length === 0) {
+        throw new Error(`Syntax Error: Mismatched closing brace '}' on line ${line}. Suggestion: Check if you have an extra '}' or are missing an opening '{' before this line.`);
+      }
+      braceStack.pop();
+    } else if (char === '(') {
+      parenStack.push({ line, col: i + 1 });
+    } else if (char === ')') {
+      if (parenStack.length === 0) {
+        throw new Error(`Syntax Error: Mismatched closing parenthesis ')' on line ${line}. Suggestion: Check if you have an extra ')' or are missing an opening '(' before this line.`);
+      }
+      parenStack.pop();
+    }
+  }
+
+  if (inBlockComment) {
+    throw new Error(`Syntax Error: Unclosed block comment (/*) starting before the end of the file. Suggestion: Add '*/' to close it.`);
+  }
+  if (inString) {
+    throw new Error(`Syntax Error: Unclosed string literal before the end of the file. Suggestion: Add a closing double quote (") on the same line.`);
+  }
+  if (braceStack.length > 0) {
+    const unclosed = braceStack.pop();
+    throw new Error(`Syntax Error: Unclosed curly brace '{' starting on line ${unclosed.line}. Suggestion: Add a matching closing brace '}' to close this code block.`);
+  }
+  if (parenStack.length > 0) {
+    const unclosed = parenStack.pop();
+    throw new Error(`Syntax Error: Unclosed parenthesis '(' starting on line ${unclosed.line}. Suggestion: Add a matching closing parenthesis ')' to close this expression.`);
+  }
+
+  // Safety parse clean code
+  let cleanCode = cppCode
+    .replace(/\/\/.*$/gm, "") 
+    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+  const stringLiterals = [];
+  cleanCode = cleanCode.replace(/"(\\.|[^"\\])*"/g, (match) => {
+    stringLiterals.push(match);
+    return `__STR_LITERAL_${stringLiterals.length - 1}__`;
+  });
+  cleanCode = cleanCode.replace(/'(\\.|[^'\\])*'/g, (match) => {
+    stringLiterals.push(match);
+    return `__STR_LITERAL_${stringLiterals.length - 1}__`;
+  });
+
+  // Entry point check
+  const mainBodyMatch = /int\s+main\s*\(\s*\)\s*\{([\s\S]*)\}/.exec(cleanCode);
+  if (!mainBodyMatch) {
+    throw new Error("Syntax Error: Missing 'int main()' entry point. Suggestion: Every runnable C++ program requires an entry point. Ensure you declare 'int main() { ... }'.");
+  }
+  const body = mainBodyMatch[1].trim();
+
+  // Validate identifiers
+  const varDeclRegex = /\b(int|double|float|string|std::string|bool|char|auto)\s+([^;()]+);/g;
+  let varMatch;
+  varDeclRegex.lastIndex = 0;
+  while ((varMatch = varDeclRegex.exec(body)) !== null) {
+    const declBody = varMatch[2].trim();
+    const parts = declBody.split(",");
+    for (let part of parts) {
+      const cleanName = part.split("=")[0].split("[")[0].trim();
+      if (cleanName.length > 0) {
+        if (!/^[A-Za-z_]+[0-9]*$/.test(cleanName)) {
+          const varIndex = cppCode.indexOf(varMatch[0]);
+          let varLine = 1;
+          if (varIndex !== -1) {
+            varLine = cppCode.substring(0, varIndex).split('\n').length;
+          }
+          throw new Error(`Syntax Error: Variable name '${cleanName}' on line ${varLine} is not a valid C++ identifier. Suggestion: C++ variable names must consist of letters and underscores only, with numbers allowed only at the very end (no digits in the middle, no special characters).`);
+        }
+      }
+    }
+  }
+};
+
 const translateCppToJs = (cppCode, inputStr) => {
+  validateCppSyntax(cppCode);
+
   // 1. Clean comments
   let code = cppCode
     .replace(/\/\/.*$/gm, "") 
     .replace(/\/\*[\s\S]*?\*\//g, ""); 
 
+  // Replace string and character literals with placeholders to make translation safe
+  const stringLiterals = [];
+  code = code.replace(/"(\\.|[^"\\])*"/g, (match) => {
+    stringLiterals.push(match);
+    return `__STR_LITERAL_${stringLiterals.length - 1}__`;
+  });
+  code = code.replace(/'(\\.|[^'\\])*'/g, (match) => {
+    stringLiterals.push(match);
+    return `__STR_LITERAL_${stringLiterals.length - 1}__`;
+  });
+
   // 2. Find int main()
   const mainBodyMatch = /int\s+main\s*\(\s*\)\s*\{([\s\S]*)\}/.exec(code);
-  if (!mainBodyMatch) {
-    throw new Error("Missing int main() structure.");
-  }
   let body = mainBodyMatch[1].trim();
 
   // 3. Remove standard return statement
@@ -94,6 +245,11 @@ const translateCppToJs = (cppCode, inputStr) => {
   // Append translated body
   js += "\n" + body;
   js += `\nreturn stdout.join("");`;
+
+  // Restore string literals
+  stringLiterals.forEach((str, idx) => {
+    js = js.replace(new RegExp(`__STR_LITERAL_${idx}__`, 'g'), str);
+  });
 
   return js;
 };
@@ -490,16 +646,26 @@ export const simulateCodeExecution = (code, inputStr = "", language = "cpp") => 
 };
 
 export const translateCppToJsAsync = (cppCode) => {
+  validateCppSyntax(cppCode);
+
   // 1. Clean comments
   let code = cppCode
     .replace(/\/\/.*$/gm, "") 
     .replace(/\/\*[\s\S]*?\*\//g, ""); 
 
+  // Replace string and character literals with placeholders to make translation safe
+  const stringLiterals = [];
+  code = code.replace(/"(\\.|[^"\\])*"/g, (match) => {
+    stringLiterals.push(match);
+    return `__STR_LITERAL_${stringLiterals.length - 1}__`;
+  });
+  code = code.replace(/'(\\.|[^'\\])*'/g, (match) => {
+    stringLiterals.push(match);
+    return `__STR_LITERAL_${stringLiterals.length - 1}__`;
+  });
+
   // 2. Find int main()
   const mainBodyMatch = /int\s+main\s*\(\s*\)\s*\{([\s\S]*)\}/.exec(code);
-  if (!mainBodyMatch) {
-    throw new Error("Missing int main() structure.");
-  }
   let body = mainBodyMatch[1].trim();
 
   // 3. Remove standard return statement
@@ -549,6 +715,11 @@ export const translateCppToJsAsync = (cppCode) => {
 
   // Append translated body
   js += "\n" + body;
+
+  // Restore string literals
+  stringLiterals.forEach((str, idx) => {
+    js = js.replace(new RegExp(`__STR_LITERAL_${idx}__`, 'g'), str);
+  });
 
   return js;
 };
@@ -1056,6 +1227,30 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [activeTab, setActiveTab] = useState('compiler'); // 'compiler' | 'flowchart'
+  const fileInputRef = useRef(null);
+
+  const handleDownloadFile = () => {
+    const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'main.cpp';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFile = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setCode(e.target.result);
+      };
+      reader.readAsText(file);
+    }
+  };
   const [code, setCode] = useState(initialCode || DEFAULT_STARTER);
   const [pseudocode, setPseudocode] = useState('');
   const [terminalOutput, setTerminalOutput] = useState('Terminal ready. Click "RUN CODE" to execute.');
@@ -1653,7 +1848,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
       PaperProps={{
         style: {
           borderRadius: '24px',
-          background: theme.palette.mode === 'dark' ? 'rgba(22, 22, 50, 0.94)' : 'rgba(252, 253, 255, 0.94)',
+          background: 'var(--background-paper)',
           backdropFilter: 'blur(20px)',
           border: '1px solid var(--divider)',
           boxShadow: 'var(--shadow-card)',
@@ -1724,10 +1919,23 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Source Code Editor
                 </Typography>
-                <Box style={{ display: 'flex', gap: '4px' }}>
+                <Box style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                   <IconButton size="small" onClick={handleCopy} title="Copy Code" style={{ color: 'var(--primary-main)' }}>
                     <CopyIcon fontSize="small" />
                   </IconButton>
+                  <IconButton size="small" onClick={handleDownloadFile} title="Download C++ File" style={{ color: 'var(--success-main)' }}>
+                    <DownloadIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton size="small" onClick={() => fileInputRef.current?.click()} title="Import C++ File" style={{ color: 'var(--orange-500)' }}>
+                    <UploadIcon fontSize="small" />
+                  </IconButton>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImportFile}
+                    accept=".cpp,.h,.txt"
+                    style={{ display: 'none' }}
+                  />
                   <IconButton size="small" onClick={handleReset} title="Reset Template" style={{ color: 'var(--text-secondary)' }}>
                     <ResetIcon fontSize="small" />
                   </IconButton>
@@ -1772,12 +1980,12 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 style={{
                   flexGrow: 1,
                   padding: '16px',
-                  backgroundColor: '#05070f',
+                  backgroundColor: 'var(--code-bg)',
                   borderRadius: '16px',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  border: '1px solid var(--code-border)',
                   fontFamily: '"Roboto Mono", monospace',
                   fontSize: '0.82rem',
-                  color: '#3DDC97',
+                  color: 'var(--code-text-default)',
                   whiteSpace: 'pre-wrap',
                   overflowY: 'auto',
                   height: '380px',

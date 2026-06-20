@@ -80,6 +80,7 @@ const LearningPathPage = () => {
   // FAB scrolling states
   const [showScrollArrow, setShowScrollArrow] = useState(false);
   const [scrollDirection, setScrollDirection] = useState('up');
+  const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
 
   // Dynamic database course loading
   useEffect(() => {
@@ -205,10 +206,10 @@ const LearningPathPage = () => {
   // Automatically select and open the first incomplete section when accessing the page or returning
   useEffect(() => {
     if (sections.length > 0 && !hasInitialSectionBeenSet) {
-      if (location.state?.quizResult) {
-        const { lessonId } = location.state.quizResult;
+      const finishedLessonId = location.state?.quizResult?.lessonId || location.state?.lessonFinished?.lessonId;
+      if (finishedLessonId) {
         const sectionIdx = sections.findIndex(s =>
-          s.lessons?.some(l => l.id === lessonId)
+          s.lessons?.some(l => l.id === finishedLessonId)
         );
         if (sectionIdx !== -1) {
           setActiveSectionIndex(sectionIdx);
@@ -399,16 +400,17 @@ const LearningPathPage = () => {
 
   // 1. Automatically scroll to the current/active node shell when course or lessons finish loading
   useEffect(() => {
-    if (nodes.length > 0 && !courseLoading && !loadingLessons) {
+    if (nodes.length > 0 && !courseLoading && !loadingLessons && !hasInitialScrolled) {
       const timer = setTimeout(() => {
         const activeNodeEl = document.getElementById('current-active-node-shell');
         if (activeNodeEl) {
           activeNodeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setHasInitialScrolled(true);
         }
       }, 350);
       return () => clearTimeout(timer);
     }
-  }, [nodes, courseLoading, loadingLessons]);
+  }, [nodes, courseLoading, loadingLessons, hasInitialScrolled]);
 
   // 2. Track viewport scrolling to toggle the fixed "Go to Current" FAB arrow
   useEffect(() => {
@@ -581,7 +583,7 @@ const LearningPathPage = () => {
           {description}
         </Typography>
 
-        {isCompleted && selectedNode.score > 0 && (
+        {isCompleted && selectedNode.score > 0 && selectedNode.category !== 'learning' && (
           <Box
             style={{
               marginTop: '14px',
@@ -660,105 +662,107 @@ const LearningPathPage = () => {
     <Box className="path-page">
       <Container maxWidth="md">
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, mt: 1, flexWrap: 'wrap', gap: 2 }}>
-          <Typography variant="h5" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
-            Course Roadmap
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'stretch' }}>
-            {showCppPlayground && (
-              <Button
-                variant="contained"
-                startIcon={<TerminalIcon />}
-                onClick={() => setIsCompilerOpen(true)}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '12px',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                  textTransform: 'none',
-                  background: 'var(--hero-gradient)',
-                  color: '#fff',
-                  boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.25)',
-                  fontFamily: '"Outfit", sans-serif'
-                }}
-              >
-                C++ Compiler Playground
-              </Button>
-            )}
-            {showJavaPlayground && (
-              <Button
-                variant="contained"
-                startIcon={<SchoolIcon />}
-                onClick={() => setIsJavaUmlPlaygroundOpen(true)}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '12px',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                  textTransform: 'none',
-                  background: 'linear-gradient(135deg, #6e8efb, #a777e3)',
-                  color: '#fff',
-                  boxShadow: '0 6px 15px rgba(167, 119, 227, 0.25)',
-                  fontFamily: '"Outfit", sans-serif'
-                }}
-              >
-                Java OOP UML Playground
-              </Button>
-            )}
-            {cheatsheetLesson && (
-              <Button
-                variant="outlined"
-                startIcon={<BookIcon />}
-                onClick={() => {
-                  navigate(`/learning/${domainKey}/${activeSection.id}/${cheatsheetLesson.id}`, { state: { course } });
-                }}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '12px',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                  textTransform: 'none',
-                  borderColor: 'var(--primary-main)',
-                  color: 'var(--primary-main)',
-                  boxShadow: '0 4px 10px rgba(var(--primary-main-rgb), 0.1)',
-                  fontFamily: '"Outfit", sans-serif'
-                }}
-              >
-                View Cheatsheet
-              </Button>
-            )}
-            {(courseId?.toLowerCase()?.includes('philosophy') || course?.title?.toLowerCase()?.includes('philosophy')) && (
-              <Button
-                variant="contained"
-                startIcon={<SchoolIcon />}
-                onClick={() => navigate('/philosophy-lab', { state: { course } })}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '12px',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                  textTransform: 'none',
-                  background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
-                  color: '#fff',
-                  boxShadow: '0 6px 15px rgba(255, 107, 107, 0.25)',
-                  fontFamily: '"Outfit", sans-serif'
-                }}
-              >
-                Interactive Philosophy Lab
-              </Button>
-            )}
-
+        <Box className="path-header-sticky">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+            <Typography variant="h5" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
+              Course Roadmap
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+              {showCppPlayground && (
+                <Button
+                  variant="contained"
+                  startIcon={<TerminalIcon />}
+                  onClick={() => setIsCompilerOpen(true)}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                    textTransform: 'none',
+                    background: 'var(--hero-gradient)',
+                    color: '#fff',
+                    boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.25)',
+                    fontFamily: '"Outfit", sans-serif'
+                  }}
+                >
+                  C++ Compiler Playground
+                </Button>
+              )}
+              {showJavaPlayground && (
+                <Button
+                  variant="contained"
+                  startIcon={<SchoolIcon />}
+                  onClick={() => setIsJavaUmlPlaygroundOpen(true)}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                    textTransform: 'none',
+                    background: 'linear-gradient(135deg, var(--primary-main), var(--primary-dark))',
+                    color: '#fff',
+                    boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.25)',
+                    fontFamily: '"Outfit", sans-serif'
+                  }}
+                >
+                  Java OOP UML Playground
+                </Button>
+              )}
+              {cheatsheetLesson && (
+                <Button
+                  variant="outlined"
+                  startIcon={<BookIcon />}
+                  onClick={() => {
+                    navigate(`/learning/${domainKey}/${activeSection.id}/${cheatsheetLesson.id}`, { state: { course } });
+                  }}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                    textTransform: 'none',
+                    borderColor: 'var(--primary-main)',
+                    color: 'var(--primary-main)',
+                    boxShadow: '0 4px 10px rgba(var(--primary-main-rgb), 0.1)',
+                    fontFamily: '"Outfit", sans-serif'
+                  }}
+                >
+                  View Cheatsheet
+                </Button>
+              )}
+              {(courseId?.toLowerCase()?.includes('philosophy') || course?.title?.toLowerCase()?.includes('philosophy')) && (
+                <Button
+                  variant="contained"
+                  startIcon={<SchoolIcon />}
+                  onClick={() => navigate('/philosophy-lab', { state: { course } })}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                    textTransform: 'none',
+                    background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
+                    color: '#fff',
+                    boxShadow: '0 6px 15px rgba(255, 107, 107, 0.25)',
+                    fontFamily: '"Outfit", sans-serif'
+                  }}
+                >
+                  Interactive Philosophy Lab
+                </Button>
+              )}
+            </Box>
           </Box>
-        </Box>
 
-
-        <Box className="path-sections-tabs glass-panel" sx={{ mb: 4, borderRadius: 3 }}>
           <Tabs
             value={activeSectionIndex}
             onChange={(e, val) => setActiveSectionIndex(val)}
             variant="scrollable"
             scrollButtons="auto"
-            sx={{ px: 2 }}
+            sx={{
+              '.MuiTabs-flexContainer': {
+                gap: '0.5rem'
+              }
+            }}
           >
             {sections.map((section) => (
               <Tab
@@ -893,7 +897,7 @@ const LearningPathPage = () => {
                     )}
 
                     {/* Bottom percentage badge matching mobile app */}
-                    {node.status === 'completed' && node.score > 0 && (
+                    {node.status === 'completed' && node.score > 0 && node.category !== 'learning' && (
                       <Box
                         style={{
                           position: 'absolute',
