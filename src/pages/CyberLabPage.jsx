@@ -7,6 +7,9 @@ import { Box, Typography, Button, Paper, Divider } from '@mui/material';
 import ChallengePage from './ChallengePage';
 import DenialOfServiceLab from './DenialOfServiceLab';
 import CaesarCipherExplorer from './CaesarCipherExplorer';
+import EnigmaMachine from './EnigmaMachine';
+import VigenereCipherExplorer from './VigenereCipherExplorer';
+import RSAVisualizer from './RSAVisualizer';
 import './CyberLabPage.css';
 
 // Explanation box
@@ -656,6 +659,9 @@ export default function CyberLabPage() {
     { id: 'auth', name: 'IDOR Auth Lab', icon: <KeyRound size={16} /> },
     { id: 'dos', name: 'DoS Lab', icon: <Activity size={16} /> },
     { id: 'caesar', name: 'Caesar Cipher', icon: <Lock size={16} /> },
+    { id: 'vigenere', name: 'Vigenère Cipher', icon: <Lock size={16} /> },
+    { id: 'enigma', name: 'Enigma Machine', icon: <Lock size={16} /> },
+    { id: 'rsa', name: 'RSA Visualizer', icon: <Lock size={16} /> },
     { id: 'challenge', name: 'Google XSS Challenge', icon: <Activity size={16} /> }
   ];
 
@@ -719,6 +725,9 @@ export default function CyberLabPage() {
           {activeTab === 'auth' && <BrokenAuthLab isSecure={isSecure} />}
           {activeTab === 'dos' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><DenialOfServiceLab /></div>}
           {activeTab === 'caesar' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><CaesarCipherExplorer /></div>}
+          {activeTab === 'vigenere' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><VigenereCipherExplorer /></div>}
+          {activeTab === 'enigma' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><EnigmaMachine /></div>}
+          {activeTab === 'rsa' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><RSAVisualizer /></div>}
           {activeTab === 'challenge' && <ChallengePage />}
         </div>
       </div>
