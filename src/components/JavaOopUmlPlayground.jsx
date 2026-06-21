@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import { ThemeContext } from '../context/ThemeContext';
 import Editor from '@monaco-editor/react';
 import html2canvas from 'html2canvas';
+import JSZip from 'jszip';
 import { simulateCodeExecution, executeCodeAsync } from './CppPlaygroundDialog';
 import {
   Dialog,
@@ -37,6 +38,73 @@ import {
   GetApp as DownloadIcon,
   FileUpload as UploadIcon
 } from '@mui/icons-material';
+
+// Debounced input component to prevent parent re-renders on every keystroke
+const DebouncedInput = ({ value, onChange, debounceTime = 300, ...props }) => {
+  const [localValue, setLocalValue] = useState(value || '');
+
+  useEffect(() => {
+    setLocalValue(value || '');
+  }, [value]);
+
+  const timerRef = useRef(null);
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setLocalValue(val);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      onChange(val);
+    }, debounceTime);
+  };
+
+  const handleBlur = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    if (localValue !== value) {
+      onChange(localValue);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  return (
+    <input
+      {...props}
+      value={localValue}
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
+  );
+};
+
+// Memoized Monaco Editor component to avoid re-rendering while typing
+const JavaOopUmlEditor = React.memo(({ isDarkMode, onChange, onMount }) => {
+  return (
+    <Editor
+      height="100%"
+      language="java"
+      onMount={onMount}
+      onChange={onChange}
+      theme={isDarkMode ? 'vs-dark' : 'light'}
+      options={{
+        fontSize: 13,
+        minimap: { enabled: false },
+        automaticLayout: true,
+        scrollBeyondLastLine: false,
+        padding: { top: 12, bottom: 12 },
+        lineNumbersMinChars: 3
+      }}
+    />
+  );
+}, (prevProps, nextProps) => {
+  return prevProps.isDarkMode === nextProps.isDarkMode;
+});
 
 // Preloaded OOP Examples
 const EXAMPLES = [
@@ -1188,34 +1256,190 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const [mainCode, setMainCode] = useState(EXAMPLES[0].mainCode);
   const [terminalOutput, setTerminalOutput] = useState('Terminal ready. Click "RUN JAVA CODE" to execute.');
   const [isRunning, setIsRunning] = useState(false);
+  const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
+  const [downloadFileName, setDownloadFileName] = useState('Playground');
+  const completionProviderRef = useRef(null);
+
+
+  const [files, setFiles] = useState(() => {
+    const initialClasses = javaToUmlClasses(EXAMPLES[0].code);
+    const newFiles = {};
+    initialClasses.forEach(c => {
+      newFiles[`${c.title}.java`] = umlClassesToJava([c]);
+    });
+    newFiles['Runner.java'] = EXAMPLES[0].mainCode;
+    return newFiles;
+  });
+  const [activeFile, setActiveFile] = useState(() => {
+    const initialClasses = javaToUmlClasses(EXAMPLES[0].code);
+    return initialClasses[0] ? `${initialClasses[0].title}.java` : 'Runner.java';
+  });
 
   const fileInputRef = useRef(null);
 
-  const handleDownloadCode = () => {
+  const handleDownloadClick = () => {
+    let currentClassesCode = code;
+    let currentRunnerCode = mainCode;
+
+    if (activeEditorRef.current) {
+      const currentCode = activeEditorRef.current.getValue();
+      if (activeFile === 'Runner.java') {
+        currentRunnerCode = currentCode;
+        setMainCode(currentCode);
+        setFiles(prev => ({ ...prev, [activeFile]: currentCode }));
+      } else {
+        try {
+          const parsedList = javaToUmlClasses(currentCode);
+          if (parsedList && parsedList.length > 0) {
+            const updatedClass = parsedList[0];
+            const classIdx = umlClasses.findIndex(c => `${c.title}.java` === activeFile);
+            if (classIdx !== -1) {
+              const nextClasses = [...umlClasses];
+              nextClasses[classIdx] = updatedClass;
+              currentClassesCode = umlClassesToJava(nextClasses);
+              setCode(currentClassesCode);
+              setUmlClasses(nextClasses);
+              setFiles(prev => ({ ...prev, [activeFile]: currentCode }));
+            }
+          }
+        } catch (e) {
+          // If syntax is currently invalid, download whatever is in the editor anyway
+          setFiles(prev => ({ ...prev, [activeFile]: currentCode }));
+        }
+      }
+    }
+
+    let defaultName = 'Playground';
+    if (activeFile && activeFile !== 'Runner.java') {
+      defaultName = activeFile.replace(/\.java$/, '').replace(/\.zip$/, '');
+    }
+    setDownloadFileName(defaultName);
+    setIsDownloadDialogOpen(true);
+  };
+
+  const handleConfirmDownload = () => {
+    let name = downloadFileName.trim();
+    if (!name) {
+      name = 'Playground';
+    }
+    if (name.endsWith('.java')) {
+      name = name.substring(0, name.length - 5);
+    }
+    if (name.endsWith('.zip')) {
+      name = name.substring(0, name.length - 4);
+    }
+
+    const zip = new JSZip();
+
+    // 1. Add all files in files state to ZIP
+    Object.keys(files).forEach(fileName => {
+      zip.file(fileName, files[fileName] || '');
+    });
+
+    // 2. Add metadata file
     const metadata = {
       classPositions
     };
-    const metadataJson = JSON.stringify(metadata, null, 2);
-    // Format metadata as java comments
-    const metadataComments = "\n\n// === UML_METADATA_START ===\n" + 
-      metadataJson.split('\n').map(line => `// ${line}`).join('\n') + 
-      "\n// === UML_METADATA_END ===\n";
+    zip.file('.uml_metadata.json', JSON.stringify(metadata, null, 2));
 
-    const combined = code + metadataComments + "\n\n// === RUNNER_SECTION_START ===\n\n" + mainCode;
-    const blob = new Blob([combined], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'Playground.java';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // 3. Generate ZIP and download
+    zip.generateAsync({ type: 'blob' })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${name}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      })
+      .catch(err => {
+        console.error("ZIP Generation failed", err);
+      });
+
+    setIsDownloadDialogOpen(false);
   };
 
   const handleImportCode = (event) => {
     const file = event.target.files[0];
     if (file) {
+      if (file.name.endsWith('.zip')) {
+        const zip = new JSZip();
+        zip.loadAsync(file)
+          .then(async (loadedZip) => {
+            const filePromises = [];
+            const importedFiles = {};
+            let importedPositions = null;
+
+            loadedZip.forEach((relativePath, zipEntry) => {
+              if (zipEntry.dir) return;
+              
+              if (relativePath === '.uml_metadata.json') {
+                const promise = zipEntry.async('string').then(text => {
+                  try {
+                    const meta = JSON.parse(text);
+                    if (meta.classPositions) {
+                      importedPositions = meta.classPositions;
+                    }
+                  } catch (e) {
+                    console.error("Failed to parse metadata", e);
+                  }
+                });
+                filePromises.push(promise);
+              } else if (relativePath.endsWith('.java') || relativePath.endsWith('.txt')) {
+                const promise = zipEntry.async('string').then(text => {
+                  importedFiles[relativePath] = text;
+                });
+                filePromises.push(promise);
+              }
+            });
+
+            await Promise.all(filePromises);
+
+            if (Object.keys(importedFiles).length === 0) {
+              alert("No Java files found in the ZIP archive.");
+              return;
+            }
+
+            setFiles(importedFiles);
+
+            const resolvedMain = importedFiles['Runner.java'] || '';
+            if (importedFiles['Runner.java']) {
+              setMainCode(importedFiles['Runner.java']);
+            }
+
+            const newUmlClasses = [];
+            Object.keys(importedFiles).forEach(fileName => {
+              if (fileName !== 'Runner.java') {
+                try {
+                  const parsed = javaToUmlClasses(importedFiles[fileName]);
+                  if (parsed && parsed.length > 0) {
+                    newUmlClasses.push(parsed[0]);
+                  }
+                } catch (e) {
+                  console.error(`Failed to parse class from ${fileName}:`, e);
+                }
+              }
+            });
+
+            setUmlClasses(newUmlClasses);
+            setCode(umlClassesToJava(newUmlClasses));
+
+            if (importedPositions) {
+              setClassPositions(importedPositions);
+            }
+
+            const firstClassFile = Object.keys(importedFiles).find(f => f !== 'Runner.java');
+            setActiveFile(firstClassFile || 'Runner.java');
+            isExternalUpdateRef.current = true;
+          })
+          .catch(err => {
+            alert("Failed to read ZIP file: " + err.message);
+          });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target.result;
@@ -1297,6 +1521,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         }
 
         setCode(cleanClassesPart);
+        const resolvedMain = mainPart || mainCode;
         if (mainPart) {
           setMainCode(mainPart);
         }
@@ -1307,6 +1532,14 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         try {
           const parsed = javaToUmlClasses(cleanClassesPart);
           setUmlClasses(parsed);
+          const newFiles = {};
+          parsed.forEach(c => {
+            newFiles[`${c.title}.java`] = umlClassesToJava([c]);
+          });
+          newFiles['Runner.java'] = resolvedMain;
+          isExternalUpdateRef.current = true;
+          setFiles(newFiles);
+          setActiveFile(parsed[0] ? `${parsed[0].title}.java` : 'Runner.java');
         } catch (err) {
           console.error("UML parsing failed on import:", err);
         }
@@ -1336,8 +1569,10 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewZoomScale, setPreviewZoomScale] = useState(1.0);
   const [isWaitingForInput, setIsWaitingForInput] = useState(false);
-  const [currentInputVal, setCurrentInputVal] = useState('');
   const [previewTheme, setPreviewTheme] = useState('light');
+
+  const [editorInstance, setEditorInstance] = useState(null);
+  const [monacoInstance, setMonacoInstance] = useState(null);
 
   useEffect(() => {
     if (isPreviewOpen) {
@@ -1354,6 +1589,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const umlEditorRef = useRef(null);
   const execEditorRef = useRef(null);
   const runnerEditorRef = useRef(null);
+  const activeEditorRef = useRef(null);
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
   const canvasContainerRef = useRef(null);
@@ -1363,6 +1599,134 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const previewCanvasContainerRef = useRef(null);
   const zoomAnchorRef = useRef(null);
   const previewZoomAnchorRef = useRef(null);
+
+  const umlClassesRef = useRef(umlClasses);
+  useEffect(() => {
+    umlClassesRef.current = umlClasses;
+  }, [umlClasses]);
+
+  const classPositionsRef = useRef(classPositions);
+  useEffect(() => {
+    classPositionsRef.current = classPositions;
+  }, [classPositions]);
+
+  const filesRef = useRef(files);
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
+  const activeFileRef = useRef(activeFile);
+  useEffect(() => {
+    activeFileRef.current = activeFile;
+  }, [activeFile]);
+
+  const editorViewStatesRef = useRef({});
+  const prevActiveFileRef = useRef(activeFile);
+  const monacoRef = useRef(null);
+  const isExternalUpdateRef = useRef(false);
+  const isFirstLoadRef = useRef(true);
+
+  // Manage Monaco Editor models, active file switching, and view states in correct logical sequence
+  useEffect(() => {
+    if (!isEditorReady || !editorInstance || !monacoInstance) return;
+
+    // 1. Save view state of the previous active file (if the old model is still valid)
+    const prevFile = prevActiveFileRef.current;
+    const isTabSwitch = prevFile !== activeFile;
+    const isExternalUpdate = isExternalUpdateRef.current;
+    const isFirstLoad = isFirstLoadRef.current;
+    isFirstLoadRef.current = false;
+
+    if (prevFile && isTabSwitch) {
+      const prevUri = monacoInstance.Uri.file(prevFile);
+      const prevModel = monacoInstance.editor.getModel(prevUri);
+      if (prevModel && !prevModel.isDisposed()) {
+        const viewState = editorInstance.saveViewState();
+        if (viewState) {
+          editorViewStatesRef.current[prevFile] = viewState;
+        }
+      }
+    }
+    prevActiveFileRef.current = activeFile;
+
+    // 2. Sync all models in files state (create or update)
+    Object.keys(files).forEach(fileName => {
+      const uri = monacoInstance.Uri.file(fileName);
+      let model = monacoInstance.editor.getModel(uri);
+      const fileCode = files[fileName] || '';
+
+      if (!model) {
+        monacoInstance.editor.createModel(fileCode, 'java', uri);
+      } else if (model.getValue() !== fileCode) {
+        // Only override model value if it is not the active file,
+        // or if it is the active file but we have an external update or a tab switch.
+        if (fileName !== activeFile || isExternalUpdate || isTabSwitch) {
+          model.setValue(fileCode);
+        }
+      }
+    });
+
+    // 3. Switch the editor's model to the active file's model
+    const uri = monacoInstance.Uri.file(activeFile);
+    let model = monacoInstance.editor.getModel(uri);
+    if (!model) {
+      const fileCode = files[activeFile] || '';
+      model = monacoInstance.editor.createModel(fileCode, 'java', uri);
+    }
+    
+    if (editorInstance.getModel() !== model) {
+      editorInstance.setModel(model);
+    }
+
+    // 4. Restore view state and focus for the active file only on tab switches or first load
+    if (isTabSwitch || isFirstLoad) {
+      const newViewState = editorViewStatesRef.current[activeFile];
+      if (newViewState) {
+        editorInstance.restoreViewState(newViewState);
+      }
+      
+      const activeEl = document.activeElement;
+      const isTypingInInput = activeEl && (
+        activeEl.tagName === 'INPUT' || 
+        activeEl.tagName === 'TEXTAREA' || 
+        activeEl.closest('.uml-class-card')
+      );
+      
+      if (!isTypingInInput) {
+        editorInstance.focus();
+      }
+    }
+
+    // 5. Dispose models of deleted files (excluding the active one)
+    const fileNames = Object.keys(files);
+    monacoInstance.editor.getModels().forEach(m => {
+      const path = m.uri.path;
+      const name = path.substring(path.lastIndexOf('/') + 1);
+      if (name && name.endsWith('.java') && !fileNames.includes(name)) {
+        if (name !== activeFile) {
+          m.dispose();
+          delete editorViewStatesRef.current[name];
+        }
+      }
+    });
+
+    // Reset external update flag
+    isExternalUpdateRef.current = false;
+  }, [files, activeFile, isEditorReady, editorInstance, monacoInstance]);
+
+  // Clean up all models on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (monacoInstance) {
+        monacoInstance.editor.getModels().forEach(model => {
+          model.dispose();
+        });
+      }
+      if (completionProviderRef.current) {
+        completionProviderRef.current.dispose();
+      }
+    };
+  }, [monacoInstance]);
 
   // Validate syntax on mount to check initial preloaded code state
   useEffect(() => {
@@ -1686,21 +2050,37 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   }, [umlClasses]); // eslint-disable-line react-hooks/exhaustive-deps
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Window listeners for moving cards
+  // Window listeners for moving cards (Throttled via requestAnimationFrame)
   useEffect(() => {
     if (!draggingClass) return;
 
+    let animationFrameId = null;
+
     const handleMouseMove = (e) => {
-      // Keep inside bounds of virtual canvas (unclamped on right/bottom to allow growth)
-      const newX = Math.max(0, e.clientX / zoomScale - dragStartOffset.current.x);
-      const newY = Math.max(0, e.clientY / zoomScale - dragStartOffset.current.y);
-      setClassPositions(prev => ({
-        ...prev,
-        [draggingClass]: { x: newX, y: newY }
-      }));
+      if (animationFrameId) return;
+
+      animationFrameId = requestAnimationFrame(() => {
+        animationFrameId = null;
+        const newX = Math.max(0, e.clientX / zoomScale - dragStartOffset.current.x);
+        const newY = Math.max(0, e.clientY / zoomScale - dragStartOffset.current.y);
+        
+        setClassPositions(prev => {
+          const current = prev[draggingClass];
+          if (current && Math.abs(current.x - newX) < 0.5 && Math.abs(current.y - newY) < 0.5) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [draggingClass]: { x: newX, y: newY }
+          };
+        });
+      });
     };
 
     const handleMouseUp = () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
       setDraggingClass(null);
     };
 
@@ -1709,6 +2089,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, [draggingClass, zoomScale]);
 
@@ -1904,16 +2285,11 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     const classA = umlClasses.find(x => x.title === posA.title);
     const classB = umlClasses.find(x => x.title === posB.title);
     
-    // Attempt to query actual DOM elements
-    const selectorA = useCompressed ? `.uml-preview-card[data-classname="${posA.title}"]` : `.uml-class-card[data-classname="${posA.title}"]`;
-    const selectorB = useCompressed ? `.uml-preview-card[data-classname="${posB.title}"]` : `.uml-class-card[data-classname="${posB.title}"]`;
-    const elA = document.querySelector(selectorA);
-    const elB = document.querySelector(selectorB);
-    
-    const wA = elA ? elA.offsetWidth : (classA ? (useCompressed ? calculateCompressedCardWidth(classA) : calculateCardWidth(classA)) : 280);
-    const wB = elB ? elB.offsetWidth : (classB ? (useCompressed ? calculateCompressedCardWidth(classB) : calculateCardWidth(classB)) : 280);
-    const hA = elA ? elA.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(posA.title) : getEstimatedHeight(posA.title));
-    const hB = elB ? elB.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(posB.title) : getEstimatedHeight(posB.title));
+    // Bypass querySelector and offsetWidth/offsetHeight calls to prevent layout reflow thrashing during active dragging.
+    const wA = classA ? (useCompressed ? calculateCompressedCardWidth(classA) : calculateCardWidth(classA)) : 280;
+    const wB = classB ? (useCompressed ? calculateCompressedCardWidth(classB) : calculateCardWidth(classB)) : 280;
+    const hA = useCompressed ? getEstimatedCompressedHeight(posA.title) : getEstimatedHeight(posA.title);
+    const hB = useCompressed ? getEstimatedCompressedHeight(posB.title) : getEstimatedHeight(posB.title);
 
     const anchorsA = [
       { x: posA.x + wA / 2, y: posA.y, side: 'top' },
@@ -2120,45 +2496,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   // Refs relocated to the top of the component
 
   // Sync editor values when tab changes or state updates to avoid stale values
-  useEffect(() => {
-    if (isTypingRef.current) return;
-    
-    const clean = (str) => (str || "").replace(/\r\n/g, "\n").trim();
-    
-    if (activeTab === 'uml') {
-      if (umlEditorRef.current) {
-        try {
-          const currentVal = umlEditorRef.current.getValue();
-          if (clean(currentVal) !== clean(code)) {
-            umlEditorRef.current.setValue(code);
-          }
-        } catch (e) {
-          console.warn("Failed to sync UML editor (likely disposed):", e);
-        }
-      }
-    } else if (activeTab === 'runner') {
-      if (execEditorRef.current) {
-        try {
-          const currentVal = execEditorRef.current.getValue();
-          if (clean(currentVal) !== clean(code)) {
-            execEditorRef.current.setValue(code);
-          }
-        } catch (e) {
-          console.warn("Failed to sync Exec editor (likely disposed):", e);
-        }
-      }
-      if (runnerEditorRef.current) {
-        try {
-          const currentVal = runnerEditorRef.current.getValue();
-          if (clean(currentVal) !== clean(mainCode)) {
-            runnerEditorRef.current.setValue(mainCode);
-          }
-        } catch (e) {
-          console.warn("Failed to sync Runner editor (likely disposed):", e);
-        }
-      }
-    }
-  }, [activeTab, code, mainCode]);
+  // Editor syncing is handled automatically via React state values and keys.
 
   const getAttributeTypes = (currentType) => {
     const baseTypes = ['int', 'double', 'float', 'boolean', 'char', 'String'];
@@ -2183,33 +2521,353 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     return combined;
   };
 
-  // Sync Code -> UML
-  const handleCodeChange = (newCode) => {
-    isTypingRef.current = true;
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => {
-      isTypingRef.current = false;
-    }, 1000);
+  const cascadeRenameInClasses = (classes, oldName, newName, type, targetClassName) => {
+    if (!oldName || !newName || oldName === newName) return classes;
+    const regex = new RegExp('\\b' + oldName + '\\b', 'g');
+    return classes.map(c => {
+      if (type === 'class') {
+        let updatedTitle = c.title;
+        if (c.title === oldName) {
+          updatedTitle = newName;
+        }
+        
+        let updatedExtends = c.extends;
+        if (c.extends === oldName) {
+          updatedExtends = newName;
+        }
 
-    setCode(newCode);
+        let updatedExtendsInterfaces = c.extendsInterfaces || [];
+        if (updatedExtendsInterfaces.includes(oldName)) {
+          updatedExtendsInterfaces = updatedExtendsInterfaces.map(x => x === oldName ? newName : x);
+        }
 
-    const err = checkJavaSyntax(newCode);
-    setSyntaxError(err);
+        let updatedImplements = c.implements || [];
+        if (updatedImplements.includes(oldName)) {
+          updatedImplements = updatedImplements.map(x => x === oldName ? newName : x);
+        }
 
-    if (internalUpdateRef.current) return;
-    if (err) return;
+        const updatedAttributes = (c.attributes || []).map(attr => {
+          let nextType = attr.type;
+          if (nextType) {
+            nextType = nextType.replace(regex, newName);
+          }
+          return { ...attr, type: nextType };
+        });
+
+        const updatedMethods = (c.methods || []).map(m => {
+          let nextName = m.name;
+          if (m.name === oldName && m.returnType === 'constructor') {
+            nextName = newName;
+          }
+          let nextReturnType = m.returnType;
+          if (nextReturnType && nextReturnType !== 'constructor') {
+            nextReturnType = nextReturnType.replace(regex, newName);
+          }
+          const nextParams = (m.parameters || []).map(p => {
+            let pType = p.type;
+            if (pType) {
+              pType = pType.replace(regex, newName);
+            }
+            return { ...p, type: pType };
+          });
+          let nextBody = m.body;
+          if (nextBody) {
+            nextBody = nextBody.replace(regex, newName);
+          }
+          return { ...m, name: nextName, returnType: nextReturnType, parameters: nextParams, body: nextBody };
+        });
+
+        return {
+          ...c,
+          title: updatedTitle,
+          extends: updatedExtends,
+          extendsInterfaces: updatedExtendsInterfaces,
+          implements: updatedImplements,
+          attributes: updatedAttributes,
+          methods: updatedMethods
+        };
+      }
+
+      const updatedMethods = (c.methods || []).map(m => {
+        let nextName = m.name;
+        if (type === 'method' && c.title === targetClassName && m.name === oldName) {
+          nextName = newName;
+        }
+        let nextBody = m.body;
+        if (nextBody) {
+          nextBody = nextBody.replace(regex, newName);
+        }
+        return { ...m, name: nextName, body: nextBody };
+      });
+
+      const updatedAttributes = (c.attributes || []).map(attr => {
+        let nextName = attr.name;
+        if (type === 'attribute' && c.title === targetClassName && attr.name === oldName) {
+          nextName = newName;
+        }
+        return { ...attr, name: nextName };
+      });
+
+      return {
+        ...c,
+        attributes: updatedAttributes,
+        methods: updatedMethods
+      };
+    });
+  };
+
+  const cascadeRenameInFiles = (oldName, newName, type, currentFile, currentCode) => {
+    if (!oldName || !newName || oldName === newName) return;
+    const regex = new RegExp('\\b' + oldName + '\\b', 'g');
+    isExternalUpdateRef.current = true;
+    
+    setFiles(prev => {
+      const nextFiles = {};
+      Object.keys(prev).forEach(fileName => {
+        let content = prev[fileName] || '';
+        if (fileName === currentFile) {
+          content = currentCode;
+        }
+        
+        let targetFileName = fileName;
+        if (type === 'class' && fileName === `${oldName}.java`) {
+          targetFileName = `${newName}.java`;
+        }
+        
+        content = content.replace(regex, newName);
+        nextFiles[targetFileName] = content;
+        
+        if (targetFileName === 'Runner.java') {
+          setMainCode(content);
+        }
+      });
+      return nextFiles;
+    });
+
+    if (type === 'class' && currentFile === `${oldName}.java`) {
+      setActiveFile(`${newName}.java`);
+    }
+  };
+
+  const flushPendingFileCodeChange = useCallback(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    
+    if (!activeEditorRef.current) return;
+    const currentCode = activeEditorRef.current.getValue();
+    isTypingRef.current = false;
+
+    const currentFile = activeFileRef.current;
+
+    if (currentFile === 'Runner.java') {
+      setFiles(prev => ({
+        ...prev,
+        [currentFile]: currentCode
+      }));
+      setMainCode(currentCode);
+      return;
+    }
 
     try {
-      const parsedClasses = javaToUmlClasses(newCode);
-      setUmlClasses(parsedClasses);
+      const parsedList = javaToUmlClasses(currentCode);
+      const currentUmlClasses = umlClassesRef.current;
+      
+      if (parsedList && parsedList.length > 0) {
+        const updatedClass = parsedList[0];
+        const classIdx = currentUmlClasses.findIndex(c => `${c.title}.java` === currentFile);
+        
+        let nextClasses = [...currentUmlClasses];
+        const newTitle = updatedClass.title;
+        let oldTitle = currentFile.replace('.java', '');
+        
+        let activeCode = currentCode;
+
+        if (classIdx !== -1) {
+          const oldClass = currentUmlClasses[classIdx];
+          oldTitle = oldClass.title;
+
+          // 1. Class Rename
+          if (newTitle !== oldTitle) {
+            nextClasses = cascadeRenameInClasses(currentUmlClasses, oldTitle, newTitle, 'class');
+            activeCode = activeCode.replace(new RegExp('\\b' + oldTitle + '\\b', 'g'), newTitle);
+            cascadeRenameInFiles(oldTitle, newTitle, 'class', currentFile, activeCode);
+          } else {
+            // Same class title. Check attribute and method renames.
+            const oldAttrs = (oldClass.attributes || []).map(a => a.name);
+            const newAttrs = (updatedClass.attributes || []).map(a => a.name);
+            const deletedAttrs = oldAttrs.filter(x => !newAttrs.includes(x));
+            const addedAttrs = newAttrs.filter(x => !oldAttrs.includes(x));
+
+            if (deletedAttrs.length === 1 && addedAttrs.length === 1) {
+              const oldName = deletedAttrs[0];
+              const newName = addedAttrs[0];
+              nextClasses = cascadeRenameInClasses(currentUmlClasses, oldName, newName, 'attribute', oldTitle);
+              activeCode = activeCode.replace(new RegExp('\\b' + oldName + '\\b', 'g'), newName);
+              cascadeRenameInFiles(oldName, newName, 'attribute', currentFile, activeCode);
+            } else {
+              const oldMethods = (oldClass.methods || []).map(m => m.name);
+              const newMethods = (updatedClass.methods || []).map(m => m.name);
+              const deletedMethods = oldMethods.filter(x => !newMethods.includes(x));
+              const addedMethods = newMethods.filter(x => !oldMethods.includes(x));
+
+              if (deletedMethods.length === 1 && addedMethods.length === 1) {
+                const oldName = deletedMethods[0];
+                const newName = addedMethods[0];
+                nextClasses = cascadeRenameInClasses(currentUmlClasses, oldName, newName, 'method', oldTitle);
+                activeCode = activeCode.replace(new RegExp('\\b' + oldName + '\\b', 'g'), newName);
+                cascadeRenameInFiles(oldName, newName, 'method', currentFile, activeCode);
+              } else {
+                nextClasses[classIdx] = updatedClass;
+                setFiles(prev => ({
+                  ...prev,
+                  [currentFile]: currentCode
+                }));
+              }
+            }
+          }
+        } else {
+          nextClasses.push(updatedClass);
+          setFiles(prev => ({
+            ...prev,
+            [currentFile]: currentCode
+          }));
+        }
+        
+        if (newTitle !== oldTitle) {
+          const currentPositions = classPositionsRef.current;
+          if (currentPositions[oldTitle]) {
+            setClassPositions(prev => {
+              const next = { ...prev };
+              next[newTitle] = next[oldTitle];
+              delete next[oldTitle];
+              return next;
+            });
+          }
+        }
+        
+        setUmlClasses(nextClasses);
+        const combined = umlClassesToJava(nextClasses);
+        setCode(combined);
+        
+        const err = checkJavaSyntax(combined);
+        setSyntaxError(err);
+      } else {
+        const classIdx = currentUmlClasses.findIndex(c => `${c.title}.java` === currentFile);
+        if (classIdx !== -1) {
+          const nextClasses = currentUmlClasses.filter((_, idx) => idx !== classIdx);
+          setUmlClasses(nextClasses);
+          const combined = umlClassesToJava(nextClasses);
+          setCode(combined);
+          
+          const err = checkJavaSyntax(combined);
+          setSyntaxError(err);
+        }
+        setFiles(prev => ({
+          ...prev,
+          [currentFile]: currentCode
+        }));
+      }
     } catch (err) {
-      console.warn('Failed to parse Java code to UML:', err);
       setSyntaxError({ error: err.message, line: 1 });
+      setFiles(prev => ({
+        ...prev,
+        [currentFile]: currentCode
+      }));
     }
+  }, []);
+
+  // Sync File Code -> UML & Combined Code (Throttled & Debounced to prevent re-renders on typing)
+  const handleFileCodeChange = useCallback((newCode) => {
+    const currentFile = activeFileRef.current;
+
+    // If the change is triggered by setModel on tab switch, ignore it
+    if (newCode === (filesRef.current[currentFile] || '')) {
+      return;
+    }
+
+    isTypingRef.current = true;
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      flushPendingFileCodeChange();
+    }, 400);
+  }, []);
+
+  const handleEditorMount = useCallback((editor, monaco) => {
+    activeEditorRef.current = editor;
+    monacoRef.current = monaco;
+    setEditorInstance(editor);
+    setMonacoInstance(monaco);
+
+    if (completionProviderRef.current) {
+      completionProviderRef.current.dispose();
+    }
+
+    completionProviderRef.current = monaco.languages.registerCompletionItemProvider('java', {
+      provideCompletionItems: (model, position) => {
+        const wordInfo = model.getWordUntilPosition(position);
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: wordInfo.startColumn,
+          endColumn: wordInfo.endColumn
+        };
+
+        const suggestions = [
+          {
+            label: 'psvm',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            documentation: 'public static void main(String[] args)',
+            insertText: [
+              'public static void main(String[] args) {',
+              '\t$0',
+              '}'
+            ].join('\n'),
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            range: range
+          },
+          {
+            label: 'sout',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            documentation: 'System.out.println()',
+            insertText: 'System.out.println($0);',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            range: range
+          },
+          {
+            label: 'souf',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            documentation: 'System.out.printf()',
+            insertText: 'System.out.printf("$0");',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            range: range
+          },
+          {
+            label: 'serr',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            documentation: 'System.err.println()',
+            insertText: 'System.err.println($0);',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            range: range
+          }
+        ];
+
+        return { suggestions };
+      }
+    });
+  }, []);
+
+  const handleTabChange = (newFileName) => {
+    flushPendingFileCodeChange();
+    setActiveFile(newFileName);
   };
 
   // Sync UML -> Code
   const handleUmlClassesChange = (newClasses) => {
+    const deletedClasses = umlClasses.filter(c => !newClasses.some(nc => nc.title === c.title));
+
     setUmlClasses(newClasses);
     internalUpdateRef.current = true;
     const generatedCode = umlClassesToJava(newClasses);
@@ -2218,18 +2876,30 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       internalUpdateRef.current = false;
     }, 50);
 
-    if (umlEditorRef.current) {
-      const currentVal = umlEditorRef.current.getValue();
-      if (currentVal !== generatedCode) {
-        umlEditorRef.current.setValue(generatedCode);
-      }
-    }
-    if (execEditorRef.current) {
-      const currentVal = execEditorRef.current.getValue();
-      if (currentVal !== generatedCode) {
-        execEditorRef.current.setValue(generatedCode);
-      }
-    }
+    // Update files mapping
+    isExternalUpdateRef.current = true;
+    setFiles(prev => {
+      const nextFiles = { ...prev };
+      
+      // Update code for the classes that are currently in newClasses
+      newClasses.forEach(c => {
+        nextFiles[`${c.title}.java`] = umlClassesToJava([c]);
+      });
+      
+      // Remove files for classes that were explicitly deleted from the canvas
+      deletedClasses.forEach(c => {
+        delete nextFiles[`${c.title}.java`];
+      });
+      
+      return nextFiles;
+    });
+
+    // Make sure activeFile is still valid
+    setActiveFile(prev => {
+      const exists = newClasses.some(c => `${c.title}.java` === prev) || prev === 'Runner.java';
+      if (exists) return prev;
+      return newClasses[0] ? `${newClasses[0].title}.java` : 'Runner.java';
+    });
   };
 
   const loadExample = (idx) => {
@@ -2238,18 +2908,18 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     setClassPositions({}); // Clear positions so examples position correctly
     setCode(ex.code);
     setSyntaxError(null);
-    setUmlClasses(javaToUmlClasses(ex.code));
+    const parsedClasses = javaToUmlClasses(ex.code);
+    setUmlClasses(parsedClasses);
     setMainCode(ex.mainCode);
 
-    if (umlEditorRef.current) {
-      umlEditorRef.current.setValue(ex.code);
-    }
-    if (execEditorRef.current) {
-      execEditorRef.current.setValue(ex.code);
-    }
-    if (runnerEditorRef.current) {
-      runnerEditorRef.current.setValue(ex.mainCode);
-    }
+    const newFiles = {};
+    parsedClasses.forEach(c => {
+      newFiles[`${c.title}.java`] = umlClassesToJava([c]);
+    });
+    newFiles['Runner.java'] = ex.mainCode;
+    isExternalUpdateRef.current = true;
+    setFiles(newFiles);
+    setActiveFile(parsedClasses[0] ? `${parsedClasses[0].title}.java` : 'Runner.java');
   };
 
   // Class Level Operations
@@ -2373,6 +3043,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
   const updateClassTitle = (classIdx, newTitle) => {
     const oldTitle = umlClasses[classIdx].title;
+    if (newTitle === oldTitle) return;
     
     // Rename key in classPositions to preserve coordinate state
     if (classPositions[oldTitle]) {
@@ -2384,34 +3055,16 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       });
     }
 
-    const newClasses = umlClasses.map((c, idx) => {
-      if (idx === classIdx) {
-        const updatedMethods = c.methods.map(m => {
-          if (m.returnType === 'constructor' || m.name === oldTitle) {
-            return { ...m, name: newTitle };
-          }
-          return m;
-        });
-        return { ...c, title: newTitle, methods: updatedMethods };
+    const newClasses = cascadeRenameInClasses(umlClasses, oldTitle, newTitle, 'class');
+    
+    setActiveFile(prev => {
+      if (prev === `${oldTitle}.java`) {
+        return `${newTitle}.java`;
       }
-      
-      let updatedExtendsInterfaces = c.extendsInterfaces || [];
-      if (updatedExtendsInterfaces.includes(oldTitle)) {
-        updatedExtendsInterfaces = updatedExtendsInterfaces.map(x => x === oldTitle ? newTitle : x);
-      }
-      
-      let updatedImplements = c.implements || [];
-      if (updatedImplements.includes(oldTitle)) {
-        updatedImplements = updatedImplements.map(x => x === oldTitle ? newTitle : x);
-      }
-
-      return {
-        ...c,
-        extends: c.extends === oldTitle ? newTitle : c.extends,
-        extendsInterfaces: updatedExtendsInterfaces,
-        implements: updatedImplements
-      };
+      return prev;
     });
+
+    cascadeRenameInFiles(oldTitle, newTitle, 'class', null, null);
     handleUmlClassesChange(newClasses);
   };
 
@@ -2441,15 +3094,24 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
   const updateAttribute = (classIdx, attrIdx, fields) => {
     const targetClass = umlClasses[classIdx];
-    const newAttributes = targetClass.attributes.map((attr, i) => {
-      if (i === attrIdx) return { ...attr, ...fields };
-      return attr;
-    });
-    const newClasses = umlClasses.map((c, idx) => {
-      if (idx === classIdx) return { ...c, attributes: newAttributes };
-      return c;
-    });
-    handleUmlClassesChange(newClasses);
+    const oldName = targetClass.attributes[attrIdx]?.name;
+    const newName = fields.name;
+
+    if (newName && oldName && newName !== oldName) {
+      const newClasses = cascadeRenameInClasses(umlClasses, oldName, newName, 'attribute', targetClass.title);
+      cascadeRenameInFiles(oldName, newName, 'attribute', null, null);
+      handleUmlClassesChange(newClasses);
+    } else {
+      const newAttributes = targetClass.attributes.map((attr, i) => {
+        if (i === attrIdx) return { ...attr, ...fields };
+        return attr;
+      });
+      const newClasses = umlClasses.map((c, idx) => {
+        if (idx === classIdx) return { ...c, attributes: newAttributes };
+        return c;
+      });
+      handleUmlClassesChange(newClasses);
+    }
   };
 
   // Method Operations
@@ -2478,25 +3140,64 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
   const updateMethod = (classIdx, methodIdx, fields) => {
     const targetClass = umlClasses[classIdx];
-    const newMethods = targetClass.methods.map((method, i) => {
-      if (i === methodIdx) return { ...method, ...fields };
-      return method;
-    });
-    const newClasses = umlClasses.map((c, idx) => {
-      if (idx === classIdx) return { ...c, methods: newMethods };
-      return c;
-    });
-    handleUmlClassesChange(newClasses);
+    const oldName = targetClass.methods[methodIdx]?.name;
+    const newName = fields.name;
+
+    if (newName && oldName && newName !== oldName) {
+      const newClasses = cascadeRenameInClasses(umlClasses, oldName, newName, 'method', targetClass.title);
+      cascadeRenameInFiles(oldName, newName, 'method', null, null);
+      handleUmlClassesChange(newClasses);
+    } else {
+      const newMethods = targetClass.methods.map((method, i) => {
+        if (i === methodIdx) return { ...method, ...fields };
+        return method;
+      });
+      const newClasses = umlClasses.map((c, idx) => {
+        if (idx === classIdx) return { ...c, methods: newMethods };
+        return c;
+      });
+      handleUmlClassesChange(newClasses);
+    }
   };
 
   const handleRun = async () => {
+    let currentClassesCode = code;
+    let currentRunnerCode = mainCode;
+
+    if (activeEditorRef.current) {
+      const currentCode = activeEditorRef.current.getValue();
+      if (activeFile === 'Runner.java') {
+        currentRunnerCode = currentCode;
+        setMainCode(currentCode);
+        setFiles(prev => ({ ...prev, [activeFile]: currentCode }));
+      } else {
+        try {
+          const parsedList = javaToUmlClasses(currentCode);
+          if (parsedList && parsedList.length > 0) {
+            const updatedClass = parsedList[0];
+            const classIdx = umlClasses.findIndex(c => `${c.title}.java` === activeFile);
+            if (classIdx !== -1) {
+              const nextClasses = [...umlClasses];
+              nextClasses[classIdx] = updatedClass;
+              currentClassesCode = umlClassesToJava(nextClasses);
+              setCode(currentClassesCode);
+              setUmlClasses(nextClasses);
+              setFiles(prev => ({ ...prev, [activeFile]: currentCode }));
+            }
+          }
+        } catch (e) {
+          setFiles(prev => ({ ...prev, [activeFile]: currentCode }));
+        }
+      }
+    }
+
     setIsRunning(true);
     setTerminalOutput('');
     setIsWaitingForInput(false);
     setCurrentInputVal('');
     
     try {
-      const combinedCode = code + "\n\n// === RUNNER_SECTION_START ===\n\n" + mainCode;
+      const combinedCode = currentClassesCode + "\n\n// === RUNNER_SECTION_START ===\n\n" + currentRunnerCode;
       
       const onStdout = (text) => {
         setTerminalOutput(prev => prev + text);
@@ -2520,9 +3221,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
   const handleInputSubmit = (e) => {
     if (e.key === 'Enter') {
-      const val = currentInputVal;
+      const val = e.target.value;
       setTerminalOutput(prev => prev + val + '\n');
-      setCurrentInputVal('');
       setIsWaitingForInput(false);
       if (inputResolverRef.current) {
         inputResolverRef.current(val);
@@ -2647,7 +3347,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         </Box>
 
         <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', marginRight: '8px' }}>
-          <IconButton size="small" onClick={handleDownloadCode} title="Download Java File" style={{ color: 'var(--success-main)' }}>
+          <IconButton size="small" onClick={handleDownloadClick} title="Download Java File" style={{ color: 'var(--success-main)' }}>
             <DownloadIcon fontSize="small" />
           </IconButton>
           <IconButton size="small" onClick={() => fileInputRef.current?.click()} title="Import Java File" style={{ color: 'var(--orange-500)' }}>
@@ -2670,153 +3370,109 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       <DialogContent style={{ padding: '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
         <Box id="split-container" style={{ display: 'flex', flexDirection: 'row', flexGrow: 1, width: '100%', alignItems: 'stretch', position: 'relative', minHeight: 0 }}>
           {/* Left Pane: Code Editor */}
-          <Box style={{ width: `${splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%', minHeight: 0 }}>
-            {activeTab === 'runner' ? (
-              <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', minHeight: 0 }}>
-                {/* Top: Class Definitions */}
-                <Box style={{ flex: '1 1 45%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                  <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-                    Class Definitions (OOP Structures)
-                  </Typography>
-                  <Box style={{
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
-                    flexGrow: 1,
-                    minHeight: 0,
-                    width: '100%',
-                    position: 'relative'
-                  }}>
-                    <Editor
-                      key="runner-classes-editor"
-                      height="100%"
-                      language="java"
-                      defaultValue={code}
-                      onMount={(editor) => { execEditorRef.current = editor; }}
-                      onChange={(val) => handleCodeChange(val || '')}
-                      theme={isDarkMode ? 'vs-dark' : 'light'}
-                      options={{
-                        fontSize: 12,
-                        minimap: { enabled: false },
-                        automaticLayout: true,
-                        scrollBeyondLastLine: false,
-                        padding: { top: 8, bottom: 8 },
-                        lineNumbersMinChars: 3
-                      }}
-                    />
-                  </Box>
-                </Box>
-
-                {/* Bottom: Main test runner function */}
-                <Box style={{ flex: '1 1 55%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                  <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-                    Main Executable (Test Client)
-                  </Typography>
-                  <Box style={{
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    border: '1.5px solid var(--primary-main)',
-                    boxShadow: '0 0 15px rgba(61, 92, 255, 0.15)',
-                    flexGrow: 1,
-                    minHeight: 0,
-                    position: 'relative'
-                  }}>
-                    <Editor
-                      key="runner-main-editor"
-                      height="100%"
-                      language="java"
-                      defaultValue={mainCode}
-                      onMount={(editor) => { runnerEditorRef.current = editor; }}
-                      onChange={(val) => {
-                        isTypingRef.current = true;
-                        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                        typingTimeoutRef.current = setTimeout(() => {
-                          isTypingRef.current = false;
-                        }, 1000);
-                        setMainCode(val || '');
-                      }}
-                      theme={isDarkMode ? 'vs-dark' : 'light'}
-                      options={{
-                        fontSize: 13,
-                        minimap: { enabled: false },
-                        automaticLayout: true,
-                        scrollBeyondLastLine: false,
-                        padding: { top: 10, bottom: 10 },
-                        lineNumbersMinChars: 3
-                      }}
-                    />
-                  </Box>
-                </Box>
-              </Box>
-            ) : (
-              // Tab 1: Full height editor
-              <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', height: '100%' }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Class Source Code (Java)
-                </Typography>
+          {/* Left Pane: Unified Tabbed IDE Code Editor */}
+          <Box style={{ width: `${splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '200px', height: '100%', minHeight: 0 }}>
+            <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Project Editor
+            </Typography>
+            <Box style={{
+              borderRadius: '16px',
+              overflow: 'hidden',
+              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+              backgroundColor: isDarkMode ? '#1e1e1e' : '#fffffe',
+              boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
+              display: 'flex',
+              flexDirection: 'column',
+              flexGrow: 1,
+              minHeight: 0,
+              width: '100%'
+            }}>
+              {/* IDE Header Bar with File Explorer Tabs */}
+              <Box style={{
+                background: isDarkMode ? '#252526' : '#f3f3f3',
+                borderBottom: isDarkMode ? '1px solid #2d2d2d' : '1px solid #e2e2e2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingRight: '16px'
+              }}>
                 <Box style={{
-                  borderRadius: '16px',
-                  overflow: 'hidden',
-                  border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
-                  backgroundColor: isDarkMode ? '#1e1e1e' : '#fffffe',
-                  boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
                   display: 'flex',
-                  flexDirection: 'column',
+                  overflowX: 'auto',
+                  gap: '2px',
+                  padding: '6px 8px 0',
                   flexGrow: 1,
-                  minHeight: 0,
-                  width: '100%'
+                  maxWidth: 'calc(100% - 50px)',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none'
                 }}>
-                  {/* Editor mockup header bar */}
-                  <Box style={{
-                    background: isDarkMode ? '#252526' : '#f3f3f3',
-                    padding: '8px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderBottom: isDarkMode ? '1px solid #2d2d2d' : '1px solid #e2e2e2'
-                  }}>
-                    <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CodeIcon style={{ color: 'var(--primary-main)', fontSize: '1.1rem' }} />
-                      <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'none', letterSpacing: '0.02em', fontFamily: 'monospace' }}>
-                        BankAccount.java
-                      </Typography>
-                    </Box>
-                    <Box style={{ display: 'flex', gap: '6px' }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff5f56' }}></span>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffbd2e' }}></span>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27c93f' }}></span>
-                    </Box>
-                  </Box>
-                  <Box style={{ flexGrow: 1, position: 'relative', width: '100%', height: '100%', minHeight: 0 }}>
-                    {isEditorReady ? (
-                      <Editor
-                        key="uml-editor"
-                        height="100%"
-                        language="java"
-                        defaultValue={code}
-                        onMount={(editor) => { umlEditorRef.current = editor; }}
-                        onChange={(val) => handleCodeChange(val || '')}
-                        theme={isDarkMode ? 'vs-dark' : 'light'}
-                        options={{
-                          fontSize: 13,
-                          minimap: { enabled: false },
-                          automaticLayout: true,
-                          scrollBeyondLastLine: false,
-                          padding: { top: 12, bottom: 12 },
-                          lineNumbersMinChars: 3
+                  {Object.keys(files).map((fileName) => {
+                    const isActive = activeFile === fileName;
+                    return (
+                      <Box
+                        key={fileName}
+                        onClick={() => handleTabChange(fileName)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          cursor: 'pointer',
+                          borderTopLeftRadius: '6px',
+                          borderTopRightRadius: '6px',
+                          background: isActive 
+                            ? (isDarkMode ? '#1e1e1e' : '#ffffff') 
+                            : 'transparent',
+                          border: isActive
+                            ? (isDarkMode ? '1px solid #2d2d2d' : '1px solid #e2e2e2')
+                            : '1px solid transparent',
+                          borderBottom: isActive ? 'none' : '1px solid transparent',
+                          marginBottom: '-1px',
+                          whiteSpace: 'nowrap',
+                          zIndex: isActive ? 2 : 1
                         }}
-                      />
-                    ) : (
-                      <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
-                        <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
-                          Loading Editor...
+                      >
+                        <CodeIcon style={{ 
+                          color: isActive ? 'var(--primary-main)' : 'var(--text-secondary)', 
+                          fontSize: '0.9rem' 
+                        }} />
+                        <Typography style={{ 
+                          fontSize: '0.75rem', 
+                          fontFamily: 'monospace', 
+                          fontWeight: isActive ? 800 : 500,
+                          color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)'
+                        }}>
+                          {fileName}
                         </Typography>
                       </Box>
-                    )}
-                  </Box>
+                    );
+                  })}
+                </Box>
+                {/* Visual Mac-style window controls */}
+                <Box style={{ display: 'flex', gap: '5px' }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ff5f56' }}></span>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ffbd2e' }}></span>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#27c93f' }}></span>
                 </Box>
               </Box>
-            )}
+
+              {/* Code Workspace */}
+              <Box style={{ flexGrow: 1, position: 'relative', width: '100%', height: '100%', minHeight: 0 }}>
+                {isEditorReady && activeFile ? (
+                  <JavaOopUmlEditor
+                    isDarkMode={isDarkMode}
+                    onChange={handleFileCodeChange}
+                    onMount={handleEditorMount}
+                  />
+                ) : (
+                  <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
+                    <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                      Loading Editor...
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Box>
           </Box>
 
           {/* Draggable Divider */}
@@ -3325,10 +3981,10 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                             )
                           )}
 
-                          <input
+                          <DebouncedInput
                             type="text"
                             value={umlClass.title}
-                            onChange={(e) => updateClassTitle(classIdx, e.target.value)}
+                            onChange={(val) => updateClassTitle(classIdx, val)}
                             style={{
                               width: '90%',
                               display: 'block',
@@ -3452,11 +4108,11 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                                     <MenuItem key={t} value={t} style={{ fontSize: '0.72rem', fontFamily: 'monospace' }}>{t}</MenuItem>
                                   ))}
                                 </Select>
-                                <input
+                                <DebouncedInput
                                   type="text"
                                   value={attr.name}
                                   placeholder="name"
-                                  onChange={(e) => updateAttribute(classIdx, attrIdx, { name: e.target.value })}
+                                  onChange={(val) => updateAttribute(classIdx, attrIdx, { name: val })}
                                   style={{
                                     flexGrow: 1,
                                     minWidth: '40px',
@@ -3543,11 +4199,11 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                                   <MenuItem key={t} value={t} style={{ fontSize: '0.72rem', fontFamily: 'monospace' }}>{t}</MenuItem>
                                 ))}
                               </Select>
-                              <input
+                              <DebouncedInput
                                 type="text"
                                 value={method.name}
                                 placeholder="name"
-                                onChange={(e) => updateMethod(classIdx, methodIdx, { name: e.target.value })}
+                                onChange={(val) => updateMethod(classIdx, methodIdx, { name: val })}
                                 style={{
                                   flexGrow: 1,
                                   minWidth: '40px',
@@ -3748,8 +4404,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                           <span style={{ color: '#FF9F43', fontWeight: 800 }}>{`> `}</span>
                           <input
                             type="text"
-                            value={currentInputVal}
-                            onChange={(e) => setCurrentInputVal(e.target.value)}
+                            defaultValue=""
                             onKeyDown={handleInputSubmit}
                             autoFocus
                             placeholder="Type input and press Enter..."
@@ -3786,6 +4441,66 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           Close
         </Button>
       </DialogActions>
+
+      {/* Download File Dialog */}
+      <Dialog
+        open={isDownloadDialogOpen}
+        onClose={() => setIsDownloadDialogOpen(false)}
+        PaperProps={{
+          style: {
+            borderRadius: '16px',
+            background: 'var(--background-paper)',
+            border: '1px solid var(--divider)',
+            padding: '16px',
+            width: '400px'
+          }
+        }}
+      >
+        <DialogTitle style={{ fontWeight: 800, fontFamily: '"Outfit", sans-serif', paddingBottom: '8px', color: 'var(--text-primary)' }}>
+          Download Java Project
+        </DialogTitle>
+        <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '8px' }}>
+          <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+            Specify a filename to save your Java OOP project on your device:
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            variant="outlined"
+            placeholder="Playground"
+            value={downloadFileName}
+            onChange={(e) => setDownloadFileName(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleConfirmDownload();
+              }
+            }}
+            inputProps={{
+              style: {
+                fontFamily: 'monospace',
+                fontSize: '0.85rem'
+              }
+            }}
+            InputProps={{
+              style: {
+                borderRadius: '8px',
+                color: 'var(--text-primary)',
+                background: 'var(--background-default)'
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions style={{ padding: '8px 16px' }}>
+          <Button onClick={() => setIsDownloadDialogOpen(false)} style={{ borderRadius: '8px', fontWeight: 800, color: 'var(--text-secondary)' }}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmDownload} variant="contained" style={{ borderRadius: '8px', fontWeight: 800, background: 'var(--primary-main)', color: '#fff' }}>
+            Download
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Create Connection Dialog */}
       <Dialog

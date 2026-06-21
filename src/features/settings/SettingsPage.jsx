@@ -49,6 +49,8 @@ const SettingsPage = () => {
     { id: 'peach', name: 'Peach Cream', bg: '#fffefc', border: '#ea580c33', text: '#431407', dot: '#ea580c' },
     { id: 'rose', name: 'Rose Gold', bg: '#fffafb', border: '#db277733', text: '#500724', dot: '#db2777' },
     { id: 'clay', name: 'Clay Slate', bg: '#fafafa', border: '#4b556333', text: '#111827', dot: '#4b5563' },
+    { id: 'kitty', name: 'Hello Kitty', bg: '#ffebf0', border: '#ff6b8b33', text: '#4a1525', dot: '#ff6b8b' },
+    { id: 'midnight', name: 'Midnight Gold', bg: '#101726', border: '#fbc02d33', text: '#ffffff', dot: '#fbc02d' },
   ];
 
   const handleDeleteAccount = () => {

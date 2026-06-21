@@ -9,7 +9,7 @@ export const useTheme = () => useContext(ThemeContext);
 export const CustomThemeProvider = ({ children }) => {
   const [themeMode, setThemeMode] = useState(() => {
     const savedTheme = localStorage.getItem('themeMode') || localStorage.getItem('theme');
-    if (['light', 'dark', 'sepia', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic', 'mint', 'lavender', 'peach', 'rose', 'clay'].includes(savedTheme)) {
+    if (['light', 'dark', 'sepia', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic', 'mint', 'lavender', 'peach', 'rose', 'clay', 'kitty', 'midnight'].includes(savedTheme)) {
       return savedTheme;
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -20,19 +20,19 @@ export const CustomThemeProvider = ({ children }) => {
     localStorage.setItem('theme', themeMode); // fallback for older code
     document.documentElement.setAttribute('data-theme', themeMode);
     
-    const isDark = ['dark', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic'].includes(themeMode);
+    const isDark = ['dark', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic', 'midnight'].includes(themeMode);
     document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
   }, [themeMode]);
 
   const toggleTheme = () => {
     setThemeMode((prev) => {
-      const isCurrentlyDark = ['dark', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic'].includes(prev);
+      const isCurrentlyDark = ['dark', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic', 'midnight'].includes(prev);
       return isCurrentlyDark ? 'light' : 'dark';
     });
   };
 
   const currentTheme = useMemo(() => buildTheme(themeMode), [themeMode]);
-  const isDarkMode = ['dark', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic'].includes(themeMode);
+  const isDarkMode = ['dark', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic', 'midnight'].includes(themeMode);
 
   return (
     <ThemeContext.Provider value={{ isDarkMode, themeMode, setThemeMode, toggleTheme }}>

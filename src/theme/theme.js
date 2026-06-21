@@ -16,7 +16,7 @@ const baseColors = {
 };
 
 const buildTheme = (mode) => {
-  const isDark = ['dark', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic'].includes(mode);
+  const isDark = ['dark', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic', 'midnight'].includes(mode);
   
   let primaryMain = baseColors.primary;
   let primaryDark = baseColors.primaryDark;
@@ -161,6 +161,26 @@ const buildTheme = (mode) => {
     textSecondary = 'rgba(17, 24, 39, 0.72)';
     textDisabled = 'rgba(17, 24, 39, 0.4)';
     dividerColor = 'rgba(75, 85, 99, 0.14)';
+  } else if (mode === 'kitty') {
+    primaryMain = '#ff6b8b';
+    primaryDark = '#e64e70';
+    primaryLight = '#ffb3c6';
+    bgDefault = '#ffd1dc';
+    bgPaper = '#ffebf0';
+    textPrimary = '#4a1525';
+    textSecondary = 'rgba(74, 21, 37, 0.72)';
+    textDisabled = 'rgba(74, 21, 37, 0.42)';
+    dividerColor = 'rgba(255, 107, 139, 0.15)';
+  } else if (mode === 'midnight') {
+    primaryMain = '#fbc02d';
+    primaryDark = '#f57f17';
+    primaryLight = '#fff59d';
+    bgDefault = '#080c16';
+    bgPaper = '#101726';
+    textPrimary = '#ffffff';
+    textSecondary = '#94a3b8';
+    textDisabled = '#64748b';
+    dividerColor = 'rgba(251, 192, 45, 0.15)';
   }
 
   const palette = {
