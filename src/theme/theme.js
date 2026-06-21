@@ -111,6 +111,56 @@ const buildTheme = (mode) => {
     textSecondary = 'rgba(236, 239, 244, 0.72)';
     textDisabled = 'rgba(236, 239, 244, 0.4)';
     dividerColor = 'rgba(136, 192, 208, 0.18)';
+  } else if (mode === 'mint') {
+    primaryMain = '#00a86b';
+    primaryDark = '#00704a';
+    primaryLight = '#33cc99';
+    bgDefault = '#eefdf6';
+    bgPaper = '#f4fef9';
+    textPrimary = '#0f3d2a';
+    textSecondary = 'rgba(15, 61, 42, 0.72)';
+    textDisabled = 'rgba(15, 61, 42, 0.4)';
+    dividerColor = 'rgba(0, 168, 107, 0.14)';
+  } else if (mode === 'lavender') {
+    primaryMain = '#7c3aed';
+    primaryDark = '#5b21b6';
+    primaryLight = '#a78bfa';
+    bgDefault = '#faf5ff';
+    bgPaper = '#fdfaff';
+    textPrimary = '#2e1065';
+    textSecondary = 'rgba(46, 16, 101, 0.72)';
+    textDisabled = 'rgba(46, 16, 101, 0.4)';
+    dividerColor = 'rgba(124, 58, 237, 0.14)';
+  } else if (mode === 'peach') {
+    primaryMain = '#ea580c';
+    primaryDark = '#c2410c';
+    primaryLight = '#f97316';
+    bgDefault = '#fffaf0';
+    bgPaper = '#fffefc';
+    textPrimary = '#431407';
+    textSecondary = 'rgba(67, 20, 7, 0.72)';
+    textDisabled = 'rgba(67, 20, 7, 0.4)';
+    dividerColor = 'rgba(234, 88, 12, 0.14)';
+  } else if (mode === 'rose') {
+    primaryMain = '#db2777';
+    primaryDark = '#be185d';
+    primaryLight = '#f472b6';
+    bgDefault = '#fff1f2';
+    bgPaper = '#fffafb';
+    textPrimary = '#500724';
+    textSecondary = 'rgba(80, 7, 36, 0.72)';
+    textDisabled = 'rgba(80, 7, 36, 0.4)';
+    dividerColor = 'rgba(219, 39, 119, 0.14)';
+  } else if (mode === 'clay') {
+    primaryMain = '#4b5563';
+    primaryDark = '#374151';
+    primaryLight = '#6b7280';
+    bgDefault = '#f3f4f6';
+    bgPaper = '#fafafa';
+    textPrimary = '#111827';
+    textSecondary = 'rgba(17, 24, 39, 0.72)';
+    textDisabled = 'rgba(17, 24, 39, 0.4)';
+    dividerColor = 'rgba(75, 85, 99, 0.14)';
   }
 
   const palette = {

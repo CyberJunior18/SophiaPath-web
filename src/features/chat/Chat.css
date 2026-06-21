@@ -1,10 +1,10 @@
 .chat-list-container,
 .chat-page-container {
-  height: calc(100vh - 12rem);
+  height: calc(100vh - 8rem);
   display: flex;
   flex-direction: column;
   max-width: 900px;
-  margin: 0 auto;
+  margin: auto;
   width: 100%;
 }
 
@@ -145,9 +145,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  background-image: 
-    radial-gradient(circle at 10% 10%, rgba(var(--primary-main-rgb), 0.02), transparent 20%),
-    radial-gradient(circle at 90% 90%, rgba(var(--primary-main-rgb), 0.02), transparent 20%);
+  background-image: none;
 }
 
 .message-bubble-wrapper {

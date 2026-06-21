@@ -43,8 +43,9 @@ const ChatPage = () => {
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
 
   const targetUser = location.state?.targetUser || { id: userId, name: 'User' };
-  const resolvedAvatar = localStorage.getItem(`avatar_${userId}`) || targetUser.avatar || '';
-  const displayName = targetUser.fullname || targetUser.name || targetUser.username || 'User';
+  const resolvedUser = targetUserDetails || targetUser;
+  const resolvedAvatar = localStorage.getItem(`avatar_${userId}`) || resolvedUser.avatar || '';
+  const displayName = resolvedUser.fullname || resolvedUser.name || resolvedUser.username || 'User';
   const initials = displayName.charAt(0).toUpperCase();
 
   // Load target user profile details from backend

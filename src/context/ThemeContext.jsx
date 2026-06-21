@@ -9,7 +9,7 @@ export const useTheme = () => useContext(ThemeContext);
 export const CustomThemeProvider = ({ children }) => {
   const [themeMode, setThemeMode] = useState(() => {
     const savedTheme = localStorage.getItem('themeMode') || localStorage.getItem('theme');
-    if (['light', 'dark', 'sepia', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic'].includes(savedTheme)) {
+    if (['light', 'dark', 'sepia', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic', 'mint', 'lavender', 'peach', 'rose', 'clay'].includes(savedTheme)) {
       return savedTheme;
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';

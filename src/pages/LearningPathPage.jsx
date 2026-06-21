@@ -39,6 +39,7 @@ import {
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { coursesData } from '../data/courses';
+import { motion, AnimatePresence } from 'framer-motion';
 import './LearningPathPage.css';
 
 const getNodeIcon = (node) => {
@@ -656,6 +657,39 @@ const LearningPathPage = () => {
     );
   }
 
+  const getNodeStyle = (node) => {
+    if (node.status !== 'completed') return {};
+
+    // For learning categories (lessons), use default success color
+    if (node.category === 'learning' || !node.score) {
+      return {
+        background: 'var(--success-main)',
+        color: 'white',
+        boxShadow: '0 4px 14px rgba(61, 220, 151, 0.35)'
+      };
+    }
+
+    if (node.score >= 80) {
+      return {
+        background: 'var(--success-main)',
+        color: 'white',
+        boxShadow: '0 4px 14px rgba(61, 220, 151, 0.35)'
+      };
+    } else if (node.score >= 50) {
+      return {
+        background: 'var(--yellow-500)',
+        color: 'white',
+        boxShadow: '0 4px 14px rgba(255, 181, 71, 0.35)'
+      };
+    } else {
+      return {
+        background: 'var(--danger-main)',
+        color: 'white',
+        boxShadow: '0 4px 14px rgba(255, 100, 124, 0.35)'
+      };
+    }
+  };
+
   const nextActiveNode = nodes.find(n => n.status === 'active') || nodes[nodes.length - 1];
 
   return (
@@ -699,7 +733,7 @@ const LearningPathPage = () => {
                     fontWeight: 800,
                     fontSize: '0.85rem',
                     textTransform: 'none',
-                    background: 'linear-gradient(135deg, var(--primary-main), var(--primary-dark))',
+                    background: 'var(--primary-main)',
                     color: '#fff',
                     boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.25)',
                     fontFamily: '"Outfit", sans-serif'
@@ -741,13 +775,33 @@ const LearningPathPage = () => {
                     fontWeight: 800,
                     fontSize: '0.85rem',
                     textTransform: 'none',
-                    background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
+                    background: '#FF6B6B',
                     color: '#fff',
                     boxShadow: '0 6px 15px rgba(255, 107, 107, 0.25)',
                     fontFamily: '"Outfit", sans-serif'
                   }}
                 >
                   Interactive Philosophy Lab
+                </Button>
+              )}
+              {(courseId?.toLowerCase()?.includes('cyber') || course?.title?.toLowerCase()?.includes('cyber')) && (
+                <Button
+                  variant="contained"
+                  startIcon={<TerminalIcon />}
+                  onClick={() => navigate('/cyber-lab', { state: { course } })}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                    textTransform: 'none',
+                    background: '#10b981',
+                    color: '#fff',
+                    boxShadow: '0 6px 15px rgba(16, 185, 129, 0.25)',
+                    fontFamily: '"Outfit", sans-serif'
+                  }}
+                >
+                  Interactive Cyber Lab
                 </Button>
               )}
             </Box>
@@ -786,29 +840,31 @@ const LearningPathPage = () => {
         )}
 
         <Box className="path-visual-shell glass-panel-strong">
-          <Box className="path-visual" style={{ height: `${pathHeight}px` }}>
-            <svg
-              width="300"
-              height={pathHeight}
-              className="path-svg"
-              viewBox={`0 0 300 ${pathHeight}`}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeSectionIndex}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="path-visual"
+              style={{ height: `${pathHeight}px` }}
             >
-              <defs>
-                <linearGradient id="pathGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor={theme.palette.primary.main} stopOpacity="0.2" />
-                  <stop offset="100%" stopColor={theme.palette.primary.main} stopOpacity="0.05" />
-                </linearGradient>
-              </defs>
-
-              <path
-                d={generatePath()}
-                fill="none"
-                stroke="url(#pathGradient)"
-                strokeWidth="12"
-                strokeLinecap="round"
-                strokeDasharray="15 15"
-              />
-            </svg>
+              <svg
+                width="300"
+                height={pathHeight}
+                className="path-svg"
+                viewBox={`0 0 300 ${pathHeight}`}
+              >
+                <path
+                  d={generatePath()}
+                  fill="none"
+                  stroke="var(--divider)"
+                  strokeWidth="12"
+                  strokeLinecap="round"
+                  strokeDasharray="15 15"
+                />
+              </svg>
 
             {nodes.map((node, index) => (
               <React.Fragment key={node.id}>
@@ -870,7 +926,10 @@ const LearningPathPage = () => {
                       <Box className="path-node-pulse" />
                     )}
 
-                    <Box className={`path-node path-node-${node.status}`}>
+                    <Box 
+                      className={`path-node path-node-${node.status}`}
+                      style={getNodeStyle(node)}
+                    >
                       {getNodeIcon(node)}
                     </Box>
 
@@ -933,7 +992,8 @@ const LearningPathPage = () => {
                 </Box>
               </React.Fragment>
             ))}
-          </Box>
+            </motion.div>
+          </AnimatePresence>
         </Box>
 
         <Box className="path-footer glass-panel">

@@ -12,6 +12,16 @@
   padding-bottom: 0 !important;
 }
 
+.nav-shell.sidebar-hidden {
+  grid-template-columns: 1fr !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+.sidebar-hidden .nav-main {
+  gap: 0 !important;
+}
+
 .nav-shell.sidebar-collapsed {
   gap: 0;
 }
@@ -20,7 +30,7 @@
   position: sticky;
   top: 1.5rem;
   height: calc(100vh - 3rem);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .nav-shell-sidebar {
@@ -38,6 +48,24 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  position: relative;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              min-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              background 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-shell-sidebar.is-collapsed {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .nav-brand {

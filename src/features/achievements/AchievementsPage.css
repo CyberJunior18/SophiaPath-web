@@ -4,8 +4,7 @@
   padding: 4rem 0;
   font-family: 'Poppins', sans-serif;
   background-image: 
-    radial-gradient(circle at 10% 20%, rgba(var(--primary-main-rgb), 0.05) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(var(--primary-main-rgb), 0.03) 0%, transparent 40%);
+    none;
 }
 
 /* Centered & Professional Hero Header */
@@ -19,7 +18,7 @@
 
 .badge-glow-container {
   position: relative;
-  background: radial-gradient(circle, rgba(var(--primary-main-rgb), 0.12) 0%, rgba(var(--primary-main-rgb), 0) 70%);
+  background: transparent;
   width: 140px;
   height: 140px;
   display: flex;
@@ -46,7 +45,7 @@
 }
 
 .hero-title .highlight-text {
-  background: linear-gradient(135deg, var(--primary-main) 0%, #7C8DFF 100%);
+  background: var(--primary-main);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: inline-block;
@@ -103,7 +102,7 @@
   width: 130px;
   height: 130px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(var(--primary-main-rgb), 0.15) 0%, transparent 100%), var(--background-paper);
+  background: var(--background-paper);
   border: 4px solid var(--primary-main);
   box-shadow: 0 0 30px rgba(var(--primary-main-rgb), 0.35);
   display: flex;
@@ -168,7 +167,7 @@
 
 .stats-progress-bar .MuiLinearProgress-bar {
   border-radius: 5px !important;
-  background: linear-gradient(90deg, var(--primary-main) 0%, #7C8DFF 100%) !important;
+  background: var(--primary-main) !important;
   box-shadow: 0 0 10px rgba(var(--primary-main-rgb), 0.4);
 }
 
@@ -240,7 +239,7 @@
   transform: translateX(-50%);
   width: 140px;
   height: 140px;
-  background: radial-gradient(circle, var(--card-accent-color) 0%, transparent 65%);
+  background: transparent;
   opacity: 0.05;
   pointer-events: none;
   transition: opacity 0.3s ease;

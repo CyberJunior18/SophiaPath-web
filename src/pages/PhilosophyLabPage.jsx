@@ -702,17 +702,18 @@ export const FallacySorterWidget = () => {
                   style={{
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    backgroundColor: 'rgba(0,0,0,0.2)',
+                    border: '1px solid var(--divider)',
+                    backgroundColor: 'var(--background-paper)',
                     color: 'var(--text-primary)',
                     fontSize: '0.8rem',
                     minWidth: '150px',
-                    outline: 'none'
+                    outline: 'none',
+                    fontFamily: 'inherit'
                   }}
                 >
-                  <option value="">-- Choose Fallacy --</option>
+                  <option value="" style={{ backgroundColor: 'var(--background-paper)', color: 'var(--text-primary)' }}>-- Choose Fallacy --</option>
                   {fallacies.map(f => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
+                    <option key={f.id} value={f.id} style={{ backgroundColor: 'var(--background-paper)', color: 'var(--text-primary)' }}>{f.name}</option>
                   ))}
                 </select>
 
@@ -1755,7 +1756,7 @@ export const PlatosCaveWidget = () => {
             borderRadius: '10px',
             textTransform: 'none',
             fontWeight: 800,
-            background: stage === 3 ? 'var(--text-secondary)' : 'linear-gradient(135deg, var(--primary-main), #1976d2)',
+            background: stage === 3 ? 'var(--text-disabled)' : 'var(--primary-main)',
             color: '#fff'
           }}
         >

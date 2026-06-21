@@ -3,8 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at top right, rgba(var(--primary-rgb), 0.1), transparent),
-              radial-gradient(circle at bottom left, rgba(var(--secondary-rgb), 0.1), transparent);
+  background: transparent;
   padding: 2rem;
 }
 
@@ -36,7 +35,7 @@
 .auth-logo {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  background: var(--primary);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -48,7 +47,7 @@
 
 .auth-title {
   font-weight: 800 !important;
-  background: linear-gradient(to right, var(--text-primary), var(--text-secondary));
+  background: var(--text-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -70,7 +69,7 @@
   text-transform: none !important;
   font-size: 1.1rem !important;
   font-weight: 600 !important;
-  background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
+  background: var(--primary) !important;
   box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3) !important;
   transition: all 0.3s ease !important;
 }

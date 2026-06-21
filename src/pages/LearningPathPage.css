@@ -85,7 +85,7 @@
 }
 
 .path-node-completed {
-  background: linear-gradient(135deg, #29c57b, #46e29c);
+  background: #29c57b;
   color: white;
 }
 

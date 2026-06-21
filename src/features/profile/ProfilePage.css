@@ -346,14 +346,14 @@
 /* Standalone circular avatar dropzone clickable area */
 .avatar-dropzone {
   position: relative;
-  width: 100px;
-  height: 100px;
+  width: 180px;
+  height: 180px;
   border-radius: 50%;
   cursor: pointer;
   overflow: hidden;
-  border: 4px solid var(--background-paper);
-  box-shadow: var(--shadow-soft);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  border: 8px solid var(--background-paper);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  transition: all 0.25s ease;
 }
 
 /* Subtle colored border glow on hover */

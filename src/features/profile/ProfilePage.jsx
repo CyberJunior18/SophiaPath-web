@@ -35,10 +35,12 @@ import {
   PhotoCamera as CameraIcon,
   CloudUpload as UploadIcon,
   Delete as DeleteIcon,
-  Check as CheckIcon
+  Check as CheckIcon,
+  Bolt as BoltIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { achievementsData } from '../../data/achievements';
 import './ProfilePage.css';
 
 const AVATAR_OPTIONS = [
@@ -57,6 +59,85 @@ const ProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [courses, setCourses] = useState([]);
+
+  useEffect(() => {
+    const loadCourses = async () => {
+      try {
+        const res = await fetch('/courses/export/all');
+        if (res.ok) {
+          const list = await res.json();
+          setCourses(list);
+        }
+      } catch (err) {
+        console.error('Failed to load courses on profile page:', err);
+      }
+    };
+    loadCourses();
+  }, []);
+
+  const resolvedAchievements = useState ? React.useMemo(() => {
+    if (!user) return [];
+    const completedLessons = Object.keys(user.quizScores || {});
+    
+    return achievementsData.map(ach => {
+      let currentValue = 0;
+      switch (ach.id) {
+        case 'ach-1': // First Step
+          currentValue = completedLessons.length >= 1 ? 1 : 0;
+          break;
+        case 'ach-2': // Perfect Score
+          currentValue = Object.values(user.quizScores || {}).some(score => score >= 100) ? 1 : 0;
+          break;
+        case 'ach-3': // Consistent Scholar
+          currentValue = user.streak || 0;
+          break;
+        case 'ach-4': // Speed Learner
+          currentValue = completedLessons.length;
+          break;
+        case 'ach-5': // Polymath
+          currentValue = completedLessons.length >= 3 ? 3 : completedLessons.length;
+          break;
+        case 'ach-6': // Domain Master
+          currentValue = completedLessons.length >= 6 ? 1 : 0;
+          break;
+        default:
+          currentValue = 0;
+      }
+      
+      const isUnlocked = currentValue >= ach.progress.targetValue;
+      return {
+        ...ach,
+        isUnlocked,
+        currentValue,
+        targetValue: ach.progress.targetValue
+      };
+    });
+  }, [user]) : [];
+
+  const registeredCoursesProgress = useState ? React.useMemo(() => {
+    if (!user || !user.registeredCourses || courses.length === 0) return [];
+    
+    return user.registeredCourses.map(title => {
+      const course = courses.find(c => c.title.toLowerCase() === title.toLowerCase());
+      if (!course) return { title, progress: 0, totalLessons: 0, completedLessons: 0 };
+      
+      const lessons = course.sections.flatMap(s => s.lessons || []);
+      const totalLessons = lessons.length;
+      const completedLessons = lessons.filter(l => user.quizScores && user.quizScores[l.id] !== undefined).length;
+      const progressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+      
+      return {
+        id: course.id,
+        title: course.title,
+        description: course.description,
+        progress: progressPercent,
+        totalLessons,
+        completedLessons,
+        course
+      };
+    });
+  }, [user, courses]) : [];
 
   const [editForm, setEditForm] = useState({
     name: user?.name || '',
@@ -81,9 +162,9 @@ const ProfilePage = () => {
     bio: 'Passionate about building scalable web applications and learning new technologies. Currently mastering React and Node.js.',
     profileImage: user?.avatar || AVATAR_OPTIONS[0],
     progress: 65,
-    streak: 12,
+    streak: user?.streak || 0,
     completedCourses: Object.keys(user?.quizScores || {}).length,
-    achievements: 8
+    achievements: 0
   });
 
   useEffect(() => {
@@ -93,7 +174,9 @@ const ProfilePage = () => {
         name: user.name,
         role: user.tag || 'Aspiring Full-Stack Developer',
         profileImage: user.avatar || AVATAR_OPTIONS[0],
-        completedCourses: Object.keys(user.quizScores || {}).length
+        completedCourses: Object.keys(user.quizScores || {}).length,
+        streak: user.streak || 0,
+        achievements: resolvedAchievements.filter(a => a.isUnlocked).length
       }));
       setEditForm({
         name: user.name || '',
@@ -105,7 +188,7 @@ const ProfilePage = () => {
       });
       setIsCustomAvatar(user.avatar ? !AVATAR_OPTIONS.includes(user.avatar) : false);
     }
-  }, [user]);
+  }, [user, resolvedAchievements]);
 
   const handleFile = (file) => {
     if (!file) return;
@@ -465,54 +548,202 @@ const ProfilePage = () => {
                 </Paper>
               ))}
             </Box>
-          </Grid>
-
-          {/* Right Column: Content */}
+          </Grid>          {/* Right Column: Content */}
           <Grid item xs={12} lg={8} className="content-column">
-
+            <Stack spacing={4}>
+              {/* Registered Courses Card */}
               <Paper 
                 sx={{ 
                   p: 4,
                   borderRadius: 4,
-                  boxShadow: 6,
-                  border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
-                  bgcolor: 'background.paper',
-                  cursor: 'pointer',
-                  '&:hover .MuiSvgIcon-root': { transform: 'scale(1.2)' }
+                  boxShadow: 'var(--shadow-card)',
+                  border: '1px solid var(--divider)',
+                  bgcolor: 'var(--surface-glass)',
+                  backdropFilter: 'blur(16px)'
                 }}
-                onClick={() => navigate('/achievements')}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 3, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
+                  Registered Courses
+                </Typography>
+                
+                {registeredCoursesProgress.length === 0 ? (
+                  <Box sx={{ py: 4, textAlign: 'center' }}>
+                    <Typography sx={{ color: 'var(--text-secondary)', fontStyle: 'italic', mb: 2 }}>
+                      You haven't registered in any courses yet.
+                    </Typography>
+                    <Button 
+                      variant="contained" 
+                      onClick={() => navigate('/')}
+                      sx={{ background: 'var(--hero-gradient)', textTransform: 'none', fontWeight: 800, borderRadius: 2 }}
+                    >
+                      Browse Courses
+                    </Button>
+                  </Box>
+                ) : (
+                  <Stack spacing={3}>
+                    {registeredCoursesProgress.map(courseProg => (
+                      <Box 
+                        key={courseProg.title} 
+                        sx={{ 
+                          p: 3, 
+                          borderRadius: 3, 
+                          bgcolor: 'var(--background-default)', 
+                          border: '1px solid var(--divider)',
+                          transition: 'transform 0.2s, border-color 0.2s',
+                          '&:hover': {
+                            transform: 'translateY(-2px)',
+                            borderColor: 'var(--primary-main)'
+                          }
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                          <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>
+                              {courseProg.title}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mt: 0.5, fontSize: '0.85rem' }}>
+                              {courseProg.description}
+                            </Typography>
+                          </Box>
+                          <Button 
+                            variant="outlined" 
+                            size="small"
+                            onClick={() => {
+                              const slug = courseProg.title.toLowerCase().replace(/\s+/g, '-');
+                              navigate(`/course/${slug}`, { state: { course: courseProg.course } });
+                            }}
+                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                          >
+                            Resume
+                          </Button>
+                        </Box>
+                        
+                        <Box sx={{ mt: 2 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, fontSize: '0.85rem' }}>
+                            <Typography variant="body2" sx={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                              Lessons: {courseProg.completedLessons} / {courseProg.totalLessons} completed
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--primary-main)', fontSize: '0.8rem' }}>
+                              {courseProg.progress}%
+                            </Typography>
+                          </Box>
+                          <LinearProgress 
+                            variant="determinate" 
+                            value={courseProg.progress} 
+                            sx={{ 
+                              height: 8, 
+                              borderRadius: 4, 
+                              bgcolor: 'var(--divider)',
+                              '& .MuiLinearProgress-bar': {
+                                background: 'var(--hero-gradient)',
+                                borderRadius: 4
+                              }
+                            }}
+                          />
+                        </Box>
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+              </Paper>
+
+              {/* Achievements Collection Card */}
+              <Paper 
+                sx={{ 
+                  p: 4,
+                  borderRadius: 4,
+                  boxShadow: 'var(--shadow-card)',
+                  border: '1px solid var(--divider)',
+                  bgcolor: 'var(--surface-glass)',
+                  backdropFilter: 'blur(16px)'
+                }}
               >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                    Recent Achievements
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
+                    Badges & Milestones
                   </Typography>
-                  <TrophyIcon sx={{ 
-                    color: theme.palette.warning.main,
-                    transition: 'transform 0.2s'
-                  }} />
+                  <Button 
+                    size="small" 
+                    onClick={() => navigate('/achievements')}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                  >
+                    View All
+                  </Button>
                 </Box>
-                <Stack direction="row" spacing={2} sx={{ overflowX: 'auto', pb: 2 }}>
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <Box 
-                      key={i}
-                      sx={{ 
-                        flexShrink: 0,
-                        width: 80,
-                        height: 80,
-                        borderRadius: 2,
-                        bgcolor: 'background.default',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: `2px solid ${alpha(theme.palette.divider, 0.5)}`,
-                        '&:hover': { border: `2px solid ${alpha(theme.palette.primary.main, 0.3)}` }
-                      }}
-                    >
-                      <TrophyIcon sx={{ color: alpha(theme.palette.primary.main, 0.3) }} />
-                    </Box>
-                  ))}
-                </Stack>
+                
+                <Grid container spacing={3}>
+                  {resolvedAchievements.map(ach => {
+                    const progressPercent = ach.targetValue > 0 ? Math.min(Math.round((ach.currentValue / ach.targetValue) * 100), 100) : 0;
+                    return (
+                      <Grid item xs={12} sm={6} key={ach.id}>
+                        <Box 
+                          sx={{ 
+                            p: 2.5, 
+                            borderRadius: 3, 
+                            bgcolor: 'var(--background-default)', 
+                            border: '1px solid var(--divider)',
+                            display: 'flex',
+                            gap: 2,
+                            alignItems: 'center',
+                            opacity: ach.isUnlocked ? 1 : 0.6,
+                            position: 'relative'
+                          }}
+                        >
+                          <Box 
+                            sx={{ 
+                              width: 56, 
+                              height: 56, 
+                              borderRadius: '50%', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              bgcolor: ach.isUnlocked ? `${ach.associatedColor}15` : 'rgba(0,0,0,0.05)',
+                              color: ach.isUnlocked ? ach.associatedColor : 'var(--text-disabled)',
+                              border: `2px solid ${ach.isUnlocked ? ach.associatedColor : 'var(--divider)'}`
+                            }}
+                          >
+                            {ach.iconReference === 'school' && <CourseIcon />}
+                            {ach.iconReference === 'emoji_events' && <TrophyIcon />}
+                            {ach.iconReference === 'local_fire_department' && <StreakIcon />}
+                            {ach.iconReference === 'bolt' && <BoltIcon />}
+                            {ach.iconReference === 'explore' && <PathIcon />}
+                            {ach.iconReference === 'workspace_premium' && <TrophyIcon />}
+                          </Box>
+                          
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'var(--text-primary)', noWrap: true }}>
+                              {ach.name}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'var(--text-secondary)', display: 'block', mb: 1, minHeight: '32px' }}>
+                              {ach.description}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <LinearProgress 
+                                variant="determinate" 
+                                value={progressPercent}
+                                sx={{ 
+                                  height: 4, 
+                                  borderRadius: 2, 
+                                  flex: 1,
+                                  bgcolor: 'var(--divider)',
+                                  '& .MuiLinearProgress-bar': {
+                                    bgcolor: ach.isUnlocked ? ach.associatedColor : 'var(--text-disabled)'
+                                  }
+                                }}
+                              />
+                              <Typography variant="caption" sx={{ fontWeight: 750, color: 'var(--text-secondary)' }}>
+                                {ach.currentValue}/{ach.targetValue}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Box>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
               </Paper>
+            </Stack>
           </Grid>
         </Grid>
       </Container>

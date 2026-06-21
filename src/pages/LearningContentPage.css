@@ -94,7 +94,7 @@
   font-weight: 800 !important;
   letter-spacing: -0.04em !important;
   margin-bottom: 2rem !important;
-  background: linear-gradient(135deg, var(--primary-main) 0%, #7C8DFF 100%);
+  background: var(--primary-main);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

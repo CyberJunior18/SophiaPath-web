@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import { ThemeContext } from '../context/ThemeContext';
 import Editor from '@monaco-editor/react';
 import html2canvas from 'html2canvas';
 import { simulateCodeExecution, executeCodeAsync } from './CppPlaygroundDialog';
@@ -1175,6 +1176,7 @@ const analyzeRelationships = (classes) => {
 export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
+  const { themeMode } = useContext(ThemeContext);
 
   const [code, setCode] = useState(EXAMPLES[0].code);
   const [umlClasses, setUmlClasses] = useState(javaToUmlClasses(EXAMPLES[0].code));
@@ -1335,6 +1337,13 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const [previewZoomScale, setPreviewZoomScale] = useState(1.0);
   const [isWaitingForInput, setIsWaitingForInput] = useState(false);
   const [currentInputVal, setCurrentInputVal] = useState('');
+  const [previewTheme, setPreviewTheme] = useState('light');
+
+  useEffect(() => {
+    if (isPreviewOpen) {
+      setPreviewTheme(themeMode);
+    }
+  }, [isPreviewOpen, themeMode]);
 
   // Refs (All declared at the top of the component to prevent TDZ/initialization errors in hooks)
   const isDraggingSplitRef = useRef(false);
@@ -1358,8 +1367,67 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   // Validate syntax on mount to check initial preloaded code state
   useEffect(() => {
     const err = checkJavaSyntax(code);
-    setSyntaxError(err);
+    if (err) {
+      setSyntaxError(err);
+    } else {
+      try {
+        setUmlClasses(javaToUmlClasses(code));
+        setSyntaxError(null);
+      } catch (parserErr) {
+        setSyntaxError({ error: parserErr.message, line: 1 });
+      }
+    }
   }, []);
+
+  // Resolve UML card overlaps when card width increases during typing/updates
+  useEffect(() => {
+    if (!umlClasses || umlClasses.length === 0) return;
+
+    const newPositions = { ...classPositions };
+    let changed = false;
+
+    // Map each class with its current x, y coordinate and dynamic width
+    const mapped = umlClasses.map((c, idx) => {
+      const pos = newPositions[c.title] || {
+        x: 50 + (idx % 3) * 420,
+        y: 50 + Math.floor(idx / 3) * 460
+      };
+      return {
+        title: c.title,
+        x: pos.x,
+        y: pos.y,
+        width: calculateCardWidth(c)
+      };
+    });
+
+    // Sort cards from left to right (by X position)
+    mapped.sort((a, b) => a.x - b.x);
+
+    const GAP = 30; // Horizontal gap between cards
+
+    for (let i = 0; i < mapped.length; i++) {
+      const cardA = mapped[i];
+      for (let j = i + 1; j < mapped.length; j++) {
+        const cardB = mapped[j];
+        
+        // If they are on the "same row" (vertical coordinates overlap or are very close, e.g. within 150px)
+        const isSameRow = Math.abs(cardA.y - cardB.y) < 150;
+        if (isSameRow) {
+          // If cardA right border (with gap) overlaps cardB left border
+          if (cardA.x + cardA.width + GAP > cardB.x) {
+            const pushDistance = (cardA.x + cardA.width + GAP) - cardB.x;
+            cardB.x += pushDistance;
+            newPositions[cardB.title] = { x: cardB.x, y: cardB.y };
+            changed = true;
+          }
+        }
+      }
+    }
+
+    if (changed) {
+      setClassPositions(newPositions);
+    }
+  }, [umlClasses]);
 
   // Zoom scroll positioning adjustments to keep zoom center aligned
   useEffect(() => {
@@ -2136,6 +2204,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       setUmlClasses(parsedClasses);
     } catch (err) {
       console.warn('Failed to parse Java code to UML:', err);
+      setSyntaxError({ error: err.message, line: 1 });
     }
   };
 
@@ -2473,7 +2542,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       await new Promise(r => setTimeout(r, 120));
 
       const canvas = await html2canvas(element, {
-        backgroundColor: isDarkMode ? '#0b0f19' : '#f8fafc',
+        backgroundColor: null,
         scale: 2,
         logging: false,
         useCORS: true
@@ -2797,53 +2866,27 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 </Typography>
               </Box>
 
+              {syntaxError && (
+                <Box
+                  style={{
+                    background: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                    border: '1.5px solid #ef444460',
+                    borderRadius: '12px',
+                    padding: '10px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.08)'
+                  }}
+                >
+                  <ErrorIcon style={{ color: '#ef4444', fontSize: '1.25rem' }} />
+                  <Typography variant="body2" style={{ color: isDarkMode ? '#fca5a5' : '#b91c1c', fontWeight: 700, fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                    <strong>Syntax Warning:</strong> {syntaxError.error}
+                  </Typography>
+                </Box>
+              )}
+
               <Box style={{ flexGrow: 1, position: 'relative', height: '100%', width: '100%', minHeight: 0, overflow: 'hidden' }}>
-                {syntaxError ? (
-                  <Paper
-                    elevation={0}
-                    style={{
-                      background: isDarkMode ? '#0f172a' : '#f8fafc',
-                      border: isDarkMode ? '1.5px solid rgba(255,255,255,0.06)' : '1.5px solid rgba(0,0,0,0.08)',
-                      borderRadius: '16px',
-                      height: '100%',
-                      width: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '24px',
-                      textAlign: 'center',
-                    }}
-                  >
-                    <ErrorIcon style={{ fontSize: '4.5rem', color: '#ef4444', marginBottom: '16px' }} />
-                    <Typography variant="h5" style={{ fontWeight: 800, color: isDarkMode ? '#f8fafc' : '#0f172a', marginBottom: '12px', fontFamily: '"Outfit", sans-serif' }}>
-                      Java Syntax Error Detected
-                    </Typography>
-                    <Typography variant="body1" style={{ color: 'var(--text-secondary)', marginBottom: '24px', maxWidth: '450px', fontSize: '0.9rem' }}>
-                      UML editing and interactive preview are disabled because the Java code has syntax errors. Please fix the errors in the code editor to resume UML operations.
-                    </Typography>
-                    <Box
-                      style={{
-                        background: isDarkMode ? '#1e293b' : '#f1f5f9',
-                        borderLeft: '4px solid #ef4444',
-                        borderRadius: '8px',
-                        padding: '16px',
-                        width: '100%',
-                        maxWidth: '550px',
-                        textAlign: 'left',
-                        fontFamily: 'monospace',
-                        fontSize: '0.85rem',
-                        color: isDarkMode ? '#fca5a5' : '#b91c1c',
-                        whiteSpace: 'pre-wrap',
-                        overflowX: 'auto',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-                      }}
-                    >
-                      <strong>Syntax Error:</strong> {syntaxError.error}
-                    </Box>
-                  </Paper>
-                ) : (
-                  <>
                     {/* Floating Buttons in UML editor space */}
                     <Box style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 200, display: 'flex', gap: '8px' }}>
                       <Button
@@ -3197,7 +3240,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     };
                     return (
                       <Box
-                        key={umlClass.title}
+                        key={classIdx}
                         className="uml-class-card"
                         data-classname={umlClass.title}
                         style={{
@@ -3631,8 +3674,6 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   Reset
                 </Button>
               </Box>
-            </>
-          )}
         </Box>
       </Box>
           ) : (
@@ -3663,7 +3704,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   onClick={handleRun}
                   startIcon={<PlayIcon />}
                   style={{
-                    background: 'linear-gradient(135deg, #1CB0F6, #007bb5)',
+                    background: 'var(--primary-main)',
                     color: '#fff',
                     borderRadius: '12px',
                     fontWeight: 800,
@@ -3848,6 +3889,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       onClose={() => setIsPreviewOpen(false)}
       fullScreen
       PaperProps={{
+        'data-theme': previewTheme,
         style: {
           background: 'var(--background-default)',
         }
@@ -3860,7 +3902,42 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             UML Diagram Fullscreen Preview
           </Typography>
         </Box>
-        <Box style={{ display: 'flex', gap: '12px' }}>
+        <Box style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <Typography variant="body2" style={{ fontWeight: 800, color: 'var(--text-secondary)' }}>
+            Choose Theme:
+          </Typography>
+          <Select
+            value={previewTheme}
+            onChange={(e) => setPreviewTheme(e.target.value)}
+            variant="outlined"
+            size="small"
+            style={{
+              borderRadius: '12px',
+              fontWeight: 800,
+              fontSize: '0.8rem',
+              color: 'var(--text-primary)',
+              background: 'var(--background-paper)',
+              minWidth: '150px',
+              height: '40px',
+              border: '1px solid var(--divider)'
+            }}
+          >
+            <MenuItem value="light">Default Light</MenuItem>
+            <MenuItem value="dark">Default Dark</MenuItem>
+            <MenuItem value="sepia">Warm Sepia</MenuItem>
+            <MenuItem value="lava">Volcanic Lava</MenuItem>
+            <MenuItem value="ocean">Deep Ocean</MenuItem>
+            <MenuItem value="forest">Emerald Forest</MenuItem>
+            <MenuItem value="amber">Solarized Amber</MenuItem>
+            <MenuItem value="dracula">Dracula Vampire</MenuItem>
+            <MenuItem value="amethyst">Royal Amethyst</MenuItem>
+            <MenuItem value="nordic">Nordic Ice</MenuItem>
+            <MenuItem value="mint">Frosted Mint</MenuItem>
+            <MenuItem value="lavender">Soft Lavender</MenuItem>
+            <MenuItem value="peach">Peach Cream</MenuItem>
+            <MenuItem value="rose">Rose Gold</MenuItem>
+            <MenuItem value="clay">Clay Slate</MenuItem>
+          </Select>
           <Button variant="outlined" onClick={handleDownloadPreviewPng} style={{ borderRadius: '12px', fontWeight: 800 }}>
             Download PNG
           </Button>
@@ -4102,7 +4179,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       left: `${pos.x}px`,
                       top: `${pos.y}px`,
                       width: `${calculateCompressedCardWidth(umlClass)}px`,
-                      border: `2.5px solid ${theme.palette.primary.main}`,
+                      border: '2.5px solid var(--primary-main)',
                       borderRadius: '12px',
                       background: 'var(--background-paper)',
                       boxShadow: '0 4px 15px rgba(0,0,0,0.15)',

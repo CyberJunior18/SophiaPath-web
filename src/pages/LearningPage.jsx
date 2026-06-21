@@ -245,20 +245,17 @@ const LearningPage = () => {
               />
             ))}
           </div>
-        </div>
 
-        <div className="learning-intro-side">
-          <Paper className="learning-stats-panel glass-panel" elevation={0} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'center', height: '100%', borderRadius: '24px' }}>
-            <Typography variant="h6" style={{ fontWeight: 800, textAlign: 'left', borderBottom: '1px solid var(--divider)', paddingBottom: '10px', fontSize: '0.9rem', color: 'var(--primary-main)', letterSpacing: '0.05em' }}>
-              YOUR PROGRESS DASHBOARD
-            </Typography>
-            {dashboardStats.map((stat) => (
-              <Box key={stat.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-                <Typography style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>{stat.label}</Typography>
-                <Typography style={{ fontWeight: 900, fontSize: '1.6rem', color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>{stat.value}</Typography>
-              </Box>
-            ))}
-          </Paper>
+          <Box style={{ width: '100%', marginTop: '24px' }}>
+            <Paper className="learning-stats-panel glass-panel" elevation={0} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'row', gap: '24px', justifyContent: 'space-around', alignItems: 'center', width: '100%', borderRadius: '24px' }}>
+              {dashboardStats.map((stat) => (
+                <Box key={stat.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flex: 1 }}>
+                  <Typography style={{ fontWeight: 900, fontSize: '1.8rem', color: 'var(--primary-main)', fontFamily: '"Outfit", sans-serif' }}>{stat.value}</Typography>
+                  <Typography style={{ color: 'var(--text-secondary)', fontWeight: 750, fontSize: '0.78rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{stat.label}</Typography>
+                </Box>
+              ))}
+            </Paper>
+          </Box>
         </div>
       </section>
 

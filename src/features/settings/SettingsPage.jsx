@@ -44,6 +44,11 @@ const SettingsPage = () => {
     { id: 'dracula', name: 'Dracula Vampire', bg: '#1e1f29', border: 'rgba(255,121,198,0.2)', text: '#f8f8f2', dot: '#ff79c6' },
     { id: 'amethyst', name: 'Royal Amethyst', bg: '#29153a', border: 'rgba(212,175,55,0.2)', text: '#fae8ff', dot: '#d4af37' },
     { id: 'nordic', name: 'Nordic Ice', bg: '#3b4252', border: 'rgba(136,192,208,0.2)', text: '#eceff4', dot: '#88c0d0' },
+    { id: 'mint', name: 'Frosted Mint', bg: '#f4fef9', border: '#00a86b33', text: '#0f3d2a', dot: '#00a86b' },
+    { id: 'lavender', name: 'Soft Lavender', bg: '#fdfaff', border: '#7c3aed33', text: '#2e1065', dot: '#7c3aed' },
+    { id: 'peach', name: 'Peach Cream', bg: '#fffefc', border: '#ea580c33', text: '#431407', dot: '#ea580c' },
+    { id: 'rose', name: 'Rose Gold', bg: '#fffafb', border: '#db277733', text: '#500724', dot: '#db2777' },
+    { id: 'clay', name: 'Clay Slate', bg: '#fafafa', border: '#4b556333', text: '#111827', dot: '#4b5563' },
   ];
 
   const handleDeleteAccount = () => {
