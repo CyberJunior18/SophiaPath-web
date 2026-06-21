@@ -1660,7 +1660,21 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       } else if (model.getValue() !== fileCode) {
         // Only override model value if it is not the active file,
         // or if it is the active file but we have an external update or a tab switch.
-        if (fileName !== activeFile || isExternalUpdate || isTabSwitch) {
+        if (fileName !== activeFile) {
+          model.setValue(fileCode);
+        } else if (isExternalUpdate) {
+          const selection = editorInstance.getSelection();
+          editorInstance.executeEdits("refactor", [
+            {
+              range: model.getFullModelRange(),
+              text: fileCode,
+              forceMoveMarkers: true
+            }
+          ]);
+          if (selection) {
+            editorInstance.setSelection(selection);
+          }
+        } else if (isTabSwitch) {
           model.setValue(fileCode);
         }
       }
@@ -3161,35 +3175,28 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   };
 
   const handleRun = async () => {
-    let currentClassesCode = code;
-    let currentRunnerCode = mainCode;
+    // 1. Flush any pending Monaco typing changes to ensure state, UML, and syntax validation are synced
+    flushPendingFileCodeChange();
 
-    if (activeEditorRef.current) {
-      const currentCode = activeEditorRef.current.getValue();
-      if (activeFile === 'Runner.java') {
-        currentRunnerCode = currentCode;
-        setMainCode(currentCode);
-        setFiles(prev => ({ ...prev, [activeFile]: currentCode }));
-      } else {
-        try {
-          const parsedList = javaToUmlClasses(currentCode);
-          if (parsedList && parsedList.length > 0) {
-            const updatedClass = parsedList[0];
-            const classIdx = umlClasses.findIndex(c => `${c.title}.java` === activeFile);
-            if (classIdx !== -1) {
-              const nextClasses = [...umlClasses];
-              nextClasses[classIdx] = updatedClass;
-              currentClassesCode = umlClassesToJava(nextClasses);
-              setCode(currentClassesCode);
-              setUmlClasses(nextClasses);
-              setFiles(prev => ({ ...prev, [activeFile]: currentCode }));
-            }
-          }
-        } catch (e) {
-          setFiles(prev => ({ ...prev, [activeFile]: currentCode }));
+    // 2. Build combined execution code directly from active editor and filesRef to bypass React batching lag
+    const activeVal = activeEditorRef.current ? activeEditorRef.current.getValue() : '';
+    const classCodes = [];
+    Object.keys(filesRef.current || files).forEach(fileName => {
+      if (fileName !== 'Runner.java') {
+        let content = filesRef.current[fileName] || '';
+        if (fileName === activeFile) {
+          content = activeVal;
         }
+        classCodes.push(content);
       }
+    });
+
+    let runnerContent = filesRef.current['Runner.java'] || '';
+    if (activeFile === 'Runner.java') {
+      runnerContent = activeVal;
     }
+
+    const combinedCode = classCodes.join('\n\n') + "\n\n// === RUNNER_SECTION_START ===\n\n" + runnerContent;
 
     setIsRunning(true);
     setTerminalOutput('');
@@ -3197,8 +3204,6 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     setCurrentInputVal('');
     
     try {
-      const combinedCode = currentClassesCode + "\n\n// === RUNNER_SECTION_START ===\n\n" + currentRunnerCode;
-      
       const onStdout = (text) => {
         setTerminalOutput(prev => prev + text);
       };
@@ -4369,7 +4374,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     boxShadow: '0 4px 15px rgba(28, 176, 246, 0.25)'
                   }}
                 >
-                  {isRunning ? 'Running Java Simulation...' : 'Run Java Code'}
+                  {isRunning ? 'Running Java Code...' : 'Run Java Code'}
                 </Button>
 
                 {/* Output console terminal */}
