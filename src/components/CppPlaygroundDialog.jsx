@@ -329,6 +329,84 @@ const cleanParamTypes = (paramStr) => {
   }).join(', ');
 };
 
+const processClassCode = (classCode, attributes) => {
+  let processedCode = "";
+  let lastIndex = 0;
+  const headerRegex = /\b(constructor|[a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)\s*\{/g;
+  let match;
+
+  while ((match = headerRegex.exec(classCode)) !== null) {
+    const matchIndex = match.index;
+    const header = match[0];
+    const paramStr = match[2];
+
+    // 1. Process block before method (e.g. class declarations, fields)
+    let beforeMethod = classCode.substring(lastIndex, matchIndex);
+    attributes.forEach(attr => {
+      const regex = new RegExp(`(?<!this\\.|let\\s+|const\\s+|var\\s+|class\\s+|extends\\s+|new\\s+|public\\s+|private\\s+|protected\\s+|\\.\\s*)\\b${attr}\\b`, 'g');
+      beforeMethod = beforeMethod.replace(regex, `this.${attr}`);
+    });
+    processedCode += beforeMethod;
+
+    // 2. Find matching closing brace for the method
+    const startBraceIdx = matchIndex + header.length - 1;
+    let depth = 1;
+    let endBraceIdx = -1;
+    for (let i = startBraceIdx + 1; i < classCode.length; i++) {
+      if (classCode[i] === '{') depth++;
+      else if (classCode[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          endBraceIdx = i;
+          break;
+        }
+      }
+    }
+
+    if (endBraceIdx === -1) {
+      break;
+    }
+
+    let body = classCode.substring(startBraceIdx + 1, endBraceIdx);
+
+    // 3. Find parameters of this method/constructor
+    const params = paramStr.split(',')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+
+    // 4. Find local variables declared in body
+    const localVars = [];
+    const localVarRegex = /\b(?:let|const|var)\s+([a-zA-Z0-9_]+)\b/g;
+    let localVarMatch;
+    while ((localVarMatch = localVarRegex.exec(body)) !== null) {
+      localVars.push(localVarMatch[1]);
+    }
+
+    const shadowed = new Set([...params, ...localVars]);
+
+    // 5. Replace references to attributes, skipping shadowed ones
+    attributes.forEach(attr => {
+      if (!shadowed.has(attr)) {
+        const regex = new RegExp(`(?<!this\\.|let\\s+|const\\s+|var\\s+|class\\s+|extends\\s+|new\\s+|public\\s+|private\\s+|protected\\s+|\\.\\s*)\\b${attr}\\b`, 'g');
+        body = body.replace(regex, `this.${attr}`);
+      }
+    });
+
+    processedCode += header + body + "}";
+    lastIndex = endBraceIdx + 1;
+    headerRegex.lastIndex = lastIndex;
+  }
+
+  let remaining = classCode.substring(lastIndex);
+  attributes.forEach(attr => {
+    const regex = new RegExp(`(?<!this\\.|let\\s+|const\\s+|var\\s+|class\\s+|extends\\s+|new\\s+|public\\s+|private\\s+|protected\\s+|\\.\\s*)\\b${attr}\\b`, 'g');
+    remaining = remaining.replace(regex, `this.${attr}`);
+  });
+  processedCode += remaining;
+
+  return processedCode;
+};
+
 const extractMainMethodBodyFromRunner = (runnerCode) => {
   const cleanCode = runnerCode.trim();
   
@@ -466,6 +544,10 @@ const translateJavaToJs = (javaCode, inputStr) => {
     .replace(/\/\/.*$/gm, "") 
     .replace(/\/\*[\s\S]*?\*\//g, ""); 
 
+  // Strip Java import and package statements
+  code = code.replace(/^\s*import\s+[A-Za-z0-9_.*]+\s*;/gm, "");
+  code = code.replace(/^\s*package\s+[A-Za-z0-9_.]+\s*;/gm, ""); 
+
   // Mask string literals
   const stringLiterals = [];
   code = code.replace(/"(\\.|[^"\\])*"/g, (match) => {
@@ -556,10 +638,7 @@ const translateJavaToJs = (javaCode, inputStr) => {
   });
 
   // Prepend this. to attributes inside class methods, avoiding constructor/parameter/other declarations
-  attributes.forEach(attr => {
-    const regex = new RegExp(`(?<!this\\.|let\\s+|const\\s+|var\\s+|class\\s+|extends\\s+|new\\s+|public\\s+|private\\s+|protected\\s+|\\.\\s*)\\b${attr}\\b`, 'g');
-    code = code.replace(regex, `this.${attr}`);
-  });
+  code = processClassCode(code, attributes);
 
   // Apply printing and scanner translation to finalMainBody
   finalMainBody = finalMainBody.replace(/System\.out\.println\s*\(([^;]*)\)\s*;/g, 'stdout.push($1); stdout.push("\\n");');
@@ -729,6 +808,10 @@ export const translateJavaToJsAsync = (javaCode) => {
     .replace(/\/\/.*$/gm, "") 
     .replace(/\/\*[\s\S]*?\*\//g, ""); 
 
+  // Strip Java import and package statements
+  code = code.replace(/^\s*import\s+[A-Za-z0-9_.*]+\s*;/gm, "");
+  code = code.replace(/^\s*package\s+[A-Za-z0-9_.]+\s*;/gm, ""); 
+
   const stringLiterals = [];
   code = code.replace(/"(\\.|[^"\\])*"/g, (match) => {
     stringLiterals.push(match);
@@ -813,10 +896,7 @@ export const translateJavaToJsAsync = (javaCode) => {
     code = code.replace(letDeclRegex, '');
   });
 
-  attributes.forEach(attr => {
-    const regex = new RegExp(`(?<!this\\.|let\\s+|const\\s+|var\\s+|class\\s+|extends\\s+|new\\s+|public\\s+|private\\s+|protected\\s+|\\.\\s*)\\b${attr}\\b`, 'g');
-    code = code.replace(regex, `this.${attr}`);
-  });
+  code = processClassCode(code, attributes);
 
   finalMainBody = finalMainBody.replace(/System\.out\.println\s*\(([^;]*)\)\s*;/g, 'onStdout($1); onStdout("\\n");');
   finalMainBody = finalMainBody.replace(/System\.out\.print\s*\(([^;]*)\)\s*;/g, 'onStdout($1);');
@@ -1293,7 +1373,16 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
         });
       };
       
-      await executeCodeAsync(code, lang, onStdout, onReadInput);
+      console.log('Combined C++ code to execute:\n', code);
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Execution Timed Out (Possible Infinite Loop or unresolved input stream)")), 10000);
+      });
+
+      await Promise.race([
+        executeCodeAsync(code, lang, onStdout, onReadInput),
+        timeoutPromise
+      ]);
       
     } catch (err) {
       setTerminalOutput(prev => prev + `\n❌ COMPILATION / RUNTIME ERROR: ${err.message}\n`);
@@ -1846,6 +1935,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
       fullWidth
       maxWidth="xl"
       PaperProps={{
+        elevation: 0,
         style: {
           borderRadius: '24px',
           background: 'var(--background-paper)',
@@ -1980,12 +2070,12 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 style={{
                   flexGrow: 1,
                   padding: '16px',
-                  backgroundColor: 'var(--code-bg)',
+                  backgroundColor: '#0c0d12',
                   borderRadius: '16px',
-                  border: '1px solid var(--code-border)',
+                  border: '1px solid rgba(255,255,255,0.08)',
                   fontFamily: '"Roboto Mono", monospace',
                   fontSize: '0.82rem',
-                  color: 'var(--code-text-default)',
+                  color: '#3DDC97',
                   whiteSpace: 'pre-wrap',
                   overflowY: 'auto',
                   height: '380px',

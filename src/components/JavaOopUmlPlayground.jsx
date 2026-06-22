@@ -21,7 +21,8 @@ import {
   Checkbox,
   FormControlLabel,
   useTheme,
-  Chip
+  Chip,
+  Divider
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -36,7 +37,8 @@ import {
   Visibility as PreviewIcon,
   ErrorOutline as ErrorIcon,
   GetApp as DownloadIcon,
-  FileUpload as UploadIcon
+  FileUpload as UploadIcon,
+  FolderOpen as FolderIcon
 } from '@mui/icons-material';
 
 // Debounced input component to prevent parent re-renders on every keystroke
@@ -255,16 +257,16 @@ const umlClassesToJava = (classes) => {
 
     // Attributes
     uml.attributes.forEach(attr => {
-      const vis = attr.visibility === "public" ? "public" : (attr.visibility === "protected" ? "protected" : "private");
+      const vis = attr.visibility === "public" ? "public" : (attr.visibility === "protected" ? "protected" : (attr.visibility === "package-private" ? "" : "private"));
       const isStatic = attr.isStatic ? "static " : "";
-      code += `    ${vis} ${isStatic}${attr.type} ${attr.name};\n`;
+      code += `    ${vis}${vis ? " " : ""}${isStatic}${attr.type} ${attr.name};\n`;
     });
 
     if (uml.attributes.length > 0) code += "\n";
 
     // Methods
     uml.methods.forEach(m => {
-      const vis = m.visibility === "public" ? "public" : (m.visibility === "protected" ? "protected" : "private");
+      const vis = m.visibility === "public" ? "public" : (m.visibility === "protected" ? "protected" : (m.visibility === "package-private" ? "" : "private"));
       const isStatic = m.isStatic ? "static " : "";
       const isAbstract = m.isAbstract || isInterface;
       
@@ -360,7 +362,7 @@ const parseMethodSignature = (sig, uml, declaredClasses = []) => {
   let match = methodRegex.exec(sig);
   
   if (match) {
-    const visibility = match[1] || "public";
+    const visibility = match[1] || "package-private";
     const isStatic = !!match[2];
     const isAbstract = !!match[3];
     const returnType = match[4];
@@ -402,7 +404,7 @@ const parseMethodSignature = (sig, uml, declaredClasses = []) => {
     const constrRegex = /^(public|private|protected)?\s*([A-Za-z0-9_$]+)\s*\(([^)]*)\)/;
     match = constrRegex.exec(sig);
     if (match) {
-      const visibility = match[1] || "public";
+      const visibility = match[1] || "package-private";
       const name = match[2];
       const rawParams = match[3] || "";
       
@@ -439,7 +441,7 @@ const parseAttributeSignature = (sig, uml, declaredClasses = []) => {
     throw new Error(`Invalid field declaration syntax: '${sig}'`);
   }
 
-  const visibility = match[1] || "private";
+  const visibility = match[1] || "package-private";
   const isStatic = !!match[2];
   const type = match[3];
   const name = match[4];
@@ -517,7 +519,7 @@ const calculateCompressedCardWidth = (umlClass) => {
 
   // Attributes
   (umlClass.attributes || []).forEach(attr => {
-    const visSign = attr.visibility === 'public' ? '+' : (attr.visibility === 'protected' ? '#' : '-');
+    const visSign = attr.visibility === 'public' ? '+' : (attr.visibility === 'protected' ? '#' : (attr.visibility === 'package-private' ? '~' : '-'));
     const text = `${visSign} ${attr.name}: ${attr.type}`;
     const textWidth = text.length * 7.5 + 30; // approx width in monospace
     if (textWidth > maxWidth) maxWidth = textWidth;
@@ -525,7 +527,7 @@ const calculateCompressedCardWidth = (umlClass) => {
 
   // Methods
   (umlClass.methods || []).forEach(method => {
-    const visSign = method.visibility === 'public' ? '+' : (method.visibility === 'protected' ? '#' : '-');
+    const visSign = method.visibility === 'public' ? '+' : (method.visibility === 'protected' ? '#' : (method.visibility === 'package-private' ? '~' : '-'));
     const paramStrings = (method.parameters || []).map(p => `${p.type} ${p.name}`);
     const paramStr = paramStrings.join(', ');
     const returnTypeStr = method.returnType === 'constructor' ? '' : `: ${method.returnType}`;
@@ -1109,7 +1111,7 @@ const checkJavaSyntax = (code) => {
         const parent = classes.find(p => p.title === parentName);
         if (parent) {
           parent.attributes.forEach(a => {
-            if (a.visibility === 'public' || a.visibility === 'protected') {
+            if (a.visibility === 'public' || a.visibility === 'protected' || a.visibility === 'package-private') {
               classAttributes.add(a.name);
             }
           });
@@ -1199,7 +1201,7 @@ const analyzeRelationships = (classes) => {
         let type = 'aggregation';
         if (isInstantiatedInConstructor) {
           type = 'composition';
-        } else if (attr.visibility === 'public' || attr.visibility === 'protected') {
+        } else if (attr.visibility === 'public' || attr.visibility === 'protected' || attr.visibility === 'package-private') {
           type = 'association';
         }
         
@@ -1276,6 +1278,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   });
 
   const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
 
   const handleDownloadClick = () => {
     let currentClassesCode = code;
@@ -1361,6 +1364,45 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     setIsDownloadDialogOpen(false);
   };
 
+  const applyImportedFiles = (importedFiles, importedPositions) => {
+    if (Object.keys(importedFiles).length === 0) {
+      alert("No Java files found.");
+      return;
+    }
+
+    setFiles(importedFiles);
+
+    const resolvedMain = importedFiles['Runner.java'] || '';
+    if (importedFiles['Runner.java']) {
+      setMainCode(importedFiles['Runner.java']);
+    }
+
+    const newUmlClasses = [];
+    Object.keys(importedFiles).forEach(fileName => {
+      if (fileName !== 'Runner.java') {
+        try {
+          const parsed = javaToUmlClasses(importedFiles[fileName]);
+          if (parsed && parsed.length > 0) {
+            newUmlClasses.push(...parsed);
+          }
+        } catch (e) {
+          console.error(`Failed to parse class from ${fileName}:`, e);
+        }
+      }
+    });
+
+    setUmlClasses(newUmlClasses);
+    setCode(umlClassesToJava(newUmlClasses));
+
+    if (importedPositions) {
+      setClassPositions(importedPositions);
+    }
+
+    const firstClassFile = Object.keys(importedFiles).find(f => f !== 'Runner.java');
+    setActiveFile(firstClassFile || 'Runner.java');
+    isExternalUpdateRef.current = true;
+  };
+
   const handleImportCode = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -1389,50 +1431,15 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 filePromises.push(promise);
               } else if (relativePath.endsWith('.java') || relativePath.endsWith('.txt')) {
                 const promise = zipEntry.async('string').then(text => {
-                  importedFiles[relativePath] = text;
+                  const baseName = relativePath.split('/').pop();
+                  importedFiles[baseName] = text;
                 });
                 filePromises.push(promise);
               }
             });
 
             await Promise.all(filePromises);
-
-            if (Object.keys(importedFiles).length === 0) {
-              alert("No Java files found in the ZIP archive.");
-              return;
-            }
-
-            setFiles(importedFiles);
-
-            const resolvedMain = importedFiles['Runner.java'] || '';
-            if (importedFiles['Runner.java']) {
-              setMainCode(importedFiles['Runner.java']);
-            }
-
-            const newUmlClasses = [];
-            Object.keys(importedFiles).forEach(fileName => {
-              if (fileName !== 'Runner.java') {
-                try {
-                  const parsed = javaToUmlClasses(importedFiles[fileName]);
-                  if (parsed && parsed.length > 0) {
-                    newUmlClasses.push(parsed[0]);
-                  }
-                } catch (e) {
-                  console.error(`Failed to parse class from ${fileName}:`, e);
-                }
-              }
-            });
-
-            setUmlClasses(newUmlClasses);
-            setCode(umlClassesToJava(newUmlClasses));
-
-            if (importedPositions) {
-              setClassPositions(importedPositions);
-            }
-
-            const firstClassFile = Object.keys(importedFiles).find(f => f !== 'Runner.java');
-            setActiveFile(firstClassFile || 'Runner.java');
-            isExternalUpdateRef.current = true;
+            applyImportedFiles(importedFiles, importedPositions);
           })
           .catch(err => {
             alert("Failed to read ZIP file: " + err.message);
@@ -1451,13 +1458,11 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           classesPart = parts[0].trim();
           mainPart = parts[1].trim();
         } else if (text.includes('public static void main')) {
-          // Smart extraction of the class enclosing 'public static void main'
           const mainMethodIndex = text.indexOf('public static void main');
           const classIndex = text.lastIndexOf('class', mainMethodIndex);
           if (classIndex !== -1) {
             const openBraceIndex = text.indexOf('{', classIndex);
             if (openBraceIndex !== -1 && openBraceIndex < mainMethodIndex) {
-              // Find matching closing brace
               let braceCount = 1;
               let i = openBraceIndex + 1;
               while (i < text.length && braceCount > 0) {
@@ -1466,7 +1471,6 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 i++;
               }
               if (braceCount === 0) {
-                // Backtrack from classIndex to include class modifiers (like public)
                 let startOfClass = classIndex;
                 const prefix = text.substring(0, classIndex).trim();
                 const lastWord = prefix.split(/\s+/).pop();
@@ -1489,7 +1493,6 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           classesPart = text.trim();
         }
 
-        // Parse UML metadata if present
         let importedPositions = null;
         if (text.includes('// === UML_METADATA_START ===')) {
           try {
@@ -1510,7 +1513,6 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           }
         }
 
-        // Strip metadata comments from classesPart so it remains clean Java code in the editor
         let cleanClassesPart = classesPart;
         if (classesPart.includes('// === UML_METADATA_START ===')) {
           const startIdx = classesPart.indexOf('// === UML_METADATA_START ===');
@@ -1520,32 +1522,66 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           }
         }
 
-        setCode(cleanClassesPart);
-        const resolvedMain = mainPart || mainCode;
-        if (mainPart) {
-          setMainCode(mainPart);
-        }
-        if (importedPositions) {
-          setClassPositions(importedPositions);
-        }
-        
         try {
           const parsed = javaToUmlClasses(cleanClassesPart);
-          setUmlClasses(parsed);
           const newFiles = {};
           parsed.forEach(c => {
             newFiles[`${c.title}.java`] = umlClassesToJava([c]);
           });
-          newFiles['Runner.java'] = resolvedMain;
-          isExternalUpdateRef.current = true;
-          setFiles(newFiles);
-          setActiveFile(parsed[0] ? `${parsed[0].title}.java` : 'Runner.java');
+          newFiles['Runner.java'] = mainPart || mainCode;
+          applyImportedFiles(newFiles, importedPositions);
         } catch (err) {
           console.error("UML parsing failed on import:", err);
         }
       };
       reader.readAsText(file);
     }
+  };
+
+  const handleImportFolder = async (event) => {
+    const filesList = event.target.files;
+    if (!filesList || filesList.length === 0) return;
+
+    const filePromises = [];
+    const importedFiles = {};
+    let importedPositions = null;
+
+    for (let i = 0; i < filesList.length; i++) {
+      const file = filesList[i];
+      const name = file.name;
+      
+      if (name === '.uml_metadata.json') {
+        const promise = new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const meta = JSON.parse(e.target.result);
+              if (meta.classPositions) {
+                importedPositions = meta.classPositions;
+              }
+            } catch (e) {
+              console.error("Failed to parse metadata", e);
+            }
+            resolve();
+          };
+          reader.readAsText(file);
+        });
+        filePromises.push(promise);
+      } else if (name.endsWith('.java') || name.endsWith('.txt')) {
+        const promise = new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            importedFiles[name] = e.target.result;
+            resolve();
+          };
+          reader.readAsText(file);
+        });
+        filePromises.push(promise);
+      }
+    }
+
+    await Promise.all(filePromises);
+    applyImportedFiles(importedFiles, importedPositions);
   };
 
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -2010,14 +2046,12 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       container.removeEventListener('wheel', handleWheel);
     };
   }, [previewCanvasContainerRef.current, isPreviewOpen, previewZoomScale, canvasDim.width, canvasDim.height]);
-
   // Clear editor references on tab change to prevent calling methods on unmounted/disposed editor instances
   useEffect(() => {
     umlEditorRef.current = null;
     execEditorRef.current = null;
     runnerEditorRef.current = null;
   }, [activeTab]);
-
   // Position assigner/cleaner
   const findFirstEmptySlot = (currentPositions) => {
     let row = 0;
@@ -2705,6 +2739,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           // 1. Class Rename
           if (newTitle !== oldTitle) {
             nextClasses = cascadeRenameInClasses(currentUmlClasses, oldTitle, newTitle, 'class');
+            nextClasses[classIdx] = updatedClass;
             activeCode = activeCode.replace(new RegExp('\\b' + oldTitle + '\\b', 'g'), newTitle);
             cascadeRenameInFiles(oldTitle, newTitle, 'class', currentFile, activeCode);
           } else {
@@ -2718,6 +2753,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
               const oldName = deletedAttrs[0];
               const newName = addedAttrs[0];
               nextClasses = cascadeRenameInClasses(currentUmlClasses, oldName, newName, 'attribute', oldTitle);
+              nextClasses[classIdx] = updatedClass;
               activeCode = activeCode.replace(new RegExp('\\b' + oldName + '\\b', 'g'), newName);
               cascadeRenameInFiles(oldName, newName, 'attribute', currentFile, activeCode);
             } else {
@@ -2730,6 +2766,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 const oldName = deletedMethods[0];
                 const newName = addedMethods[0];
                 nextClasses = cascadeRenameInClasses(currentUmlClasses, oldName, newName, 'method', oldTitle);
+                nextClasses[classIdx] = updatedClass;
                 activeCode = activeCode.replace(new RegExp('\\b' + oldName + '\\b', 'g'), newName);
                 cascadeRenameInFiles(oldName, newName, 'method', currentFile, activeCode);
               } else {
@@ -3178,20 +3215,28 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     // 1. Flush any pending Monaco typing changes to ensure state, UML, and syntax validation are synced
     flushPendingFileCodeChange();
 
-    // 2. Build combined execution code directly from active editor and filesRef to bypass React batching lag
+    // 2. Build combined execution code
     const activeVal = activeEditorRef.current ? activeEditorRef.current.getValue() : '';
     const classCodes = [];
-    Object.keys(filesRef.current || files).forEach(fileName => {
-      if (fileName !== 'Runner.java') {
-        let content = filesRef.current[fileName] || '';
-        if (fileName === activeFile) {
-          content = activeVal;
-        }
-        classCodes.push(content);
+    const visitedFiles = new Set();
+
+    // Loop over current umlClasses state to preserve correct inheritance/definition order
+    umlClasses.forEach(c => {
+      const fileName = `${c.title}.java`;
+      visitedFiles.add(fileName);
+      if (fileName === activeFile) {
+        classCodes.push(activeVal);
+      } else {
+        classCodes.push(files[fileName] || '');
       }
     });
 
-    let runnerContent = filesRef.current['Runner.java'] || '';
+    // Append the active file if it's a new class not yet in the UML classes list
+    if (activeFile !== 'Runner.java' && !visitedFiles.has(activeFile)) {
+      classCodes.push(activeVal);
+    }
+
+    let runnerContent = files['Runner.java'] || '';
     if (activeFile === 'Runner.java') {
       runnerContent = activeVal;
     }
@@ -3201,7 +3246,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     setIsRunning(true);
     setTerminalOutput('');
     setIsWaitingForInput(false);
-    setCurrentInputVal('');
+
     
     try {
       const onStdout = (text) => {
@@ -3215,7 +3260,16 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         });
       };
       
-      await executeCodeAsync(combinedCode, 'java', onStdout, onReadInput);
+      console.log('Combined Java code to execute:\n', combinedCode);
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Execution Timed Out (Possible Infinite Loop or unresolved input stream)")), 10000);
+      });
+
+      await Promise.race([
+        executeCodeAsync(combinedCode, 'java', onStdout, onReadInput),
+        timeoutPromise
+      ]);
     } catch (err) {
       setTerminalOutput(prev => prev + `\n❌ COMPILATION / RUNTIME ERROR: ${err.message}\n`);
     } finally {
@@ -3228,6 +3282,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     if (e.key === 'Enter') {
       const val = e.target.value;
       setTerminalOutput(prev => prev + val + '\n');
+      e.target.value = '';
       setIsWaitingForInput(false);
       if (inputResolverRef.current) {
         inputResolverRef.current(val);
@@ -3283,6 +3338,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       fullWidth
       maxWidth="xl"
       PaperProps={{
+        elevation: 0,
         style: {
           borderRadius: '24px',
           background: 'var(--background-paper)',
@@ -3304,11 +3360,11 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             Interactive Java OOP & UML Playground
           </Typography>
         </Box>
-
         {/* Dialog Switcher Tabs */}
         <Box style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
           <button
             onClick={() => {
+              flushPendingFileCodeChange();
               setActiveTab('uml');
               umlEditorRef.current = null;
               execEditorRef.current = null;
@@ -3330,6 +3386,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           </button>
           <button
             onClick={() => {
+              flushPendingFileCodeChange();
               setActiveTab('runner');
               umlEditorRef.current = null;
               execEditorRef.current = null;
@@ -3350,19 +3407,30 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             Interactive Code Runner
           </button>
         </Box>
-
         <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', marginRight: '8px' }}>
           <IconButton size="small" onClick={handleDownloadClick} title="Download Java File" style={{ color: 'var(--success-main)' }}>
             <DownloadIcon fontSize="small" />
           </IconButton>
-          <IconButton size="small" onClick={() => fileInputRef.current?.click()} title="Import Java File" style={{ color: 'var(--orange-500)' }}>
+          <IconButton size="small" onClick={() => fileInputRef.current?.click()} title="Import Java/Zip File" style={{ color: 'var(--orange-500)' }}>
             <UploadIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={() => folderInputRef.current?.click()} title="Import Java Folder" style={{ color: 'var(--orange-500)' }}>
+            <FolderIcon fontSize="small" />
           </IconButton>
           <input
             type="file"
             ref={fileInputRef}
             onChange={handleImportCode}
-            accept=".java,.txt"
+            accept=".java,.txt,.zip"
+            style={{ display: 'none' }}
+          />
+          <input
+            type="file"
+            ref={folderInputRef}
+            onChange={handleImportFolder}
+            webkitdirectory=""
+            directory=""
+            multiple
             style={{ display: 'none' }}
           />
         </Box>
@@ -4084,6 +4152,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                                   <MenuItem value="public">+</MenuItem>
                                   <MenuItem value="private">-</MenuItem>
                                   <MenuItem value="protected">#</MenuItem>
+                                  <MenuItem value="package-private">~</MenuItem>
                                 </Select>
                                 <Select
                                   size="small"
@@ -4174,6 +4243,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                                 <MenuItem value="public">+</MenuItem>
                                 <MenuItem value="private">-</MenuItem>
                                 <MenuItem value="protected">#</MenuItem>
+                                <MenuItem value="package-private">~</MenuItem>
                               </Select>
                               <Select
                                 size="small"
@@ -4335,8 +4405,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   Reset
                 </Button>
               </Box>
-        </Box>
-      </Box>
+            </Box>
+          </Box>
           ) : (
             <Box style={{ width: `${100 - splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%', minHeight: 0 }}>
               <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -4351,7 +4421,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   borderRadius: '16px',
                   padding: '20px',
                   flexGrow: 1,
-                  minHeight: 0,
+                  minHeight: '400px',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '16px'
@@ -4387,15 +4457,15 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     style={{
                       flexGrow: 1,
                       padding: '16px',
-                      backgroundColor: 'var(--code-bg)',
+                      backgroundColor: '#0c0d12',
                       borderRadius: '16px',
-                      border: '1px solid var(--code-border)',
+                      border: '1px solid rgba(255,255,255,0.08)',
                       fontFamily: '"Roboto Mono", monospace',
                       fontSize: '0.8rem',
-                      color: 'var(--code-text-default)',
+                      color: '#3DDC97',
                       whiteSpace: 'pre-wrap',
                       overflowY: 'auto',
-                      minHeight: 0,
+                      minHeight: '350px',
                       boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.5)',
                       display: 'flex',
                       flexDirection: 'column',
@@ -4452,6 +4522,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         open={isDownloadDialogOpen}
         onClose={() => setIsDownloadDialogOpen(false)}
         PaperProps={{
+          elevation: 0,
           style: {
             borderRadius: '16px',
             background: 'var(--background-paper)',
@@ -4512,6 +4583,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         open={isConnectionDialogOpen}
         onClose={() => setIsConnectionDialogOpen(false)}
         PaperProps={{
+          elevation: 0,
           style: {
             borderRadius: '16px',
             background: 'var(--background-paper)',
@@ -4609,6 +4681,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       onClose={() => setIsPreviewOpen(false)}
       fullScreen
       PaperProps={{
+        elevation: 0,
         'data-theme': previewTheme,
         style: {
           background: 'var(--background-default)',
@@ -4941,7 +5014,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     {umlClass.attributes.length > 0 && (
                       <Box style={{ borderBottom: '1.5px solid var(--divider)', paddingBottom: '6px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                         {umlClass.attributes.map((attr, attrIdx) => {
-                          const visSign = attr.visibility === 'public' ? '+' : (attr.visibility === 'protected' ? '#' : '-');
+                          const visSign = attr.visibility === 'public' ? '+' : (attr.visibility === 'protected' ? '#' : (attr.visibility === 'package-private' ? '~' : '-'));
                           return (
                             <Typography
                               key={attrIdx}
@@ -4964,7 +5037,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     {umlClass.methods.length > 0 && (
                       <Box style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                         {umlClass.methods.map((method, methodIdx) => {
-                          const visSign = method.visibility === 'public' ? '+' : (method.visibility === 'protected' ? '#' : '-');
+                          const visSign = method.visibility === 'public' ? '+' : (method.visibility === 'protected' ? '#' : (method.visibility === 'package-private' ? '~' : '-'));
                           const paramsText = (method.parameters || []).map(p => `${p.name}: ${p.type}`).join(', ');
                           const retText = method.returnType === 'constructor' ? '' : `: ${method.returnType}`;
                           return (
