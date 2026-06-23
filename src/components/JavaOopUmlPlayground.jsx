@@ -3,7 +3,6 @@ import { ThemeContext } from '../context/ThemeContext';
 import Editor from '@monaco-editor/react';
 import html2canvas from 'html2canvas';
 import JSZip from 'jszip';
-import { simulateCodeExecution, executeCodeAsync } from './CppPlaygroundDialog';
 import {
   Dialog,
   DialogTitle,
@@ -31,6 +30,7 @@ import {
   Code as CodeIcon,
   Loop as SyncIcon,
   PlayArrow as PlayIcon,
+  Stop as StopIcon,
   Terminal as TerminalIcon,
   HelpOutline as HelpIcon,
   Remove as RemoveIcon,
@@ -108,6 +108,603 @@ const JavaOopUmlEditor = React.memo(({ isDarkMode, onChange, onMount }) => {
   return prevProps.isDarkMode === nextProps.isDarkMode;
 });
 
+// Helper functions for Java code execution
+const parseClassAttributes = (javaCode) => {
+  let cleanCode = javaCode
+    .replace(/\/\/.*$/gm, "") 
+    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+  
+  const attributes = [];
+  const classDeclRegex = /class\s+([A-Za-z0-9_]+)/g;
+  let match;
+  
+  while ((match = classDeclRegex.exec(cleanCode)) !== null) {
+    const searchStart = match.index + match[0].length;
+    const openBraceIdx = cleanCode.indexOf("{", searchStart);
+    if (openBraceIdx === -1) continue;
+    
+    let depth = 1;
+    let closeBraceIdx = -1;
+    for (let i = openBraceIdx + 1; i < cleanCode.length; i++) {
+      if (cleanCode[i] === '{') depth++;
+      else if (cleanCode[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          closeBraceIdx = i;
+          break;
+        }
+      }
+    }
+    if (closeBraceIdx === -1) continue;
+    
+    const classBody = cleanCode.substring(openBraceIdx + 1, closeBraceIdx);
+    
+    let accumulated = "";
+    let bodyDepth = 0;
+    
+    for (let charIdx = 0; charIdx < classBody.length; charIdx++) {
+      const char = classBody[charIdx];
+      if (char === '{') {
+        bodyDepth++;
+      } else if (char === '}') {
+        bodyDepth--;
+      } else if (char === ';') {
+        if (bodyDepth === 0) {
+          const stmt = accumulated.trim();
+          if (stmt && !stmt.includes('(')) {
+            const attrRegex = /^(?:public|private|protected|static|final)?\s*([A-Za-z0-9_<>[\]]+)\s+([A-Za-z0-9_]+)/;
+            const m = attrRegex.exec(stmt);
+            if (m) {
+              const typeCandidate = m[1];
+              if (!['return', 'throw', 'new', 'import', 'package', 'class', 'extends', 'implements'].includes(typeCandidate)) {
+                attributes.push(m[2]);
+              }
+            }
+          }
+          accumulated = "";
+        }
+      } else {
+        if (bodyDepth === 0) {
+          accumulated += char;
+        }
+      }
+    }
+  }
+  return [...new Set(attributes)];
+};
+
+const cleanParamTypes = (paramStr) => {
+  if (!paramStr || !paramStr.trim()) return "";
+  if (paramStr.includes('args') && (paramStr.includes('String') || paramStr.includes('[]'))) {
+    return "args";
+  }
+  return paramStr.split(',').map(p => {
+    const parts = p.trim().split(/\s+/);
+    return parts[parts.length - 1];
+  }).join(', ');
+};
+
+const processClassCode = (classCode, attributes) => {
+  let processedCode = "";
+  let lastIndex = 0;
+  const headerRegex = /\b(constructor|[a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)\s*\{/g;
+  let match;
+
+  while ((match = headerRegex.exec(classCode)) !== null) {
+    const matchIndex = match.index;
+    const header = match[0];
+    const paramStr = match[2];
+
+    let beforeMethod = classCode.substring(lastIndex, matchIndex);
+    attributes.forEach(attr => {
+      const letInitRegex = new RegExp(`\\blet\\s+${attr}\\s*=`, 'g');
+      beforeMethod = beforeMethod.replace(letInitRegex, `${attr} =`);
+      
+      const letRegex = new RegExp(`\\blet\\s+${attr}\\s*;`, 'g');
+      beforeMethod = beforeMethod.replace(letRegex, `${attr} = null;`);
+    });
+    processedCode += beforeMethod;
+
+    const startBraceIdx = matchIndex + header.length - 1;
+    let depth = 1;
+    let endBraceIdx = -1;
+    for (let i = startBraceIdx + 1; i < classCode.length; i++) {
+      if (classCode[i] === '{') depth++;
+      else if (classCode[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          endBraceIdx = i;
+          break;
+        }
+      }
+    }
+
+    if (endBraceIdx === -1) {
+      break;
+    }
+
+    let body = classCode.substring(startBraceIdx + 1, endBraceIdx);
+
+    const params = paramStr.split(',')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+
+    const localVars = [];
+    const localVarRegex = /\b(?:let|const|var)\s+([a-zA-Z0-9_]+)\b/g;
+    let localVarMatch;
+    while ((localVarMatch = localVarRegex.exec(body)) !== null) {
+      localVars.push(localVarMatch[1]);
+    }
+
+    const shadowed = new Set([...params, ...localVars]);
+
+    attributes.forEach(attr => {
+      if (!shadowed.has(attr)) {
+        const regex = new RegExp(`(?<!this\\.|let\\s+|const\\s+|var\\s+|class\\s+|extends\\s+|new\\s+|public\\s+|private\\s+|protected\\s+|\\.\\s*)\\b${attr}\\b`, 'g');
+        body = body.replace(regex, `this.${attr}`);
+      }
+    });
+
+    processedCode += header + body + "}";
+    lastIndex = endBraceIdx + 1;
+    headerRegex.lastIndex = lastIndex;
+  }
+
+  let remaining = classCode.substring(lastIndex);
+  attributes.forEach(attr => {
+    const letInitRegex = new RegExp(`\\blet\\s+${attr}\\s*=`, 'g');
+    remaining = remaining.replace(letInitRegex, `${attr} =`);
+    
+    const letRegex = new RegExp(`\\blet\\s+${attr}\\s*;`, 'g');
+    remaining = remaining.replace(letRegex, `${attr} = null;`);
+  });
+  processedCode += remaining;
+
+  return processedCode;
+};
+
+const extractMainMethodBodyFromRunner = (runnerCode) => {
+  const cleanCode = runnerCode.trim();
+  const mainMethodRegex = /(?:\bpublic\s+|\bstatic\s+|\bprivate\s+|\bprotected\s+)*void\s+main\s*\([^)]*\)\s*\{/;
+  const match = mainMethodRegex.exec(cleanCode);
+  
+  if (match) {
+    const mainOpenBraceIdx = match.index + match[0].length - 1;
+    let mainDepth = 1;
+    let mainCloseBraceIdx = -1;
+    for (let i = mainOpenBraceIdx + 1; i < cleanCode.length; i++) {
+      if (cleanCode[i] === '{') mainDepth++;
+      else if (cleanCode[i] === '}') {
+        mainDepth--;
+        if (mainDepth === 0) {
+          mainCloseBraceIdx = i;
+          break;
+        }
+      }
+    }
+    if (mainCloseBraceIdx !== -1) {
+      return cleanCode.substring(mainOpenBraceIdx + 1, mainCloseBraceIdx).trim();
+    }
+  }
+  
+  const runnerClassRegex = /(?:public\s+)?class\s+Runner\s*(?:extends\s+\w+)?\s*\{/;
+  const classMatch = runnerClassRegex.exec(cleanCode);
+  if (classMatch) {
+    const openBraceIdx = classMatch.index + classMatch[0].length - 1;
+    let depth = 1;
+    let closeBraceIdx = -1;
+    for (let i = openBraceIdx + 1; i < cleanCode.length; i++) {
+      if (cleanCode[i] === '{') depth++;
+      else if (cleanCode[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          closeBraceIdx = i;
+          break;
+        }
+      }
+    }
+    if (closeBraceIdx !== -1) {
+      const runnerBody = cleanCode.substring(openBraceIdx + 1, closeBraceIdx).trim();
+      const subMatch = mainMethodRegex.exec(runnerBody);
+      if (subMatch) {
+        const subOpenBraceIdx = subMatch.index + subMatch[0].length - 1;
+        let subDepth = 1;
+        let subCloseBraceIdx = -1;
+        for (let i = subOpenBraceIdx + 1; i < runnerBody.length; i++) {
+          if (runnerBody[i] === '{') subDepth++;
+          else if (runnerBody[i] === '}') {
+            subDepth--;
+            if (subDepth === 0) {
+              subCloseBraceIdx = i;
+              break;
+            }
+          }
+        }
+        if (subCloseBraceIdx !== -1) {
+          return runnerBody.substring(subOpenBraceIdx + 1, subCloseBraceIdx).trim();
+        }
+      }
+      return runnerBody;
+    }
+  }
+  
+  return cleanCode;
+};
+
+const extractMainMethodBody = (javaCode) => {
+  const cleanCode = javaCode;
+  const runnerClassRegex = /(?:public\s+)?class\s+Runner\s*(?:extends\s+\w+)?\s*\{/;
+  const match = runnerClassRegex.exec(cleanCode);
+  if (!match) {
+    return { mainBody: "", remainingCode: javaCode };
+  }
+  
+  const runnerStartIdx = match.index;
+  const openBraceIdx = match.index + match[0].length - 1;
+  
+  let depth = 1;
+  let runnerCloseBraceIdx = -1;
+  for (let i = openBraceIdx + 1; i < cleanCode.length; i++) {
+    if (cleanCode[i] === '{') depth++;
+    else if (cleanCode[i] === '}') {
+      depth--;
+      if (depth === 0) {
+        runnerCloseBraceIdx = i;
+        break;
+      }
+    }
+  }
+  
+  if (runnerCloseBraceIdx === -1) {
+    return { mainBody: "", remainingCode: javaCode };
+  }
+  
+  const runnerBody = cleanCode.substring(openBraceIdx + 1, runnerCloseBraceIdx);
+  const mainMethodRegexSimple = /void\s+main\s*\([^)]*\)\s*\{/;
+  const mainMatch = mainMethodRegexSimple.exec(runnerBody);
+  if (!mainMatch) {
+    const remainingCode = javaCode.substring(0, runnerStartIdx) + javaCode.substring(runnerCloseBraceIdx + 1);
+    return { mainBody: "", remainingCode };
+  }
+  
+  const mainOpenBraceIdx = mainMatch.index + mainMatch[0].length - 1;
+  let mainDepth = 1;
+  let mainCloseBraceIdx = -1;
+  for (let i = mainOpenBraceIdx + 1; i < runnerBody.length; i++) {
+    if (runnerBody[i] === '{') mainDepth++;
+    else if (runnerBody[i] === '}') {
+      mainDepth--;
+      if (mainDepth === 0) {
+        mainCloseBraceIdx = i;
+        break;
+      }
+    }
+  }
+  
+  if (mainCloseBraceIdx === -1) {
+    const remainingCode = javaCode.substring(0, runnerStartIdx) + javaCode.substring(runnerCloseBraceIdx + 1);
+    return { mainBody: "", remainingCode };
+  }
+  
+  const mainBody = runnerBody.substring(mainOpenBraceIdx + 1, mainCloseBraceIdx).trim();
+  const remainingCode = javaCode.substring(0, runnerStartIdx) + javaCode.substring(runnerCloseBraceIdx + 1);
+  
+  return { mainBody, remainingCode };
+};
+
+const translateJavaToJsAsync = (javaCode) => {
+  let code = javaCode
+    .replace(/\/\/.*$/gm, "") 
+    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+
+  // Strip Java annotations (e.g. @Override, @Deprecated, etc.)
+  code = code.replace(/@\w+\b/g, "");
+
+  code = code.replace(/^\s*import\s+[A-Za-z0-9_.*]+\s*;/gm, "");
+  code = code.replace(/^\s*package\s+[A-Za-z0-9_.]+\s*;/gm, ""); 
+
+  const stringLiterals = [];
+  code = code.replace(/"(\\.|[^"\\])*"/g, (match) => {
+    stringLiterals.push(match);
+    return `__STR_LITERAL_${stringLiterals.length - 1}__`;
+  });
+  code = code.replace(/'(\\.|[^'\\])*'/g, (match) => {
+    stringLiterals.push(match);
+    return `__STR_LITERAL_${stringLiterals.length - 1}__`;
+  });
+
+  let classesCode = code;
+  let mainBody = "";
+
+  if (code.includes("// === RUNNER_SECTION_START ===")) {
+    const parts = code.split("// === RUNNER_SECTION_START ===");
+    classesCode = parts[0];
+    const runnerCode = parts[1] || "";
+    mainBody = extractMainMethodBodyFromRunner(runnerCode);
+  } else {
+    const extracted = extractMainMethodBody(code);
+    mainBody = extracted.mainBody;
+    classesCode = extracted.remainingCode;
+  }
+  
+  let finalMainBody = mainBody;
+  code = classesCode;
+
+  // Catch clauses replacement
+  code = code.replace(/catch\s*\(\s*[A-Za-z0-9_$<>[\]]+\s+([A-Za-z0-9_$]+)\s*\)/g, 'catch ($1)');
+  finalMainBody = finalMainBody.replace(/catch\s*\(\s*[A-Za-z0-9_$<>[\]]+\s+([A-Za-z0-9_$]+)\s*\)/g, 'catch ($1)');
+
+  // Generic syntax instantiation replacement (e.g. new ArrayList<String>(), new HashMap<K,V>())
+  code = code.replace(/new\s+([A-Za-z0-9_]+)\s*<[^>]*>\s*\(\)/g, 'new $1()');
+  finalMainBody = finalMainBody.replace(/new\s+([A-Za-z0-9_]+)\s*<[^>]*>\s*\(\)/g, 'new $1()');
+
+
+  // Division by zero check
+  code = code.replace(/\/\s*0\b/g, '; throw new Error("ArithmeticException: / by zero")');
+  finalMainBody = finalMainBody.replace(/\/\s*0\b/g, '; throw new Error("ArithmeticException: / by zero")');
+
+  code = code.replace(/(?:public|protected|private)?\s*abstract\s+[\w<>[\]]+\s+\w+\s*\([^)]*\)\s*;/g, "");
+
+  const attributes = parseClassAttributes(code);
+  
+  code = code.replace(/\b(public\s+|abstract\s+)*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+[\w\s,]+)?/g, (match, modifiers, className, parentClass) => {
+    let res = `class ${className}`;
+    if (parentClass) {
+      res += ` extends ${parentClass}`;
+    }
+    return res;
+  });
+
+  code = code.replace(/\bimplements\s+[\w\s,]+/g, "");
+
+  const classRegex = /class\s+(\w+)/g;
+  let match;
+  const classNames = [];
+  while ((match = classRegex.exec(code)) !== null) {
+    classNames.push(match[1]);
+  }
+
+  classNames.forEach(className => {
+    const constrRegex = new RegExp(`\\b(?:public|private|protected|internal)?\\s*${className}\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
+    code = code.replace(constrRegex, (match, paramStr) => {
+      const cleaned = cleanParamTypes(paramStr);
+      return `constructor(${cleaned}) {`;
+    });
+  });
+
+  code = code.replace(/\b(public|private|protected|final|abstract|synchronized|transient|volatile)\b/g, "");
+
+  const types = [
+    'int', 'double', 'float', 'boolean', 'char', 'String', 'auto', 
+    'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Object',
+    'Shape', 'Circle', 'Rectangle', 'Employee', 'Contractor', 'Appliance', 
+    'WashingMachine', 'Refrigerator', 'Product', 'Payable', 'BankAccount', 'Scanner'
+  ];
+  const allTypes = [...types, ...classNames];
+  
+  const varDeclRegex = /\b([A-Z][a-zA-Z0-9_]*|int|double|float|boolean|char|byte|short|long|void)(?:<[a-zA-Z0-9_,\s<>?]*>)?(?:\s*\[\])?\s+([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\()(?=\s*=[^=]|\s*;|\s*,)/g;
+  
+  code = code.replace(varDeclRegex, 'let $2');
+  finalMainBody = finalMainBody.replace(varDeclRegex, 'let $2');
+
+  allTypes.concat(['void']).forEach(type => {
+    const methodRegex = new RegExp(`\\b${type}(?:\\[\\])?\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
+    code = code.replace(methodRegex, (match, methodName, paramStr) => {
+      const cleaned = cleanParamTypes(paramStr);
+      return `${methodName}(${cleaned}) {`;
+    });
+  });
+
+  code = processClassCode(code, attributes);
+
+  // Array replacements
+  const replaceArrays = (c) => {
+    c = c.replace(/new\s+[A-Za-z0-9_]+\s*\[\]\s*\{([^}]+)\}/g, '[$1]');
+    c = c.replace(/=\s*\{([^}]+)\}/g, '= [$1]');
+    c = c.replace(/new\s+(int|double|float|byte|short|long)\s*\[([^\]]+)\]/g, 'new Array($2).fill(0)');
+    c = c.replace(/new\s+(boolean)\s*\[([^\]]+)\]/g, 'new Array($2).fill(false)');
+    c = c.replace(/new\s+(char)\s*\[([^\]]+)\]/g, 'new Array($2).fill("\\\0")');
+    c = c.replace(/new\s+([A-Za-z0-9_]+)\s*\[([^\]]+)\]/g, 'new Array($2).fill(null)');
+    return c;
+  };
+  code = replaceArrays(code);
+  finalMainBody = replaceArrays(finalMainBody);
+
+  // Enhanced for loop and type cast replacements
+  const replaceAdvancedSyntax = (c) => {
+    // 1. Enhanced for loop: for (Type val : collection) -> for (let val of collection)
+    c = c.replace(/for\s*\(\s*([A-Za-z0-9_$<>[\]]+)\s+([A-Za-z0-9_$]+)\s*:\s*([^)]+)\)/g, 'for (let $2 of $3)');
+    
+    // 2. Numeric casts: (int)(value) or (int) value
+    c = c.replace(/\(int\)\s*\(([^)]+)\)/g, 'Math.trunc($1)');
+    c = c.replace(/\(int\)\s*([A-Za-z0-9_$.]+(?:\([^)]*\))?)/g, 'Math.trunc($1)');
+    
+    c = c.replace(/\((?:double|float)\)\s*\(([^)]+)\)/g, 'Number($1)');
+    c = c.replace(/\((?:double|float)\)\s*([A-Za-z0-9_$.]+(?:\([^)]*\))?)/g, 'Number($1)');
+    
+    // 3. String .length() and list .size() -> .length
+    c = c.replace(/\.length\s*\(\s*\)/g, '.length');
+    c = c.replace(/\.size\s*\(\s*\)/g, '.length');
+    return c;
+  };
+  code = replaceAdvancedSyntax(code);
+  finalMainBody = replaceAdvancedSyntax(finalMainBody);
+
+  finalMainBody = finalMainBody.replace(/System\.out\.println\s*\(([^;]*)\)\s*;/g, 'onStdout($1); onStdout("\\n");');
+  finalMainBody = finalMainBody.replace(/System\.out\.print\s*\(([^;]*)\)\s*;/g, 'onStdout($1);');
+  finalMainBody = finalMainBody.replace(/System\.out\.printf\s*\(([^;]*)\)\s*;/g, 'onStdout(sprintf($1));');
+  finalMainBody = finalMainBody.replace(/\be\.getMessage\(\)/g, "e.message");
+  finalMainBody = finalMainBody.replace(/\b[a-zA-Z0-9_]+\.close\s*\(\s*\)\s*;?/g, "");
+  finalMainBody = finalMainBody.replace(/new\s+Scanner\s*\([^)]*\)/g, "null");
+  finalMainBody = finalMainBody.replace(/\b[a-zA-Z0-9_]+\.(?:nextInt|nextDouble|next|nextLine)\(\)/g, "await readInput()");
+
+  code = code.replace(/System\.out\.println\s*\(([^;]*)\)\s*;/g, 'onStdout($1); onStdout("\\n");');
+  code = code.replace(/System\.out\.print\s*\(([^;]*)\)\s*;/g, 'onStdout($1);');
+  code = code.replace(/System\.out\.printf\s*\(([^;]*)\)\s*;/g, 'onStdout(sprintf($1));');
+  code = code.replace(/\be\.getMessage\(\)/g, "e.message");
+  code = code.replace(/\b[a-zA-Z0-9_]+\.close\s*\(\s*\)\s*;?/g, "");
+  code = code.replace(/new\s+Scanner\s*\([^)]*\)/g, "null");
+  code = code.replace(/\b[a-zA-Z0-9_]+\.(?:nextInt|nextDouble|next|nextLine)\(\)/g, "await readInput()");
+
+  let js = `
+    class ArrayList extends Array {
+      add(element) {
+        this.push(element);
+        return true;
+      }
+      remove(indexOrElement) {
+        if (typeof indexOrElement === 'number') {
+          this.splice(indexOrElement, 1);
+        } else {
+          const idx = this.indexOf(indexOrElement);
+          if (idx !== -1) this.splice(idx, 1);
+        }
+      }
+      get(index) {
+        return this[index];
+      }
+      set(index, element) {
+        const old = this[index];
+        this[index] = element;
+        return old;
+      }
+      size() {
+        return this.length;
+      }
+      clear() {
+        this.length = 0;
+      }
+      isEmpty() {
+        return this.length === 0;
+      }
+      contains(element) {
+        return this.includes(element);
+      }
+    }
+
+    class HashMap extends Map {
+      put(key, value) {
+        const old = this.get(key);
+        this.set(key, value);
+        return old === undefined ? null : old;
+      }
+      remove(key) {
+        const old = this.get(key);
+        this.delete(key);
+        return old === undefined ? null : old;
+      }
+      containsKey(key) {
+        return this.has(key);
+      }
+      containsValue(value) {
+        for (let v of this.values()) {
+          if (v === value || (v && typeof v.equals === 'function' && v.equals(value))) {
+            return true;
+          }
+        }
+        return false;
+      }
+      size() {
+        return this.size;
+      }
+      isEmpty() {
+        return this.size === 0;
+      }
+    }
+
+    class HashSet extends Set {
+      add(element) {
+        const had = this.has(element);
+        super.add(element);
+        return !had;
+      }
+      remove(element) {
+        return this.delete(element);
+      }
+      contains(element) {
+        return this.has(element);
+      }
+      size() {
+        return this.size;
+      }
+      isEmpty() {
+        return this.size === 0;
+      }
+    }
+
+    if (!Object.prototype.equals) {
+      Object.defineProperty(Object.prototype, 'equals', {
+        value: function(other) {
+          if (other === null || other === undefined) return false;
+          if (this === other) return true;
+          if (typeof this.valueOf === 'function' && typeof other.valueOf === 'function') {
+            return this.valueOf() === other.valueOf();
+          }
+          return this === other;
+        },
+        writable: true,
+        configurable: true,
+        enumerable: false
+      });
+    }
+    if (!Object.prototype.equalsTo) {
+      Object.defineProperty(Object.prototype, 'equalsTo', {
+        value: Object.prototype.equals,
+        writable: true,
+        configurable: true,
+        enumerable: false
+      });
+    }
+
+
+    const readInput = async () => {
+      const token = await onReadInput();
+      if (!token) return "";
+      if (/^-?\\d+(\\.\\d+)?$/.test(String(token))) {
+        return parseFloat(token);
+      }
+      return token;
+    };
+
+    const sprintf = (format, ...args) => {
+      let str = format;
+      args.forEach(arg => {
+        if (str.includes("%.2f")) {
+          str = str.replace("%.2f", Number(arg).toFixed(2));
+        } else if (str.includes("%.1f")) {
+          str = str.replace("%.1f", Number(arg).toFixed(1));
+        } else if (str.includes("%s")) {
+          str = str.replace("%s", String(arg));
+        } else if (str.includes("%d")) {
+          str = str.replace("%d", Math.round(Number(arg)));
+        } else {
+          str = str.replace(/%[a-zA-Z]/, String(arg));
+        }
+      });
+      return str;
+    };
+  `;
+
+  js += "\n" + code;
+  js += `\n// Execute main\nawait (async function() {\n${finalMainBody}\n})();`;
+
+  stringLiterals.forEach((str, idx) => {
+    js = js.replace(new RegExp(`__STR_LITERAL_${idx}__`, 'g'), str);
+  });
+
+  return js;
+};
+
+const executeCodeAsync = async (code, language, onStdout, onReadInput) => {
+  const jsCode = translateJavaToJsAsync(code);
+  const runnerFn = new Function('onStdout', 'onReadInput', `
+    return (async () => {
+      \n${jsCode}\n
+    })();
+  `);
+  return runnerFn(onStdout, onReadInput);
+};
+
 // Preloaded OOP Examples
 const EXAMPLES = [
   {
@@ -136,6 +733,7 @@ const EXAMPLES = [
 
 public class SavingsAccount extends BankAccount {
     private double interestRate;
+    private double balance;
 
     public SavingsAccount(String accNum, double rate) {
         super(accNum);
@@ -297,8 +895,11 @@ const STRICT_KNOWN_TYPES = new Set([
   'void', 'int', 'double', 'float', 'boolean', 'char', 'byte', 'short', 'long',
   'String', 'Object',
   'Integer', 'Double', 'Float', 'Boolean', 'Character', 'Byte', 'Short', 'Long',
-  'List', 'Map', 'Set', 'ArrayList', 'HashMap', 'HashSet',
-  'System', 'Scanner', 'Math', 'PrintStream'
+  'List', 'Map', 'Set', 'ArrayList', 'HashMap', 'HashSet', 'Collection', 'Iterator',
+  'System', 'Scanner', 'Math', 'PrintStream', 'Throwable', 'Exception', 'RuntimeException',
+  'ArithmeticException', 'NullPointerException', 'ArrayIndexOutOfBoundsException',
+  'IndexOutOfBoundsException', 'IllegalArgumentException', 'IllegalStateException',
+  'IOException', 'FileNotFoundException', 'StringBuilder', 'StringBuffer'
 ]);
 
 const validateJavaType = (typeStr, declaredClasses = []) => {
@@ -910,7 +1511,106 @@ const getUsedIdentifiers = (bodyText) => {
   return used;
 };
 
-const checkJavaSyntax = (code) => {
+const checkScannerImport = (code) => {
+  if (!code.includes("Scanner")) return null;
+
+  let inMultiLineComment = false;
+  let inString = false;
+  let inChar = false;
+  let cleanLines = [];
+  const lines = code.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    let cleanLine = "";
+    let inSingleLineComment = false;
+
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      const nextChar = line[j + 1];
+
+      if (inMultiLineComment) {
+        if (char === '*' && nextChar === '/') {
+          inMultiLineComment = false;
+          j++;
+        }
+        continue;
+      }
+      if (inSingleLineComment) {
+        continue;
+      }
+      if (inString) {
+        if (char === '\\') {
+          j++;
+        } else if (char === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (inChar) {
+        if (char === '\\') {
+          j++;
+        } else if (char === "'") {
+          inChar = false;
+        }
+        continue;
+      }
+
+      if (char === '/' && nextChar === '/') {
+        inSingleLineComment = true;
+        j++;
+        continue;
+      }
+      if (char === '/' && nextChar === '*') {
+        inMultiLineComment = true;
+        j++;
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+        continue;
+      }
+      if (char === "'") {
+        inChar = true;
+        continue;
+      }
+
+      cleanLine += char;
+    }
+    cleanLines.push(cleanLine);
+  }
+
+  const cleanCode = cleanLines.join('\n');
+
+  // Strip all imports
+  const codeWithoutImports = cleanCode.replace(/^\s*import\s+[A-Za-z0-9_.*]+\s*;/gm, "");
+
+  // Now, check if "Scanner" is used as a word in the code (excluding the imports)
+  const scannerRegex = /\bScanner\b/g;
+  if (scannerRegex.test(codeWithoutImports)) {
+    const hasScannerImport = /^\s*import\s+java\.util\.Scanner\s*;/m.test(cleanCode);
+    const hasWildcardImport = /^\s*import\s+java\.util\.\*\s*;/m.test(cleanCode);
+
+    if (!hasScannerImport && !hasWildcardImport) {
+      let scannerLine = 1;
+      for (let i = 0; i < cleanLines.length; i++) {
+        const lineWithoutImport = cleanLines[i].replace(/^\s*import\s+[A-Za-z0-9_.*]+\s*;/gm, "");
+        if (/\bScanner\b/.test(lineWithoutImport)) {
+          scannerLine = i + 1;
+          break;
+        }
+      }
+      return { error: "Compilation Error: Scanner cannot be resolved to a type.", line: scannerLine };
+    }
+  }
+
+  return null;
+};
+
+const checkJavaSyntax = (code, allClassNames = new Set()) => {
+  const scannerErr = checkScannerImport(code);
+  if (scannerErr) return scannerErr;
+
   let braceStack = [];
   let parenStack = [];
   
@@ -1085,9 +1785,11 @@ const checkJavaSyntax = (code) => {
       'String', 'Integer', 'Double', 'Float', 'Boolean', 'Character', 'Byte', 'Short', 'Long', 'Object',
       'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Collection', 'Iterator',
       'Scanner', 'System', 'Math', 'Exception', 'Throwable', 'PrintStream', 'Thread', 'Runnable',
-      'StringTokenizer', 'StringBuilder', 'StringBuffer'
+      'StringTokenizer', 'StringBuilder', 'StringBuffer', 'ArithmeticException', 'NullPointerException',
+      'ArrayIndexOutOfBoundsException', 'IndexOutOfBoundsException', 'IllegalArgumentException',
+      'IllegalStateException', 'IOException', 'FileNotFoundException', 'RuntimeException'
     ]);
-    const validTypes = new Set([...KNOWN_TYPES, ...declaredClassNames]);
+    const validTypes = new Set([...KNOWN_TYPES, ...declaredClassNames, ...allClassNames]);
 
     const JAVA_KEYWORDS = new Set([
       'abstract', 'assert', 'boolean', 'break', 'byte', 'case', 'catch', 'char', 'class', 'const',
@@ -1097,7 +1799,10 @@ const checkJavaSyntax = (code) => {
       'super', 'switch', 'synchronized', 'this', 'throw', 'throws', 'transient', 'try', 'void',
       'volatile', 'while', 'true', 'false', 'null', 'String', 'Integer', 'Double', 'Float',
       'Boolean', 'Character', 'Byte', 'Short', 'Long', 'Object', 'List', 'ArrayList', 'Map',
-      'HashMap', 'Set', 'HashSet', 'System', 'Scanner', 'Math', 'Exception', 'PrintStream'
+      'HashMap', 'Set', 'HashSet', 'System', 'Scanner', 'Math', 'Exception', 'PrintStream',
+      'Throwable', 'StringBuilder', 'StringBuffer', 'ArithmeticException', 'NullPointerException',
+      'ArrayIndexOutOfBoundsException', 'IndexOutOfBoundsException', 'IllegalArgumentException',
+      'IllegalStateException', 'IOException', 'FileNotFoundException', 'RuntimeException'
     ]);
 
     for (let c of classes) {
@@ -1136,9 +1841,46 @@ const checkJavaSyntax = (code) => {
           const usedIdentifiers = getUsedIdentifiers(m.body);
 
           for (let ident of usedIdentifiers) {
+            // Skip check for standard Java exception classes (which end with Exception) and common classes
+            const isStandardJavaClass = 
+              ident.name.endsWith('Exception') || 
+              ident.name === 'System' || 
+              ident.name === 'Scanner' || 
+              ident.name === 'Math' || 
+              ident.name === 'String' || 
+              ident.name === 'Integer' || 
+              ident.name === 'Double' || 
+              ident.name === 'Float' || 
+              ident.name === 'Boolean' || 
+              ident.name === 'Character' || 
+              ident.name === 'Byte' || 
+              ident.name === 'Short' || 
+              ident.name === 'Long' || 
+              ident.name === 'Object' || 
+              ident.name === 'List' || 
+              ident.name === 'ArrayList' || 
+              ident.name === 'Map' || 
+              ident.name === 'HashMap' || 
+              ident.name === 'Set' || 
+              ident.name === 'HashSet' ||
+              ident.name === 'Collection' ||
+              ident.name === 'Iterator' ||
+              ident.name === 'Throwable' ||
+              ident.name === 'StringBuilder' ||
+              ident.name === 'StringBuffer' ||
+              ident.name === 'PrintStream' ||
+              ident.name === 'Thread' ||
+              ident.name === 'Runnable' ||
+              ident.name === 'StringTokenizer';
+
+            if (isStandardJavaClass) {
+              continue;
+            }
+
             if (!declaredInScope.has(ident.name) && 
                 !JAVA_KEYWORDS.has(ident.name) && 
-                !declaredClassNames.has(ident.name)) {
+                !declaredClassNames.has(ident.name) &&
+                !allClassNames.has(ident.name)) {
               
               const classIdx = code.indexOf(c.title);
               const methodSigStart = code.indexOf(m.name, classIdx !== -1 ? classIdx : 0);
@@ -1630,6 +2372,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
   const canvasContainerRef = useRef(null);
   const inputResolverRef = useRef(null);
+  const isAbortedRef = useRef(false);
   const isPanningPreviewRef = useRef(false);
   const panStartPreviewRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
   const previewCanvasContainerRef = useRef(null);
@@ -1734,6 +2477,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       if (newViewState) {
         editorInstance.restoreViewState(newViewState);
       }
+      const activeFileCode = files[activeFile] || '';
+      const err = checkJavaSyntax(activeFileCode, new Set(umlClasses.map(c => c.title)));
+      setSyntaxError(err);
       
       const activeEl = document.activeElement;
       const isTypingInInput = activeEl && (
@@ -1780,7 +2526,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
   // Validate syntax on mount to check initial preloaded code state
   useEffect(() => {
-    const err = checkJavaSyntax(code);
+    const err = checkJavaSyntax(code, new Set(umlClasses.map(c => c.title)));
     if (err) {
       setSyntaxError(err);
     } else {
@@ -2715,6 +3461,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         [currentFile]: currentCode
       }));
       setMainCode(currentCode);
+      const err = checkJavaSyntax(currentCode, new Set(umlClassesRef.current.map(c => c.title)));
+      setSyntaxError(err);
       return;
     }
 
@@ -2802,7 +3550,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         const combined = umlClassesToJava(nextClasses);
         setCode(combined);
         
-        const err = checkJavaSyntax(combined);
+        const err = checkJavaSyntax(currentCode, new Set(nextClasses.map(c => c.title)));
         setSyntaxError(err);
       } else {
         const classIdx = currentUmlClasses.findIndex(c => `${c.title}.java` === currentFile);
@@ -2812,7 +3560,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           const combined = umlClassesToJava(nextClasses);
           setCode(combined);
           
-          const err = checkJavaSyntax(combined);
+          const err = checkJavaSyntax(currentCode, new Set(nextClasses.map(c => c.title)));
           setSyntaxError(err);
         }
         setFiles(prev => ({
@@ -2857,6 +3605,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     }
 
     completionProviderRef.current = monaco.languages.registerCompletionItemProvider('java', {
+      triggerCharacters: ['.'],
       provideCompletionItems: (model, position) => {
         const wordInfo = model.getWordUntilPosition(position);
         const range = {
@@ -2866,48 +3615,190 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           endColumn: wordInfo.endColumn
         };
 
-        const suggestions = [
-          {
-            label: 'psvm',
-            kind: monaco.languages.CompletionItemKind.Snippet,
-            documentation: 'public static void main(String[] args)',
-            insertText: [
-              'public static void main(String[] args) {',
-              '\t$0',
-              '}'
-            ].join('\n'),
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            range: range
-          },
-          {
-            label: 'sout',
-            kind: monaco.languages.CompletionItemKind.Snippet,
-            documentation: 'System.out.println()',
-            insertText: 'System.out.println($0);',
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            range: range
-          },
-          {
-            label: 'souf',
-            kind: monaco.languages.CompletionItemKind.Snippet,
-            documentation: 'System.out.printf()',
-            insertText: 'System.out.printf("$0");',
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            range: range
-          },
-          {
-            label: 'serr',
-            kind: monaco.languages.CompletionItemKind.Snippet,
-            documentation: 'System.err.println()',
-            insertText: 'System.err.println($0);',
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            range: range
+        const lineContent = model.getLineContent(position.lineNumber);
+        const textBeforeCursor = lineContent.substring(0, position.column - 1);
+        const isDotTrigger = textBeforeCursor.endsWith('.');
+
+        const suggestions = [];
+
+        if (isDotTrigger) {
+          // Suggest methods of all workspace classes
+          const currentUmlClasses = umlClassesRef.current || [];
+          currentUmlClasses.forEach(c => {
+            (c.methods || []).forEach(m => {
+              const paramsSnippet = (m.parameters || []).map((p, idx) => `\${${idx + 1}:${p.name}}`).join(', ');
+              const label = `${m.name}(${(m.parameters || []).map(p => `${p.type} ${p.name}`).join(', ')})`;
+              suggestions.push({
+                label: label,
+                kind: monaco.languages.CompletionItemKind.Method,
+                documentation: `${c.title} method. Returns ${m.returnType}`,
+                insertText: `${m.name}(${paramsSnippet})`,
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                range: range
+              });
+            });
+          });
+
+          // Suggest built-in collections & String methods
+          const builtinMethods = [
+            // ArrayList
+            { name: 'add', params: ['element'], doc: 'Appends the element to the list.' },
+            { name: 'remove', params: ['indexOrElement'], doc: 'Removes the element or element at index.' },
+            { name: 'get', params: ['index'], doc: 'Returns the element at the specified index.' },
+            { name: 'set', params: ['index', 'element'], doc: 'Replaces the element at the specified index.' },
+            { name: 'size', params: [], doc: 'Returns the number of elements in the list.' },
+            { name: 'clear', params: [], doc: 'Removes all of the elements from the list.' },
+            { name: 'isEmpty', params: [], doc: 'Returns true if the list contains no elements.' },
+            { name: 'contains', params: ['element'], doc: 'Returns true if the list contains the specified element.' },
+            // HashMap
+            { name: 'put', params: ['key', 'value'], doc: 'Associates the specified value with the specified key.' },
+            { name: 'containsKey', params: ['key'], doc: 'Returns true if the map contains a mapping for the specified key.' },
+            { name: 'containsValue', params: ['value'], doc: 'Returns true if the map maps one or more keys to the specified value.' },
+            // String / Object equals
+            { name: 'equals', params: ['other'], doc: 'Compares this object/string to the specified object.' },
+            { name: 'equalsTo', params: ['other'], doc: 'Compares this object/string to the specified object.' },
+            { name: 'toUpperCase', params: [], doc: 'Converts all of the characters in this String to upper case.' },
+            { name: 'toLowerCase', params: [], doc: 'Converts all of the characters in this String to lower case.' },
+            { name: 'length', params: [], doc: 'Returns the length of this string.' }
+          ];
+
+          builtinMethods.forEach(bm => {
+            const paramsSnippet = bm.params.map((p, idx) => `\${${idx + 1}:${p}}`).join(', ');
+            suggestions.push({
+              label: `${bm.name}(${bm.params.join(', ')})`,
+              kind: monaco.languages.CompletionItemKind.Method,
+              documentation: bm.doc,
+              insertText: `${bm.name}(${paramsSnippet})`,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              range: range
+            });
+          });
+        } else {
+          // Standard suggestions: keywords, snippets, psvm, sout, etc.
+          suggestions.push(
+            {
+              label: 'psvm',
+              kind: monaco.languages.CompletionItemKind.Snippet,
+              documentation: 'public static void main(String[] args)',
+              insertText: [
+                'public static void main(String[] args) {',
+                '\t$0',
+                '}'
+              ].join('\n'),
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              range: range
+            },
+            {
+              label: 'sout',
+              kind: monaco.languages.CompletionItemKind.Snippet,
+              documentation: 'System.out.println()',
+              insertText: 'System.out.println($0);',
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              range: range
+            },
+            {
+              label: 'souf',
+              kind: monaco.languages.CompletionItemKind.Snippet,
+              documentation: 'System.out.printf()',
+              insertText: 'System.out.printf("$0");',
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              range: range
+            },
+            {
+              label: 'serr',
+              kind: monaco.languages.CompletionItemKind.Snippet,
+              documentation: 'System.err.println()',
+              insertText: 'System.err.println($0);',
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              range: range
+            }
+          );
+
+          // Get workspace classes to suggest constructors
+          const currentUmlClasses = umlClassesRef.current || [];
+          currentUmlClasses.forEach(c => {
+            suggestions.push({
+              label: `new ${c.title}`,
+              kind: monaco.languages.CompletionItemKind.Constructor,
+              documentation: `Instantiate a new ${c.title} object`,
+              insertText: `new ${c.title}($0)`,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              range: range
+            });
+          });
+
+          // Add getter and setter shortcuts for existing classes in workspace
+          currentUmlClasses.forEach(c => {
+            const varName = c.title.charAt(0).toLowerCase() + c.title.slice(1);
+            // getClassName
+            suggestions.push({
+              label: `get${c.title}`,
+              kind: monaco.languages.CompletionItemKind.Snippet,
+              documentation: `Getter method for ${c.title}`,
+              insertText: [
+                `public ${c.title} get${c.title}() {`,
+                `\treturn this.${varName};`,
+                `}`
+              ].join('\n'),
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              range: range
+            });
+            // setClassName
+            suggestions.push({
+              label: `set${c.title}`,
+              kind: monaco.languages.CompletionItemKind.Snippet,
+              documentation: `Setter method for ${c.title}`,
+              insertText: [
+                `public void set${c.title}(${c.title} ${varName}) {`,
+                `\tthis.${varName} = ${varName};`,
+                `}`
+              ].join('\n'),
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              range: range
+            });
+          });
+
+          // Add getters and setters for the current class attributes
+          const currentFile = activeFileRef.current || '';
+          const activeClassName = currentFile.replace('.java', '');
+          const activeClass = currentUmlClasses.find(c => c.title === activeClassName);
+          if (activeClass && activeClass.attributes) {
+            activeClass.attributes.forEach(attr => {
+              const capName = attr.name.charAt(0).toUpperCase() + attr.name.slice(1);
+              // getAttr
+              suggestions.push({
+                label: `get${capName}`,
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                documentation: `Getter method for field '${attr.name}'`,
+                insertText: [
+                  `public ${attr.type} get${capName}() {`,
+                  `\treturn this.${attr.name};`,
+                  `}`
+                ].join('\n'),
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                range: range
+              });
+              // setAttr
+              suggestions.push({
+                label: `set${capName}`,
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                documentation: `Setter method for field '${attr.name}'`,
+                insertText: [
+                  `public void set${capName}(${attr.type} ${attr.name}) {`,
+                  `\tthis.${attr.name} = ${attr.name};`,
+                  `}`
+                ].join('\n'),
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                range: range
+              });
+            });
           }
-        ];
+        }
 
         return { suggestions };
       }
     });
+
   }, []);
 
   const handleTabChange = (newFileName) => {
@@ -3211,6 +4102,17 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     }
   };
 
+  const handleStop = () => {
+    isAbortedRef.current = true;
+    setIsRunning(false);
+    setIsWaitingForInput(false);
+    setTerminalOutput(prev => prev + "\n❌ Execution stopped by user.\n");
+    if (inputResolverRef.current) {
+      inputResolverRef.current(null);
+      inputResolverRef.current = null;
+    }
+  };
+
   const handleRun = async () => {
     // 1. Flush any pending Monaco typing changes to ensure state, UML, and syntax validation are synced
     flushPendingFileCodeChange();
@@ -3246,32 +4148,38 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     setIsRunning(true);
     setTerminalOutput('');
     setIsWaitingForInput(false);
+    isAbortedRef.current = false;
 
-    
     try {
       const onStdout = (text) => {
-        setTerminalOutput(prev => prev + text);
+        if (isAbortedRef.current) throw new Error("Execution Aborted");
+        setTerminalOutput(prev => prev + (text === undefined ? "" : (text === null ? "null" : text)));
       };
       
       const onReadInput = () => {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
+          if (isAbortedRef.current) {
+            reject(new Error("Execution Aborted"));
+            return;
+          }
           setIsWaitingForInput(true);
-          inputResolverRef.current = resolve;
+          inputResolverRef.current = (val) => {
+            if (isAbortedRef.current) {
+              reject(new Error("Execution Aborted"));
+            } else {
+              resolve(val);
+            }
+          };
         });
       };
       
       console.log('Combined Java code to execute:\n', combinedCode);
       
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Execution Timed Out (Possible Infinite Loop or unresolved input stream)")), 10000);
-      });
-
-      await Promise.race([
-        executeCodeAsync(combinedCode, 'java', onStdout, onReadInput),
-        timeoutPromise
-      ]);
+      await executeCodeAsync(combinedCode, 'java', onStdout, onReadInput);
     } catch (err) {
-      setTerminalOutput(prev => prev + `\n❌ COMPILATION / RUNTIME ERROR: ${err.message}\n`);
+      if (err.message !== "Execution Aborted") {
+        setTerminalOutput(prev => prev + `\n❌ COMPILATION / RUNTIME ERROR: ${err.message}\n`);
+      }
     } finally {
       setIsRunning(false);
       setIsWaitingForInput(false);
@@ -4431,20 +5339,21 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 <Button
                   variant="contained"
                   fullWidth
-                  disabled={isRunning}
-                  onClick={handleRun}
-                  startIcon={<PlayIcon />}
+                  onClick={isRunning ? handleStop : handleRun}
+                  startIcon={isRunning ? <StopIcon /> : <PlayIcon />}
                   style={{
-                    background: 'var(--primary-main)',
+                    background: isRunning ? '#ff4f4f' : 'var(--primary-main)',
                     color: '#fff',
                     borderRadius: '12px',
                     fontWeight: 800,
                     textTransform: 'none',
                     padding: '8px 16px',
-                    boxShadow: '0 4px 15px rgba(28, 176, 246, 0.25)'
+                    boxShadow: isRunning 
+                      ? '0 4px 15px rgba(255, 79, 79, 0.25)' 
+                      : '0 4px 15px rgba(28, 176, 246, 0.25)'
                   }}
                 >
-                  {isRunning ? 'Running Java Code...' : 'Run Java Code'}
+                  {isRunning ? 'Stop Execution' : 'Run Java Code'}
                 </Button>
 
                 {/* Output console terminal */}
@@ -4452,6 +5361,25 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                   <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
                     Console Output Terminal
                   </Typography>
+                  {syntaxError && (
+                    <Box
+                      style={{
+                        background: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                        border: '1.5px solid #ef444460',
+                        borderRadius: '12px',
+                        padding: '10px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        boxShadow: '0 2px 8px rgba(239, 68, 68, 0.08)'
+                      }}
+                    >
+                      <ErrorIcon style={{ color: '#ef4444', fontSize: '1.25rem' }} />
+                      <Typography variant="body2" style={{ color: isDarkMode ? '#fca5a5' : '#b91c1c', fontWeight: 700, fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                        <strong>Syntax Warning:</strong> {syntaxError.error}
+                      </Typography>
+                    </Box>
+                  )}
                   <Paper
                     elevation={0}
                     style={{

@@ -196,6 +196,9 @@ const translateJavaToJs = (javaCode, inputStr) => {
     .replace(/\/\/.*$/gm, "") 
     .replace(/\/\*[\s\S]*?\*\//g, ""); 
 
+  // Strip Java annotations (e.g. @Override, @Deprecated, etc.)
+  code = code.replace(/@\w+\b/g, "");
+
   code = code.replace(/import\s+[\w.]+;/g, "");
   code = code.replace(/\bextends\s+Exception\b/g, "extends Error");
   
@@ -246,11 +249,53 @@ const translateJavaToJs = (javaCode, inputStr) => {
     return `(${params.join(', ')})`;
   });
 
-  code = code.replace(/System\.out\.println\s*\(([^;]*)\)\s*;/g, 'stdout.push($1); stdout.push("\\n");');
-  code = code.replace(/System\.out\.print\s*\(([^;]*)\)\s*;/g, 'stdout.push($1);');
-  code = code.replace(/System\.out\.printf\s*\(([^;]*)\)\s*;/g, 'stdout.push(sprintf($1));');
+  // Catch clauses replacement
+  code = code.replace(/catch\s*\(\s*[A-Za-z0-9_$<>[\]]+\s+([A-Za-z0-9_$]+)\s*\)/g, 'catch ($1)');
+
+  // Generic syntax instantiation replacement (e.g. new ArrayList<String>(), new HashMap<K,V>())
+  code = code.replace(/new\s+([A-Za-z0-9_]+)\s*<[^>]*>\s*\(\)/g, 'new $1()');
+
+
+  // Division by zero check
+  code = code.replace(/\/\s*0\b/g, '; throw new Error("ArithmeticException: / by zero")');
+
+  // Array replacements
+  const replaceArrays = (c) => {
+    c = c.replace(/new\s+[A-Za-z0-9_]+\s*\[\]\s*\{([^}]+)\}/g, '[$1]');
+    c = c.replace(/=\s*\{([^}]+)\}/g, '= [$1]');
+    c = c.replace(/new\s+(int|double|float|byte|short|long)\s*\[([^\]]+)\]/g, 'new Array($2).fill(0)');
+    c = c.replace(/new\s+(boolean)\s*\[([^\]]+)\]/g, 'new Array($2).fill(false)');
+    c = c.replace(/new\s+(char)\s*\[([^\]]+)\]/g, 'new Array($2).fill("\\\0")');
+    c = c.replace(/new\s+([A-Za-z0-9_]+)\s*\[([^\]]+)\]/g, 'new Array($2).fill(null)');
+    return c;
+  };
+  code = replaceArrays(code);
+
+  // Enhanced for loop and type cast replacements
+  const replaceAdvancedSyntax = (c) => {
+    // 1. Enhanced for loop: for (Type val : collection) -> for (let val of collection)
+    c = c.replace(/for\s*\(\s*([A-Za-z0-9_$<>[\]]+)\s+([A-Za-z0-9_$]+)\s*:\s*([^)]+)\)/g, 'for (let $2 of $3)');
+    
+    // 2. Numeric casts: (int)(value) or (int) value
+    c = c.replace(/\(int\)\s*\(([^)]+)\)/g, 'Math.trunc($1)');
+    c = c.replace(/\(int\)\s*([A-Za-z0-9_$.]+(?:\([^)]*\))?)/g, 'Math.trunc($1)');
+    
+    c = c.replace(/\((?:double|float)\)\s*\(([^)]+)\)/g, 'Number($1)');
+    c = c.replace(/\((?:double|float)\)\s*([A-Za-z0-9_$.]+(?:\([^)]*\))?)/g, 'Number($1)');
+    
+    // 3. String .length() and list .size() -> .length
+    c = c.replace(/\.length\s*\(\s*\)/g, '.length');
+    c = c.replace(/\.size\s*\(\s*\)/g, '.length');
+    return c;
+  };
+  code = replaceAdvancedSyntax(code);
+
+  code = code.replace(/System\.out\.println\s*\(([^;]*)\)\s*;/g, 'printHelper($1); printHelper("\\n");');
+  code = code.replace(/System\.out\.print\s*\(([^;]*)\)\s*;/g, 'printHelper($1);');
+  code = code.replace(/System\.out\.printf\s*\(([^;]*)\)\s*;/g, 'printHelper(sprintf($1));');
 
   code = code.replace(/\be\.getMessage\(\)/g, "e.message");
+  code = code.replace(/\b[a-zA-Z0-9_]+\.close\s*\(\s*\)\s*;?/g, "");
   code = code.replace(/new\s+Scanner\s*\([^)]*\)/g, "null");
   code = code.replace(/\b[a-zA-Z0-9_]+\.(?:nextInt|nextDouble|next|nextLine)\(\)/g, "readInput()");
 
@@ -263,7 +308,121 @@ const translateJavaToJs = (javaCode, inputStr) => {
   }
 
   let js = `
+    class ArrayList extends Array {
+      add(element) {
+        this.push(element);
+        return true;
+      }
+      remove(indexOrElement) {
+        if (typeof indexOrElement === 'number') {
+          this.splice(indexOrElement, 1);
+        } else {
+          const idx = this.indexOf(indexOrElement);
+          if (idx !== -1) this.splice(idx, 1);
+        }
+      }
+      get(index) {
+        return this[index];
+      }
+      set(index, element) {
+        const old = this[index];
+        this[index] = element;
+        return old;
+      }
+      size() {
+        return this.length;
+      }
+      clear() {
+        this.length = 0;
+      }
+      isEmpty() {
+        return this.length === 0;
+      }
+      contains(element) {
+        return this.includes(element);
+      }
+    }
+
+    class HashMap extends Map {
+      put(key, value) {
+        const old = this.get(key);
+        this.set(key, value);
+        return old === undefined ? null : old;
+      }
+      remove(key) {
+        const old = this.get(key);
+        this.delete(key);
+        return old === undefined ? null : old;
+      }
+      containsKey(key) {
+        return this.has(key);
+      }
+      containsValue(value) {
+        for (let v of this.values()) {
+          if (v === value || (v && typeof v.equals === 'function' && v.equals(value))) {
+            return true;
+          }
+        }
+        return false;
+      }
+      size() {
+        return this.size;
+      }
+      isEmpty() {
+        return this.size === 0;
+      }
+    }
+
+    class HashSet extends Set {
+      add(element) {
+        const had = this.has(element);
+        super.add(element);
+        return !had;
+      }
+      remove(element) {
+        return this.delete(element);
+      }
+      contains(element) {
+        return this.has(element);
+      }
+      size() {
+        return this.size;
+      }
+      isEmpty() {
+        return this.size === 0;
+      }
+    }
+
+    if (!Object.prototype.equals) {
+      Object.defineProperty(Object.prototype, 'equals', {
+        value: function(other) {
+          if (other === null || other === undefined) return false;
+          if (this === other) return true;
+          if (typeof this.valueOf === 'function' && typeof other.valueOf === 'function') {
+            return this.valueOf() === other.valueOf();
+          }
+          return this === other;
+        },
+        writable: true,
+        configurable: true,
+        enumerable: false
+      });
+    }
+    if (!Object.prototype.equalsTo) {
+      Object.defineProperty(Object.prototype, 'equalsTo', {
+        value: Object.prototype.equals,
+        writable: true,
+        configurable: true,
+        enumerable: false
+      });
+    }
+
+
     const stdout = [];
+    const printHelper = (val) => {
+      if (val === undefined) return;
+      stdout.push(val === null ? "null" : val);
+    };
     const inputTokens = ${JSON.stringify(inputStr.trim().split(/\s+/).filter(t => t.length > 0))};
     let inputPtr = 0;
     
@@ -1622,138 +1781,87 @@ const LearningContentPage = () => {
     const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-main').trim() || '#3D5CFF';
     const dividerColor = getComputedStyle(document.documentElement).getPropertyValue('--divider').trim() || 'rgba(255,255,255,0.1)';
 
-    let htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>${lesson.title}</title>
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Poppins:wght@400;600;700&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
-        <style>
-          body {
-            background-color: ${bgColor};
-            color: ${textColor};
-            font-family: 'Poppins', sans-serif;
-            margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-          }
-          .container {
-            max-width: 800px;
-            width: 100%;
-          }
-          h1 {
-            font-family: 'Outfit', sans-serif;
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: ${textColor};
-            border-bottom: 2px solid ${primaryColor};
-            padding-bottom: 12px;
-            margin-bottom: 30px;
-          }
-          .slide-section {
-            background-color: ${paperColor};
-            border: 1px solid ${dividerColor};
-            border-radius: 16px;
-            padding: 30px;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-          }
-          h2 {
-            font-family: 'Outfit', sans-serif;
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: ${primaryColor};
-            margin-top: 0;
-            margin-bottom: 20px;
-          }
-          p {
-            line-height: 1.6;
-            color: ${secColor};
-            font-size: 1rem;
-          }
-          pre {
-            background-color: #0b0f19;
-            color: #e5e9f0;
-            padding: 16px;
-            border-radius: 8px;
-            overflow-x: auto;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.9rem;
-            border: 1px solid rgba(255,255,255,0.05);
-          }
-          code {
-            font-family: 'Fira Code', monospace;
-            background-color: rgba(61, 92, 255, 0.1);
-            color: ${primaryColor};
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.9em;
-          }
-          ul {
-            color: ${secColor};
-            line-height: 1.6;
-            padding-left: 20px;
-          }
-          li {
-            margin-bottom: 8px;
-          }
-          .footer {
-            text-align: center;
-            margin-top: 50px;
-            font-size: 0.85rem;
-            color: ${secColor};
-            opacity: 0.6;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>${lesson.title}</h1>
+    const element = document.createElement('div');
+    element.style.position = 'absolute';
+    element.style.left = '-9999px';
+    element.style.width = '750px';
+    element.style.backgroundColor = bgColor;
+    element.style.color = textColor;
+    element.style.fontFamily = "'Poppins', sans-serif";
+    element.style.padding = '40px';
+    element.style.boxSizing = 'border-box';
+
+    let contentHtml = `
+      <div style="font-family: 'Poppins', sans-serif;">
+        <h1 style="font-family: 'Outfit', sans-serif; font-size: 2.5rem; font-weight: 800; color: ${textColor}; border-bottom: 2px solid ${primaryColor}; padding-bottom: 12px; margin-bottom: 30px;">
+          ${lesson.title}
+        </h1>
     `;
 
     pages.forEach((page, pIdx) => {
-      htmlContent += `
-        <div class="slide-section">
-          <h2>${page.pageTitle || `Section ${pIdx + 1}`}</h2>
+      contentHtml += `
+        <div style="background-color: ${paperColor}; border: 1px solid ${dividerColor}; border-radius: 16px; padding: 30px; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); page-break-inside: avoid;">
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.6rem; font-weight: 700; color: ${primaryColor}; margin-top: 0; margin-bottom: 20px;">
+            ${page.pageTitle || `Section ${pIdx + 1}`}
+          </h2>
       `;
 
       page.blocks?.forEach(block => {
         if (block.type === 'text') {
-          htmlContent += `<p>${block.content}</p>`;
+          contentHtml += `<p style="line-height: 1.6; color: ${secColor}; font-size: 1rem; margin-bottom: 16px;">${block.content}</p>`;
         } else if (block.type === 'code') {
-          htmlContent += `<pre><code>${block.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
+          contentHtml += `<pre style="background-color: #0b0f19; color: #e5e9f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'Fira Code', monospace; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.05); white-space: pre-wrap; word-wrap: break-word;"><code style="font-family: 'Fira Code', monospace; color: #e5e9f0;">${block.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
         } else if (block.type === 'list') {
-          htmlContent += `<ul>`;
+          contentHtml += `<ul style="color: ${secColor}; line-height: 1.6; padding-left: 20px; margin-bottom: 16px;">`;
           block.items?.forEach(item => {
-            htmlContent += `<li>${item}</li>`;
+            contentHtml += `<li style="margin-bottom: 8px;">${item}</li>`;
           });
-          htmlContent += `</ul>`;
+          contentHtml += `</ul>`;
         }
       });
 
-      htmlContent += `</div>`;
+      contentHtml += `</div>`;
     });
 
-    htmlContent += `
-          <div class="footer">
-            Generated via SophiaPath Cheatsheet Downloader
-          </div>
+    contentHtml += `
+        <div style="text-align: center; margin-top: 50px; font-size: 0.85rem; color: ${secColor}; opacity: 0.6;">
+          Generated via SophiaPath Cheatsheet Downloader
         </div>
-      </body>
-      </html>
+      </div>
     `;
 
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${lesson.title.replace(/\s+/g, '_')}_Cheatsheet.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    element.innerHTML = contentHtml;
+    document.body.appendChild(element);
+
+    const opt = {
+      margin: 0.5,
+      filename: `${lesson.title.replace(/\s+/g, '_')}_Cheatsheet.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: bgColor },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    const runExport = () => {
+      window.html2pdf().from(element).set(opt).save().then(() => {
+        document.body.removeChild(element);
+      }).catch(err => {
+        console.error("PDF generation error:", err);
+        document.body.removeChild(element);
+      });
+    };
+
+    if (!window.html2pdf) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = runExport;
+      script.onerror = () => {
+        console.error("Failed to load html2pdf.js");
+        document.body.removeChild(element);
+      };
+      document.head.appendChild(script);
+    } else {
+      runExport();
+    }
   };
   const currentPage = hasPages ? pages[currentPageIndex] : null;
   const progress = hasPages ? ((currentPageIndex + 1) / pages.length) * 100 : 0;
