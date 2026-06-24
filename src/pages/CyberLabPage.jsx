@@ -6,10 +6,13 @@ import {
 import { Box, Typography, Button, Paper, Divider } from '@mui/material';
 import ChallengePage from './ChallengePage';
 import DenialOfServiceLab from './DenialOfServiceLab';
+import DistributedDenialOfServiceLab from './DistributedDenialOfServiceLab';
 import CaesarCipherExplorer from './CaesarCipherExplorer';
 import EnigmaMachine from './EnigmaMachine';
 import VigenereCipherExplorer from './VigenereCipherExplorer';
 import RSAVisualizer from './RSAVisualizer';
+import Base64Visualizer from './Base64Visualizer';
+import XORVisualizer from './XORVisualizer';
 import './CyberLabPage.css';
 
 // Explanation box
@@ -658,10 +661,13 @@ export default function CyberLabPage() {
     { id: 'csrf', name: 'CSRF Lab', icon: <Globe size={16} /> },
     { id: 'auth', name: 'IDOR Auth Lab', icon: <KeyRound size={16} /> },
     { id: 'dos', name: 'DoS Lab', icon: <Activity size={16} /> },
+    { id: 'ddos', name: 'DDoS Lab', icon: <Activity size={16} /> },
     { id: 'caesar', name: 'Caesar Cipher', icon: <Lock size={16} /> },
     { id: 'vigenere', name: 'Vigenère Cipher', icon: <Lock size={16} /> },
     { id: 'enigma', name: 'Enigma Machine', icon: <Lock size={16} /> },
     { id: 'rsa', name: 'RSA Visualizer', icon: <Lock size={16} /> },
+    { id: 'base64', name: 'Base64 Visualizer', icon: <Activity size={16} /> },
+    { id: 'xor', name: 'XOR Cipher', icon: <Activity size={16} /> },
     { id: 'challenge', name: 'Google XSS Challenge', icon: <Activity size={16} /> }
   ];
 
@@ -698,7 +704,7 @@ export default function CyberLabPage() {
             {tabs.find(t => t.id === activeTab)?.name} Console
           </h2>
 
-          {activeTab !== 'challenge' && activeTab !== 'dos' && activeTab !== 'caesar' && (
+          {['xss', 'sqli', 'cmd', 'csrf', 'auth'].includes(activeTab) && (
             <div className="cyber-lab-security-toggle">
               <button
                 onClick={() => setIsSecure(false)}
@@ -724,10 +730,13 @@ export default function CyberLabPage() {
           {activeTab === 'csrf' && <CSRFLab isSecure={isSecure} showAlert={showAlert} />}
           {activeTab === 'auth' && <BrokenAuthLab isSecure={isSecure} />}
           {activeTab === 'dos' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><DenialOfServiceLab /></div>}
+          {activeTab === 'ddos' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><DistributedDenialOfServiceLab /></div>}
           {activeTab === 'caesar' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><CaesarCipherExplorer /></div>}
           {activeTab === 'vigenere' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><VigenereCipherExplorer /></div>}
           {activeTab === 'enigma' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><EnigmaMachine /></div>}
           {activeTab === 'rsa' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><RSAVisualizer /></div>}
+          {activeTab === 'base64' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><Base64Visualizer /></div>}
+          {activeTab === 'xor' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><XORVisualizer /></div>}
           {activeTab === 'challenge' && <ChallengePage />}
         </div>
       </div>

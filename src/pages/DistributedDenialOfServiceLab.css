@@ -1,7 +1,7 @@
 .dos-wrapper {
   color: var(--text-primary);
   padding: 1.5rem;
-  font-family: 'Outfit', 'Poppins', sans-serif;
+  font-family: 'Poppins', sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -22,7 +22,6 @@
   color: var(--text-primary);
   letter-spacing: -0.025em;
   line-height: 1.1;
-  margin: 0;
 }
 
 .dos-subtitle {
@@ -30,7 +29,6 @@
   margin-top: 0.5rem;
   margin-left: 0.25rem;
   font-size: 1.125rem;
-  margin-bottom: 0;
 }
 
 .dos-card {
@@ -51,8 +49,8 @@
 .dos-svg-container {
   position: relative;
   width: 100%;
-  max-width: 550px;
-  aspect-ratio: 5 / 4;
+  max-width: 450px;
+  aspect-ratio: 1 / 1;
   margin-bottom: 2rem;
 }
 
@@ -93,20 +91,19 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .dos-firewall-toggle {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding-left: 0;
+  padding-left: 2rem;
   border-left: none;
 }
 
 @media (min-width: 768px) {
   .dos-firewall-toggle {
-    padding-left: 2rem;
     border-left: 1px solid var(--divider);
   }
 }
@@ -158,16 +155,12 @@
 .dos-status-container {
   margin-top: 2rem;
   text-align: center;
-  min-height: 4rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  height: 4rem;
 }
 
 .dos-status-title {
   font-size: 1.25rem;
   font-weight: 500;
-  margin: 0;
 }
 
 .dos-status-normal { color: var(--text-primary); }
@@ -176,7 +169,6 @@
 
 .dos-status-subtitle {
   color: var(--text-secondary);
-  margin: 0;
 }
 
 .dos-slider {
@@ -186,6 +178,7 @@
   border-radius: 5px;
   background: linear-gradient(to right, var(--primary-main), var(--danger-main));
   outline: none;
+  margin-bottom: 0.5rem;
 }
 
 .dos-slider::-webkit-slider-thumb {
@@ -196,32 +189,64 @@
   border-radius: 50%;
   background: var(--thumb-color, var(--primary-main));
   cursor: pointer;
-  border: 3px solid var(--background-paper);
+  border: 3px solid white;
   box-shadow: 0 2px 5px rgba(0,0,0,0.3);
   transition: background 0.3s;
 }
 
 @keyframes shake {
   0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(-3px, 3px); }
-  50% { transform: translate(3px, -3px); }
-  75% { transform: translate(-3px, -3px); }
+  25% { transform: translate(-2px, 2px); }
+  50% { transform: translate(2px, -2px); }
+  75% { transform: translate(-2px, -2px); }
 }
 
 .server-crash-anim {
-  animation: shake 0.3s ease-in-out infinite;
+  animation: shake 0.4s ease-in-out infinite;
   transform-origin: center;
+}
+
+@keyframes slow-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.fw-spin {
+  animation: slow-spin 12s linear infinite;
+  transform-origin: 250px 250px;
+}
+
+@keyframes pulse-opacity {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.fw-pulse {
+  animation: pulse-opacity 2s infinite ease-in-out;
 }
 
 @keyframes travel-and-pop {
   0% { transform: translate(var(--start-x), var(--start-y)) scale(0); opacity: 0; }
   5% { transform: translate(var(--start-x), var(--start-y)) scale(1); opacity: 1; }
   85% { transform: translate(var(--end-x), var(--end-y)) scale(1); opacity: 1; }
-  100% { transform: translate(var(--end-x), var(--end-y)) scale(var(--end-scale)); opacity: var(--end-opacity); }
+  100% { transform: translate(var(--end-x), var(--end-y)) scale(var(--end-scale)); opacity: 0; }
 }
 
-.request-particle {
-  animation: travel-and-pop 0.8s linear forwards;
+.request-particle { animation: travel-and-pop 0.8s linear forwards; }
+.internal-particle { animation: travel-and-pop 0.4s linear forwards; }
+
+.fw-group {
+  transition: all 0.5s;
+}
+
+.fw-group.protected {
+  opacity: 1;
+}
+
+.fw-group.crashing {
+  opacity: 0;
+  transform: scale(0.95);
+  transform-origin: center;
 }
 
 .server-node {
@@ -230,7 +255,7 @@
 
 .server-text {
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 500;
   transition: fill 0.3s;
 }
 
