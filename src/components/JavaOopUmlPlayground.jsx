@@ -439,9 +439,15 @@ const translateJavaToJsAsync = (javaCode) => {
   finalMainBody = finalMainBody.replace(/new\s+([A-Za-z0-9_]+)\s*<[^>]*>\s*\(\)/g, 'new $1()');
 
 
-  // Division by zero check
-  code = code.replace(/\/\s*0\b/g, '; throw new Error("ArithmeticException: / by zero")');
-  finalMainBody = finalMainBody.replace(/\/\s*0\b/g, '; throw new Error("ArithmeticException: / by zero")');
+  // Division by zero runtime check wrapper
+  const replaceDivisions = (c) => {
+    return c.replace(/\/\s*([A-Za-z0-9_$.]+(?:\([^)]*\))?|\([^)]+\))/g, '/ checkDiv($1)');
+  };
+  code = replaceDivisions(code);
+  finalMainBody = replaceDivisions(finalMainBody);
+
+  // Translate interfaces to classes for JS compatibility
+  code = code.replace(/\binterface\s+(\w+)/g, 'class $1');
 
   code = code.replace(/(?:public|protected|private)?\s*abstract\s+[\w<>[\]]+\s+\w+\s*\([^)]*\)\s*;/g, "");
 
@@ -481,6 +487,17 @@ const translateJavaToJsAsync = (javaCode) => {
     'WashingMachine', 'Refrigerator', 'Product', 'Payable', 'BankAccount', 'Scanner'
   ];
   const allTypes = [...types, ...classNames];
+
+  // Class/interface type cast replacement (e.g. (Circle) shape -> castTo(shape, Circle))
+  const castTypes = [...types, ...classNames];
+  const castTypesPattern = castTypes.filter(t => /^[A-Za-z0-9_]+$/.test(t)).join('|');
+  if (castTypesPattern.length > 0) {
+    const castRegex = new RegExp(`\\(\\s*(${castTypesPattern})\\s*\\)\\s*([A-Za-z0-9_$.]+(?:\\([^)]*\\))?|\\([^)]+\\))`, 'g');
+    for (let i = 0; i < 2; i++) {
+      code = code.replace(castRegex, 'castTo($2, $1)');
+      finalMainBody = finalMainBody.replace(castRegex, 'castTo($2, $1)');
+    }
+  }
   
   const varDeclRegex = /\b([A-Z][a-zA-Z0-9_]*|int|double|float|boolean|char|byte|short|long|void)(?:<[a-zA-Z0-9_,\s<>?]*>)?(?:\s*\[\])?\s+([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\()(?=\s*=[^=]|\s*;|\s*,)/g;
   
@@ -499,12 +516,12 @@ const translateJavaToJsAsync = (javaCode) => {
 
   // Array replacements
   const replaceArrays = (c) => {
-    c = c.replace(/new\s+[A-Za-z0-9_]+\s*\[\]\s*\{([^}]+)\}/g, '[$1]');
-    c = c.replace(/=\s*\{([^}]+)\}/g, '= [$1]');
-    c = c.replace(/new\s+(int|double|float|byte|short|long)\s*\[([^\]]+)\]/g, 'new Array($2).fill(0)');
-    c = c.replace(/new\s+(boolean)\s*\[([^\]]+)\]/g, 'new Array($2).fill(false)');
-    c = c.replace(/new\s+(char)\s*\[([^\]]+)\]/g, 'new Array($2).fill("\\\0")');
-    c = c.replace(/new\s+([A-Za-z0-9_]+)\s*\[([^\]]+)\]/g, 'new Array($2).fill(null)');
+    c = c.replace(/new\s+[A-Za-z0-9_]+\s*\[\]\s*\{([^}]+)\}/g, 'createJavaArray([$1])');
+    c = c.replace(/=\s*\{([^}]+)\}/g, '= createJavaArray([$1])');
+    c = c.replace(/new\s+(int|double|float|byte|short|long)\s*\[([^\]]+)\]/g, 'createJavaArray($2, 0)');
+    c = c.replace(/new\s+(boolean)\s*\[([^\]]+)\]/g, 'createJavaArray($2, false)');
+    c = c.replace(/new\s+(char)\s*\[([^\]]+)\]/g, 'createJavaArray($2, "\\\0")');
+    c = c.replace(/new\s+([A-Za-z0-9_]+)\s*\[([^\]]+)\]/g, 'createJavaArray($2, null)');
     return c;
   };
   code = replaceArrays(code);
@@ -536,7 +553,10 @@ const translateJavaToJsAsync = (javaCode) => {
   finalMainBody = finalMainBody.replace(/\be\.getMessage\(\)/g, "e.message");
   finalMainBody = finalMainBody.replace(/\b[a-zA-Z0-9_]+\.close\s*\(\s*\)\s*;?/g, "");
   finalMainBody = finalMainBody.replace(/new\s+Scanner\s*\([^)]*\)/g, "null");
-  finalMainBody = finalMainBody.replace(/\b[a-zA-Z0-9_]+\.(?:nextInt|nextDouble|next|nextLine)\(\)/g, "await readInput()");
+  finalMainBody = finalMainBody.replace(/\b[a-zA-Z0-9_]+\.nextInt\(\)/g, "await readNextInt()");
+  finalMainBody = finalMainBody.replace(/\b[a-zA-Z0-9_]+\.nextDouble\(\)/g, "await readNextDouble()");
+  finalMainBody = finalMainBody.replace(/\b[a-zA-Z0-9_]+\.nextLine\(\)/g, "await readNextLine()");
+  finalMainBody = finalMainBody.replace(/\b[a-zA-Z0-9_]+\.next\(\)/g, "await readNext()");
 
   code = code.replace(/System\.out\.println\s*\(([^;]*)\)\s*;/g, 'onStdout($1); onStdout("\\n");');
   code = code.replace(/System\.out\.print\s*\(([^;]*)\)\s*;/g, 'onStdout($1);');
@@ -544,9 +564,186 @@ const translateJavaToJsAsync = (javaCode) => {
   code = code.replace(/\be\.getMessage\(\)/g, "e.message");
   code = code.replace(/\b[a-zA-Z0-9_]+\.close\s*\(\s*\)\s*;?/g, "");
   code = code.replace(/new\s+Scanner\s*\([^)]*\)/g, "null");
-  code = code.replace(/\b[a-zA-Z0-9_]+\.(?:nextInt|nextDouble|next|nextLine)\(\)/g, "await readInput()");
+  code = code.replace(/\b[a-zA-Z0-9_]+\.nextInt\(\)/g, "await readNextInt()");
+  code = code.replace(/\b[a-zA-Z0-9_]+\.nextDouble\(\)/g, "await readNextDouble()");
+  code = code.replace(/\b[a-zA-Z0-9_]+\.nextLine\(\)/g, "await readNextLine()");
+  code = code.replace(/\b[a-zA-Z0-9_]+\.next\(\)/g, "await readNext()");
 
   let js = `
+    class Throwable extends Error {
+      constructor(message) {
+        super(message);
+        this.name = this.constructor.name;
+        if (Error.captureStackTrace) {
+          Error.captureStackTrace(this, this.constructor);
+        }
+      }
+    }
+    class Exception extends Throwable {}
+    class RuntimeException extends Exception {}
+    class ArithmeticException extends RuntimeException {}
+    class IndexOutOfBoundsException extends RuntimeException {}
+    class ArrayIndexOutOfBoundsException extends IndexOutOfBoundsException {}
+    class NullPointerException extends RuntimeException {}
+    class NoSuchElementException extends RuntimeException {}
+    class InputMismatchException extends NoSuchElementException {}
+    class IllegalArgumentException extends RuntimeException {}
+    class NumberFormatException extends IllegalArgumentException {}
+    class StringIndexOutOfBoundsException extends IndexOutOfBoundsException {}
+    class ClassCastException extends RuntimeException {}
+    class IllegalStateException extends RuntimeException {}
+    class UnsupportedOperationException extends RuntimeException {}
+    class NegativeArraySizeException extends RuntimeException {}
+    class StackOverflowError extends Throwable {}
+    class OutOfMemoryError extends Throwable {}
+
+    const checkDiv = (b) => {
+      if (b === 0) {
+        throw new ArithmeticException("/ by zero");
+      }
+      return b;
+    };
+
+    const castTo = (obj, cls) => {
+      if (obj === null || obj === undefined) return obj;
+      if (cls === String) {
+        if (typeof obj !== 'string' && !(obj instanceof String)) {
+          throw new ClassCastException("Tried to convert an object to an incompatible type.");
+        }
+        return obj;
+      }
+      if (cls === Object) {
+        return obj;
+      }
+      if (typeof cls === 'function') {
+        if (!(obj instanceof cls)) {
+          throw new ClassCastException("Tried to convert an object to an incompatible type.");
+        }
+      }
+      return obj;
+    };
+
+    const createJavaArray = (sizeOrArray, fillValue) => {
+      let target;
+      if (Array.isArray(sizeOrArray)) {
+        target = sizeOrArray;
+      } else {
+        const size = Number(sizeOrArray);
+        if (size < 0 || isNaN(size)) {
+          throw new NegativeArraySizeException("Attempted to create an array with a negative size.");
+        }
+        target = new Array(size).fill(fillValue);
+      }
+      return new Proxy(target, {
+        get(target, prop) {
+          if (typeof prop === 'string' && /^-?\\d+$/.test(prop)) {
+            const index = parseInt(prop, 10);
+            if (index < 0 || index >= target.length) {
+              throw new ArrayIndexOutOfBoundsException("Tried to access an array index that does not exist: " + index);
+            }
+          }
+          if (prop === 'length') {
+            return target.length;
+          }
+          return target[prop];
+        },
+        set(target, prop, value) {
+          if (typeof prop === 'string' && /^-?\\d+$/.test(prop)) {
+            const index = parseInt(prop, 10);
+            if (index < 0 || index >= target.length) {
+              throw new ArrayIndexOutOfBoundsException("Tried to access an array index that does not exist: " + index);
+            }
+          }
+          target[prop] = value;
+          return true;
+        }
+      });
+    };
+
+    const readNext = async () => {
+      const token = await onReadInput();
+      if (token === null || token === undefined) {
+        throw new NoSuchElementException("Tried to access an element that does not exist.");
+      }
+      return String(token).trim();
+    };
+
+    const readNextInt = async () => {
+      const token = await onReadInput();
+      if (token === null || token === undefined) {
+        throw new NoSuchElementException("Tried to access an element that does not exist.");
+      }
+      const str = String(token).trim();
+      if (!/^-?\\d+$/.test(str)) {
+        throw new InputMismatchException("User entered data of the wrong type (e.g., entering 1.5 when an int is expected).");
+      }
+      return parseInt(str, 10);
+    };
+
+    const readNextDouble = async () => {
+      const token = await onReadInput();
+      if (token === null || token === undefined) {
+        throw new NoSuchElementException("Tried to access an element that does not exist.");
+      }
+      const str = String(token).trim();
+      if (isNaN(Number(str)) || str === "") {
+        throw new InputMismatchException("User entered data of the wrong type (e.g., entering 1.5 when an int is expected).");
+      }
+      return parseFloat(str);
+    };
+
+    const readNextLine = async () => {
+      const token = await onReadInput();
+      if (token === null || token === undefined) {
+        return "";
+      }
+      return String(token);
+    };
+
+    const Integer = {
+      parseInt(str) {
+        const s = String(str).trim();
+        if (!/^-?\\d+$/.test(s)) {
+          throw new NumberFormatException("Failed to convert a string into a number because the format is invalid.");
+        }
+        return parseInt(s, 10);
+      }
+    };
+
+    const Double = {
+      parseDouble(str) {
+        const s = String(str).trim();
+        if (s === "" || isNaN(Number(s))) {
+          throw new NumberFormatException("Failed to convert a string into a number because the format is invalid.");
+        }
+        return parseFloat(s);
+      }
+    };
+
+    if (!String.prototype._originalCharAt) {
+      String.prototype._originalCharAt = String.prototype.charAt;
+      String.prototype.charAt = function(index) {
+        const idx = Number(index);
+        if (idx < 0 || idx >= this.length || isNaN(idx)) {
+          throw new StringIndexOutOfBoundsException("Tried to access a character position outside a string's valid range.");
+        }
+        return this._originalCharAt(idx);
+      };
+    }
+
+    if (!String.prototype._originalSubstring) {
+      String.prototype._originalSubstring = String.prototype.substring;
+      String.prototype.substring = function(start, end) {
+        const len = this.length;
+        const s = start === undefined ? 0 : Number(start);
+        const e = end === undefined ? len : Number(end);
+        if (isNaN(s) || isNaN(e) || s < 0 || s > len || e < 0 || e > len || s > e) {
+          throw new StringIndexOutOfBoundsException("Tried to access a character position outside a string's valid range.");
+        }
+        return this._originalSubstring(s, e);
+      };
+    }
+
     class ArrayList extends Array {
       add(element) {
         this.push(element);
@@ -554,16 +751,29 @@ const translateJavaToJsAsync = (javaCode) => {
       }
       remove(indexOrElement) {
         if (typeof indexOrElement === 'number') {
-          this.splice(indexOrElement, 1);
+          if (indexOrElement < 0 || indexOrElement >= this.length) {
+            throw new IndexOutOfBoundsException("Tried to access an invalid index in a collection or structure: " + indexOrElement);
+          }
+          return this.splice(indexOrElement, 1)[0];
         } else {
           const idx = this.indexOf(indexOrElement);
-          if (idx !== -1) this.splice(idx, 1);
+          if (idx !== -1) {
+            this.splice(idx, 1);
+            return true;
+          }
+          return false;
         }
       }
       get(index) {
+        if (index < 0 || index >= this.length) {
+          throw new IndexOutOfBoundsException("Tried to access an invalid index in a collection or structure: " + index);
+        }
         return this[index];
       }
       set(index, element) {
+        if (index < 0 || index >= this.length) {
+          throw new IndexOutOfBoundsException("Tried to access an invalid index in a collection or structure: " + index);
+        }
         const old = this[index];
         this[index] = element;
         return old;
@@ -4113,6 +4323,43 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     }
   };
 
+  const formatError = (err) => {
+    if (!err) return "Unknown Error";
+
+    // Check if it's already one of our custom Throwables
+    if (err.name && [
+      'Throwable', 'Exception', 'RuntimeException', 'ArithmeticException',
+      'ArrayIndexOutOfBoundsException', 'NullPointerException', 'NoSuchElementException',
+      'InputMismatchException', 'IllegalArgumentException', 'NumberFormatException',
+      'StringIndexOutOfBoundsException', 'ClassCastException', 'IllegalStateException',
+      'UnsupportedOperationException', 'NegativeArraySizeException', 'StackOverflowError',
+      'OutOfMemoryError'
+    ].includes(err.name)) {
+      return `${err.name}: ${err.message}`;
+    }
+
+    const msg = err.message || String(err);
+
+    // Map native JavaScript exceptions to Java ones
+    if (err instanceof TypeError) {
+      return `NullPointerException: Tried to use a variable that contains null as if it were an object.`;
+    }
+
+    if (err instanceof RangeError) {
+      if (msg.includes("maximum call stack size exceeded") || msg.includes("Call stack size limit exceeded")) {
+        return `StackOverflowError: Infinite or excessively deep recursion exhausted the call stack.`;
+      }
+      if (msg.includes("invalid array length") || msg.includes("Invalid array length")) {
+        return `NegativeArraySizeException: Attempted to create an array with a negative size.`;
+      }
+      if (msg.includes("out of memory") || msg.includes("Out of memory")) {
+        return `OutOfMemoryError: The program ran out of available memory.`;
+      }
+    }
+
+    return err.name ? `${err.name}: ${msg}` : msg;
+  };
+
   const handleRun = async () => {
     // 1. Flush any pending Monaco typing changes to ensure state, UML, and syntax validation are synced
     flushPendingFileCodeChange();
@@ -4178,7 +4425,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       await executeCodeAsync(combinedCode, 'java', onStdout, onReadInput);
     } catch (err) {
       if (err.message !== "Execution Aborted") {
-        setTerminalOutput(prev => prev + `\n❌ COMPILATION / RUNTIME ERROR: ${err.message}\n`);
+        const formattedErr = formatError(err);
+        setTerminalOutput(prev => prev + `\n❌ COMPILATION / RUNTIME ERROR: ${formattedErr}\n`);
       }
     } finally {
       setIsRunning(false);
