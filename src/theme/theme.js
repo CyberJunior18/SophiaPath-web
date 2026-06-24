@@ -16,7 +16,7 @@ const baseColors = {
 };
 
 const buildTheme = (mode) => {
-  const isDark = ['dark', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic', 'midnight'].includes(mode);
+  let isDark = ['dark', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic', 'midnight'].includes(mode);
   
   let primaryMain = baseColors.primary;
   let primaryDark = baseColors.primaryDark;
@@ -26,6 +26,22 @@ const buildTheme = (mode) => {
   let bgPaper = isDark ? baseColors.darkSurface : baseColors.lightSurface;
   
   let textPrimary = isDark ? baseColors.white : baseColors.darkText;
+
+  if (mode === 'custom') {
+    try {
+      const custom = JSON.parse(localStorage.getItem('customThemeColors') || '{}');
+      isDark = !!custom.isDark;
+      primaryMain = custom.primaryMain || '#3D5CFF';
+      primaryDark = custom.primaryDark || '#2E49D1';
+      primaryLight = custom.primaryLight || '#7C8DFF';
+      bgDefault = custom.bgDefault || (isDark ? '#0F0F1E' : '#F5F7FA');
+      bgPaper = custom.bgPaper || (isDark ? '#1E1E2F' : '#FFFFFF');
+      textPrimary = custom.textPrimary || (isDark ? '#FFFFFF' : '#2D2D4D');
+    } catch (e) {
+      // fallback
+    }
+  }
+  
   let textSecondary = isDark ? 'rgba(255, 255, 255, 0.72)' : 'rgba(45, 45, 77, 0.7)';
   let textDisabled = isDark ? 'rgba(255, 255, 255, 0.42)' : 'rgba(45, 45, 77, 0.4)';
   

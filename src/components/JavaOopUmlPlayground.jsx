@@ -41,6 +41,18 @@ import {
   FolderOpen as FolderIcon
 } from '@mui/icons-material';
 
+// Self-healing recovery: Restore standard String prototype methods if they were modified by an older run
+if (typeof window !== 'undefined') {
+  if (String.prototype._originalCharAt) {
+    String.prototype.charAt = String.prototype._originalCharAt;
+    delete String.prototype._originalCharAt;
+  }
+  if (String.prototype._originalSubstring) {
+    String.prototype.substring = String.prototype._originalSubstring;
+    delete String.prototype._originalSubstring;
+  }
+}
+
 // Debounced input component to prevent parent re-renders on every keystroke
 const DebouncedInput = ({ value, onChange, debounceTime = 300, ...props }) => {
   const [localValue, setLocalValue] = useState(value || '');
@@ -99,8 +111,11 @@ const JavaOopUmlEditor = React.memo(({ isDarkMode, onChange, onMount }) => {
         minimap: { enabled: false },
         automaticLayout: true,
         scrollBeyondLastLine: false,
-        padding: { top: 12, bottom: 12 },
-        lineNumbersMinChars: 3
+        padding: { top: 0, bottom: 12 },
+        lineNumbersMinChars: 3,
+        cursorBlinking: 'blink',
+        cursorStyle: 'line',
+        renderLineHighlight: 'all'
       }}
     />
   );
@@ -434,9 +449,14 @@ const translateJavaToJsAsync = (javaCode) => {
   code = code.replace(/catch\s*\(\s*[A-Za-z0-9_$<>[\]]+\s+([A-Za-z0-9_$]+)\s*\)/g, 'catch ($1)');
   finalMainBody = finalMainBody.replace(/catch\s*\(\s*[A-Za-z0-9_$<>[\]]+\s+([A-Za-z0-9_$]+)\s*\)/g, 'catch ($1)');
 
-  // Generic syntax instantiation replacement (e.g. new ArrayList<String>(), new HashMap<K,V>())
-  code = code.replace(/new\s+([A-Za-z0-9_]+)\s*<[^>]*>\s*\(\)/g, 'new $1()');
-  finalMainBody = finalMainBody.replace(/new\s+([A-Za-z0-9_]+)\s*<[^>]*>\s*\(\)/g, 'new $1()');
+  // Package strip and Generic syntax instantiation cleanup (e.g. new ArrayList<String>(), new HashMap<K,V>())
+  const cleanPackageAndGenericInstantiations = (c) => {
+    c = c.replace(/\bjava\.(util|lang|io|math|net)\.([A-Za-z0-9_]+)\b/g, '$2');
+    c = c.replace(/new\s+([A-Za-z0-9_]+)\s*<[^>]*>/g, 'new $1');
+    return c;
+  };
+  code = cleanPackageAndGenericInstantiations(code);
+  finalMainBody = cleanPackageAndGenericInstantiations(finalMainBody);
 
 
   // Division by zero runtime check wrapper
@@ -483,7 +503,7 @@ const translateJavaToJsAsync = (javaCode) => {
   const types = [
     'int', 'double', 'float', 'boolean', 'char', 'String', 'auto', 
     'Integer', 'Double', 'Float', 'Long', 'Short', 'Byte', 'Character', 'Boolean',
-    'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Object',
+    'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Stack', 'Object',
     'Shape', 'Circle', 'Rectangle', 'Employee', 'Contractor', 'Appliance', 
     'WashingMachine', 'Refrigerator', 'Product', 'Payable', 'BankAccount', 'Scanner'
   ];
@@ -499,14 +519,13 @@ const translateJavaToJsAsync = (javaCode) => {
       finalMainBody = finalMainBody.replace(castRegex, 'castTo($2, $1)');
     }
   }
-  
-  const varDeclRegex = /\b([A-Z][a-zA-Z0-9_]*|int|double|float|boolean|char|byte|short|long|void)(?:<[a-zA-Z0-9_,\s<>?]*>)?(?:\s*\[\])?\s+([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\()(?=\s*=[^=]|\s*;|\s*,)/g;
+  const varDeclRegex = /\b([A-Z][a-zA-Z0-9_]*|int|double|float|boolean|char|byte|short|long|void)(?:<[a-zA-Z0-9_,\s<>?]*>)?(?:\s*\[\])*\s+([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\()(?=\s*=[^=]|\s*;|\s*,)/g;
   
   code = code.replace(varDeclRegex, 'let $2');
   finalMainBody = finalMainBody.replace(varDeclRegex, 'let $2');
 
   allTypes.concat(['void']).forEach(type => {
-    const methodRegex = new RegExp(`\\b${type}(?:\\[\\])?\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
+    const methodRegex = new RegExp(`\\b${type}(?:\\s*\\[\\s*\\])*\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w\\s,]+)?\\s*\\{`, 'g');
     code = code.replace(methodRegex, (match, methodName, paramStr) => {
       const cleaned = cleanParamTypes(paramStr);
       return `${methodName}(${cleaned}) {`;
@@ -517,14 +536,112 @@ const translateJavaToJsAsync = (javaCode) => {
 
   // Array replacements
   const replaceArrays = (c) => {
-    c = c.replace(/new\s+[A-Za-z0-9_]+\s*\[\]\s*\{([^}]+)\}/g, 'createJavaArray([$1])');
-    c = c.replace(/=\s*\{([^}]+)\}/g, '= createJavaArray([$1])');
-    c = c.replace(/new\s+(int|double|float|byte|short|long)\s*\[([^\]]+)\]/g, 'createJavaArray($2, 0)');
-    c = c.replace(/new\s+(boolean)\s*\[([^\]]+)\]/g, 'createJavaArray($2, false)');
-    c = c.replace(/new\s+(char)\s*\[([^\]]+)\]/g, 'createJavaArray($2, "\\\0")');
-    c = c.replace(/new\s+([A-Za-z0-9_]+)\s*\[([^\]]+)\]/g, 'createJavaArray($2, null)');
+    const replaceArrayInitializers = (str) => {
+      const regex = /(?:new\s+[A-Za-z0-9_$<>[\]]+\s*|=\s*)\{/g;
+      let match;
+      let result = '';
+      let lastIndex = 0;
+      
+      while ((match = regex.exec(str)) !== null) {
+        const matchIndex = match.index;
+        const matchStr = match[0];
+        const braceStartIndex = matchIndex + matchStr.length - 1;
+        
+        let braceCount = 1;
+        let i = braceStartIndex + 1;
+        let inString = false;
+        let stringChar = '';
+        
+        while (i < str.length && braceCount > 0) {
+          const char = str[i];
+          if (inString) {
+            if (char === stringChar && str[i - 1] !== '\\') {
+              inString = false;
+            }
+          } else if (char === '"' || char === "'") {
+            inString = true;
+            stringChar = char;
+          } else if (char === '{') {
+            braceCount++;
+          } else if (char === '}') {
+            braceCount--;
+          }
+          i++;
+        }
+        
+        if (braceCount === 0) {
+          const blockContent = str.substring(braceStartIndex + 1, i - 1);
+          let convertedContent = '';
+          inString = false;
+          stringChar = '';
+          for (let j = 0; j < blockContent.length; j++) {
+            const char = blockContent[j];
+            if (inString) {
+              if (char === stringChar && blockContent[j - 1] !== '\\') {
+                inString = false;
+              }
+              convertedContent += char;
+            } else if (char === '"' || char === "'") {
+              inString = true;
+              stringChar = char;
+              convertedContent += char;
+            } else if (char === '{') {
+              convertedContent += '[';
+            } else if (char === '}') {
+              convertedContent += ']';
+            } else {
+              convertedContent += char;
+            }
+          }
+          
+          const prefix = matchStr.endsWith('{') ? matchStr.slice(0, -1) : matchStr;
+          let replacement = '';
+          if (prefix.trim().startsWith('new')) {
+            replacement = `createJavaArray([${convertedContent}])`;
+          } else {
+            replacement = `${prefix}createJavaArray([${convertedContent}])`;
+          }
+          
+          result += str.substring(lastIndex, matchIndex) + replacement;
+          lastIndex = i;
+          regex.lastIndex = i;
+        } else {
+          result += str.substring(lastIndex, i);
+          lastIndex = i;
+        }
+      }
+      result += str.substring(lastIndex);
+      return result;
+    };
+
+    // Replace nested curly brace initializers
+    c = replaceArrayInitializers(c);
+    
+    // Replace multidimensional array instantiations like new int[2][3]
+    c = c.replace(/new\s+([A-Za-z0-9_]+)\s*((?:\[[^\]]*\])+)/g, (match, type, brackets) => {
+      const dims = [];
+      const dimRegex = /\[([^\]]*)\]/g;
+      let dimMatch;
+      while ((dimMatch = dimRegex.exec(brackets)) !== null) {
+        const val = dimMatch[1].trim();
+        dims.push(val === '' ? 'null' : val);
+      }
+      
+      let fillValue = 'null';
+      if (['int', 'double', 'float', 'byte', 'short', 'long'].includes(type)) {
+        fillValue = '0';
+      } else if (type === 'boolean') {
+        fillValue = 'false';
+      } else if (type === 'char') {
+        fillValue = '"\\0"';
+      }
+      
+      return `allocateJavaArray([${dims.join(', ')}], ${fillValue})`;
+    });
+    
     return c;
   };
+
   code = replaceArrays(code);
   finalMainBody = replaceArrays(finalMainBody);
 
@@ -543,8 +660,13 @@ const translateJavaToJsAsync = (javaCode) => {
     // 3. String .length() and list .size() -> .length
     c = c.replace(/\.length\s*\(\s*\)/g, '.length');
     c = c.replace(/\.size\s*\(\s*\)/g, '.length');
+    
+    // 4. String charAt and substring to safe non-global overrides
+    c = c.replace(/\.charAt\s*\(/g, '.javaCharAt(');
+    c = c.replace(/\.substring\s*\(/g, '.javaSubstring(');
     return c;
   };
+
   code = replaceAdvancedSyntax(code);
   finalMainBody = replaceAdvancedSyntax(finalMainBody);
 
@@ -594,9 +716,20 @@ const translateJavaToJsAsync = (javaCode) => {
     class ClassCastException extends RuntimeException {}
     class IllegalStateException extends RuntimeException {}
     class UnsupportedOperationException extends RuntimeException {}
+    class EmptyStackException extends RuntimeException {}
+    class ConcurrentModificationException extends RuntimeException {}
     class NegativeArraySizeException extends RuntimeException {}
     class StackOverflowError extends Throwable {}
     class OutOfMemoryError extends Throwable {}
+
+    const getModCount = (obj) => {
+      if (obj.modCount === undefined) obj.modCount = 0;
+      return obj.modCount;
+    };
+    const incrementMod = (obj) => {
+      if (obj.modCount === undefined) obj.modCount = 0;
+      obj.modCount++;
+    };
 
     const checkDiv = (b) => {
       if (b === 0) {
@@ -640,7 +773,6 @@ const translateJavaToJsAsync = (javaCode) => {
       if (clsName === 'Object') {
         return obj;
       }
-      
       if (typeof cls === 'function') {
         if (!(obj instanceof cls)) {
           throw new ClassCastException("Tried to convert an object to an incompatible type.");
@@ -654,7 +786,12 @@ const translateJavaToJsAsync = (javaCode) => {
     const createJavaArray = (sizeOrArray, fillValue) => {
       let target;
       if (Array.isArray(sizeOrArray)) {
-        target = sizeOrArray;
+        target = sizeOrArray.map(item => {
+          if (Array.isArray(item)) {
+            return createJavaArray(item, fillValue);
+          }
+          return item;
+        });
       } else {
         const size = Number(sizeOrArray);
         if (size < 0 || isNaN(size)) {
@@ -664,7 +801,7 @@ const translateJavaToJsAsync = (javaCode) => {
       }
       return new Proxy(target, {
         get(target, prop) {
-          if (typeof prop === 'string' && /^-?\\d+$/.test(prop)) {
+          if (typeof prop === 'string' && /^-?\d+$/.test(prop)) {
             const index = parseInt(prop, 10);
             if (index < 0 || index >= target.length) {
               throw new ArrayIndexOutOfBoundsException("Tried to access an array index that does not exist: " + index);
@@ -676,7 +813,7 @@ const translateJavaToJsAsync = (javaCode) => {
           return target[prop];
         },
         set(target, prop, value) {
-          if (typeof prop === 'string' && /^-?\\d+$/.test(prop)) {
+          if (typeof prop === 'string' && /^-?\d+$/.test(prop)) {
             const index = parseInt(prop, 10);
             if (index < 0 || index >= target.length) {
               throw new ArrayIndexOutOfBoundsException("Tried to access an array index that does not exist: " + index);
@@ -686,6 +823,19 @@ const translateJavaToJsAsync = (javaCode) => {
           return true;
         }
       });
+    };
+
+    const allocateJavaArray = (dims, fillValue) => {
+      if (dims.length === 0) return fillValue;
+      const currentDim = dims[0];
+      if (currentDim === null || currentDim === undefined || isNaN(currentDim)) {
+        return null;
+      }
+      const target = new Array(currentDim);
+      for (let i = 0; i < currentDim; i++) {
+        target[i] = allocateJavaArray(dims.slice(1), fillValue);
+      }
+      return createJavaArray(target, fillValue);
     };
 
     const readNext = async () => {
@@ -752,32 +902,92 @@ const translateJavaToJsAsync = (javaCode) => {
       }
     }
 
-    if (!String.prototype._originalCharAt) {
-      String.prototype._originalCharAt = String.prototype.charAt;
-      String.prototype.charAt = function(index) {
-        const idx = Number(index);
-        if (idx < 0 || idx >= this.length || isNaN(idx)) {
-          throw new StringIndexOutOfBoundsException("Tried to access a character position outside a string's valid range.");
-        }
-        return this._originalCharAt(idx);
-      };
+    if (!String.prototype.javaCharAt) {
+      Object.defineProperty(String.prototype, 'javaCharAt', {
+        value: function(index) {
+          const idx = Number(index);
+          if (idx < 0 || idx >= this.length || isNaN(idx)) {
+            throw new StringIndexOutOfBoundsException("Tried to access a character position outside a string's valid range.");
+          }
+          return this.charAt(idx);
+        },
+        writable: true,
+        configurable: true,
+        enumerable: false
+      });
     }
 
-    if (!String.prototype._originalSubstring) {
-      String.prototype._originalSubstring = String.prototype.substring;
-      String.prototype.substring = function(start, end) {
-        const len = this.length;
-        const s = start === undefined ? 0 : Number(start);
-        const e = end === undefined ? len : Number(end);
-        if (isNaN(s) || isNaN(e) || s < 0 || s > len || e < 0 || e > len || s > e) {
-          throw new StringIndexOutOfBoundsException("Tried to access a character position outside a string's valid range.");
+    if (!String.prototype.javaSubstring) {
+      Object.defineProperty(String.prototype, 'javaSubstring', {
+        value: function(start, end) {
+          const len = this.length;
+          const s = start === undefined ? 0 : Number(start);
+          const e = end === undefined ? len : Number(end);
+          if (isNaN(s) || isNaN(e) || s < 0 || s > len || e < 0 || e > len || s > e) {
+            throw new StringIndexOutOfBoundsException("Tried to access a character position outside a string's valid range.");
+          }
+          return this.substring(s, e);
+        },
+        writable: true,
+        configurable: true,
+        enumerable: false
+      });
+    }
+
+    class ArrayListIterator {
+      constructor(arrayList) {
+        this.list = arrayList;
+        this.cursor = 0;
+        this.lastRet = -1;
+        this.expectedModCount = getModCount(arrayList);
+      }
+      checkForComodification() {
+        if (getModCount(this.list) !== this.expectedModCount) {
+          throw new ConcurrentModificationException("Collection was modified during iteration.");
         }
-        return this._originalSubstring(s, e);
-      };
+      }
+      hasNext() {
+        return this.cursor < this.list.length;
+      }
+      next() {
+        this.checkForComodification();
+        if (this.cursor >= this.list.length) {
+          throw new NoSuchElementException("Tried to access an element that does not exist.");
+        }
+        this.lastRet = this.cursor;
+        return this.list[this.cursor++];
+      }
+      remove() {
+        this.checkForComodification();
+        if (this.lastRet < 0) {
+          throw new IllegalStateException("remove() called before next(), or double remove()");
+        }
+        this.list.splice(this.lastRet, 1);
+        this.cursor = this.lastRet;
+        this.lastRet = -1;
+        this.expectedModCount = getModCount(this.list);
+      }
     }
 
     class ArrayList extends Array {
+      [Symbol.iterator]() {
+        const iter = new ArrayListIterator(this);
+        return {
+          next() {
+            iter.checkForComodification();
+            if (iter.hasNext()) {
+              return { value: iter.next(), done: false };
+            } else {
+              return { value: undefined, done: true };
+            }
+          }
+        };
+      }
+      iterator() {
+        return new ArrayListIterator(this);
+      }
       add(element) {
+        incrementMod(this);
         this.push(element);
         return true;
       }
@@ -786,10 +996,12 @@ const translateJavaToJsAsync = (javaCode) => {
           if (indexOrElement < 0 || indexOrElement >= this.length) {
             throw new IndexOutOfBoundsException("Tried to access an invalid index in a collection or structure: " + indexOrElement);
           }
+          incrementMod(this);
           return this.splice(indexOrElement, 1)[0];
         } else {
           const idx = this.indexOf(indexOrElement);
           if (idx !== -1) {
+            incrementMod(this);
             this.splice(idx, 1);
             return true;
           }
@@ -814,10 +1026,69 @@ const translateJavaToJsAsync = (javaCode) => {
         return this.length;
       }
       clear() {
+        incrementMod(this);
         this.length = 0;
       }
       isEmpty() {
         return this.length === 0;
+      }
+      contains(element) {
+        return this.includes(element);
+      }
+    }
+
+    class Stack extends Array {
+      [Symbol.iterator]() {
+        const iter = new ArrayListIterator(this);
+        return {
+          next() {
+            iter.checkForComodification();
+            if (iter.hasNext()) {
+              return { value: iter.next(), done: false };
+            } else {
+              return { value: undefined, done: true };
+            }
+          }
+        };
+      }
+      iterator() {
+        return new ArrayListIterator(this);
+      }
+      push(item) {
+        incrementMod(this);
+        super.push(item);
+        return item;
+      }
+      pop() {
+        if (this.length === 0) {
+          throw new EmptyStackException();
+        }
+        incrementMod(this);
+        return super.pop();
+      }
+      peek() {
+        if (this.length === 0) {
+          throw new EmptyStackException();
+        }
+        return this[this.length - 1];
+      }
+      empty() {
+        return this.length === 0;
+      }
+      isEmpty() {
+        return this.length === 0;
+      }
+      search(o) {
+        const idx = this.lastIndexOf(o);
+        if (idx === -1) return -1;
+        return this.length - idx;
+      }
+      size() {
+        return this.length;
+      }
+      clear() {
+        incrementMod(this);
+        this.length = 0;
       }
       contains(element) {
         return this.includes(element);
@@ -1137,9 +1408,9 @@ const STRICT_KNOWN_TYPES = new Set([
   'void', 'int', 'double', 'float', 'boolean', 'char', 'byte', 'short', 'long',
   'String', 'Object',
   'Integer', 'Double', 'Float', 'Boolean', 'Character', 'Byte', 'Short', 'Long',
-  'List', 'Map', 'Set', 'ArrayList', 'HashMap', 'HashSet', 'Collection', 'Iterator',
+  'List', 'Map', 'Set', 'ArrayList', 'HashMap', 'HashSet', 'Collection', 'Iterator', 'Stack',
   'System', 'Scanner', 'Math', 'PrintStream', 'Throwable', 'Exception', 'RuntimeException',
-  'ArithmeticException', 'NullPointerException', 'ArrayIndexOutOfBoundsException',
+  'ArithmeticException', 'NullPointerException', 'ArrayIndexOutOfBoundsException', 'EmptyStackException', 'ConcurrentModificationException',
   'IndexOutOfBoundsException', 'IllegalArgumentException', 'IllegalStateException',
   'IOException', 'FileNotFoundException', 'StringBuilder', 'StringBuffer'
 ]);
@@ -1681,7 +1952,7 @@ const getDeclaredLocalVars = (bodyText, validTypes) => {
     .replace(/\/\*[\s\S]*?\*\//g, "");
 
   // 1. Regex search anywhere for type followed by identifier
-  const declRegex = /\b([A-Za-z0-9_]+)(?:<[^>]+>)?(?:\[\])?\s+([A-Za-z_][A-Za-z0-9_]*)\b/g;
+  const declRegex = /\b([A-Za-z0-9_]+)(?:<[^>]+>)?(?:\s*\[\s*\])*\s+([A-Za-z_][A-Za-z0-9_]*)\b/g;
   let match;
   while ((match = declRegex.exec(cleanText)) !== null) {
     const type = match[1];
@@ -1695,7 +1966,7 @@ const getDeclaredLocalVars = (bodyText, validTypes) => {
   const segments = cleanText.split(/[;{}]/);
   segments.forEach(segment => {
     const trimmed = segment.trim();
-    const typeMatch = trimmed.match(/^\b([A-Za-z0-9_]+)(?:<[^>]+>)?(?:\[\])?\s+([A-Za-z_][A-Za-z0-9_]*)/);
+    const typeMatch = trimmed.match(/^\b([A-Za-z0-9_]+)(?:<[^>]+>)?(?:\s*\[\s*\])*\s+([A-Za-z_][A-Za-z0-9_]*)/);
     if (typeMatch && validTypes.has(typeMatch[1])) {
       const rest = trimmed.substring(typeMatch[0].length);
       declared.add(typeMatch[2]);
@@ -1744,6 +2015,20 @@ const getUsedIdentifiers = (bodyText) => {
     }
     if (followIdx < cleanText.length && cleanText[followIdx] === '(') {
       isFollowedByParen = true;
+    }
+
+    // Check if followed by dot (to identify package references like java.util.ArrayList)
+    let isFollowedByDot = false;
+    let dotIdx = index + name.length;
+    while (dotIdx < cleanText.length && /\s/.test(cleanText[dotIdx])) {
+      dotIdx++;
+    }
+    if (dotIdx < cleanText.length && cleanText[dotIdx] === '.') {
+      isFollowedByDot = true;
+    }
+
+    if (isFollowedByDot && ['java', 'javax', 'org', 'com', 'net'].includes(name)) {
+      continue;
     }
 
     if (!isPrecededByDot && !isFollowedByParen) {
@@ -2025,11 +2310,11 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
     const KNOWN_TYPES = new Set([
       'int', 'double', 'float', 'boolean', 'char', 'byte', 'short', 'long', 'void',
       'String', 'Integer', 'Double', 'Float', 'Boolean', 'Character', 'Byte', 'Short', 'Long', 'Object',
-      'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Collection', 'Iterator',
+      'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Collection', 'Iterator', 'Stack',
       'Scanner', 'System', 'Math', 'Exception', 'Throwable', 'PrintStream', 'Thread', 'Runnable',
       'StringTokenizer', 'StringBuilder', 'StringBuffer', 'ArithmeticException', 'NullPointerException',
       'ArrayIndexOutOfBoundsException', 'IndexOutOfBoundsException', 'IllegalArgumentException',
-      'IllegalStateException', 'IOException', 'FileNotFoundException', 'RuntimeException'
+      'IllegalStateException', 'IOException', 'FileNotFoundException', 'RuntimeException', 'EmptyStackException', 'ConcurrentModificationException'
     ]);
     const validTypes = new Set([...KNOWN_TYPES, ...declaredClassNames, ...allClassNames]);
 
@@ -2041,10 +2326,10 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
       'super', 'switch', 'synchronized', 'this', 'throw', 'throws', 'transient', 'try', 'void',
       'volatile', 'while', 'true', 'false', 'null', 'String', 'Integer', 'Double', 'Float',
       'Boolean', 'Character', 'Byte', 'Short', 'Long', 'Object', 'List', 'ArrayList', 'Map',
-      'HashMap', 'Set', 'HashSet', 'System', 'Scanner', 'Math', 'Exception', 'PrintStream',
+      'HashMap', 'Set', 'HashSet', 'Stack', 'System', 'Scanner', 'Math', 'Exception', 'PrintStream',
       'Throwable', 'StringBuilder', 'StringBuffer', 'ArithmeticException', 'NullPointerException',
       'ArrayIndexOutOfBoundsException', 'IndexOutOfBoundsException', 'IllegalArgumentException',
-      'IllegalStateException', 'IOException', 'FileNotFoundException', 'RuntimeException'
+      'IllegalStateException', 'IOException', 'FileNotFoundException', 'RuntimeException', 'EmptyStackException', 'ConcurrentModificationException'
     ]);
 
     for (let c of classes) {
@@ -2105,6 +2390,9 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
               ident.name === 'HashMap' || 
               ident.name === 'Set' || 
               ident.name === 'HashSet' ||
+              ident.name === 'Stack' ||
+              ident.name === 'EmptyStackException' ||
+              ident.name === 'ConcurrentModificationException' ||
               ident.name === 'Collection' ||
               ident.name === 'Iterator' ||
               ident.name === 'Throwable' ||
@@ -2593,10 +2881,21 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
   const [editorInstance, setEditorInstance] = useState(null);
   const [monacoInstance, setMonacoInstance] = useState(null);
+  const [domLoaded, setDomLoaded] = useState(false);
+  const [previewRenderCount, setPreviewRenderCount] = useState(0);
+
+  useEffect(() => {
+    setDomLoaded(true);
+  }, []);
 
   useEffect(() => {
     if (isPreviewOpen) {
       setPreviewTheme(themeMode);
+      // Trigger a re-render on next tick to ensure preview DOM nodes are queried correctly
+      const timer = setTimeout(() => {
+        setPreviewRenderCount(prev => prev + 1);
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [isPreviewOpen, themeMode]);
 
@@ -3316,16 +3615,67 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     return 80 + attrLen * 20 + methLen * 20;
   };
 
+  const getAttachmentSides = (sourceTitle, targetTitle, useCompressed) => {
+    const posA = classPositions[sourceTitle];
+    const posB = classPositions[targetTitle];
+    if (!posA || !posB) return { sourceSide: 'bottom', targetSide: 'top' };
+    const classA = umlClasses.find(x => x.title === sourceTitle);
+    const classB = umlClasses.find(x => x.title === targetTitle);
+    
+    const elA = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${sourceTitle}"]` : `.uml-class-card[data-classname="${sourceTitle}"]`);
+    const elB = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${targetTitle}"]` : `.uml-class-card[data-classname="${targetTitle}"]`);
+
+    const wA = elA ? elA.offsetWidth : (classA ? (useCompressed ? calculateCompressedCardWidth(classA) : calculateCardWidth(classA)) : 280);
+    const wB = elB ? elB.offsetWidth : (classB ? (useCompressed ? calculateCompressedCardWidth(classB) : calculateCardWidth(classB)) : 280);
+    const hA = elA ? elA.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(sourceTitle) : getEstimatedHeight(sourceTitle));
+    const hB = elB ? elB.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(targetTitle) : getEstimatedHeight(targetTitle));
+
+    const anchorsA = [
+      { x: posA.x + wA / 2, y: posA.y, side: 'top' },
+      { x: posA.x + wA / 2, y: posA.y + hA, side: 'bottom' },
+      { x: posA.x, y: posA.y + hA / 2, side: 'left' },
+      { x: posA.x + wA, y: posA.y + hA / 2, side: 'right' }
+    ];
+
+    const anchorsB = [
+      { x: posB.x + wB / 2, y: posB.y, side: 'top' },
+      { x: posB.x + wB / 2, y: posB.y + hB, side: 'bottom' },
+      { x: posB.x, y: posB.y + hB / 2, side: 'left' },
+      { x: posB.x + wB, y: posB.y + hB / 2, side: 'right' }
+    ];
+
+    let minDist = Infinity;
+    let bestA = anchorsA[0];
+    let bestB = anchorsB[0];
+
+    for (const a of anchorsA) {
+      for (const b of anchorsB) {
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const dist = dx * dx + dy * dy;
+        if (dist < minDist) {
+          minDist = dist;
+          bestA = a;
+          bestB = b;
+        }
+      }
+    }
+    return { sourceSide: bestA.side, targetSide: bestB.side };
+  };
+
   const getBestConnectionPoints = (posA, posB, useCompressed = false, allRelations = [], currentRelation = null) => {
     if (!posA || !posB) return { start: { x: 0, y: 0 }, end: { x: 0, y: 0 } };
     const classA = umlClasses.find(x => x.title === posA.title);
     const classB = umlClasses.find(x => x.title === posB.title);
     
-    // Bypass querySelector and offsetWidth/offsetHeight calls to prevent layout reflow thrashing during active dragging.
-    const wA = classA ? (useCompressed ? calculateCompressedCardWidth(classA) : calculateCardWidth(classA)) : 280;
-    const wB = classB ? (useCompressed ? calculateCompressedCardWidth(classB) : calculateCardWidth(classB)) : 280;
-    const hA = useCompressed ? getEstimatedCompressedHeight(posA.title) : getEstimatedHeight(posA.title);
-    const hB = useCompressed ? getEstimatedCompressedHeight(posB.title) : getEstimatedHeight(posB.title);
+    // Query actual DOM elements to get pixel-perfect anchor points under all conditions.
+    const elA = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${posA.title}"]` : `.uml-class-card[data-classname="${posA.title}"]`);
+    const elB = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${posB.title}"]` : `.uml-class-card[data-classname="${posB.title}"]`);
+
+    const wA = elA ? elA.offsetWidth : (classA ? (useCompressed ? calculateCompressedCardWidth(classA) : calculateCardWidth(classA)) : 280);
+    const wB = elB ? elB.offsetWidth : (classB ? (useCompressed ? calculateCompressedCardWidth(classB) : calculateCardWidth(classB)) : 280);
+    const hA = elA ? elA.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(posA.title) : getEstimatedHeight(posA.title));
+    const hB = elB ? elB.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(posB.title) : getEstimatedHeight(posB.title));
 
     const anchorsA = [
       { x: posA.x + wA / 2, y: posA.y, side: 'top' },
@@ -3358,52 +3708,53 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       }
     }
 
-    // Distribute connections if multiple share same target side
+    // Distribute connections if multiple share same target side (B)
     if (allRelations && allRelations.length > 0) {
-      const targetRelations = allRelations.filter(r => r.target === posB.title);
-      const sameSideSources = [];
+      const bRelations = allRelations.filter(r => r.source === posB.title || r.target === posB.title);
+      const sameSideConnections = [];
       
-      targetRelations.forEach(r => {
-        const srcClass = umlClasses.find(c => c.title === r.source);
-        if (!srcClass) return;
-        const srcPos = classPositions[r.source];
-        if (!srcPos) return;
+      bRelations.forEach(r => {
+        const sides = getAttachmentSides(r.source, r.target, useCompressed);
+        const isTarget = r.target === posB.title;
+        const attachedSide = isTarget ? sides.targetSide : sides.sourceSide;
         
-        const elSrc = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${r.source}"]` : `.uml-class-card[data-classname="${r.source}"]`);
-        const wSrc = elSrc ? elSrc.offsetWidth : (useCompressed ? calculateCompressedCardWidth(srcClass) : calculateCardWidth(srcClass));
-        const hSrc = elSrc ? elSrc.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(r.source) : getEstimatedHeight(r.source));
-        const srcCenter = { x: srcPos.x + wSrc / 2, y: srcPos.y + hSrc / 2 };
-        
-        let closestSide = 'top';
-        let minSideDist = Infinity;
-        
-        anchorsB.forEach(anchor => {
-          const dx = anchor.x - srcCenter.x;
-          const dy = anchor.y - srcCenter.y;
-          const dist = dx * dx + dy * dy;
-          if (dist < minSideDist) {
-            minSideDist = dist;
-            closestSide = anchor.side;
-          }
-        });
-        
-        if (closestSide === bestB.side) {
+        if (attachedSide === bestB.side) {
+          const neighborTitle = isTarget ? r.source : r.target;
+          const posNeighbor = classPositions[neighborTitle] || { x: 0, y: 0 };
+          const classNeighbor = umlClasses.find(x => x.title === neighborTitle);
+          const elNeighbor = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${neighborTitle}"]` : `.uml-class-card[data-classname="${neighborTitle}"]`);
+          
+          const wNeighbor = elNeighbor ? elNeighbor.offsetWidth : (classNeighbor ? (useCompressed ? calculateCompressedCardWidth(classNeighbor) : calculateCardWidth(classNeighbor)) : 280);
+          const hNeighbor = elNeighbor ? elNeighbor.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(neighborTitle) : getEstimatedHeight(neighborTitle));
+          
+          const centerX = posNeighbor.x + wNeighbor / 2;
+          const centerY = posNeighbor.y + hNeighbor / 2;
           const relId = `${r.source}_${r.target}_${r.type}_${r.fieldName || r.methodName || ''}`;
-          sameSideSources.push(relId);
+          
+          sameSideConnections.push({
+            relId,
+            centerX,
+            centerY
+          });
         }
       });
       
-      sameSideSources.sort();
+      // Sort connections based on the spatial location of their neighbor cards to prevent line crossing.
+      if (bestB.side === 'top' || bestB.side === 'bottom') {
+        sameSideConnections.sort((a, b) => a.centerX - b.centerX);
+      } else {
+        sameSideConnections.sort((a, b) => a.centerY - b.centerY);
+      }
       
       const currentRelId = currentRelation 
         ? `${currentRelation.source}_${currentRelation.target}_${currentRelation.type}_${currentRelation.fieldName || currentRelation.methodName || ''}`
         : `${posA.title}_${posB.title}_extends_`;
       
-      const sourceIdx = sameSideSources.indexOf(currentRelId);
-      const totalCount = sameSideSources.length;
+      const connIdx = sameSideConnections.findIndex(item => item.relId === currentRelId);
+      const totalCount = sameSideConnections.length;
       
-      if (totalCount > 1 && sourceIdx !== -1) {
-        const factor = (sourceIdx + 1) / (totalCount + 1);
+      if (totalCount > 1 && connIdx !== -1) {
+        const factor = (connIdx + 1) / (totalCount + 1);
         if (bestB.side === 'top' || bestB.side === 'bottom') {
           bestB = {
             ...bestB,
@@ -3418,52 +3769,53 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       }
     }
 
-    // Distribute connections if multiple share same source side
+    // Distribute connections if multiple share same source side (A)
     if (allRelations && allRelations.length > 0) {
-      const sourceRelations = allRelations.filter(r => r.source === posA.title);
-      const sameSideTargets = [];
+      const aRelations = allRelations.filter(r => r.source === posA.title || r.target === posA.title);
+      const sameSideConnectionsA = [];
       
-      sourceRelations.forEach(r => {
-        const destClass = umlClasses.find(c => c.title === r.target);
-        if (!destClass) return;
-        const destPos = classPositions[r.target];
-        if (!destPos) return;
+      aRelations.forEach(r => {
+        const sides = getAttachmentSides(r.source, r.target, useCompressed);
+        const isSource = r.source === posA.title;
+        const attachedSide = isSource ? sides.sourceSide : sides.targetSide;
         
-        const elDest = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${r.target}"]` : `.uml-class-card[data-classname="${r.target}"]`);
-        const wDest = elDest ? elDest.offsetWidth : (useCompressed ? calculateCompressedCardWidth(destClass) : calculateCardWidth(destClass));
-        const hDest = elDest ? elDest.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(r.target) : getEstimatedHeight(r.target));
-        const destCenter = { x: destPos.x + wDest / 2, y: destPos.y + hDest / 2 };
-        
-        let closestSide = 'top';
-        let minSideDist = Infinity;
-        
-        anchorsA.forEach(anchor => {
-          const dx = anchor.x - destCenter.x;
-          const dy = anchor.y - destCenter.y;
-          const dist = dx * dx + dy * dy;
-          if (dist < minSideDist) {
-            minSideDist = dist;
-            closestSide = anchor.side;
-          }
-        });
-        
-        if (closestSide === bestA.side) {
+        if (attachedSide === bestA.side) {
+          const neighborTitle = isSource ? r.target : r.source;
+          const posNeighbor = classPositions[neighborTitle] || { x: 0, y: 0 };
+          const classNeighbor = umlClasses.find(x => x.title === neighborTitle);
+          const elNeighbor = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${neighborTitle}"]` : `.uml-class-card[data-classname="${neighborTitle}"]`);
+          
+          const wNeighbor = elNeighbor ? elNeighbor.offsetWidth : (classNeighbor ? (useCompressed ? calculateCompressedCardWidth(classNeighbor) : calculateCardWidth(classNeighbor)) : 280);
+          const hNeighbor = elNeighbor ? elNeighbor.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(neighborTitle) : getEstimatedHeight(neighborTitle));
+          
+          const centerX = posNeighbor.x + wNeighbor / 2;
+          const centerY = posNeighbor.y + hNeighbor / 2;
           const relId = `${r.source}_${r.target}_${r.type}_${r.fieldName || r.methodName || ''}`;
-          sameSideTargets.push(relId);
+          
+          sameSideConnectionsA.push({
+            relId,
+            centerX,
+            centerY
+          });
         }
       });
       
-      sameSideTargets.sort();
+      // Sort connections based on the spatial location of their neighbor cards to prevent line crossing.
+      if (bestA.side === 'top' || bestA.side === 'bottom') {
+        sameSideConnectionsA.sort((a, b) => a.centerX - b.centerX);
+      } else {
+        sameSideConnectionsA.sort((a, b) => a.centerY - b.centerY);
+      }
       
       const currentRelId = currentRelation 
         ? `${currentRelation.source}_${currentRelation.target}_${currentRelation.type}_${currentRelation.fieldName || currentRelation.methodName || ''}`
         : `${posA.title}_${posB.title}_extends_`;
       
-      const targetIdx = sameSideTargets.indexOf(currentRelId);
-      const totalCount = sameSideTargets.length;
+      const connIdxA = sameSideConnectionsA.findIndex(item => item.relId === currentRelId);
+      const totalCountA = sameSideConnectionsA.length;
       
-      if (totalCount > 1 && targetIdx !== -1) {
-        const factor = (targetIdx + 1) / (totalCount + 1);
+      if (totalCountA > 1 && connIdxA !== -1) {
+        const factor = (connIdxA + 1) / (totalCountA + 1);
         if (bestA.side === 'top' || bestA.side === 'bottom') {
           bestA = {
             ...bestA,
@@ -4365,7 +4717,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       'InputMismatchException', 'IllegalArgumentException', 'NumberFormatException',
       'StringIndexOutOfBoundsException', 'ClassCastException', 'IllegalStateException',
       'UnsupportedOperationException', 'NegativeArraySizeException', 'StackOverflowError',
-      'OutOfMemoryError'
+      'OutOfMemoryError', 'EmptyStackException', 'ConcurrentModificationException'
     ].includes(err.name)) {
       return `${err.name}: ${err.message}`;
     }
@@ -4393,10 +4745,18 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   };
 
   const handleRun = async () => {
+    // 0. Self-healing session recovery: Restore standard String methods if they were modified by an older run
+    if (String.prototype._originalCharAt) {
+      String.prototype.charAt = String.prototype._originalCharAt;
+      delete String.prototype._originalCharAt;
+    }
+    if (String.prototype._originalSubstring) {
+      String.prototype.substring = String.prototype._originalSubstring;
+      delete String.prototype._originalSubstring;
+    }
+
     // 1. Flush any pending Monaco typing changes to ensure state, UML, and syntax validation are synced
     flushPendingFileCodeChange();
-
-    // 2. Build combined execution code
     const activeVal = activeEditorRef.current ? activeEditorRef.current.getValue() : '';
     const classCodes = [];
     const visitedFiles = new Set();
@@ -4510,14 +4870,13 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
 
 
-  const containerW = canvasContainerRef.current ? canvasContainerRef.current.clientWidth : 800;
+const containerW = canvasContainerRef.current ? canvasContainerRef.current.clientWidth : 800;
   const containerH = canvasContainerRef.current ? canvasContainerRef.current.clientHeight : 600;
   const dynamicMinZoom = parseFloat(Math.min(0.4, Math.max(0.1, Math.min(containerW / canvasDim.width, containerH / canvasDim.height))).toFixed(2));
 
   const previewContainerW = previewCanvasContainerRef.current ? previewCanvasContainerRef.current.clientWidth : 1000;
   const previewContainerH = previewCanvasContainerRef.current ? previewCanvasContainerRef.current.clientHeight : 800;
   const dynamicPreviewMinZoom = parseFloat(Math.min(0.4, Math.max(0.1, Math.min(previewContainerW / canvasDim.width, previewContainerH / canvasDim.height))).toFixed(2));
-
   return (
     <>
       <Dialog
@@ -4525,6 +4884,8 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       onClose={onClose}
       fullWidth
       maxWidth="xl"
+      disableEnforceFocus
+      disableRestoreFocus
       PaperProps={{
         elevation: 0,
         style: {
@@ -4718,13 +5079,15 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
               </Box>
 
               {/* Code Workspace */}
-              <Box style={{ flexGrow: 1, position: 'relative', width: '100%', height: '100%', minHeight: 0 }}>
+              <Box style={{ flexGrow: 1, position: 'relative', width: '100%', minHeight: 0 }}>
                 {isEditorReady && activeFile ? (
-                  <JavaOopUmlEditor
-                    isDarkMode={isDarkMode}
-                    onChange={handleFileCodeChange}
-                    onMount={handleEditorMount}
-                  />
+                  <Box style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}>
+                    <JavaOopUmlEditor
+                      isDarkMode={isDarkMode}
+                      onChange={handleFileCodeChange}
+                      onMount={handleEditorMount}
+                    />
+                  </Box>
                 ) : (
                   <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
                     <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
@@ -5802,12 +6165,33 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         }}
       >
         <DialogTitle style={{ fontWeight: 800, fontFamily: '"Outfit", sans-serif', paddingBottom: '8px' }}>
-          Create Link from {newConnectionData.source}
+          Create Relationship Link
         </DialogTitle>
         <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '8px' }}>
           <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
             Configure the relationship properties below:
           </Typography>
+
+          {/* Source Class Dropdown */}
+          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <Typography variant="caption" style={{ fontWeight: 850, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+              Source Class
+            </Typography>
+            <Select
+              value={newConnectionData.source || ''}
+              onChange={(e) => {
+                const selectedSource = e.target.value;
+                setNewConnectionData(prev => ({ ...prev, source: selectedSource }));
+              }}
+              fullWidth
+              size="small"
+              style={{ borderRadius: '8px' }}
+            >
+              {umlClasses.map(c => (
+                <MenuItem key={c.title} value={c.title}>{c.title}</MenuItem>
+              ))}
+            </Select>
+          </Box>
 
           {/* Target Class Dropdown */}
           <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -5832,7 +6216,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
               }
             </Select>
           </Box>
-          
+
           {/* Relationship Type Dropdown */}
           <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <Typography variant="caption" style={{ fontWeight: 850, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
@@ -5852,25 +6236,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
               <MenuItem value="association">Association (Has-A reference, public field)</MenuItem>
               <MenuItem value="dependency">Dependency (Uses-A parameter in new method)</MenuItem>
             </Select>
-          </Box>
-
-          {/* Conditional Variable/Parameter Input */}
-          {newRelationType !== 'extends' && newRelationType !== 'implements' && (
-            <TextField
-              label="Variable / Parameter Name"
-              value={newFieldName}
-              onChange={(e) => setNewFieldName(e.target.value)}
-              fullWidth
-              size="small"
-              placeholder="e.g. engine"
-              variant="outlined"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '8px'
-                }
-              }}
-            />
-          )}
+          </Box>       
         </DialogContent>
         <DialogActions style={{ padding: '8px 16px' }}>
           <Button onClick={() => setIsConnectionDialogOpen(false)} style={{ borderRadius: '8px', fontWeight: 800 }}>
@@ -5938,6 +6304,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             <MenuItem value="peach">Peach Cream</MenuItem>
             <MenuItem value="rose">Rose Gold</MenuItem>
             <MenuItem value="clay">Clay Slate</MenuItem>
+            <MenuItem value="kitty">Hello Kitty</MenuItem>
+            <MenuItem value="midnight">Midnight Shimmer</MenuItem>
+            <MenuItem value="custom">Custom Theme</MenuItem>
           </Select>
           <Button variant="outlined" onClick={handleDownloadPreviewPng} style={{ borderRadius: '12px', fontWeight: 800 }}>
             Download PNG

@@ -28,7 +28,7 @@ import './SettingsPage.css';
 
 
 const SettingsPage = () => {
-  const { themeMode, setThemeMode } = useTheme();
+  const { themeMode, setThemeMode, customColors, updateCustomColors } = useTheme();
   const { user, deleteAccount } = useAuth();
   const [notifications, setNotifications] = useState(true);
   const [emailUpdates, setEmailUpdates] = useState(false);
@@ -51,7 +51,29 @@ const SettingsPage = () => {
     { id: 'clay', name: 'Clay Slate', bg: '#fafafa', border: '#4b556333', text: '#111827', dot: '#4b5563' },
     { id: 'kitty', name: 'Hello Kitty', bg: '#ffebf0', border: '#ff6b8b33', text: '#4a1525', dot: '#ff6b8b' },
     { id: 'midnight', name: 'Midnight Gold', bg: '#101726', border: '#fbc02d33', text: '#ffffff', dot: '#fbc02d' },
+    { id: 'custom', name: 'Custom Theme', bg: 'var(--background-paper)', border: 'var(--divider)', text: 'var(--text-primary)', dot: 'var(--primary-main)' },
   ];
+
+  const defaultCustomColors = {
+    primaryMain: '#3D5CFF',
+    bgDefault: '#F5F7FA',
+    bgPaper: '#FFFFFF',
+    textPrimary: '#2D2D4D',
+    isDark: false
+  };
+
+  const handleColorChange = (key, value) => {
+    const updated = {
+      ...defaultCustomColors,
+      ...customColors,
+      [key]: value
+    };
+    if (key === 'primaryMain') {
+      updated.primaryDark = value;
+      updated.primaryLight = value;
+    }
+    updateCustomColors(updated);
+  };
 
   const handleDeleteAccount = () => {
     if (window.confirm('Are you sure you want to delete your account? This action is permanent.')) {
@@ -148,6 +170,99 @@ const SettingsPage = () => {
                       </Box>
                     ))}
                   </Box>
+
+                  {themeMode === 'custom' && (
+                    <Box style={{ marginTop: '24px', padding: '20px', borderRadius: '16px', border: '1px solid var(--divider)', background: 'var(--background-default)', width: '100%' }}>
+                      <Typography variant="subtitle2" style={{ fontWeight: 800, marginBottom: '16px', fontFamily: '"Outfit", sans-serif' }}>
+                        Customize Theme Colors
+                      </Typography>
+                      <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {/* Baseline Style Switch */}
+                        <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box>
+                            <Typography variant="body2" style={{ fontWeight: 700 }}>Baseline Palette Style</Typography>
+                            <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Configures baseline contrasts (secondary text, borders, etc.)</Typography>
+                          </Box>
+                          <Switch
+                            checked={!!customColors.isDark}
+                            onChange={(e) => handleColorChange('isDark', e.target.checked)}
+                            color="primary"
+                          />
+                        </Box>
+                        
+                        <Divider />
+                        
+                        {/* Grid of Color Selectors */}
+                        <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
+                          
+                          {/* Primary Color */}
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <Typography variant="caption" style={{ fontWeight: 800 }}>Primary Main Color</Typography>
+                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="color"
+                                value={customColors.primaryMain || '#3D5CFF'}
+                                onChange={(e) => handleColorChange('primaryMain', e.target.value)}
+                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
+                              />
+                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                                {customColors.primaryMain || '#3D5CFF'}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Page Background */}
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <Typography variant="caption" style={{ fontWeight: 800 }}>Page Background</Typography>
+                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="color"
+                                value={customColors.bgDefault || (customColors.isDark ? '#0F0F1E' : '#F5F7FA')}
+                                onChange={(e) => handleColorChange('bgDefault', e.target.value)}
+                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
+                              />
+                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                                {customColors.bgDefault || (customColors.isDark ? '#0F0F1E' : '#F5F7FA')}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Card Background */}
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <Typography variant="caption" style={{ fontWeight: 800 }}>Card Background</Typography>
+                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="color"
+                                value={customColors.bgPaper || (customColors.isDark ? '#1E1E2F' : '#FFFFFF')}
+                                onChange={(e) => handleColorChange('bgPaper', e.target.value)}
+                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
+                              />
+                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                                {customColors.bgPaper || (customColors.isDark ? '#1E1E2F' : '#FFFFFF')}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Text Color */}
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <Typography variant="caption" style={{ fontWeight: 800 }}>Text Color</Typography>
+                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="color"
+                                value={customColors.textPrimary || (customColors.isDark ? '#FFFFFF' : '#2D2D4D')}
+                                onChange={(e) => handleColorChange('textPrimary', e.target.value)}
+                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
+                              />
+                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                                {customColors.textPrimary || (customColors.isDark ? '#FFFFFF' : '#2D2D4D')}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
                 </ListItem>
                 <Divider />
                 <ListItem className="settings-row">
