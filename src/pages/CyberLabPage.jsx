@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert, ShieldCheck, Terminal, Database,
   Code, Globe, KeyRound, Activity, Lock, UserX, User, FileTerminal,
-  AlertTriangle, CheckCircle, Wrench
+  AlertTriangle, CheckCircle, Wrench, TerminalSquare, MonitorPlay, Key, HelpCircle
 } from 'lucide-react';
 import { Box, Typography, Button, Paper, Divider } from '@mui/material';
 import ChallengePage from './ChallengePage';
@@ -862,6 +862,10 @@ export default function CyberLabPage() {
     { id: 'base64', name: 'Base64 Visualizer', icon: <Activity size={16} /> },
     { id: 'xor', name: 'XOR Cipher', icon: <Activity size={16} /> },
     { id: 'cyberchef', name: 'CyberChef', icon: <Wrench size={16} /> },
+    { id: 'gtfobins', name: 'GTFOBins', icon: <TerminalSquare size={16} /> },
+    { id: 'revshells', name: 'Reverse Shells', icon: <MonitorPlay size={16} /> },
+    { id: 'jwt', name: 'JWT Decoder', icon: <Key size={16} /> },
+    { id: 'explainshell', name: 'ExplainShell', icon: <HelpCircle size={16} /> },
     { id: 'challenge', name: 'Google XSS Challenge', icon: <Activity size={16} /> }
   ];
 
@@ -931,11 +935,17 @@ export default function CyberLabPage() {
           {activeTab === 'rsa' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><RSAVisualizer /></div>}
           {activeTab === 'base64' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><Base64Visualizer /></div>}
           {activeTab === 'xor' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><XORVisualizer /></div>}
-          {activeTab === 'cyberchef' && (
+          {['cyberchef', 'gtfobins', 'revshells', 'jwt', 'explainshell'].includes(activeTab) && (
             <div style={{ width: '100%', height: '800px', backgroundColor: 'var(--background-paper)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--divider)' }}>
               <iframe 
-                src="https://gchq.github.io/CyberChef/" 
-                title="CyberChef" 
+                src={
+                  activeTab === 'cyberchef' ? 'https://gchq.github.io/CyberChef/' :
+                  activeTab === 'gtfobins' ? 'https://gtfobins.github.io/' :
+                  activeTab === 'revshells' ? 'https://www.revshells.com/' :
+                  activeTab === 'jwt' ? 'https://jwt.io/' :
+                  'https://explainshell.com/'
+                }
+                title={activeTab} 
                 style={{ width: '100%', height: '100%', border: 'none' }}
               />
             </div>
