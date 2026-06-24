@@ -49,7 +49,8 @@ export default function DenialOfServiceLab() {
       const client = clients.find(c => c.id === 'attacker');
       
       // If firewall is ON, the attacker hits the shield. Otherwise, hits the server directly.
-      const targetR = status === 'protected' ? shieldRadius + 15 : serverRadius + 4;
+      // We block it a bit further out to hit the outer dashed line directly.
+      const targetR = status === 'protected' ? shieldRadius + 25 : serverRadius + 4;
       const { tx, ty } = getTarget(client.cx, client.cy, targetR);
       
       const id = reqIdCounter.current++;
@@ -143,7 +144,7 @@ export default function DenialOfServiceLab() {
 
               {/* Connecting Lines */}
               {clients.map((client) => {
-                const targetR = (client.type === 'attacker' && status === 'protected') ? shieldRadius + 15 : serverRadius + 4;
+                const targetR = (client.type === 'attacker' && status === 'protected') ? shieldRadius + 25 : serverRadius + 4;
                 const { tx, ty } = getTarget(client.cx, client.cy, targetR);
                 const isAttacker = client.type === 'attacker';
 
@@ -161,13 +162,13 @@ export default function DenialOfServiceLab() {
               })}
 
               {/* IP Block Shield (Active during protected status) */}
-              <g style={{ transition: 'all 0.5s', opacity: status === 'protected' ? 1 : 0, transform: status === 'protected' ? 'scale(1)' : 'scale(0.95)', transformOrigin: 'center' }}>
+              <g style={{ transition: 'all 0.5s', opacity: status === 'protected' ? 1 : 0, transform: status === 'protected' ? 'scale(1)' : 'scale(0.95)', transformOrigin: `${serverX}px ${serverY}px` }}>
                 {/* Aura Arc */}
                 <path 
                   d={`M ${serverX} ${serverY - shieldRadius - 10} A ${shieldRadius} ${shieldRadius} 0 0 0 ${serverX} ${serverY + shieldRadius + 10}`} 
                   fill="none" 
                   stroke="var(--success-main)" 
-                  strokeWidth="24" 
+                  strokeWidth="20" 
                   strokeOpacity="0.15"
                   strokeLinecap="round"
                 />
@@ -176,7 +177,7 @@ export default function DenialOfServiceLab() {
                   d={`M ${serverX} ${serverY - shieldRadius - 10} A ${shieldRadius} ${shieldRadius} 0 0 0 ${serverX} ${serverY + shieldRadius + 10}`} 
                   fill="none" 
                   stroke="var(--success-main)" 
-                  strokeWidth="4" 
+                  strokeWidth="2" 
                   strokeLinecap="round"
                 />
                 {/* Dashed outer arc (to look more like DDoS) */}
@@ -185,10 +186,27 @@ export default function DenialOfServiceLab() {
                   fill="none" 
                   stroke="var(--success-main)" 
                   strokeWidth="2" 
-                  strokeDasharray="10 8"
+                  strokeDasharray="12 8"
                   strokeLinecap="round"
+                  className="fw-arc-spin"
                 />
-                <text x={serverX - shieldRadius + 5} y={serverY - shieldRadius - 30} fill="var(--success-main)" fontSize="12" fontWeight="bold" textAnchor="middle">
+                {/* Nodes on the arc */}
+                {Array.from({ length: 5 }).map((_, i) => {
+                  const angle = Math.PI - (Math.PI / 4) + (i * (Math.PI / 8));
+                  const r = shieldRadius;
+                  return (
+                    <circle 
+                      key={`arc-node-${i}`} 
+                      cx={serverX + r * Math.cos(angle)} 
+                      cy={serverY + r * Math.sin(angle)} 
+                      r="2.5" 
+                      fill="var(--success-main)" 
+                      className="fw-pulse" 
+                      style={{ animationDelay: `${(i % 4) * 0.5}s` }}
+                    />
+                  );
+                })}
+                <text x={serverX - shieldRadius + 10} y={serverY + shieldRadius + 40} fill="var(--success-main)" fontSize="12" fontWeight="bold" textAnchor="middle">
                   IP FILTER
                 </text>
               </g>
@@ -251,21 +269,23 @@ export default function DenialOfServiceLab() {
               {clients.map(client => (
                 <g key={client.id}>
                   {client.type === 'attacker' ? (
-                    <g transform={`translate(${client.cx - 20}, ${client.cy - 15})`}>
-                      <rect width="40" height="25" rx="3" fill="var(--background-paper)" stroke="var(--danger-main)" strokeWidth="2.5" />
-                      <line x1="8" y1="25" x2="8" y2="30" stroke="var(--danger-main)" strokeWidth="2" />
-                      <line x1="32" y1="25" x2="32" y2="30" stroke="var(--danger-main)" strokeWidth="2" />
-                      <line x1="4" y1="30" x2="36" y2="30" stroke="var(--danger-main)" strokeWidth="4" strokeLinecap="round" />
-                      <text x="20" y="16" fill="var(--danger-main)" fontSize="10" fontWeight="bold" textAnchor="middle" letterSpacing="2">X X</text>
-                      <path d="M 15 20 Q 20 15 25 20" fill="none" stroke="var(--danger-main)" strokeWidth="2" />
-                      <text x="20" y="45" fill="var(--danger-main)" fontSize="12" fontWeight="bold" textAnchor="middle">ATTACKER</text>
+                    <g transform={`translate(${client.cx}, ${client.cy}) scale(0.95)`}>
+                      <rect x="-14" y="-11" width="28" height="18" rx="2" fill="var(--background-paper)" stroke="var(--danger-main)" strokeWidth="2.5" />
+                      <path d="M-8 -6 L-4 -2 M-4 -6 L-8 -2" stroke="var(--danger-main)" strokeWidth="1.5" strokeLinecap="round" />
+                      <path d="M4 -6 L8 -2 M8 -6 L4 -2" stroke="var(--danger-main)" strokeWidth="1.5" strokeLinecap="round" />
+                      <path d="M-6 4 L-3 2 L0 4 L3 2 L6 4" fill="none" stroke="var(--danger-main)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M-18 11 L18 11" stroke="var(--danger-main)" strokeWidth="2.5" strokeLinecap="round" />
+                      <line x1="-5" y1="7" x2="-5" y2="11" stroke="var(--danger-main)" strokeWidth="2.5" />
+                      <line x1="5" y1="7" x2="5" y2="11" stroke="var(--danger-main)" strokeWidth="2.5" />
+                      <text x="0" y="28" fill="var(--danger-main)" fontSize="11" fontWeight="bold" textAnchor="middle">ATTACKER</text>
                     </g>
                   ) : (
-                    <g transform={`translate(${client.cx - 15}, ${client.cy - 12})`}>
-                      <rect width="30" height="20" rx="2" fill="var(--background-paper)" stroke="var(--text-primary)" strokeWidth="2.5" />
-                      <line x1="15" y1="20" x2="15" y2="25" stroke="var(--text-primary)" strokeWidth="2.5" />
-                      <line x1="5" y1="25" x2="25" y2="25" stroke="var(--text-primary)" strokeWidth="3" strokeLinecap="round" />
-                      <text x="15" y="40" fill="var(--text-primary)" fontSize="10" fontWeight="bold" textAnchor="middle">USER</text>
+                    <g transform={`translate(${client.cx}, ${client.cy}) scale(0.95)`}>
+                      <rect x="-14" y="-11" width="28" height="18" rx="2" fill="var(--background-paper)" stroke="var(--text-primary)" strokeWidth="2.5" />
+                      <path d="M-18 11 L18 11" stroke="var(--text-primary)" strokeWidth="2.5" strokeLinecap="round" />
+                      <line x1="-5" y1="7" x2="-5" y2="11" stroke="var(--text-primary)" strokeWidth="2.5" />
+                      <line x1="5" y1="7" x2="5" y2="11" stroke="var(--text-primary)" strokeWidth="2.5" />
+                      <text x="0" y="28" fill="var(--text-primary)" fontSize="11" fontWeight="bold" textAnchor="middle">USER</text>
                     </g>
                   )}
                 </g>
