@@ -482,6 +482,7 @@ const translateJavaToJsAsync = (javaCode) => {
 
   const types = [
     'int', 'double', 'float', 'boolean', 'char', 'String', 'auto', 
+    'Integer', 'Double', 'Float', 'Long', 'Short', 'Byte', 'Character', 'Boolean',
     'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Object',
     'Shape', 'Circle', 'Rectangle', 'Employee', 'Contractor', 'Appliance', 
     'WashingMachine', 'Refrigerator', 'Product', 'Payable', 'BankAccount', 'Scanner'
@@ -606,19 +607,46 @@ const translateJavaToJsAsync = (javaCode) => {
 
     const castTo = (obj, cls) => {
       if (obj === null || obj === undefined) return obj;
-      if (cls === String) {
+      
+      const clsName = typeof cls === 'function' ? cls.name : String(cls);
+
+      if (clsName === 'Integer' || clsName === 'Double' || clsName === 'Float' || 
+          clsName === 'Long' || clsName === 'Short' || clsName === 'Byte' || 
+          clsName === 'int' || clsName === 'double' || clsName === 'float' ||
+          clsName === 'long' || clsName === 'short' || clsName === 'byte') {
+        if (typeof obj !== 'number' && !(obj instanceof Number)) {
+          throw new ClassCastException("Tried to convert an object to an incompatible type.");
+        }
+        return obj;
+      }
+      if (clsName === 'Boolean' || clsName === 'boolean') {
+        if (typeof obj !== 'boolean' && !(obj instanceof Boolean)) {
+          throw new ClassCastException("Tried to convert an object to an incompatible type.");
+        }
+        return obj;
+      }
+      if (clsName === 'Character' || clsName === 'char') {
+        if ((typeof obj !== 'string' && !(obj instanceof String)) || String(obj).length !== 1) {
+          throw new ClassCastException("Tried to convert an object to an incompatible type.");
+        }
+        return obj;
+      }
+      if (clsName === 'String') {
         if (typeof obj !== 'string' && !(obj instanceof String)) {
           throw new ClassCastException("Tried to convert an object to an incompatible type.");
         }
         return obj;
       }
-      if (cls === Object) {
+      if (clsName === 'Object') {
         return obj;
       }
+      
       if (typeof cls === 'function') {
         if (!(obj instanceof cls)) {
           throw new ClassCastException("Tried to convert an object to an incompatible type.");
         }
+      } else {
+        throw new ClassCastException("Tried to convert an object to an incompatible type.");
       }
       return obj;
     };
@@ -700,25 +728,29 @@ const translateJavaToJsAsync = (javaCode) => {
       return String(token);
     };
 
-    const Integer = {
-      parseInt(str) {
+    class Float {}
+    class Long {}
+    class Short {}
+    class Byte {}
+    class Character {}
+    class Integer {
+      static parseInt(str) {
         const s = String(str).trim();
         if (!/^-?\\d+$/.test(s)) {
           throw new NumberFormatException("Failed to convert a string into a number because the format is invalid.");
         }
         return parseInt(s, 10);
       }
-    };
-
-    const Double = {
-      parseDouble(str) {
+    }
+    class Double {
+      static parseDouble(str) {
         const s = String(str).trim();
         if (s === "" || isNaN(Number(s))) {
           throw new NumberFormatException("Failed to convert a string into a number because the format is invalid.");
         }
         return parseFloat(s);
       }
-    };
+    }
 
     if (!String.prototype._originalCharAt) {
       String.prototype._originalCharAt = String.prototype.charAt;
