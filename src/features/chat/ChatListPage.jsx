@@ -11,65 +11,95 @@ import {
   Badge,
   TextField,
   InputAdornment,
+  Tabs,
+  Tab,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  Divider
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Forum as ForumIcon,
+  Group as GroupIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { socialStore } from '../../data/socialStore';
 import './Chat.css';
 
 const ChatListPage = () => {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState(0); // 0 = Direct Messages, 1 = Groups
   const [searchQuery, setSearchQuery] = useState('');
   const [allUsers, setAllUsers] = useState([]);
   const [lastMessages, setLastMessages] = useState({});
   const [loading, setLoading] = useState(true);
+  
+  // Group state
+  const [groups, setGroups] = useState([]);
+  const [openCreateGroup, setOpenCreateGroup] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupDescription, setGroupDescription] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState([]); // array of userIds
+  
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchUsersAndConversations = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+  const loadSocialData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-        // 1. Fetch all users from the backend
-        const usersRes = await fetch('/users', { headers });
-        if (!usersRes.ok) throw new Error('Failed to fetch users');
-        const usersList = await usersRes.json();
+      // 1. Fetch all users from the backend
+      const usersRes = await fetch('/users', { headers });
+      if (!usersRes.ok) throw new Error('Failed to fetch users');
+      const usersList = await usersRes.json();
 
-        // 2. Fetch all active conversations for the current user
-        const convRes = await fetch(`/api/chat/user/${user.id}/conversations`, { headers });
-        let conversations = [];
-        if (convRes.ok) {
-          conversations = await convRes.json();
-        }
-
-        const msgPreviews = {};
-        conversations.forEach(c => {
-          const otherId = c.userId1 === user.id ? c.userId2 : c.userId1;
-          if (c.lastMessage) {
-            msgPreviews[otherId] = c.lastMessage.senderId === user.id
-              ? `You: ${c.lastMessage.message}`
-              : c.lastMessage.message;
-          }
-        });
-
-        // Exclude current user
-        const filteredUsers = usersList.filter(u => u.id !== user.id);
-
-        setAllUsers(filteredUsers);
-        setLastMessages(msgPreviews);
-      } catch (err) {
-        console.error('Failed to load chat data:', err);
-      } finally {
-        setLoading(false);
+      // 2. Fetch all active conversations for the current user (for DM last messages)
+      const convRes = await fetch(`/api/chat/user/${user.id}/conversations`, { headers });
+      let conversations = [];
+      if (convRes.ok) {
+        conversations = await convRes.json();
       }
-    };
 
+      const msgPreviews = {};
+      conversations.forEach(c => {
+        const otherId = c.userId1 === user.id ? c.userId2 : c.userId1;
+        if (c.lastMessage) {
+          msgPreviews[otherId] = c.lastMessage.senderId === user.id
+            ? `You: ${c.lastMessage.message}`
+            : c.lastMessage.message;
+        }
+      });
+
+      // Exclude current user
+      const filteredUsers = usersList.filter(u => u.id !== user.id);
+
+      setAllUsers(filteredUsers);
+      setLastMessages(msgPreviews);
+
+      // 3. Fetch groups from our local store
+      if (user?.id) {
+        const joinedGroups = await socialStore.getGroups(user.id);
+        setGroups(joinedGroups);
+      }
+    } catch (err) {
+      console.error('Failed to load chat data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (user?.id) {
-      fetchUsersAndConversations();
+      loadSocialData();
     }
   }, [user]);
 
@@ -80,8 +110,14 @@ const ChatListPage = () => {
     });
   }, [allUsers, searchQuery]);
 
+  const filteredGroupsList = useMemo(() => {
+    return groups.filter(g => {
+      const name = (g.name || '').toLowerCase();
+      return name.includes(searchQuery.toLowerCase());
+    });
+  }, [groups, searchQuery]);
+
   const handleUserClick = (targetUser) => {
-    // Map backend user properties to the format expected by ChatPage
     const normalizedTarget = {
       id: targetUser.id,
       name: targetUser.fullname || targetUser.name || targetUser.username,
@@ -91,18 +127,89 @@ const ChatListPage = () => {
     navigate(`/chat/${targetUser.id}`, { state: { targetUser: normalizedTarget } });
   };
 
+  const handleGroupClick = (group) => {
+    navigate(`/group/${group.id}`, { state: { group } });
+  };
+
   const getLastMessage = (otherId) => {
     return lastMessages[otherId] || "Start a conversation...";
+  };
+
+  const handleCreateGroupSubmit = async () => {
+    if (!groupName.trim()) return;
+    
+    // Call our local store to write the new group
+    const creatorName = user.fullname || user.name || user.username || "You";
+    await socialStore.createGroup(
+      groupName,
+      groupDescription,
+      selectedMembers,
+      user.id,
+      creatorName
+    );
+
+    // Reset fields & reload groups
+    setGroupName('');
+    setGroupDescription('');
+    setSelectedMembers([]);
+    setOpenCreateGroup(false);
+    
+    // Reload local state
+    const joinedGroups = await socialStore.getGroups(user.id);
+    setGroups(joinedGroups);
+  };
+
+  const toggleSelectMember = (userId) => {
+    setSelectedMembers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId) 
+        : [...prev, userId]
+    );
   };
 
   return (
     <Box className="chat-list-container">
       <Paper className="chat-list-card glass-panel-strong">
-        <Box className="chat-list-header-new">
-          <Box className="chat-search-wrapper">
+        
+        {/* Navigation Tabs */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Tabs 
+            value={activeTab} 
+            onChange={(e, val) => {
+              setActiveTab(val);
+              setSearchQuery('');
+            }}
+            textColor="primary"
+            indicatorColor="primary"
+          >
+            <Tab label="Direct Messages" icon={<ForumIcon sx={{ fontSize: 18 }} />} iconPosition="start" sx={{ minHeight: 48 }} />
+            <Tab label="Group Chats" icon={<GroupIcon sx={{ fontSize: 18 }} />} iconPosition="start" sx={{ minHeight: 48 }} />
+          </Tabs>
+
+          {activeTab === 1 && (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => setOpenCreateGroup(true)}
+              sx={{
+                borderRadius: 4,
+                textTransform: 'none',
+                boxShadow: '0 4px 14px rgba(61, 92, 255, 0.25)',
+                fontWeight: 600
+              }}
+            >
+              Create Group
+            </Button>
+          )}
+        </Box>
+
+        {/* Search Bar */}
+        <Box className="chat-list-header-new" sx={{ borderBottom: 'none' }}>
+          <Box className="chat-search-wrapper" sx={{ mt: 1 }}>
             <TextField
               fullWidth
-              placeholder="Search learners..."
+              placeholder={activeTab === 0 ? "Search learners..." : "Search groups..."}
               variant="outlined"
               size="small"
               value={searchQuery}
@@ -120,68 +227,207 @@ const ChatListPage = () => {
           </Box>
         </Box>
 
-        <List className="chat-list">
+        {/* Feed List */}
+        <List className="chat-list" sx={{ pt: 0 }}>
           {loading ? (
             <Box className="chat-empty-state">
-              <Typography variant="body2">Loading conversations...</Typography>
+              <Typography variant="body2">Loading chats...</Typography>
             </Box>
-          ) : filteredUsersList.length > 0 ? (
-            filteredUsersList.map((otherUser) => {
-              const userAvatar = localStorage.getItem(`avatar_${otherUser.id}`) || otherUser.avatar || '';
-              const displayName = otherUser.fullname || otherUser.name || otherUser.username || '?';
-              const initials = displayName.charAt(0).toUpperCase();
+          ) : activeTab === 0 ? (
+            /* DIRECT MESSAGES LIST */
+            filteredUsersList.length > 0 ? (
+              filteredUsersList.map((otherUser) => {
+                const userAvatar = localStorage.getItem(`avatar_${otherUser.id}`) || otherUser.avatar || '';
+                const displayName = otherUser.fullname || otherUser.name || otherUser.username || '?';
+                const initials = displayName.charAt(0).toUpperCase();
 
-              return (
-                <ListItemButton 
-                  key={otherUser.id} 
-                  onClick={() => handleUserClick(otherUser)}
-                  className="chat-list-item-new"
-                >
-                  <ListItemAvatar>
-                    <Badge 
-                      overlap="circular" 
-                      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                      variant="dot"
-                      color="success"
-                      className="status-badge"
-                    >
-                      <Avatar 
-                        src={userAvatar} 
-                        className="chat-avatar"
-                        sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 'bold' }}
+                return (
+                  <ListItemButton 
+                    key={otherUser.id} 
+                    onClick={() => handleUserClick(otherUser)}
+                    className="chat-list-item-new"
+                  >
+                    <ListItemAvatar>
+                      <Badge 
+                        overlap="circular" 
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                        variant="dot"
+                        color="success"
+                        className="status-badge"
                       >
-                        {!userAvatar && initials}
-                      </Avatar>
-                    </Badge>
-                  </ListItemAvatar>
-                <ListItemText 
-                  primary={
-                    <Box className="chat-item-header">
-                      <Typography className="chat-item-name">
-                        {otherUser.fullname || otherUser.name || otherUser.username}
-                      </Typography>
-                      <Typography variant="caption" className="chat-item-time">Active</Typography>
-                    </Box>
-                  } 
-                  secondary={getLastMessage(otherUser.id)} 
-                  primaryTypographyProps={{ component: 'div' }}
-                  secondaryTypographyProps={{ 
-                    className: 'chat-item-preview',
-                    noWrap: true 
-                  }}
-                />
-              </ListItemButton>
-              );
-            })
+                        <Avatar 
+                          src={userAvatar} 
+                          className="chat-avatar"
+                          sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 'bold' }}
+                        >
+                          {!userAvatar && initials}
+                        </Avatar>
+                      </Badge>
+                    </ListItemAvatar>
+                    <ListItemText 
+                      primary={
+                        <Box className="chat-item-header">
+                          <Typography className="chat-item-name">
+                            {displayName}
+                          </Typography>
+                          <Typography variant="caption" className="chat-item-time">Active</Typography>
+                        </Box>
+                      } 
+                      secondary={getLastMessage(otherUser.id)} 
+                      primaryTypographyProps={{ component: 'div' }}
+                      secondaryTypographyProps={{ 
+                        className: 'chat-item-preview',
+                        noWrap: true 
+                      }}
+                    />
+                  </ListItemButton>
+                );
+              })
+            ) : (
+              <Box className="chat-empty-state">
+                <ForumIcon sx={{ fontSize: 64, opacity: 0.1, mb: 2 }} />
+                <Typography variant="h6">No learners found</Typography>
+                <Typography variant="body2">Find a peer and start sharing knowledge!</Typography>
+              </Box>
+            )
           ) : (
-            <Box className="chat-empty-state">
-              <ForumIcon sx={{ fontSize: 64, opacity: 0.1, mb: 2 }} />
-              <Typography variant="h6">No learners found</Typography>
-              <Typography variant="body2">Find a peer and start sharing knowledge!</Typography>
-            </Box>
+            /* GROUPS LIST */
+            filteredGroupsList.length > 0 ? (
+              filteredGroupsList.map((group) => {
+                const displayName = group.name || '?';
+                const initials = displayName.substring(0, 2).toUpperCase();
+                const lastMsgText = group.lastMessage 
+                  ? `${group.lastMessage.senderId === user.id ? 'You: ' : ''}${group.lastMessage.text}`
+                  : "No messages yet...";
+
+                return (
+                  <ListItemButton 
+                    key={group.id} 
+                    onClick={() => handleGroupClick(group)}
+                    className="chat-list-item-new"
+                  >
+                    <ListItemAvatar>
+                      <Avatar 
+                        src={group.avatar} 
+                        className="chat-avatar"
+                        sx={{ bgcolor: 'primary.light', color: 'white', fontWeight: 'bold', borderRadius: 4 }}
+                      >
+                        {!group.avatar && initials}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText 
+                      primary={
+                        <Box className="chat-item-header">
+                          <Typography className="chat-item-name">
+                            {displayName}
+                          </Typography>
+                          <Typography variant="caption" className="chat-item-time" sx={{ bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 2, fontSize: '0.7rem' }}>
+                            {group.members.length} members
+                          </Typography>
+                        </Box>
+                      } 
+                      secondary={lastMsgText} 
+                      primaryTypographyProps={{ component: 'div' }}
+                      secondaryTypographyProps={{ 
+                        className: 'chat-item-preview',
+                        noWrap: true 
+                      }}
+                    />
+                  </ListItemButton>
+                );
+              })
+            ) : (
+              <Box className="chat-empty-state">
+                <GroupIcon sx={{ fontSize: 64, opacity: 0.1, mb: 2 }} />
+                <Typography variant="h6">No groups joined</Typography>
+                <Typography variant="body2">Create a new group and invite your learning squad!</Typography>
+              </Box>
+            )
           )}
         </List>
       </Paper>
+
+      {/* CREATE GROUP DIALOG */}
+      <Dialog 
+        open={openCreateGroup} 
+        onClose={() => setOpenCreateGroup(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 4, bgcolor: 'background.paper' }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Create New Group</DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Group Name"
+              placeholder="e.g. UML Study Group"
+              fullWidth
+              size="small"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              required
+            />
+            <TextField
+              label="Description"
+              placeholder="What is this group about?"
+              fullWidth
+              multiline
+              rows={2}
+              size="small"
+              value={groupDescription}
+              onChange={(e) => setGroupDescription(e.target.value)}
+            />
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mt: 1 }}>
+              Select Members
+            </Typography>
+            <Divider />
+
+            <FormGroup sx={{ maxHeight: 200, overflowY: 'auto', pr: 1 }}>
+              {allUsers.map((learner) => (
+                <FormControlLabel
+                  key={learner.id}
+                  control={
+                    <Checkbox 
+                      checked={selectedMembers.includes(learner.id)} 
+                      onChange={() => toggleSelectMember(learner.id)}
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Avatar 
+                        src={localStorage.getItem(`avatar_${learner.id}`) || learner.avatar} 
+                        sx={{ width: 24, height: 24, fontSize: '0.75rem' }}
+                      >
+                        {(learner.fullname || learner.name || learner.username).charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Typography variant="body2">
+                        {learner.fullname || learner.name || learner.username}
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{ py: 0.5, borderBottom: '1px solid rgba(0,0,0,0.02)' }}
+                />
+              ))}
+            </FormGroup>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenCreateGroup(false)} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCreateGroupSubmit} 
+            variant="contained" 
+            disabled={!groupName.trim()}
+            sx={{ textTransform: 'none', borderRadius: 2 }}
+          >
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -29,6 +29,7 @@ import {
   Code as CodeIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  Groups as GroupsIcon,
 } from '@mui/icons-material';
 
 
@@ -47,6 +48,10 @@ import ChatListPage from '../features/chat/ChatListPage';
 import ChatPage from '../features/chat/ChatPage';
 import CodeEditorPage from '../features/editor/CodeEditorPage';
 import CyberLabPage from './CyberLabPage';
+import GroupChatPage from '../features/chat/GroupChatPage';
+import CommunityListPage from '../features/community/CommunityListPage';
+import CommunityDetailPage from '../features/community/CommunityDetailPage';
+import QuestionDetailPage from '../features/community/QuestionDetailPage';
 
 
 import { useNavigate, Routes, Route, useLocation, Navigate } from 'react-router-dom';
@@ -90,6 +95,7 @@ const NavigationPage = () => {
     { label: 'Achievements', path: '/achievements', icon: <EmojiEventsIcon /> },
     { label: 'HTML Editor', path: '/editor', icon: <CodeIcon /> },
     { label: 'Chats', path: '/chats', icon: <ChatIcon /> },
+    { label: 'Communities', path: '/communities', icon: <GroupsIcon /> },
     { label: 'Profile', path: '/profile', icon: <PersonIcon /> },
     { label: 'Settings', path: '/settings', icon: <SettingsIcon /> },
   ];
@@ -103,6 +109,7 @@ const NavigationPage = () => {
     '/achievements': 'Your Achievements',
     '/editor': 'HTML Playground',
     '/chats': 'Messages',
+    '/communities': 'Learning Communities',
     '/profile': 'Your Profile',
     '/settings': 'Settings',
   };
@@ -116,6 +123,7 @@ const NavigationPage = () => {
     '/achievements': 'Monitor trophies, streaks, and progression signals.',
     '/editor': 'Experiment with HTML, CSS, and JS in a live environment.',
     '/chats': 'Connect with other learners and share your insights.',
+    '/communities': 'Join public rooms, share code snippets, and debate logic.',
     '/profile': 'Review your public learner profile and progress footprint.',
     '/settings': 'Tune the interface and account behavior to your workflow.',
   };
@@ -397,6 +405,20 @@ const NavigationPage = () => {
       };
     }
 
+    if (path.startsWith('/group/')) {
+      return {
+        title: 'Group Chat',
+        description: 'Collaborate with your learning squad.'
+      };
+    }
+
+    if (path.startsWith('/communities')) {
+      return {
+        title: 'Learning Communities',
+        description: 'Join community channels, ask questions, and share knowledge.'
+      };
+    }
+
     if (path === '/philosophy-lab') {
       return {
         title: 'Fallacy Matcher',
@@ -425,6 +447,8 @@ const NavigationPage = () => {
     location.pathname.startsWith('/learning') ||
     location.pathname.startsWith('/quiz') ||
     location.pathname.startsWith('/chat/') ||
+    location.pathname.startsWith('/group/') ||
+    location.pathname.startsWith('/communities/') ||
     location.pathname.startsWith('/philosophy-lab') ||
     location.pathname.startsWith('/cyber-lab') ||
     location.pathname.startsWith('/challenge');
@@ -516,6 +540,11 @@ const NavigationPage = () => {
 
 
               <Route path="/chat/:userId" element={<AnimatedPage><ChatPage /></AnimatedPage>} />
+              <Route path="/group/:groupId" element={<AnimatedPage><GroupChatPage /></AnimatedPage>} />
+              <Route path="/communities" element={<AnimatedPage><CommunityListPage /></AnimatedPage>} />
+              <Route path="/communities/:communityId" element={<AnimatedPage><CommunityDetailPage /></AnimatedPage>} />
+              <Route path="/communities/:communityId/room/:roomId" element={<AnimatedPage><CommunityDetailPage /></AnimatedPage>} />
+              <Route path="/communities/:communityId/room/:roomId/question/:questionId" element={<AnimatedPage><QuestionDetailPage /></AnimatedPage>} />
               <Route path="/settings" element={<AnimatedPage><SettingsPage /></AnimatedPage>} />
 
               <Route path="/course/:courseId" element={<AnimatedPage><CourseDetailPage /></AnimatedPage>} />
