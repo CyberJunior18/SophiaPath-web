@@ -14,6 +14,9 @@ import VigenereCipherExplorer from './VigenereCipherExplorer';
 import RSAVisualizer from './RSAVisualizer';
 import Base64Visualizer from './Base64Visualizer';
 import XORVisualizer from './XORVisualizer';
+import RansomwareLab from './RansomwareLab';
+import SocialEngineeringLab from './SocialEngineeringLab';
+import InsiderThreatLab from './InsiderThreatLab';
 import './CyberLabPage.css';
 
 // Explanation box
@@ -853,6 +856,9 @@ export default function CyberLabPage() {
     { id: 'cmd', name: 'Command Injection', icon: <Terminal size={16} /> },
     { id: 'csrf', name: 'CSRF Lab', icon: <Globe size={16} /> },
     { id: 'auth', name: 'Access Control', icon: <KeyRound size={16} /> },
+    { id: 'ransomware', name: 'Ransomware', icon: <Lock size={16} /> },
+    { id: 'social', name: 'Social Engineering', icon: <User size={16} /> },
+    { id: 'insider', name: 'Insider Threat', icon: <UserX size={16} /> },
     { id: 'dos', name: 'DoS Lab', icon: <Activity size={16} /> },
     { id: 'ddos', name: 'DDoS Lab', icon: <Activity size={16} /> },
     { id: 'caesar', name: 'Caesar Cipher', icon: <Lock size={16} /> },
@@ -927,6 +933,9 @@ export default function CyberLabPage() {
           {activeTab === 'cmd' && <CommandInjectionLab isSecure={isSecure} />}
           {activeTab === 'csrf' && <CSRFLab isSecure={isSecure} showAlert={showAlert} />}
           {activeTab === 'auth' && <AccessControlLab isSecure={isSecure} />}
+          {activeTab === 'ransomware' && <RansomwareLab />}
+          {activeTab === 'social' && <SocialEngineeringLab />}
+          {activeTab === 'insider' && <InsiderThreatLab />}
           {activeTab === 'dos' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><DenialOfServiceLab /></div>}
           {activeTab === 'ddos' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><DistributedDenialOfServiceLab /></div>}
           {activeTab === 'caesar' && <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}><CaesarCipherExplorer /></div>}
