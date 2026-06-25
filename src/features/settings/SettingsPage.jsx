@@ -51,15 +51,27 @@ const SettingsPage = () => {
     { id: 'clay', name: 'Clay Slate', bg: '#fafafa', border: '#4b556333', text: '#111827', dot: '#4b5563' },
     { id: 'kitty', name: 'Hello Kitty', bg: '#ffebf0', border: '#ff6b8b33', text: '#4a1525', dot: '#ff6b8b' },
     { id: 'midnight', name: 'Midnight Gold', bg: '#101726', border: '#fbc02d33', text: '#ffffff', dot: '#fbc02d' },
-    { id: 'custom', name: 'Custom Theme', bg: 'var(--background-paper)', border: 'var(--divider)', text: 'var(--text-primary)', dot: 'var(--primary-main)' },
+    {
+      id: 'custom',
+      name: 'Custom Theme',
+      bg: customColors?.bgPaper || '#FFFFFF',
+      border: 'rgba(0,0,0,0.12)',
+      text: customColors?.textPrimary || '#2D2D4D',
+      dot: customColors?.primaryMain || '#3D5CFF'
+    },
   ];
 
   const defaultCustomColors = {
     primaryMain: '#3D5CFF',
+    primaryDark: '#2E49D1',
+    primaryLight: '#7C8DFF',
     bgDefault: '#F5F7FA',
     bgPaper: '#FFFFFF',
+    bgPaperAlt: '#F0F4F8',
     textPrimary: '#2D2D4D',
-    isDark: false
+    textSecondary: '#64748b',
+    divider: '#3d5cff15',
+    codeBg: '#f8f9fa'
   };
 
   const handleColorChange = (key, value) => {
@@ -177,20 +189,6 @@ const SettingsPage = () => {
                         Customize Theme Colors
                       </Typography>
                       <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {/* Baseline Style Switch */}
-                        <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Box>
-                            <Typography variant="body2" style={{ fontWeight: 700 }}>Baseline Palette Style</Typography>
-                            <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Configures baseline contrasts (secondary text, borders, etc.)</Typography>
-                          </Box>
-                          <Switch
-                            checked={!!customColors.isDark}
-                            onChange={(e) => handleColorChange('isDark', e.target.checked)}
-                            color="primary"
-                          />
-                        </Box>
-                        
-                        <Divider />
                         
                         {/* Grid of Color Selectors */}
                         <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
@@ -217,12 +215,12 @@ const SettingsPage = () => {
                             <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <input
                                 type="color"
-                                value={customColors.bgDefault || (customColors.isDark ? '#0F0F1E' : '#F5F7FA')}
+                                value={customColors.bgDefault || '#F5F7FA'}
                                 onChange={(e) => handleColorChange('bgDefault', e.target.value)}
                                 style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
                               />
                               <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                {customColors.bgDefault || (customColors.isDark ? '#0F0F1E' : '#F5F7FA')}
+                                {customColors.bgDefault || '#F5F7FA'}
                               </Typography>
                             </Box>
                           </Box>
@@ -233,12 +231,28 @@ const SettingsPage = () => {
                             <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <input
                                 type="color"
-                                value={customColors.bgPaper || (customColors.isDark ? '#1E1E2F' : '#FFFFFF')}
+                                value={customColors.bgPaper || '#FFFFFF'}
                                 onChange={(e) => handleColorChange('bgPaper', e.target.value)}
                                 style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
                               />
                               <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                {customColors.bgPaper || (customColors.isDark ? '#1E1E2F' : '#FFFFFF')}
+                                {customColors.bgPaper || '#FFFFFF'}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Nested Card Background */}
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <Typography variant="caption" style={{ fontWeight: 800 }}>Nested Card Background</Typography>
+                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="color"
+                                value={customColors.bgPaperAlt || '#F0F4F8'}
+                                onChange={(e) => handleColorChange('bgPaperAlt', e.target.value)}
+                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
+                              />
+                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                                {customColors.bgPaperAlt || '#F0F4F8'}
                               </Typography>
                             </Box>
                           </Box>
@@ -249,12 +263,60 @@ const SettingsPage = () => {
                             <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <input
                                 type="color"
-                                value={customColors.textPrimary || (customColors.isDark ? '#FFFFFF' : '#2D2D4D')}
+                                value={customColors.textPrimary || '#2D2D4D'}
                                 onChange={(e) => handleColorChange('textPrimary', e.target.value)}
                                 style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
                               />
                               <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                {customColors.textPrimary || (customColors.isDark ? '#FFFFFF' : '#2D2D4D')}
+                                {customColors.textPrimary || '#2D2D4D'}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Secondary Text Color */}
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <Typography variant="caption" style={{ fontWeight: 800 }}>Secondary Text Color</Typography>
+                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="color"
+                                value={customColors.textSecondary || '#64748b'}
+                                onChange={(e) => handleColorChange('textSecondary', e.target.value)}
+                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
+                              />
+                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                                {customColors.textSecondary || '#64748b'}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Border & Divider Color */}
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <Typography variant="caption" style={{ fontWeight: 800 }}>Border & Divider Color</Typography>
+                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="color"
+                                value={customColors.divider || '#3d5cff15'}
+                                onChange={(e) => handleColorChange('divider', e.target.value)}
+                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
+                              />
+                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                                {customColors.divider || '#3d5cff15'}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Code Editor Background */}
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <Typography variant="caption" style={{ fontWeight: 800 }}>Code Editor Background</Typography>
+                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="color"
+                                value={customColors.codeBg || '#f8f9fa'}
+                                onChange={(e) => handleColorChange('codeBg', e.target.value)}
+                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
+                              />
+                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                                {customColors.codeBg || '#f8f9fa'}
                               </Typography>
                             </Box>
                           </Box>

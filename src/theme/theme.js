@@ -1,5 +1,24 @@
 import { alpha, createTheme } from '@mui/material/styles';
 
+const isColorDark = (hexColor) => {
+  if (!hexColor) return false;
+  const cleanHex = hexColor.replace('#', '');
+  let r, g, b;
+  if (cleanHex.length === 3) {
+    r = parseInt(cleanHex[0].repeat(2), 16);
+    g = parseInt(cleanHex[1].repeat(2), 16);
+    b = parseInt(cleanHex[2].repeat(2), 16);
+  } else if (cleanHex.length === 6) {
+    r = parseInt(cleanHex.substring(0, 2), 16);
+    g = parseInt(cleanHex.substring(2, 4), 16);
+    b = parseInt(cleanHex.substring(4, 6), 16);
+  } else {
+    return false;
+  }
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq < 128;
+};
+
 const baseColors = {
   primary: '#3D5CFF',
   primaryDark: '#2E49D1',
@@ -30,13 +49,15 @@ const buildTheme = (mode) => {
   if (mode === 'custom') {
     try {
       const custom = JSON.parse(localStorage.getItem('customThemeColors') || '{}');
-      isDark = !!custom.isDark;
+      bgDefault = custom.bgDefault || '#F5F7FA';
+      isDark = isColorDark(bgDefault);
       primaryMain = custom.primaryMain || '#3D5CFF';
       primaryDark = custom.primaryDark || '#2E49D1';
       primaryLight = custom.primaryLight || '#7C8DFF';
-      bgDefault = custom.bgDefault || (isDark ? '#0F0F1E' : '#F5F7FA');
       bgPaper = custom.bgPaper || (isDark ? '#1E1E2F' : '#FFFFFF');
       textPrimary = custom.textPrimary || (isDark ? '#FFFFFF' : '#2D2D4D');
+      textSecondary = custom.textSecondary || (isDark ? 'rgba(255, 255, 255, 0.72)' : 'rgba(45, 45, 77, 0.7)');
+      dividerColor = custom.divider || (isDark ? 'rgba(159, 174, 255, 0.18)' : 'rgba(61, 92, 255, 0.14)');
     } catch (e) {
       // fallback
     }

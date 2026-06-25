@@ -38,7 +38,9 @@ import {
   ErrorOutline as ErrorIcon,
   GetApp as DownloadIcon,
   FileUpload as UploadIcon,
-  FolderOpen as FolderIcon
+  FolderOpen as FolderIcon,
+  Fullscreen as FullscreenIcon,
+  FullscreenExit as FullscreenExitIcon
 } from '@mui/icons-material';
 
 // Self-healing recovery: Restore standard String prototype methods if they were modified by an older run
@@ -95,6 +97,29 @@ const DebouncedInput = ({ value, onChange, debounceTime = 300, ...props }) => {
       onBlur={handleBlur}
     />
   );
+};
+
+const hexToRgb = (color) => {
+  if (!color) return '';
+  if (color.startsWith('rgb')) {
+    const match = color.match(/\d+/g);
+    if (match && match.length >= 3) {
+      return `${match[0]}, ${match[1]}, ${match[2]}`;
+    }
+  }
+  const cleanHex = color.replace('#', '');
+  if (cleanHex.length === 3) {
+    const r = parseInt(cleanHex[0].repeat(2), 16);
+    const g = parseInt(cleanHex[1].repeat(2), 16);
+    const b = parseInt(cleanHex[2].repeat(2), 16);
+    return `${r}, ${g}, ${b}`;
+  } else if (cleanHex.length === 6) {
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return `${r}, ${g}, ${b}`;
+  }
+  return '';
 };
 
 // Memoized Monaco Editor component to avoid re-rendering while typing
@@ -2518,7 +2543,7 @@ const analyzeRelationships = (classes) => {
 export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
-  const { themeMode } = useContext(ThemeContext);
+  const { themeMode, customColors } = useContext(ThemeContext);
 
   const [code, setCode] = useState(EXAMPLES[0].code);
   const [umlClasses, setUmlClasses] = useState(javaToUmlClasses(EXAMPLES[0].code));
@@ -2533,6 +2558,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
   const [downloadFileName, setDownloadFileName] = useState('Playground');
   const completionProviderRef = useRef(null);
+  const [isUmlFullscreen, setIsUmlFullscreen] = useState(false);
 
 
   const [files, setFiles] = useState(() => {
@@ -3877,6 +3903,11 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       return () => clearTimeout(timer);
     } else {
       setIsEditorReady(false);
+      setEditorInstance(null);
+      setMonacoInstance(null);
+      activeEditorRef.current = null;
+      monacoRef.current = null;
+      isFirstLoadRef.current = true;
     }
   }, [open]);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -4882,23 +4913,25 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
       <Dialog
       open={open}
       onClose={onClose}
-      fullWidth
+      fullScreen={isUmlFullscreen}
+      fullWidth={!isUmlFullscreen}
       maxWidth="xl"
       disableEnforceFocus
       disableRestoreFocus
       PaperProps={{
         elevation: 0,
         style: {
-          borderRadius: '24px',
+          borderRadius: isUmlFullscreen ? '0px' : '24px',
           background: 'var(--background-paper)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid var(--divider)',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-          height: '95vh',
-          maxHeight: '95vh',
-          width: '95vw',
+          border: isUmlFullscreen ? 'none' : '1px solid var(--divider)',
+          boxShadow: isUmlFullscreen ? 'none' : '0 20px 60px rgba(0,0,0,0.5)',
+          height: isUmlFullscreen ? '100vh' : '95vh',
+          maxHeight: isUmlFullscreen ? '100vh' : '95vh',
+          width: isUmlFullscreen ? '100vw' : '95vw',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
         }
       }}
     >
@@ -4989,11 +5022,22 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
         </IconButton>
       </DialogTitle>
 
-      <DialogContent style={{ padding: '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+      <DialogContent style={{ padding: isUmlFullscreen ? '0px' : '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
         <Box id="split-container" style={{ display: 'flex', flexDirection: 'row', flexGrow: 1, width: '100%', alignItems: 'stretch', position: 'relative', minHeight: 0 }}>
-          {/* Left Pane: Code Editor */}
           {/* Left Pane: Unified Tabbed IDE Code Editor */}
-          <Box style={{ width: `${splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '200px', height: '100%', minHeight: 0 }}>
+          <Box style={{
+            width: isUmlFullscreen ? '0%' : `${splitPercent}%`,
+            opacity: isUmlFullscreen ? 0 : 1,
+            pointerEvents: isUmlFullscreen ? 'none' : 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            minWidth: isUmlFullscreen ? '0px' : '200px',
+            height: '100%',
+            minHeight: 0,
+            overflow: 'hidden',
+            transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}>
             <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               Project Editor
             </Typography>
@@ -5102,13 +5146,16 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
           {/* Draggable Divider */}
           <Box
             onMouseDown={(e) => {
+              if (isUmlFullscreen) return;
               e.preventDefault();
               isDraggingSplitRef.current = true;
               document.body.style.cursor = 'col-resize';
               document.body.style.userSelect = 'none';
             }}
             style={{
-              width: '8px',
+              width: isUmlFullscreen ? '0px' : '8px',
+              opacity: isUmlFullscreen ? 0 : 1,
+              pointerEvents: isUmlFullscreen ? 'none' : 'auto',
               cursor: 'col-resize',
               backgroundColor: 'transparent',
               position: 'relative',
@@ -5116,9 +5163,9 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'background-color 0.2s',
-              marginLeft: '-4px',
-              marginRight: '-4px',
+              transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), margin 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              marginLeft: isUmlFullscreen ? '0px' : '-4px',
+              marginRight: isUmlFullscreen ? '0px' : '-4px',
             }}
             sx={{
               '&:hover, &:active': {
@@ -5126,17 +5173,41 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
               },
               '&::after': {
                 content: '""',
-                width: '2px',
+                width: isUmlFullscreen ? '0px' : '2px',
                 height: '40px',
                 backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
                 borderRadius: '1px',
+                transition: 'width 0.4s'
               }
             }}
           />
 
           {/* Right Pane: Swappable Tab Views (UML Class Lab vs. Code Runner) */}
-          {activeTab === 'uml' ? (
-            <Box style={{ width: `${100 - splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%', minHeight: 0 }}>
+          <Box style={{
+            width: isUmlFullscreen ? '100%' : `${100 - splitPercent}%`,
+            display: 'flex',
+            flexDirection: 'column',
+            minWidth: isUmlFullscreen ? '100%' : '200px',
+            height: '100%',
+            minHeight: 0,
+            transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            position: 'relative'
+          }}>
+            {/* UML Pane */}
+            <Box style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              opacity: activeTab === 'uml' ? 1 : 0,
+              transform: activeTab === 'uml' ? 'translateX(0)' : 'translateX(-20px)',
+              pointerEvents: activeTab === 'uml' ? 'auto' : 'none',
+              transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
               <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   Interactive 2D UML Map
@@ -5334,7 +5405,7 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
                         width: '100%',
                         height: '100%',
                         pointerEvents: 'none',
-                        zIndex: 4,
+                        zIndex: 2,
                         overflow: 'visible'
                       }}
                     >
@@ -5956,10 +6027,52 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
                   Reset
                 </Button>
               </Box>
+
+              {/* Floating Fullscreen Icon Button at bottom right corner of UML workspace */}
+              <IconButton
+                onClick={() => setIsUmlFullscreen(!isUmlFullscreen)}
+                style={{
+                  position: 'absolute',
+                  bottom: '16px',
+                  right: '16px',
+                  background: 'var(--primary-main)',
+                  border: '1px solid var(--divider)',
+                  padding: '10px',
+                  borderRadius: '50%',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                  zIndex: 200,
+                  color: '#fff',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+                sx={{
+                  '&:hover': {
+                    background: 'var(--primary-main)',
+                    filter: 'brightness(1.15)',
+                    transform: 'scale(1.1)'
+                  }
+                }}
+                title={isUmlFullscreen ? 'Exit Fullscreen' : 'Fullscreen Pure UML'}
+              >
+                {isUmlFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+              </IconButton>
             </Box>
           </Box>
-          ) : (
-            <Box style={{ width: `${100 - splitPercent}%`, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px', height: '100%', minHeight: 0 }}>
+
+          {/* Runner Pane */}
+          <Box style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            opacity: activeTab === 'runner' ? 1 : 0,
+            transform: activeTab === 'runner' ? 'translateX(0)' : 'translateX(20px)',
+            pointerEvents: activeTab === 'runner' ? 'auto' : 'none',
+            transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
               <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Interactive Java Console
               </Typography>
@@ -6072,21 +6185,9 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
                 </Box>
               </Paper>
             </Box>
-          )}
+          </Box>
         </Box>
       </DialogContent>
-
-      <DialogActions style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between' }}>
-        <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-          {activeTab === 'uml' 
-            ? '💡 Pro-tip: Edits in the code editor instantly sync to the 2D map. Changes to the UML cards also update the source code automatically without losing your custom method bodies!'
-            : '💡 Pro-tip: You can write test code directly inside the runner tab on the left to interact with your classes, then click "Run Java Code" to see the output in the console!'
-          }
-        </Typography>
-        <Button variant="outlined" onClick={onClose} style={{ borderRadius: '12px', fontWeight: 800 }}>
-          Close
-        </Button>
-      </DialogActions>
 
       {/* Download File Dialog */}
       <Dialog
@@ -6256,7 +6357,7 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
       fullScreen
       PaperProps={{
         elevation: 0,
-        'data-theme': previewTheme,
+        'data-theme': themeMode,
         style: {
           background: 'var(--background-default)',
         }
@@ -6323,13 +6424,39 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
           ref={previewCanvasContainerRef}
           onMouseDown={handlePreviewCanvasMouseDown}
           elevation={0}
+          data-theme={previewTheme}
           style={{
             background: 'var(--background-default)',
             height: '100%',
             width: '100%',
             position: 'relative',
             overflow: 'auto',
-            cursor: 'grab'
+            cursor: 'grab',
+            ...(previewTheme === 'custom' ? {
+              '--primary-main': customColors?.primaryMain || '#3D5CFF',
+              '--primary-dark': customColors?.primaryDark || '#2E49D1',
+              '--primary-light': customColors?.primaryLight || '#7C8DFF',
+              '--primary-main-rgb': hexToRgb(customColors?.primaryMain || '#3D5CFF'),
+              '--primary-dark-rgb': hexToRgb(customColors?.primaryDark || '#2E49D1'),
+              '--background-default': customColors?.bgDefault || '#F5F7FA',
+              '--background-paper': customColors?.bgPaper || '#FFFFFF',
+              '--background-paper-alt': customColors?.bgPaperAlt || '#F0F4F8',
+              '--surface-elevated': customColors?.bgPaper || '#FFFFFF',
+              '--surface-glass': `rgba(${hexToRgb(customColors?.bgPaper || '#FFFFFF')}, 0.76)`,
+              '--surface-glass-strong': `rgba(${hexToRgb(customColors?.bgPaper || '#FFFFFF')}, 0.9)`,
+              '--text-primary': customColors?.textPrimary || '#2D2D4D',
+              '--text-secondary': customColors?.textSecondary || '#64748b',
+              '--text-disabled': `rgba(${hexToRgb(customColors?.textPrimary || '#2D2D4D')}, 0.42)`,
+              '--divider': customColors?.divider || '#3d5cff15',
+              '--divider-rgb': hexToRgb(customColors?.divider || '#3d5cff15'),
+              '--action-hover': `rgba(${hexToRgb(customColors?.primaryMain || '#3D5CFF')}, 0.08)`,
+              '--hero-gradient': customColors?.primaryMain || '#3D5CFF',
+              '--code-bg': customColors?.codeBg || '#f8f9fa',
+              '--code-header-bg': customColors?.bgPaperAlt || '#F0F4F8',
+              '--code-border': customColors?.divider || '#3d5cff15',
+              '--code-line-num': `rgba(${hexToRgb(customColors?.textSecondary || '#64748b')}, 0.38)`,
+              '--code-text-default': customColors?.textPrimary || '#2D2D4D'
+            } : {})
           }}
         >
           {/* Virtual Canvas Box */}
@@ -6365,7 +6492,7 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
                   width: '100%',
                   height: '100%',
                   pointerEvents: 'none',
-                  zIndex: 4,
+                  zIndex: 2,
                   overflow: 'visible'
                 }}
               >
