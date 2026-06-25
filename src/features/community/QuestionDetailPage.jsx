@@ -14,6 +14,7 @@ import {
 import {
   ArrowBack as ArrowBackIcon,
   ArrowUpward as UpvoteIcon,
+  ArrowDownward as DownvoteIcon,
   ChatBubbleOutline as ReplyIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -28,11 +29,14 @@ const QuestionDetailPage = () => {
 
   const [question, setQuestion] = useState(null);
   const [comments, setComments] = useState([]);
+  const [visibleCommentsCount, setVisibleCommentsCount] = useState(10);
   
   // Comment composers
   const [newCommentText, setNewCommentText] = useState('');
   const [activeReplyId, setActiveReplyId] = useState(null); // id of comment we are replying to
   const [replyText, setReplyText] = useState('');
+
+  const displayedComments = comments.slice(0, visibleCommentsCount);
 
   const loadQuestionAndComments = async () => {
     const qData = await socialStore.getQuestionById(questionId);
@@ -46,18 +50,58 @@ const QuestionDetailPage = () => {
   useEffect(() => {
     if (questionId) {
       loadQuestionAndComments();
+      setVisibleCommentsCount(10);
     }
   }, [questionId]);
 
   const handlePostUpvote = async () => {
     if (!question) return;
-    await socialStore.upvoteQuestion(questionId, user.id);
-    loadQuestionAndComments();
+    const updated = await socialStore.upvoteQuestion(questionId, user.id);
+    if (updated) {
+      setQuestion(prev => ({
+        ...prev,
+        ...updated,
+        userUpvoted: updated.upvotedUsers?.includes(Number(user.id)),
+        userDownvoted: updated.downvotedUsers?.includes(Number(user.id))
+      }));
+    }
+  };
+
+  const handlePostDownvote = async () => {
+    if (!question) return;
+    const updated = await socialStore.downvoteQuestion(questionId, user.id);
+    if (updated) {
+      setQuestion(prev => ({
+        ...prev,
+        ...updated,
+        userUpvoted: updated.upvotedUsers?.includes(Number(user.id)),
+        userDownvoted: updated.downvotedUsers?.includes(Number(user.id))
+      }));
+    }
   };
 
   const handleCommentUpvote = async (commentId) => {
-    await socialStore.upvoteComment(questionId, commentId, user.id);
-    loadQuestionAndComments();
+    const updated = await socialStore.upvoteComment(questionId, commentId, user.id);
+    if (updated) {
+      setComments(prev => prev.map(c => c.id === commentId ? {
+        ...c,
+        ...updated,
+        userUpvoted: updated.upvotedUsers?.includes(Number(user.id)),
+        userDownvoted: updated.downvotedUsers?.includes(Number(user.id))
+      } : c));
+    }
+  };
+
+  const handleCommentDownvote = async (commentId) => {
+    const updated = await socialStore.downvoteComment(questionId, commentId, user.id);
+    if (updated) {
+      setComments(prev => prev.map(c => c.id === commentId ? {
+        ...c,
+        ...updated,
+        userUpvoted: updated.upvotedUsers?.includes(Number(user.id)),
+        userDownvoted: updated.downvotedUsers?.includes(Number(user.id))
+      } : c));
+    }
   };
 
   const handlePostCommentSubmit = async (e) => {
@@ -145,17 +189,24 @@ const QuestionDetailPage = () => {
             {question.title}
           </Typography>
 
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Button
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ border: '1px solid var(--divider)', borderRadius: 4, px: 1.5, py: 0.5, width: 'fit-content', bgcolor: 'rgba(0,0,0,0.02)' }}>
+            <IconButton
               size="small"
-              variant={isPostUpvoted ? "contained" : "outlined"}
-              color={isPostUpvoted ? "success" : "inherit"}
               onClick={handlePostUpvote}
-              startIcon={<UpvoteIcon />}
-              sx={{ borderRadius: 3, textTransform: 'none', fontWeight: 600 }}
+              sx={{ color: question.userUpvoted ? '#10b981' : 'var(--text-disabled)' }}
             >
-              {question.upvotes || 0} Upvotes
-            </Button>
+              <UpvoteIcon />
+            </IconButton>
+            <Typography sx={{ fontWeight: 700, px: 0.5 }}>
+              {question.upvotes || 0}
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={handlePostDownvote}
+              sx={{ color: question.userDownvoted ? '#ef4444' : 'var(--text-disabled)' }}
+            >
+              <DownvoteIcon />
+            </IconButton>
           </Stack>
         </Box>
 
@@ -198,7 +249,7 @@ const QuestionDetailPage = () => {
 
         {/* Comments Feed */}
         <Box className="comments-list">
-          {comments.map((comment) => {
+          {displayedComments.map((comment) => {
             const hasCommentUpvoted = comment.upvotedUsers?.includes(Number(user.id));
             
             return (
@@ -223,16 +274,24 @@ const QuestionDetailPage = () => {
                 </Typography>
 
                 {/* Comment Actions */}
-                <Box className="comment-actions">
-                  <Button
+                <Box className="comment-actions" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <IconButton
                     size="small"
-                    color={hasCommentUpvoted ? "success" : "inherit"}
                     onClick={() => handleCommentUpvote(comment.id)}
-                    startIcon={<UpvoteIcon sx={{ fontSize: 14 }} />}
-                    sx={{ minWidth: 0, p: 0, textTransform: 'none', fontSize: '0.75rem' }}
+                    sx={{ color: comment.userUpvoted ? '#10b981' : 'var(--text-disabled)', p: 0.5 }}
                   >
+                    <UpvoteIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>
                     {comment.upvotes || 0}
-                  </Button>
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleCommentDownvote(comment.id)}
+                    sx={{ color: comment.userDownvoted ? '#ef4444' : 'var(--text-disabled)', p: 0.5 }}
+                  >
+                    <DownvoteIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
                   
                   <Button
                     size="small"
@@ -307,6 +366,18 @@ const QuestionDetailPage = () => {
             );
           })}
         </Box>
+
+        {comments.length > visibleCommentsCount && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+            <Button 
+              variant="outlined" 
+              onClick={() => setVisibleCommentsCount(prev => prev + 10)}
+              sx={{ textTransform: 'none', borderRadius: 3 }}
+            >
+              View More Comments
+            </Button>
+          </Box>
+        )}
       </Paper>
     </Box>
   );

@@ -18,12 +18,15 @@ import {
   Avatar,
   Tab,
   Tabs,
-  InputAdornment
+  InputAdornment,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Add as AddIcon,
   ArrowUpward as UpvoteIcon,
+  ArrowDownward as DownvoteIcon,
   Comment as CommentIcon,
   Search as SearchIcon,
   Subject as SubjectIcon,
@@ -44,8 +47,9 @@ const CommunityDetailPage = () => {
   const [questions, setQuestions] = useState([]);
   
   // Filtering & Sorting
-  const [sortBy, setSortBy] = useState('new'); // 'new' or 'hot'
+  const [sortBy, setSortBy] = useState('hot'); // 'new' or 'hot'
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState(10);
 
   // Dialogs & Creators
   const [openCreateRoom, setOpenCreateRoom] = useState(false);
@@ -56,6 +60,32 @@ const CommunityDetailPage = () => {
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
   const [postCode, setPostCode] = useState('');
+  const [postImage, setPostImage] = useState('');
+  const [postLink, setPostLink] = useState('');
+  const [postLinkLabel, setPostLinkLabel] = useState('');
+
+  // Visibility states for optional attachment fields
+  const [showCodeField, setShowCodeField] = useState(false);
+  const [showImageField, setShowImageField] = useState(false);
+  const [showLinkField, setShowLinkField] = useState(false);
+
+  // Attachment dropdown anchor state
+  const [anchorEl, setAnchorEl] = useState(null);
+
+  const handleAddClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleAddClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleOptionSelect = (option) => {
+    if (option === 'code') setShowCodeField(true);
+    if (option === 'image') setShowImageField(true);
+    if (option === 'link') setShowLinkField(true);
+    handleAddClose();
+  };
 
   // 1. Load community details
   const loadCommunity = async () => {
@@ -97,6 +127,14 @@ const CommunityDetailPage = () => {
     );
   }, [questions, searchQuery]);
 
+  const displayedQuestions = useMemo(() => {
+    return filteredQuestions.slice(0, visibleCount);
+  }, [filteredQuestions, visibleCount]);
+
+  useEffect(() => {
+    setVisibleCount(10);
+  }, [activeRoomId, sortBy, searchQuery]);
+
   const handleRoomSelect = (roomId) => {
     setActiveRoomId(roomId);
     setSearchQuery('');
@@ -120,25 +158,59 @@ const CommunityDetailPage = () => {
   const handleAskQuestionSubmit = async () => {
     if (!postTitle.trim() || !postContent.trim() || !activeRoomId) return;
     
-    // Combine content and code block if any
+    // Combine content and optional code/image/link attachments
     let fullContent = postContent;
-    if (postCode.trim()) {
+    if (showCodeField && postCode.trim()) {
       fullContent += `\n\n\`\`\`java\n${postCode}\n\`\`\``;
+    }
+    if (showImageField && postImage.trim()) {
+      fullContent += `\n\n![Image Attachment](${postImage.trim()})`;
+    }
+    if (showLinkField && postLink.trim()) {
+      const label = postLinkLabel.trim() || 'Link';
+      fullContent += `\n\n[${label}](${postLink.trim()})`;
     }
 
     await socialStore.createQuestion(activeRoomId, postTitle, fullContent, user);
     
+    // Reset all fields
     setPostTitle('');
     setPostContent('');
     setPostCode('');
+    setPostImage('');
+    setPostLink('');
+    setPostLinkLabel('');
+    setShowCodeField(false);
+    setShowImageField(false);
+    setShowLinkField(false);
     setOpenAskQuestion(false);
     loadQuestions();
   };
 
   const handleUpvote = async (e, questionId) => {
     e.stopPropagation(); // Avoid navigating to details
-    await socialStore.upvoteQuestion(questionId, user.id);
-    loadQuestions();
+    const updated = await socialStore.upvoteQuestion(questionId, user.id);
+    if (updated) {
+      setQuestions(prev => prev.map(q => q.id === questionId ? { 
+        ...q, 
+        ...updated, 
+        userUpvoted: updated.upvotedUsers?.includes(Number(user.id)), 
+        userDownvoted: updated.downvotedUsers?.includes(Number(user.id)) 
+      } : q));
+    }
+  };
+
+  const handleDownvote = async (e, questionId) => {
+    e.stopPropagation(); // Avoid navigating to details
+    const updated = await socialStore.downvoteQuestion(questionId, user.id);
+    if (updated) {
+      setQuestions(prev => prev.map(q => q.id === questionId ? { 
+        ...q, 
+        ...updated, 
+        userUpvoted: updated.upvotedUsers?.includes(Number(user.id)), 
+        userDownvoted: updated.downvotedUsers?.includes(Number(user.id)) 
+      } : q));
+    }
   };
 
   if (!community) {
@@ -275,9 +347,10 @@ const CommunityDetailPage = () => {
 
         {/* Post cards feed */}
         <Box className="community-feed-posts">
-          {filteredQuestions.length > 0 ? (
-            filteredQuestions.map((q) => {
-              const hasUpvoted = q.upvotedUsers?.includes(Number(user.id));
+          {displayedQuestions.length > 0 ? (
+            displayedQuestions.map((q) => {
+              const hasUpvoted = q.userUpvoted;
+              const hasDownvoted = q.userDownvoted;
               
               return (
                 <Card 
@@ -291,12 +364,21 @@ const CommunityDetailPage = () => {
                       size="small"
                       onClick={(e) => handleUpvote(e, q.id)}
                       className={`vote-button ${hasUpvoted ? 'upvoted' : ''}`}
+                      sx={{ color: hasUpvoted ? '#10b981' : 'var(--text-disabled)' }}
                     >
                       <UpvoteIcon fontSize="small" />
                     </IconButton>
                     <Typography className="vote-count">
                       {q.upvotes || 0}
                     </Typography>
+                    <IconButton 
+                      size="small"
+                      onClick={(e) => handleDownvote(e, q.id)}
+                      className={`vote-button ${hasDownvoted ? 'downvoted' : ''}`}
+                      sx={{ color: hasDownvoted ? '#ef4444' : 'var(--text-disabled)' }}
+                    >
+                      <DownvoteIcon fontSize="small" />
+                    </IconButton>
                   </Box>
 
                   {/* Body Content */}
@@ -333,6 +415,18 @@ const CommunityDetailPage = () => {
               <SubjectIcon sx={{ fontSize: 64, mb: 1 }} />
               <Typography variant="h6">No posts found</Typography>
               <Typography variant="body2">Be the first to start a conversation in this room!</Typography>
+            </Box>
+          )}
+
+          {filteredQuestions.length > visibleCount && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 4 }}>
+              <Button 
+                variant="outlined" 
+                onClick={() => setVisibleCount(prev => prev + 10)}
+                sx={{ textTransform: 'none', borderRadius: 3 }}
+              >
+                View More
+              </Button>
             </Box>
           )}
         </Box>
@@ -414,24 +508,101 @@ const CommunityDetailPage = () => {
             required
           />
           
-          <TextField
-            label="Code Snippet (Optional)"
-            placeholder="Paste code snippets here..."
-            fullWidth
-            multiline
-            rows={3}
-            size="small"
-            value={postCode}
-            onChange={(e) => setPostCode(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
-                  <CodeIcon fontSize="small" />
-                </InputAdornment>
-              ),
-              sx: { fontFamily: 'monospace' }
-            }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+            <IconButton
+              color="primary"
+              onClick={handleAddClick}
+              sx={{ border: '1.5px solid var(--divider)', borderRadius: 2, width: 40, height: 40 }}
+            >
+              <AddIcon />
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleAddClose}
+            >
+              <MenuItem onClick={() => handleOptionSelect('code')}>Code Snippet</MenuItem>
+              <MenuItem onClick={() => handleOptionSelect('image')}>Image Link</MenuItem>
+              <MenuItem onClick={() => handleOptionSelect('link')}>External Link</MenuItem>
+            </Menu>
+          </Box>
+
+          {showCodeField && (
+            <Box sx={{ position: 'relative', mt: 1 }}>
+              <TextField
+                label="Code Snippet"
+                placeholder="Paste code snippets here..."
+                fullWidth
+                multiline
+                rows={3}
+                size="small"
+                value={postCode}
+                onChange={(e) => setPostCode(e.target.value)}
+                InputProps={{
+                  sx: { fontFamily: 'monospace', pr: 4 }
+                }}
+              />
+              <IconButton 
+                size="small" 
+                onClick={() => { setShowCodeField(false); setPostCode(''); }}
+                sx={{ position: 'absolute', top: 8, right: 8 }}
+              >
+                ✕
+              </IconButton>
+            </Box>
+          )}
+
+          {showImageField && (
+            <Box sx={{ position: 'relative', mt: 1 }}>
+              <TextField
+                label="Image URL"
+                placeholder="https://example.com/image.jpg"
+                fullWidth
+                size="small"
+                value={postImage}
+                onChange={(e) => setPostImage(e.target.value)}
+                InputProps={{
+                  sx: { pr: 4 }
+                }}
+              />
+              <IconButton 
+                size="small" 
+                onClick={() => { setShowImageField(false); setPostImage(''); }}
+                sx={{ position: 'absolute', top: 8, right: 8 }}
+              >
+                ✕
+              </IconButton>
+            </Box>
+          )}
+
+          {showLinkField && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, border: '1px solid var(--divider)', p: 2, borderRadius: 2, position: 'relative', mt: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600 }}>External Link</Typography>
+              <TextField
+                label="Link URL"
+                placeholder="https://example.com"
+                fullWidth
+                size="small"
+                value={postLink}
+                onChange={(e) => setPostLink(e.target.value)}
+              />
+              <TextField
+                label="Link Label (Optional)"
+                placeholder="e.g. Documentation"
+                fullWidth
+                size="small"
+                value={postLinkLabel}
+                onChange={(e) => setPostLinkLabel(e.target.value)}
+              />
+              <IconButton 
+                size="small" 
+                onClick={() => { setShowLinkField(false); setPostLink(''); setPostLinkLabel(''); }}
+                sx={{ position: 'absolute', top: 8, right: 8 }}
+              >
+                ✕
+              </IconButton>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenAskQuestion(false)} sx={{ textTransform: 'none' }}>
