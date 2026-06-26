@@ -15,7 +15,15 @@ import {
   Stack,
   Popover,
   InputAdornment,
-  Badge
+  Badge,
+  Menu,
+  MenuItem,
+  Snackbar,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemAvatar,
+  ListItemText
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -27,10 +35,18 @@ import {
   AttachFile as AttachFileIcon,
   InsertEmoticon as EmojiIcon,
   Close as CloseIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  Done as DoneIcon,
+  DoneAll as DoneAllIcon,
+  PushPin as PushPinIcon,
+  Reply as ReplyIcon,
+  Delete as DeleteIcon,
+  ContentCopy as CopyIcon,
+  ForwardToInbox as ForwardIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { socialStore } from '../../data/socialStore';
 import ImageEditorModal from './ImageEditorModal';
 import './Chat.css';
 
@@ -49,6 +65,7 @@ const ChatPage = () => {
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState('');
+  const [lightboxIsProfile, setLightboxIsProfile] = useState(false);
   
   const hasInitialScrolled = useRef(false);
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
@@ -60,6 +77,22 @@ const ChatPage = () => {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorImageSrc, setEditorImageSrc] = useState('');
   const [editorShowSend, setEditorShowSend] = useState(false);
+
+  // New Chat States
+  const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
+  const [highlightMessageId, setHighlightMessageId] = useState(null);
+  const [openPinnedDialog, setOpenPinnedDialog] = useState(false);
+  
+  // Context Menu state
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuMessage, setMenuMessage] = useState(null);
+  
+  // Dialog / Reply / Snackbar states
+  const [openForwardDialog, setOpenForwardDialog] = useState(false);
+  const [replyingMessage, setReplyingMessage] = useState(null);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
 
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
@@ -103,7 +136,15 @@ const ChatPage = () => {
           id: msg.id,
           senderId: msg.senderId,
           text: msg.message,
-          timestamp: msg.timestamp
+          timestamp: msg.timestamp,
+          delivered: msg.delivered,
+          read: msg.read,
+          pinned: msg.pinned,
+          deleted: msg.deleted,
+          replyToId: msg.replyToId,
+          replyToMessage: msg.replyToMessage,
+          replyToUsername: msg.replyToUsername,
+          forwarded: msg.forwarded
         };
         setMessages(prev => [...prev, newMessage]);
         setEditorOpen(false);
@@ -143,6 +184,7 @@ const ChatPage = () => {
         const res = await fetch('/users');
         if (res.ok) {
           const usersList = await res.json();
+          setAllUsers(usersList);
           const found = usersList.find(u => Number(u.id) === Number(userId));
           if (found) {
             setTargetUserDetails(found);
@@ -172,7 +214,15 @@ const ChatPage = () => {
             id: msg.id,
             senderId: msg.senderId,
             text: msg.message,
-            timestamp: msg.timestamp
+            timestamp: msg.timestamp,
+            delivered: msg.delivered,
+            read: msg.read,
+            pinned: msg.pinned,
+            deleted: msg.deleted,
+            replyToId: msg.replyToId,
+            replyToMessage: msg.replyToMessage,
+            replyToUsername: msg.replyToUsername,
+            forwarded: msg.forwarded
           }));
 
           const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_chats_${user.id}`) || '{}');
@@ -183,8 +233,15 @@ const ChatPage = () => {
 
           setMessages(filtered);
         }
+
+        // Fetch other user's typing status
+        const typingRes = await fetch(`/api/chat/typing/${user?.id}/${userId}`, { headers });
+        if (typingRes.ok) {
+          const typingData = await typingRes.json();
+          setIsOtherUserTyping(typingData.typing);
+        }
       } catch (err) {
-        console.error('Failed to load chat history:', err);
+        console.error('Failed to load chat history or typing status:', err);
       }
     };
 
@@ -217,58 +274,216 @@ const ChatPage = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Typing Emitters
+  const typingTimeoutRef = useRef(null);
+  const lastTypingStatusRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, []);
+
+  const sendTypingStatus = async (typing) => {
+    if (!user?.id || !userId) return;
+    if (lastTypingStatusRef.current === typing) return;
+    lastTypingStatusRef.current = typing;
+
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      await fetch('/api/chat/typing', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          userId: Number(user.id),
+          recipientId: Number(userId),
+          username: user.username || 'learner',
+          typing
+        })
+      });
+    } catch (err) {
+      console.error('Failed to update typing status:', err);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setInputText(e.target.value);
+    sendTypingStatus(true);
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      sendTypingStatus(false);
+    }, 3000);
+  };
+
+  // Scroll and highlight
+  const handleScrollToMessage = (msgId) => {
+    const element = document.getElementById(`msg-${msgId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightMessageId(msgId);
+      setTimeout(() => {
+        setHighlightMessageId(null);
+      }, 2000);
+    }
+  };
+
+  // Auto scroll to message from query parameter on load
+  const queryParams = new URLSearchParams(location.search);
+  const searchMessageId = queryParams.get('messageId');
+
+  useEffect(() => {
+    if (messages.length > 0 && searchMessageId) {
+      const timeout = setTimeout(() => {
+        handleScrollToMessage(searchMessageId);
+      }, 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [messages.length, searchMessageId]);
+
+  // Context Menu Actions
+  const handleMessageBubbleClick = (event, msg) => {
+    if (msg.deleted) return;
+    setMenuAnchor(event.currentTarget);
+    setMenuMessage(msg);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchor(null);
+    setMenuMessage(null);
+  };
+
+  const handleCopyMessage = () => {
+    if (menuMessage) {
+      const cleanText = menuMessage.text.startsWith('[IMAGE]:') 
+        ? menuMessage.text.split('|')[1] || '' 
+        : menuMessage.text;
+      navigator.clipboard.writeText(cleanText);
+      setSnackbarMessage("Copied to clipboard!");
+      setOpenSnackbar(true);
+    }
+    handleCloseMenu();
+  };
+
+  const handlePinToggle = async () => {
+    if (menuMessage) {
+      const newPinState = !menuMessage.pinned;
+      const success = await socialStore.pinMessage(menuMessage.id, newPinState);
+      if (success) {
+        setMessages(prev => prev.map(m => m.id === menuMessage.id ? { ...m, pinned: newPinState } : m));
+        setSnackbarMessage(newPinState ? "Message pinned!" : "Message unpinned!");
+        setOpenSnackbar(true);
+      }
+    }
+    handleCloseMenu();
+  };
+
+  const handleDeleteMessage = async () => {
+    if (menuMessage && menuMessage.senderId === user.id) {
+      const success = await socialStore.deleteMessage(menuMessage.id, user.id);
+      if (success) {
+        setMessages(prev => prev.map(m => m.id === menuMessage.id ? { ...m, deleted: true, text: 'This message was deleted' } : m));
+        setSnackbarMessage("Message deleted!");
+        setOpenSnackbar(true);
+      }
+    }
+    handleCloseMenu();
+  };
+
+  const handleForwardClick = () => {
+    setOpenForwardDialog(true);
+    setMenuAnchor(null);
+  };
+
+  const handleForwardMessage = async (recipient) => {
+    if (!menuMessage) return;
+    const cleanText = menuMessage.text;
+    const senderName = user.fullname || user.name || user.username || "You";
+
+    const res = await socialStore.sendDirectMessage(
+      user.id,
+      recipient.id,
+      cleanText,
+      senderName,
+      user.avatar || '',
+      null,
+      null,
+      null,
+      true
+    );
+
+    if (res && res.success) {
+      setSnackbarMessage(`Forwarded to ${recipient.fullname || recipient.username}`);
+      setOpenSnackbar(true);
+    }
+    setOpenForwardDialog(false);
+    setMenuMessage(null);
+  };
+
+  const handleReplyClick = () => {
+    setReplyingMessage(menuMessage);
+    handleCloseMenu();
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputText.trim() && !selectedImage) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const headers = {
-        'Content-Type': 'application/json'
-      };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       let finalMsg = inputText;
       if (selectedImage) {
         finalMsg = `[IMAGE]:${selectedImage}${inputText ? `|${inputText}` : ''}`;
       }
 
-      const payload = {
-        senderId: Number(user.id),
-        recipientId: Number(userId),
-        message: finalMsg,
-        username: user.username || 'learner',
-        avatar: user.avatar || ''
-      };
+      const responseData = await socialStore.sendDirectMessage(
+        user.id,
+        userId,
+        finalMsg,
+        user.username || 'learner',
+        user.avatar || '',
+        replyingMessage ? replyingMessage.id : null,
+        replyingMessage ? (replyingMessage.text.startsWith('[IMAGE]:') ? '📷 Photo' : replyingMessage.text) : null,
+        replyingMessage ? (replyingMessage.senderId === user.id ? 'You' : resolvedUser.username) : null,
+        false
+      );
 
-      const res = await fetch('/api/chat/send-message', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
+      if (responseData && responseData.success) {
         const archivedList = JSON.parse(localStorage.getItem(`sophiapath_archived_chats_${user.id}`) || '[]');
         if (archivedList.includes(Number(userId)) || archivedList.includes(String(userId))) {
           const updated = archivedList.filter(id => Number(id) !== Number(userId));
           localStorage.setItem(`sophiapath_archived_chats_${user.id}`, JSON.stringify(updated));
         }
 
-        const responseData = await res.json();
         const msg = responseData.message;
         
         const newMessage = {
           id: msg.id,
           senderId: msg.senderId,
           text: msg.message,
-          timestamp: msg.timestamp
+          timestamp: msg.timestamp,
+          delivered: msg.delivered,
+          read: msg.read,
+          pinned: msg.pinned,
+          deleted: msg.deleted,
+          replyToId: msg.replyToId,
+          replyToMessage: msg.replyToMessage,
+          replyToUsername: msg.replyToUsername,
+          forwarded: msg.forwarded
         };
 
         setMessages(prev => [...prev, newMessage]);
         setInputText('');
         setSelectedImage(null);
+        setReplyingMessage(null);
+
+        // Turn off typing immediately
+        sendTypingStatus(false);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         
-        // Smooth scroll to bottom immediately upon user message submittal
         setTimeout(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 80);
@@ -292,6 +507,14 @@ const ChatPage = () => {
   let statusText = isOnline ? "Online" : "Offline";
   if (isBlockedByMe) statusText = "Blocked";
   else if (isBlockedByTarget) statusText = "You were blocked";
+
+  if (!user) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', bgcolor: 'background.default' }}>
+        <Typography color="text.secondary">Loading chat context...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box className="chat-page-container">
@@ -320,6 +543,7 @@ const ChatPage = () => {
                   if (resolvedAvatar) {
                     e.stopPropagation();
                     setLightboxUrl(resolvedAvatar);
+                    setLightboxIsProfile(true);
                     setLightboxOpen(true);
                   }
                 }}
@@ -336,6 +560,31 @@ const ChatPage = () => {
           </Box>
         </Box>
 
+        {/* Pinned Messages Banner */}
+        {messages.filter(m => m.pinned && !m.deleted).length > 0 && (
+          <Box sx={{ 
+            bgcolor: 'background.paper', 
+            borderBottom: '1px solid var(--divider)', 
+            p: 1, 
+            px: 2, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            zIndex: 10
+          }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              📌 Pinned Messages ({messages.filter(m => m.pinned && !m.deleted).length})
+            </Typography>
+            <Button 
+              size="small" 
+              onClick={() => setOpenPinnedDialog(true)}
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            >
+              View Pinned
+            </Button>
+          </Box>
+        )}
+
         <Box 
           className="chat-messages"
           ref={scrollContainerRef}
@@ -343,7 +592,7 @@ const ChatPage = () => {
           sx={{ position: 'relative' }}
         >
           {messages.map((msg) => {
-            const isImageMsg = msg.text?.startsWith('[IMAGE]:');
+            const isImageMsg = msg.text?.startsWith('[IMAGE]:') && !msg.deleted;
             let imageUrl = '';
             let caption = '';
             if (isImageMsg) {
@@ -355,17 +604,99 @@ const ChatPage = () => {
             return (
               <Box 
                 key={msg.id} 
+                id={`msg-${msg.id}`}
                 className={`message-bubble-wrapper ${msg.senderId === user.id ? 'is-me' : 'is-other'}`}
               >
-                <Paper className={`message-bubble ${msg.senderId === user.id ? 'me' : 'other'}`}>
-                  {isImageMsg ? (
+                <Paper 
+                  className={`message-bubble ${msg.senderId === user.id ? 'me' : 'other'} ${msg.id === highlightMessageId ? 'pulse-highlight' : ''}`}
+                  onClick={(e) => handleMessageBubbleClick(e, msg)}
+                  sx={{
+                    transition: 'all 0.5s ease',
+                    cursor: msg.deleted ? 'default' : 'pointer',
+                    position: 'relative',
+                    border: msg.id === highlightMessageId ? '1.5px solid #FFD54F' : 'none',
+                    boxShadow: msg.id === highlightMessageId ? '0 0 12px rgba(255, 213, 79, 0.6)' : undefined,
+                    backgroundColor: msg.id === highlightMessageId 
+                      ? '#FFF9C4 !important' 
+                      : undefined
+                  }}
+                >
+                  {msg.forwarded && (
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 0.5, 
+                        fontStyle: 'italic', 
+                        opacity: 0.7, 
+                        fontSize: '0.68rem', 
+                        mb: 0.5,
+                        color: msg.senderId === user.id ? 'rgba(255,255,255,0.8)' : 'text.secondary'
+                      }}
+                    >
+                      <ForwardIcon sx={{ fontSize: 12 }} /> Forwarded
+                    </Typography>
+                  )}
+
+                  {msg.replyToId && (
+                    <Box 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleScrollToMessage(msg.replyToId);
+                      }}
+                      sx={{ 
+                        bgcolor: msg.senderId === user.id ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.05)', 
+                        borderLeft: `3px solid ${msg.senderId === user.id ? '#fff' : 'var(--primary-color)'}`, 
+                        p: 0.75, 
+                        mb: 0.75, 
+                        borderRadius: 1, 
+                        cursor: 'pointer',
+                        opacity: 0.9,
+                        '&:hover': { opacity: 1 }
+                      }}
+                    >
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          fontWeight: 700, 
+                          color: msg.senderId === user.id ? '#fff' : 'primary.main', 
+                          display: 'block',
+                          fontSize: '0.7rem'
+                        }}
+                      >
+                        Replying to {msg.replyToUsername || 'User'}
+                      </Typography>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: msg.senderId === user.id ? 'rgba(255,255,255,0.9)' : 'text.secondary', 
+                          display: 'block', 
+                          maxWidth: '240px',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}
+                      >
+                        {msg.replyToMessage}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {msg.deleted ? (
+                    <Typography variant="body1" sx={{ fontStyle: 'italic', color: msg.senderId === user.id ? 'rgba(255,255,255,0.6)' : 'text.secondary' }}>
+                      This message was deleted
+                    </Typography>
+                  ) : isImageMsg ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                       <img 
                         src={imageUrl} 
                         alt="chat attachment"
                         style={{ maxWidth: '240px', maxHeight: '240px', borderRadius: 8, cursor: 'pointer', objectFit: 'cover' }} 
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setLightboxUrl(imageUrl);
+                          setLightboxIsProfile(false);
                           setLightboxOpen(true);
                         }}
                       />
@@ -374,9 +705,26 @@ const ChatPage = () => {
                   ) : (
                     <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.text}</Typography>
                   )}
-                  <Typography variant="caption" className="message-time">
-                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Typography>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mt: 0.5, gap: 0.5 }}>
+                    {msg.pinned && (
+                      <PushPinIcon sx={{ fontSize: 11, color: msg.senderId === user.id ? 'rgba(255,255,255,0.7)' : 'text.secondary', transform: 'rotate(45deg)' }} />
+                    )}
+                    <Typography variant="caption" className="message-time" sx={{ m: 0 }}>
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Typography>
+                    {msg.senderId === user.id && !msg.deleted && (
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {msg.read ? (
+                          <DoneAllIcon sx={{ fontSize: 13, color: '#FFD54F' }} />
+                        ) : msg.delivered ? (
+                          <DoneAllIcon sx={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }} />
+                        ) : (
+                          <DoneIcon sx={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }} />
+                        )}
+                      </Box>
+                    )}
+                  </Box>
                 </Paper>
               </Box>
             );
@@ -418,7 +766,7 @@ const ChatPage = () => {
         />
 
         {selectedImage && (
-          <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'action.hover', borderTop: '1px solid divider' }}>
+          <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'action.hover', borderTop: '1px solid var(--divider)' }}>
             <img src={selectedImage} alt="preview" style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover' }} />
             <Box sx={{ flexGrow: 1 }}>
               <Typography variant="caption" color="text.secondary">Selected Image</Typography>
@@ -440,6 +788,35 @@ const ChatPage = () => {
           </Box>
         )}
 
+        {replyingMessage && (
+          <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'action.hover', borderTop: '1px solid var(--divider)', borderBottom: '1px solid var(--divider)' }}>
+            <Box sx={{ borderLeft: '3px solid var(--primary-color)', pl: 1, flexGrow: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.main', display: 'block' }}>
+                Replying to {replyingMessage.senderId === user.id ? 'You' : resolvedUser.username}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', maxWidth: '300px' }}>
+                {replyingMessage.text.startsWith('[IMAGE]:') ? '📷 Photo' : replyingMessage.text}
+              </Typography>
+            </Box>
+            <IconButton size="small" onClick={() => setReplyingMessage(null)}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
+
+        {isOtherUserTyping && (
+          <Box sx={{ px: 2.5, py: 0.75, display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'background.paper', borderTop: '1px solid var(--divider)' }}>
+            <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
+              {resolvedUser.fullname || resolvedUser.username} is typing
+            </Typography>
+            <Box className="typing-dots" sx={{ display: 'flex', gap: 0.35 }}>
+              <span className="dot" style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--text-secondary)', display: 'inline-block' }}></span>
+              <span className="dot" style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--text-secondary)', display: 'inline-block' }}></span>
+              <span className="dot" style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--text-secondary)', display: 'inline-block' }}></span>
+            </Box>
+          </Box>
+        )}
+
         <Box className="chat-input-area">
           <TextField
             fullWidth
@@ -448,7 +825,7 @@ const ChatPage = () => {
             multiline
             maxRows={4}
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
+            onChange={handleInputChange}
             className="chat-text-field"
             InputProps={{
               sx: { borderRadius: 4, pl: 1 },
@@ -527,6 +904,7 @@ const ChatPage = () => {
               const url = localStorage.getItem(`avatar_${userId}`) || targetUserDetails?.avatar || '';
               if (url) {
                 setLightboxUrl(url);
+                setLightboxIsProfile(true);
                 setLightboxOpen(true);
               }
             }}
@@ -633,7 +1011,7 @@ const ChatPage = () => {
           >
             Close
           </Button>
-          {lightboxUrl && (
+          {lightboxUrl && !lightboxIsProfile && (
             <Button
               onClick={() => {
                 setEditorImageSrc(lightboxUrl);
@@ -664,6 +1042,120 @@ const ChatPage = () => {
         onSend={(editedBase64) => {
           sendEditedImage(editedBase64);
         }}
+      />
+
+      {/* Context Menu on Message Bubbles */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={handleCloseMenu}
+      >
+        <MenuItem onClick={handleReplyClick}>
+          <ReplyIcon sx={{ mr: 1, fontSize: 20 }} /> Reply
+        </MenuItem>
+        <MenuItem onClick={handleCopyMessage}>
+          <CopyIcon sx={{ mr: 1, fontSize: 20 }} /> Copy
+        </MenuItem>
+        <MenuItem onClick={handlePinToggle}>
+          <PushPinIcon sx={{ mr: 1, fontSize: 20, transform: 'rotate(45deg)' }} /> {menuMessage?.pinned ? "Unpin" : "Pin"}
+        </MenuItem>
+        <MenuItem onClick={handleForwardClick}>
+          <ForwardIcon sx={{ mr: 1, fontSize: 20 }} /> Forward
+        </MenuItem>
+        {menuMessage?.senderId === user.id && (
+          <MenuItem onClick={handleDeleteMessage} sx={{ color: 'error.main' }}>
+            <DeleteIcon sx={{ mr: 1, fontSize: 20 }} /> Delete
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* Pinned Messages List Dialog */}
+      <Dialog open={openPinnedDialog} onClose={() => setOpenPinnedDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Pinned Messages</DialogTitle>
+        <DialogContent dividers sx={{ p: 0 }}>
+          {messages.filter(m => m.pinned && !m.deleted).length === 0 ? (
+            <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
+              No pinned messages
+            </Box>
+          ) : (
+            <List>
+              {messages.filter(m => m.pinned && !m.deleted).map(msg => {
+                const isImg = msg.text.startsWith('[IMAGE]:');
+                const cleanText = isImg ? '📷 Photo' : msg.text;
+                const senderName = msg.senderId === user.id ? 'You' : resolvedUser.username;
+                return (
+                  <ListItemButton 
+                    key={msg.id}
+                    onClick={() => {
+                      setOpenPinnedDialog(false);
+                      handleScrollToMessage(msg.id);
+                    }}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: msg.senderId === user.id ? 'primary.main' : 'secondary.main', width: 32, height: 32, fontSize: '0.85rem' }}>
+                        {senderName.charAt(0).toUpperCase()}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText 
+                      primary={cleanText}
+                      secondary={`${senderName} • ${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                      primaryTypographyProps={{ variant: 'body2', noWrap: true, sx: { fontWeight: 500 } }}
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
+                  </ListItemButton>
+                );
+              })}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenPinnedDialog(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Forward Message Dialog */}
+      <Dialog open={openForwardDialog} onClose={() => setOpenForwardDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Forward Message</DialogTitle>
+        <DialogContent dividers sx={{ p: 0 }}>
+          <List>
+            {allUsers
+              .filter(u => u.id !== user.id && !user.blockedUserIds?.includes(String(u.id)) && !u.blockedUserIds?.includes(String(user.id)))
+              .map(target => {
+                const uAvatar = localStorage.getItem(`avatar_${target.id}`) || target.avatar || '';
+                const uName = target.fullname || target.name || target.username || '?';
+                return (
+                  <ListItemButton 
+                    key={target.id}
+                    onClick={() => handleForwardMessage(target)}
+                  >
+                    <ListItemAvatar>
+                      <Avatar src={uAvatar} sx={{ width: 36, height: 36 }}>
+                        {!uAvatar && uName.charAt(0).toUpperCase()}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText 
+                      primary={uName} 
+                      secondary={`@${target.username}`}
+                      primaryTypographyProps={{ variant: 'body2', sx: { fontWeight: 600 } }}
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
+                  </ListItemButton>
+                );
+              })}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenForwardDialog(false)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar alerts */}
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={3000}
+        onClose={() => setOpenSnackbar(false)}
+        message={snackbarMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
     </Box>
   );

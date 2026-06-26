@@ -60,8 +60,21 @@ const ChatListPage = () => {
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   const [selectedMembers, setSelectedMembers] = useState([]); // array of userIds
+  const [messageSearchResults, setMessageSearchResults] = useState([]);
   
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (activeTab === 0 && searchQuery.trim()) {
+      const delayDebounce = setTimeout(async () => {
+        const results = await socialStore.searchMessages(user.id, searchQuery);
+        setMessageSearchResults(results);
+      }, 400);
+      return () => clearTimeout(delayDebounce);
+    } else {
+      setMessageSearchResults([]);
+    }
+  }, [searchQuery, activeTab, user?.id]);
 
   const isUserOnline = (otherUser) => {
     if (!otherUser || !otherUser.lastActiveTime) return false;
@@ -459,6 +472,74 @@ const ChatListPage = () => {
                     </ListItem>
                   );
                 })}
+
+                {messageSearchResults.length > 0 && (
+                  <Box sx={{ mt: 3, px: 2, width: '100%' }}>
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 700, 
+                        color: 'primary.main', 
+                        textTransform: 'uppercase', 
+                        fontSize: '0.75rem', 
+                        letterSpacing: '0.05em', 
+                        mb: 1 
+                      }}
+                    >
+                      Message Matches
+                    </Typography>
+                    <List sx={{ p: 0 }}>
+                      {messageSearchResults.map((msg) => {
+                        const partnerId = msg.senderId === user.id ? msg.recipientId : msg.senderId;
+                        const otherUser = allUsers.find(u => Number(u.id) === Number(partnerId)) || {
+                          id: partnerId,
+                          fullname: msg.senderUsername,
+                          username: msg.senderUsername
+                        };
+                        const userAvatar = localStorage.getItem(`avatar_${otherUser.id}`) || otherUser.avatar || '';
+                        const displayName = otherUser.fullname || otherUser.name || otherUser.username || '?';
+                        const initials = displayName.charAt(0).toUpperCase();
+                        
+                        const isImg = msg.message.startsWith('[IMAGE]:');
+                        const previewText = isImg ? '📷 Photo' : msg.message;
+
+                        return (
+                          <ListItem key={msg.id} disablePadding sx={{ mb: 1 }}>
+                            <ListItemButton
+                              onClick={() => navigate(`/chat/${partnerId}?messageId=${msg.id}`)}
+                              className="chat-list-item-new"
+                              sx={{ width: '100%', borderRadius: 2 }}
+                            >
+                              <ListItemAvatar>
+                                <Avatar src={userAvatar} sx={{ bgcolor: 'secondary.main', color: 'white', fontWeight: 'bold' }}>
+                                  {!userAvatar && initials}
+                                </Avatar>
+                              </ListItemAvatar>
+                              <ListItemText
+                                primary={
+                                  <Box className="chat-item-header">
+                                    <Typography className="chat-item-name" variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                      {displayName}
+                                    </Typography>
+                                    <Typography variant="caption" className="chat-item-time">
+                                      {new Date(msg.timestamp).toLocaleDateString()} {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </Typography>
+                                  </Box>
+                                }
+                                secondary={
+                                  <Typography variant="body2" color="text.secondary" noWrap>
+                                    {msg.senderId === user.id ? 'You: ' : `${msg.senderUsername}: `}{previewText}
+                                  </Typography>
+                                }
+                                primaryTypographyProps={{ component: 'div' }}
+                              />
+                            </ListItemButton>
+                          </ListItem>
+                        );
+                      })}
+                    </List>
+                  </Box>
+                )}
 
                 {archivedDms.length > 0 && (
                   <Box sx={{ mt: 2, px: 2, width: '100%' }}>

@@ -23,7 +23,9 @@ import {
   Menu,
   MenuItem,
   Popover,
-  InputAdornment
+  InputAdornment,
+  Switch,
+  Alert
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -38,7 +40,8 @@ import {
   AttachFile as AttachFileIcon,
   InsertEmoticon as EmojiIcon,
   Close as CloseIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  PhotoCamera as CameraIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -66,9 +69,99 @@ const GroupChatPage = () => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState('');
   const [lightboxName, setLightboxName] = useState('');
+  const [lightboxIsProfile, setLightboxIsProfile] = useState(false);
 
   const [selectedMemberInfo, setSelectedMemberInfo] = useState(null);
   const [openMemberInfo, setOpenMemberInfo] = useState(false);
+
+  // Group Details Editing States
+  const [isEditingGroup, setIsEditingGroup] = useState(false);
+  const [editGroupName, setEditGroupName] = useState('');
+  const [editGroupDescription, setEditGroupDescription] = useState('');
+  const [editGroupAvatar, setEditGroupAvatar] = useState('');
+  const [editOnlyAdminsCanEdit, setEditOnlyAdminsCanEdit] = useState(false);
+
+  const groupAvatarInputRef = useRef(null);
+  const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+
+  const handleAvatarFile = (file) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Please select a valid image file (PNG, JPG, WebP).');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarError('Group profile picture must be smaller than 2MB.');
+      return;
+    }
+
+    setAvatarError('');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setEditGroupAvatar(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAvatarFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleAvatarFile(e.target.files[0]);
+    }
+  };
+
+  const handleAvatarDragOver = (e) => {
+    e.preventDefault();
+    setIsDraggingAvatar(true);
+  };
+
+  const handleAvatarDragLeave = (e) => {
+    e.preventDefault();
+    setIsDraggingAvatar(false);
+  };
+
+  const handleAvatarDrop = (e) => {
+    e.preventDefault();
+    setIsDraggingAvatar(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleAvatarFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const triggerAvatarFileInput = () => {
+    if (groupAvatarInputRef.current) {
+      groupAvatarInputRef.current.click();
+    }
+  };
+
+  useEffect(() => {
+    if (openInfo && group) {
+      setEditGroupName(group.name || '');
+      setEditGroupDescription(group.description || '');
+      setEditGroupAvatar(group.avatar || '');
+      setEditOnlyAdminsCanEdit(!!group.onlyAdminsCanEdit);
+      setIsEditingGroup(false);
+      setAvatarError('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openInfo]);
+
+  const handleSaveGroupDetails = async () => {
+    if (!editGroupName.trim()) return;
+    const updated = await socialStore.updateGroupDetails(groupId, user.id, {
+      name: editGroupName,
+      description: editGroupDescription,
+      avatar: editGroupAvatar,
+      onlyAdminsCanEdit: editOnlyAdminsCanEdit
+    });
+    if (updated) {
+      setGroup(updated);
+      setIsEditingGroup(false);
+      loadGroupDetails();
+    }
+  };
 
   const [selectedImage, setSelectedImage] = useState(null);
   const fileInputRef = useRef(null);
@@ -152,7 +245,7 @@ const GroupChatPage = () => {
   };
 
   const sortedMembers = useMemo(() => {
-    if (!group || !group.members) return [];
+    if (!group || !group.members || !user) return [];
     return [...group.members].sort((a, b) => {
       const aId = Number(a.id);
       const bId = Number(b.id);
@@ -201,6 +294,7 @@ const GroupChatPage = () => {
     const avatarUrl = localStorage.getItem(`avatar_${menuTargetMember.id}`) || menuTargetMember.avatar || '';
     setLightboxUrl(avatarUrl);
     setLightboxName(menuTargetMember.fullname || menuTargetMember.name || menuTargetMember.username || 'User');
+    setLightboxIsProfile(true);
     setLightboxOpen(true);
     handleCloseMemberMenu();
   };
@@ -296,6 +390,18 @@ const GroupChatPage = () => {
     loadGroupDetails();
   };
 
+  if (!user) {
+    return (
+      <Box className="chat-page-container">
+        <Paper className="chat-window glass-panel-strong">
+          <Box className="chat-empty-state">
+            <Typography variant="body1">Loading authentication context...</Typography>
+          </Box>
+        </Paper>
+      </Box>
+    );
+  }
+
   if (!group) {
     return (
       <Box className="chat-page-container">
@@ -308,6 +414,9 @@ const GroupChatPage = () => {
     );
   }
 
+  const isCreator = group && Number(group.createdBy) === Number(user?.id);
+  const isAdmin = group && (group.adminIds?.includes(String(user?.id)) || isCreator);
+  const canEditGroupDetails = group && (!group.onlyAdminsCanEdit || isAdmin);
   const initials = group.name.substring(0, 2).toUpperCase();
 
   return (
@@ -398,6 +507,7 @@ const GroupChatPage = () => {
                             onClick={() => {
                               setLightboxUrl(imageUrl);
                               setLightboxName(msg.senderName);
+                              setLightboxIsProfile(false);
                               setLightboxOpen(true);
                             }}
                           />
@@ -542,98 +652,214 @@ const GroupChatPage = () => {
       >
         <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Group Information</span>
-          <Button 
-            variant="outlined" 
-            size="small" 
-            startIcon={<AddPersonIcon />}
-            onClick={() => setOpenAddMembers(true)}
-            sx={{ textTransform: 'none', borderRadius: 3 }}
-          >
-            Add
-          </Button>
-        </DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} sx={{ py: 1 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-              <Avatar 
-                src={group.avatar} 
-                sx={{ width: 72, height: 72, fontSize: '2rem', bgcolor: 'primary.light', borderRadius: 4, cursor: group.avatar ? 'pointer' : 'default' }}
-                onClick={() => {
-                  if (group.avatar) {
-                    setLightboxUrl(group.avatar);
-                    setLightboxName(group.name);
-                    setLightboxOpen(true);
-                  }
-                }}
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {canEditGroupDetails && !isEditingGroup && (
+              <Button 
+                variant="outlined" 
+                size="small" 
+                onClick={() => setIsEditingGroup(true)}
+                sx={{ textTransform: 'none', borderRadius: 3 }}
               >
-                {initials}
-              </Avatar>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>{group.name}</Typography>
-              <Typography variant="body2" color="text.secondary" align="center">
-                {group.description || "No description provided."}
-              </Typography>
-            </Box>
-
-            <Divider />
-
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Group Members ({group.members.length})
-            </Typography>
-
-            <List sx={{ maxHeight: 250, overflowY: 'auto' }}>
-              {sortedMembers.map((member) => {
-                const memberId = Number(member.id);
-                const isUserMe = memberId === Number(user.id);
-                const memberAvatar = localStorage.getItem(`avatar_${memberId}`) || member.avatar || '';
-                const memberName = member.fullname || member.name || member.username || `User #${memberId}`;
-                const isCreator = Number(group.createdBy) === memberId;
-                const isTargetAdmin = group.adminIds?.includes(String(memberId)) || isCreator;
-                const roleLabel = isCreator ? "Group Creator" : (isTargetAdmin ? "Admin" : "Member");
+                Edit
+              </Button>
+            )}
+            <Button 
+              variant="outlined" 
+              size="small" 
+              startIcon={<AddPersonIcon />}
+              onClick={() => setOpenAddMembers(true)}
+              sx={{ textTransform: 'none', borderRadius: 3 }}
+            >
+              Add
+            </Button>
+          </Box>
+        </DialogTitle>
+        {isEditingGroup ? (
+          <>
+            <DialogContent dividers>
+              <Stack spacing={2} sx={{ py: 1 }}>
+                <TextField
+                  label="Group Name"
+                  value={editGroupName}
+                  onChange={(e) => setEditGroupName(e.target.value)}
+                  fullWidth
+                  variant="outlined"
+                  InputProps={{ sx: { borderRadius: 3 } }}
+                />
                 
-                return (
-                  <ListItem 
-                    key={memberId} 
-                    sx={{ px: 0, py: 0.5 }}
-                    secondaryAction={
-                      <IconButton 
-                        size="small" 
-                        onClick={(e) => handleOpenMemberMenu(e, member)}
-                        sx={{ color: 'var(--text-secondary)' }}
-                      >
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
-                    }
-                  >
-                    <ListItemAvatar>
-                      <Avatar 
-                        src={memberAvatar} 
-                        sx={{ width: 32, height: 32, fontSize: '0.85rem', cursor: memberAvatar ? 'pointer' : 'default' }}
-                        onClick={() => {
-                          if (memberAvatar) {
-                            setLightboxUrl(memberAvatar);
-                            setLightboxName(memberName);
-                            setLightboxOpen(true);
-                          }
+                <TextField
+                  label="Group Description"
+                  value={editGroupDescription}
+                  onChange={(e) => setEditGroupDescription(e.target.value)}
+                  fullWidth
+                  multiline
+                  rows={2}
+                  variant="outlined"
+                  InputProps={{ sx: { borderRadius: 3 } }}
+                />
+
+                  {/* Custom Avatar Upload Zone (matching ProfilePage) */}
+                  <Box className="avatar-upload-section" sx={{ mb: 3 }}>
+                    <input
+                      type="file"
+                      ref={groupAvatarInputRef}
+                      onChange={handleAvatarFileChange}
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                    />
+                    
+                    <Box 
+                      className={`avatar-dropzone ${isDraggingAvatar ? 'dragging' : ''}`}
+                      onDragOver={handleAvatarDragOver}
+                      onDragLeave={handleAvatarDragLeave}
+                      onDrop={handleAvatarDrop}
+                      onClick={triggerAvatarFileInput}
+                    >
+                      <Avatar
+                        src={editGroupAvatar}
+                        className="avatar-preview"
+                        sx={{
+                          width: '100%',
+                          height: '100%',
+                          fontSize: '2rem',
+                          bgcolor: 'primary.light'
                         }}
                       >
-                        {!memberAvatar && memberName.charAt(0).toUpperCase()}
+                        {editGroupName ? editGroupName.charAt(0).toUpperCase() : 'G'}
                       </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText 
-                      primary={isUserMe ? `${memberName} (You)` : memberName} 
-                      secondary={roleLabel}
-                      primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
-                      secondaryTypographyProps={{ variant: 'caption' }}
-                    />
-                  </ListItem>
-                );
-              })}
-            </List>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenInfo(false)} sx={{ textTransform: 'none' }}>Close</Button>
-        </DialogActions>
+                      <Box className="avatar-hover-overlay">
+                        <CameraIcon sx={{ fontSize: 32 }} />
+                      </Box>
+                    </Box>
+
+                    {avatarError && (
+                      <Alert severity="warning" className="avatar-error-alert" sx={{ mt: 1, py: 0, px: 2, borderRadius: 2 }}>
+                        {avatarError}
+                      </Alert>
+                    )}
+                  </Box>
+
+                {isAdmin && (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={editOnlyAdminsCanEdit}
+                        onChange={(e) => setEditOnlyAdminsCanEdit(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label="Only admins can modify group details"
+                    sx={{ mt: 1 }}
+                  />
+                )}
+              </Stack>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, py: 2 }}>
+              <Button 
+                onClick={() => setIsEditingGroup(false)} 
+                variant="outlined"
+                sx={{ textTransform: 'none', borderRadius: 2 }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSaveGroupDetails} 
+                variant="contained" 
+                disabled={!editGroupName.trim()}
+                sx={{ textTransform: 'none', borderRadius: 2 }}
+              >
+                Save
+              </Button>
+            </DialogActions>
+          </>
+        ) : (
+          <>
+            <DialogContent dividers>
+              <Stack spacing={2} sx={{ py: 1 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                  <Avatar 
+                    src={group.avatar} 
+                    sx={{ width: 72, height: 72, fontSize: '2rem', bgcolor: 'primary.light', borderRadius: 4, cursor: group.avatar ? 'pointer' : 'default' }}
+                    onClick={() => {
+                      if (group.avatar) {
+                        setLightboxUrl(group.avatar);
+                        setLightboxName(group.name);
+                        setLightboxIsProfile(true);
+                        setLightboxOpen(true);
+                      }
+                    }}
+                  >
+                    {initials}
+                  </Avatar>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>{group.name}</Typography>
+                  <Typography variant="body2" color="text.secondary" align="center">
+                    {group.description || "No description provided."}
+                  </Typography>
+                </Box>
+
+                <Divider />
+
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Group Members ({group.members.length})
+                </Typography>
+
+                <List sx={{ maxHeight: 250, overflowY: 'auto' }}>
+                  {sortedMembers.map((member) => {
+                    const memberId = Number(member.id);
+                    const isUserMe = memberId === Number(user.id);
+                    const memberAvatar = localStorage.getItem(`avatar_${memberId}`) || member.avatar || '';
+                    const memberName = member.fullname || member.name || member.username || `User #${memberId}`;
+                    const isCreator = Number(group.createdBy) === memberId;
+                    const isTargetAdmin = group.adminIds?.includes(String(memberId)) || isCreator;
+                    const roleLabel = isCreator ? "Group Creator" : (isTargetAdmin ? "Admin" : "Member");
+                    
+                    return (
+                      <ListItem 
+                        key={memberId} 
+                        sx={{ px: 0, py: 0.5 }}
+                        secondaryAction={
+                          <IconButton 
+                            size="small" 
+                            onClick={(e) => handleOpenMemberMenu(e, member)}
+                            sx={{ color: 'var(--text-secondary)' }}
+                          >
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        }
+                      >
+                        <ListItemAvatar>
+                          <Avatar 
+                            src={memberAvatar} 
+                            sx={{ width: 32, height: 32, fontSize: '0.85rem', cursor: memberAvatar ? 'pointer' : 'default' }}
+                            onClick={() => {
+                              if (memberAvatar) {
+                                setLightboxUrl(memberAvatar);
+                                setLightboxName(memberName);
+                                setLightboxIsProfile(true);
+                                setLightboxOpen(true);
+                              }
+                            }}
+                          >
+                            {!memberAvatar && memberName.charAt(0).toUpperCase()}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText 
+                          primary={isUserMe ? `${memberName} (You)` : memberName} 
+                          secondary={roleLabel}
+                          primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
+                          secondaryTypographyProps={{ variant: 'caption' }}
+                        />
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setOpenInfo(false)} sx={{ textTransform: 'none' }}>Close</Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
 
       {/* ADD MEMBERS DIALOG */}
@@ -778,6 +1004,7 @@ const GroupChatPage = () => {
                 const url = localStorage.getItem(`avatar_${selectedMemberInfo.id}`) || selectedMemberInfo.avatar || '';
                 setLightboxUrl(url);
                 setLightboxName(selectedMemberInfo.fullname || selectedMemberInfo.name || selectedMemberInfo.username || 'User');
+                setLightboxIsProfile(true);
                 setLightboxOpen(true);
               }
             }}
@@ -896,7 +1123,7 @@ const GroupChatPage = () => {
           >
             Close
           </Button>
-          {lightboxUrl && (
+          {lightboxUrl && !lightboxIsProfile && (
             <Button
               onClick={() => {
                 setEditorImageSrc(lightboxUrl);

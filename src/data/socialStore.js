@@ -261,6 +261,136 @@ export const socialStore = {
     }
   },
 
+  updateGroupDetails: async (groupId, userId, updates) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}/update`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          userId: Number(userId),
+          updates
+        })
+      });
+      if (!res.ok) throw new Error('Failed to update group details');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  // --- DIRECT CHAT ---
+  getChatHistory: async (userId1, userId2) => {
+    try {
+      const res = await fetch(`/api/chat/conversation/${userId1}/${userId2}`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to load chat history');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
+  sendDirectMessage: async (senderId, recipientId, message, username, avatar, replyToId = null, replyToMessage = null, replyToUsername = null, forwarded = false) => {
+    try {
+      const res = await fetch('/api/chat/send-message', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          senderId: Number(senderId),
+          recipientId: Number(recipientId),
+          message,
+          username,
+          avatar,
+          replyToId,
+          replyToMessage,
+          replyToUsername,
+          forwarded
+        })
+      });
+      if (!res.ok) throw new Error('Failed to send message');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  pinMessage: async (messageId, pin) => {
+    try {
+      const res = await fetch(`/api/chat/message/${messageId}/pin`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ pin })
+      });
+      if (!res.ok) throw new Error('Failed to pin message');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  deleteMessage: async (messageId, userId) => {
+    try {
+      const res = await fetch(`/api/chat/message/${messageId}?userId=${userId}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error('Failed to delete message');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  searchMessages: async (userId, query) => {
+    try {
+      const res = await fetch(`/api/chat/user/${userId}/search-messages?query=${encodeURIComponent(query)}`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error('Failed to search messages');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
+  updateTypingStatus: async (userId, recipientId, username, typing) => {
+    try {
+      const res = await fetch('/api/chat/typing', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          userId: Number(userId),
+          recipientId: Number(recipientId),
+          username,
+          typing
+        })
+      });
+      if (!res.ok) throw new Error('Failed to update typing status');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  getTypingStatus: async (userId, otherUserId) => {
+    try {
+      const res = await fetch(`/api/chat/typing/${userId}/${otherUserId}`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error('Failed to get typing status');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return { typing: false };
+    }
+  },
+
   // --- COMMUNITIES ---
   getCommunities: async () => {
     initLocalCommunities();
