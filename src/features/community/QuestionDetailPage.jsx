@@ -105,7 +105,7 @@ const QuestionDetailPage = () => {
   };
 
   const handlePostCommentSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!newCommentText.trim()) return;
 
     await socialStore.addComment(questionId, newCommentText, user);
@@ -114,7 +114,7 @@ const QuestionDetailPage = () => {
   };
 
   const handlePostReplySubmit = async (e, commentId) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!replyText.trim()) return;
 
     await socialStore.addReply(questionId, commentId, replyText, user);
@@ -223,7 +223,7 @@ const QuestionDetailPage = () => {
         </Typography>
 
         {/* Write Top-level Comment */}
-        <Box component="form" onSubmit={handlePostCommentSubmit} className="comment-input-wrapper">
+        <Box className="comment-input-wrapper">
           <TextField
             placeholder="What are your thoughts on this?"
             multiline
@@ -236,7 +236,7 @@ const QuestionDetailPage = () => {
             }}
           />
           <Button
-            type="submit"
+            onClick={handlePostCommentSubmit}
             variant="contained"
             disabled={!newCommentText.trim()}
             sx={{ alignSelf: 'flex-end', textTransform: 'none', borderRadius: 2 }}
@@ -312,22 +312,19 @@ const QuestionDetailPage = () => {
 
                 {/* Reply Composer Form */}
                 {activeReplyId === comment.id && (
-                  <Box 
-                    component="form" 
-                    onSubmit={(e) => handlePostReplySubmit(e, comment.id)}
-                    className="reply-input-box animate-fade-in"
-                  >
+                  <Box className="reply-input-box animate-fade-in">
                     <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                       <TextField
-                        size="small"
                         fullWidth
                         placeholder="Write a reply..."
+                        multiline
+                        maxRows={4}
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
                         InputProps={{ sx: { borderRadius: 3 } }}
                       />
                       <Button 
-                        type="submit" 
+                        onClick={(e) => handlePostReplySubmit(e, comment.id)}
                         variant="contained" 
                         size="small"
                         disabled={!replyText.trim()}

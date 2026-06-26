@@ -246,9 +246,35 @@ const CommunityDetailPage = () => {
               {community.icon} {community.name}
             </Typography>
           </Stack>
-          <Typography variant="body2" sx={{ opacity: 0.85, fontSize: '0.8rem', lineHeight: 1.4 }}>
+          <Typography variant="body2" sx={{ opacity: 0.85, fontSize: '0.8rem', lineHeight: 1.4, mb: 1 }}>
             {community.description}
           </Typography>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={async () => {
+              await socialStore.toggleJoinCommunity(community.id);
+              loadCommunity();
+            }}
+            sx={{
+              alignSelf: 'flex-start',
+              borderRadius: 3,
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 2,
+              py: 0.5,
+              bgcolor: community.isJoined ? 'rgba(255,255,255,0.15)' : 'white',
+              color: community.isJoined ? 'white' : '#3D5CFF',
+              border: community.isJoined ? '1px solid rgba(255,255,255,0.3)' : 'none',
+              boxShadow: 'none',
+              '&:hover': {
+                bgcolor: community.isJoined ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.9)',
+                boxShadow: 'none'
+              }
+            }}
+          >
+            {community.isJoined ? "Leave Community" : "Join Community"}
+          </Button>
         </Box>
 
         <Divider />
@@ -262,6 +288,7 @@ const CommunityDetailPage = () => {
             size="small" 
             color="primary" 
             onClick={() => setOpenCreateRoom(true)}
+            disabled={!community.isJoined}
             sx={{ border: '1.5px solid var(--divider)', borderRadius: 2 }}
           >
             <AddIcon fontSize="small" />
@@ -338,6 +365,7 @@ const CommunityDetailPage = () => {
               size="small"
               startIcon={<AddIcon />}
               onClick={() => setOpenAskQuestion(true)}
+              disabled={!community.isJoined}
               sx={{ borderRadius: 3, textTransform: 'none', fontWeight: 600 }}
             >
               Ask Post
@@ -446,20 +474,20 @@ const CommunityDetailPage = () => {
             label="Room Name"
             placeholder="e.g. java-exceptions"
             fullWidth
-            size="small"
             value={roomName}
             onChange={(e) => setRoomName(e.target.value)}
             required
+            InputProps={{ sx: { borderRadius: 3 } }}
           />
           <TextField
             label="Description"
             placeholder="Describe the discussion scope of this room"
             fullWidth
-            size="small"
             multiline
             rows={2}
             value={roomDesc}
             onChange={(e) => setRoomDesc(e.target.value)}
+            InputProps={{ sx: { borderRadius: 3 } }}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
@@ -491,10 +519,10 @@ const CommunityDetailPage = () => {
             label="Title"
             placeholder="What is your question? Be specific."
             fullWidth
-            size="small"
             value={postTitle}
             onChange={(e) => setPostTitle(e.target.value)}
             required
+            InputProps={{ sx: { borderRadius: 3 } }}
           />
           <TextField
             label="Question Description"
@@ -502,10 +530,10 @@ const CommunityDetailPage = () => {
             fullWidth
             multiline
             rows={4}
-            size="small"
             value={postContent}
             onChange={(e) => setPostContent(e.target.value)}
             required
+            InputProps={{ sx: { borderRadius: 3 } }}
           />
           
           <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
@@ -535,11 +563,10 @@ const CommunityDetailPage = () => {
                 fullWidth
                 multiline
                 rows={3}
-                size="small"
                 value={postCode}
                 onChange={(e) => setPostCode(e.target.value)}
                 InputProps={{
-                  sx: { fontFamily: 'monospace', pr: 4 }
+                  sx: { fontFamily: 'monospace', pr: 4, borderRadius: 3 }
                 }}
               />
               <IconButton 
@@ -558,11 +585,10 @@ const CommunityDetailPage = () => {
                 label="Image URL"
                 placeholder="https://example.com/image.jpg"
                 fullWidth
-                size="small"
                 value={postImage}
                 onChange={(e) => setPostImage(e.target.value)}
                 InputProps={{
-                  sx: { pr: 4 }
+                  sx: { pr: 4, borderRadius: 3 }
                 }}
               />
               <IconButton 
@@ -582,17 +608,17 @@ const CommunityDetailPage = () => {
                 label="Link URL"
                 placeholder="https://example.com"
                 fullWidth
-                size="small"
                 value={postLink}
                 onChange={(e) => setPostLink(e.target.value)}
+                InputProps={{ sx: { borderRadius: 3 } }}
               />
               <TextField
                 label="Link Label (Optional)"
                 placeholder="e.g. Documentation"
                 fullWidth
-                size="small"
                 value={postLinkLabel}
                 onChange={(e) => setPostLinkLabel(e.target.value)}
+                InputProps={{ sx: { borderRadius: 3 } }}
               />
               <IconButton 
                 size="small" 

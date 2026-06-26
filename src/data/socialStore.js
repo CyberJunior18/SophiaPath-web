@@ -210,6 +210,57 @@ export const socialStore = {
     }
   },
 
+  makeGroupAdmin: async (groupId, userId) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}/make-admin`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          userId: Number(userId)
+        })
+      });
+      if (!res.ok) throw new Error('Failed to make group admin');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  removeGroupAdmin: async (groupId, userId) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}/remove-admin`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          userId: Number(userId)
+        })
+      });
+      if (!res.ok) throw new Error('Failed to remove group admin');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  removeGroupMember: async (groupId, userId) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}/remove-member`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          userId: Number(userId)
+        })
+      });
+      if (!res.ok) throw new Error('Failed to remove group member');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
   // --- COMMUNITIES ---
   getCommunities: async () => {
     initLocalCommunities();
@@ -263,6 +314,11 @@ export const socialStore = {
   createCommunity: async (name, description, icon) => {
     initLocalCommunities();
     const list = JSON.parse(localStorage.getItem('sophia_communities') || '[]');
+    const nameExists = list.some(c => c.name.toLowerCase() === name.toLowerCase());
+    if (nameExists) {
+      alert("A community with this name already exists.");
+      return null;
+    }
     const newId = list.length > 0 ? Math.max(...list.map(item => item.id)) + 1 : 1;
     const gradients = [
       'linear-gradient(135deg, #3D5CFF 0%, #7C8DFF 100%)',
@@ -352,6 +408,20 @@ export const socialStore = {
 
   createQuestion: async (roomId, title, content, author) => {
     initLocalCommunities();
+    const rooms = JSON.parse(localStorage.getItem('sophia_rooms') || '[]');
+    const room = rooms.find(r => Number(r.id) === Number(roomId));
+    if (!room) return null;
+    
+    const communities = JSON.parse(localStorage.getItem('sophia_communities') || '[]');
+    const community = communities.find(c => Number(c.id) === Number(room.communityId));
+    if (!community) return null;
+    
+    const isMember = community.members?.includes(Number(author.id));
+    if (!isMember) {
+      alert("Only members of this community can post questions.");
+      return null;
+    }
+
     const all = JSON.parse(localStorage.getItem('sophia_questions') || '[]');
     const newId = all.length > 0 ? Math.max(...all.map(item => item.id)) + 1 : 1;
     const newQ = {

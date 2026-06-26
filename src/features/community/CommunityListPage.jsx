@@ -177,20 +177,20 @@ const CommunityListPage = () => {
             label="Community Name"
             placeholder="e.g. Software Architecture"
             fullWidth
-            size="small"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
+            InputProps={{ sx: { borderRadius: 3 } }}
           />
           <TextField
             label="Description"
             placeholder="What is this community's learning focus?"
             fullWidth
-            size="small"
             multiline
             rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            InputProps={{ sx: { borderRadius: 3 } }}
           />
 
           <Stack direction="row" spacing={1} alignItems="center">

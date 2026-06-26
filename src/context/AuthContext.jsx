@@ -390,8 +390,68 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const blockUser = async (targetUserId) => {
+    if (!user) return { success: false, message: 'Not logged in' };
+    const token = localStorage.getItem('token');
+    if (!token) return { success: false, message: 'No token' };
+
+    try {
+      const res = await fetch(`/users/${targetUserId}/block`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        return { success: false, message: err.message || 'Block failed' };
+      }
+
+      const updatedUser = await res.json();
+      setUser(prev => ({
+        ...prev,
+        blockedUserIds: updatedUser.blockedUserIds || []
+      }));
+      return { success: true };
+    } catch (err) {
+      console.error('blockUser error:', err);
+      return { success: false, message: 'Network error or backend offline' };
+    }
+  };
+
+  const unblockUser = async (targetUserId) => {
+    if (!user) return { success: false, message: 'Not logged in' };
+    const token = localStorage.getItem('token');
+    if (!token) return { success: false, message: 'No token' };
+
+    try {
+      const res = await fetch(`/users/${targetUserId}/unblock`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        return { success: false, message: err.message || 'Unblock failed' };
+      }
+
+      const updatedUser = await res.json();
+      setUser(prev => ({
+        ...prev,
+        blockedUserIds: updatedUser.blockedUserIds || []
+      }));
+      return { success: true };
+    } catch (err) {
+      console.error('unblockUser error:', err);
+      return { success: false, message: 'Network error or backend offline' };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, deleteAccount, updateQuizScore, registerCourse, unregisterCourse, updateProfile, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, deleteAccount, updateQuizScore, registerCourse, unregisterCourse, updateProfile, blockUser, unblockUser, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

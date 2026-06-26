@@ -21,13 +21,18 @@ import {
   Checkbox,
   FormControlLabel,
   FormGroup,
-  Divider
+  Divider,
+  ListItem,
+  IconButton,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Forum as ForumIcon,
   Group as GroupIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  MoreVert as MoreVertIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -40,8 +45,15 @@ const ChatListPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [allUsers, setAllUsers] = useState([]);
   const [lastMessages, setLastMessages] = useState({});
+  const [lastMessageTimes, setLastMessageTimes] = useState({});
   const [loading, setLoading] = useState(true);
   
+  // Direct Chat Menu & Archive states
+  const [chatMenuAnchor, setChatMenuAnchor] = useState(null);
+  const [chatMenuTargetUserId, setChatMenuTargetUserId] = useState(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [settingsTrigger, setSettingsTrigger] = useState(0);
+
   // Group state
   const [groups, setGroups] = useState([]);
   const [openCreateGroup, setOpenCreateGroup] = useState(false);
@@ -51,9 +63,22 @@ const ChatListPage = () => {
   
   const navigate = useNavigate();
 
-  const loadSocialData = async () => {
+  const isUserOnline = (otherUser) => {
+    if (!otherUser || !otherUser.lastActiveTime) return false;
+    const diffMs = Date.now() - new Date(otherUser.lastActiveTime).getTime();
+    return diffMs < 12000;
+  };
+
+  const matchNameQuery = (fullName, username, queryStr) => {
+    const q = queryStr.toLowerCase().trim();
+    if (!q) return true;
+    const words = `${fullName} ${username}`.toLowerCase().split(/[\s_.-]+/);
+    return words.some(w => w.startsWith(q));
+  };
+
+  const loadSocialData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const token = localStorage.getItem('token');
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
@@ -70,12 +95,16 @@ const ChatListPage = () => {
       }
 
       const msgPreviews = {};
+      const msgTimes = {};
       conversations.forEach(c => {
         const otherId = c.userId1 === user.id ? c.userId2 : c.userId1;
+        msgTimes[otherId] = c.lastMessageTime;
         if (c.lastMessage) {
+          const isImg = c.lastMessage.message?.startsWith('[IMAGE]:');
+          const cleanText = isImg ? '📷 Photo' : c.lastMessage.message;
           msgPreviews[otherId] = c.lastMessage.senderId === user.id
-            ? `You: ${c.lastMessage.message}`
-            : c.lastMessage.message;
+            ? `You: ${cleanText}`
+            : cleanText;
         }
       });
 
@@ -84,6 +113,7 @@ const ChatListPage = () => {
 
       setAllUsers(filteredUsers);
       setLastMessages(msgPreviews);
+      setLastMessageTimes(msgTimes);
 
       // 3. Fetch groups from our local store
       if (user?.id) {
@@ -93,22 +123,97 @@ const ChatListPage = () => {
     } catch (err) {
       console.error('Failed to load chat data:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     if (user?.id) {
-      loadSocialData();
+      loadSocialData(false);
+      const interval = setInterval(() => loadSocialData(true), 3000);
+      return () => clearInterval(interval);
     }
   }, [user]);
 
-  const filteredUsersList = useMemo(() => {
+  const activeDms = useMemo(() => {
+    if (!user || !user.id) return [];
     return allUsers.filter(u => {
-      const displayName = (u.fullname || u.name || u.username || '').toLowerCase();
-      return displayName.includes(searchQuery.toLowerCase());
+      const otherId = u.id;
+      const lastMsgTime = lastMessageTimes[otherId];
+      if (!lastMsgTime) return false;
+
+      // Check if blocked by target or we blocked them
+      const isBlockedByTarget = u.blockedUserIds?.includes(String(user.id));
+      const isBlockedByMe = user.blockedUserIds?.includes(String(otherId));
+      if (isBlockedByTarget || isBlockedByMe) return false;
+
+      // Check if archived
+      const archivedList = JSON.parse(localStorage.getItem(`sophiapath_archived_chats_${user.id}`) || '[]');
+      if (archivedList.includes(otherId)) return false;
+
+      // Check if deleted
+      const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_chats_${user.id}`) || '{}');
+      const deleteTime = deletedObj[otherId];
+      if (deleteTime && new Date(lastMsgTime).getTime() <= new Date(deleteTime).getTime()) {
+        return false;
+      }
+
+      return true;
     });
-  }, [allUsers, searchQuery]);
+  }, [allUsers, lastMessageTimes, user?.blockedUserIds, user?.id, settingsTrigger]);
+
+  const archivedDms = useMemo(() => {
+    if (!user || !user.id) return [];
+    return allUsers.filter(u => {
+      const otherId = u.id;
+      const lastMsgTime = lastMessageTimes[otherId];
+      if (!lastMsgTime) return false;
+
+      // Check if blocked by target or we blocked them
+      const isBlockedByTarget = u.blockedUserIds?.includes(String(user.id));
+      const isBlockedByMe = user.blockedUserIds?.includes(String(otherId));
+      if (isBlockedByTarget || isBlockedByMe) return false;
+
+      // Check if archived
+      const archivedList = JSON.parse(localStorage.getItem(`sophiapath_archived_chats_${user.id}`) || '[]');
+      if (!archivedList.includes(otherId)) return false;
+
+      // Check if deleted
+      const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_chats_${user.id}`) || '{}');
+      const deleteTime = deletedObj[otherId];
+      if (deleteTime && new Date(lastMsgTime).getTime() <= new Date(deleteTime).getTime()) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [allUsers, lastMessageTimes, user?.blockedUserIds, user?.id, settingsTrigger]);
+
+  const filteredUsersList = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) {
+      // Return active chats sorted by last message time (newest first)
+      return [...activeDms].sort((a, b) => {
+        const timeA = lastMessageTimes[a.id] ? new Date(lastMessageTimes[a.id]).getTime() : 0;
+        const timeB = lastMessageTimes[b.id] ? new Date(lastMessageTimes[b.id]).getTime() : 0;
+        return timeB - timeA;
+      });
+    }
+
+    const matches = allUsers.filter(u => {
+      return matchNameQuery(u.fullname || u.name || '', u.username || '', searchQuery);
+    });
+
+    // Sort by last message time (newest first)
+    return matches.sort((a, b) => {
+      const timeA = lastMessageTimes[a.id] ? new Date(lastMessageTimes[a.id]).getTime() : 0;
+      const timeB = lastMessageTimes[b.id] ? new Date(lastMessageTimes[b.id]).getTime() : 0;
+      if (timeA !== timeB) return timeB - timeA;
+      const nameA = (a.fullname || a.name || a.username || '').toLowerCase();
+      const nameB = (b.fullname || b.name || b.username || '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [allUsers, searchQuery, activeDms, lastMessageTimes]);
 
   const filteredGroupsList = useMemo(() => {
     return groups.filter(g => {
@@ -133,6 +238,45 @@ const ChatListPage = () => {
 
   const getLastMessage = (otherId) => {
     return lastMessages[otherId] || "Start a conversation...";
+  };
+
+  const handleOpenChatMenu = (e, targetUserId) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setChatMenuAnchor(e.currentTarget);
+    setChatMenuTargetUserId(targetUserId);
+  };
+
+  const handleCloseChatMenu = () => {
+    setChatMenuAnchor(null);
+    setChatMenuTargetUserId(null);
+  };
+
+  const handleArchiveChat = () => {
+    if (!chatMenuTargetUserId) return;
+    const archivedList = JSON.parse(localStorage.getItem(`sophiapath_archived_chats_${user.id}`) || '[]');
+    if (!archivedList.includes(chatMenuTargetUserId)) {
+      archivedList.push(chatMenuTargetUserId);
+      localStorage.setItem(`sophiapath_archived_chats_${user.id}`, JSON.stringify(archivedList));
+    }
+    setSettingsTrigger(prev => prev + 1);
+    handleCloseChatMenu();
+  };
+
+  const handleUnarchiveChat = (targetUserId) => {
+    const archivedList = JSON.parse(localStorage.getItem(`sophiapath_archived_chats_${user.id}`) || '[]');
+    const updated = archivedList.filter(id => id !== targetUserId);
+    localStorage.setItem(`sophiapath_archived_chats_${user.id}`, JSON.stringify(updated));
+    setSettingsTrigger(prev => prev + 1);
+  };
+
+  const handleDeleteChat = () => {
+    if (!chatMenuTargetUserId) return;
+    const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_chats_${user.id}`) || '{}');
+    deletedObj[chatMenuTargetUserId] = new Date().toISOString();
+    localStorage.setItem(`sophiapath_deleted_chats_${user.id}`, JSON.stringify(deletedObj));
+    setSettingsTrigger(prev => prev + 1);
+    handleCloseChatMenu();
   };
 
   const handleCreateGroupSubmit = async () => {
@@ -235,59 +379,147 @@ const ChatListPage = () => {
             </Box>
           ) : activeTab === 0 ? (
             /* DIRECT MESSAGES LIST */
-            filteredUsersList.length > 0 ? (
-              filteredUsersList.map((otherUser) => {
-                const userAvatar = localStorage.getItem(`avatar_${otherUser.id}`) || otherUser.avatar || '';
-                const displayName = otherUser.fullname || otherUser.name || otherUser.username || '?';
-                const initials = displayName.charAt(0).toUpperCase();
+            (filteredUsersList.length > 0 || archivedDms.length > 0) ? (
+              <>
+                {filteredUsersList.map((otherUser) => {
+                  const userAvatar = localStorage.getItem(`avatar_${otherUser.id}`) || otherUser.avatar || '';
+                  const displayName = otherUser.fullname || otherUser.name || otherUser.username || '?';
+                  const initials = displayName.charAt(0).toUpperCase();
+                  
+                  const isBlockedByTarget = otherUser.blockedUserIds?.includes(String(user.id));
+                  const isBlockedByMe = user.blockedUserIds?.includes(String(otherUser.id));
+                  const isOnline = isUserOnline(otherUser);
+                  const badgeColor = (isBlockedByTarget || isBlockedByMe) ? "default" : (isOnline ? "success" : "default");
 
-                return (
-                  <ListItemButton 
-                    key={otherUser.id} 
-                    onClick={() => handleUserClick(otherUser)}
-                    className="chat-list-item-new"
-                  >
-                    <ListItemAvatar>
-                      <Badge 
-                        overlap="circular" 
-                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                        variant="dot"
-                        color="success"
-                        className="status-badge"
+                  return (
+                    <ListItem 
+                      key={otherUser.id} 
+                      disablePadding
+                      secondaryAction={
+                        !isBlockedByTarget && !isBlockedByMe && (
+                          <IconButton 
+                            edge="end" 
+                            size="small" 
+                            onClick={(e) => handleOpenChatMenu(e, otherUser.id)}
+                            sx={{ color: 'var(--text-secondary)', mr: 1 }}
+                          >
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        )
+                      }
+                    >
+                      <ListItemButton
+                        onClick={() => !isBlockedByTarget && handleUserClick(otherUser)}
+                        disabled={isBlockedByTarget}
+                        className="chat-list-item-new"
+                        sx={{ opacity: (isBlockedByTarget || isBlockedByMe) ? 0.6 : 1, width: '100%' }}
                       >
-                        <Avatar 
-                          src={userAvatar} 
-                          className="chat-avatar"
-                          sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 'bold' }}
-                        >
-                          {!userAvatar && initials}
-                        </Avatar>
-                      </Badge>
-                    </ListItemAvatar>
-                    <ListItemText 
-                      primary={
-                        <Box className="chat-item-header">
-                          <Typography className="chat-item-name">
-                            {displayName}
-                          </Typography>
-                          <Typography variant="caption" className="chat-item-time">Active</Typography>
-                        </Box>
-                      } 
-                      secondary={getLastMessage(otherUser.id)} 
-                      primaryTypographyProps={{ component: 'div' }}
-                      secondaryTypographyProps={{ 
-                        className: 'chat-item-preview',
-                        noWrap: true 
-                      }}
-                    />
-                  </ListItemButton>
-                );
-              })
+                        <ListItemAvatar>
+                          <Badge 
+                            overlap="circular" 
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                            variant="dot"
+                            color={badgeColor}
+                            className="status-badge"
+                          >
+                            <Avatar 
+                              src={userAvatar} 
+                              className="chat-avatar"
+                              sx={{ bgcolor: (isBlockedByTarget || isBlockedByMe) ? 'var(--text-disabled)' : 'primary.main', color: 'white', fontWeight: 'bold' }}
+                            >
+                              {!userAvatar && initials}
+                            </Avatar>
+                          </Badge>
+                        </ListItemAvatar>
+                        <ListItemText 
+                          primary={
+                            <Box className="chat-item-header">
+                              <Typography className="chat-item-name" sx={{ color: (isBlockedByTarget || isBlockedByMe) ? 'var(--text-disabled)' : 'var(--text-primary)' }}>
+                                {displayName} {isBlockedByMe && " (Blocked)"} {isBlockedByTarget && " (You were blocked)"}
+                              </Typography>
+                              {!isBlockedByTarget && !isBlockedByMe && lastMessageTimes[otherUser.id] && (
+                                <Typography variant="caption" className="chat-item-time">
+                                  {new Date(lastMessageTimes[otherUser.id]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </Typography>
+                              )}
+                            </Box>
+                          } 
+                          secondary={
+                            isBlockedByMe ? "You blocked this user." :
+                            isBlockedByTarget ? "You cannot message this user." :
+                            getLastMessage(otherUser.id)
+                          } 
+                          primaryTypographyProps={{ component: 'div' }}
+                          secondaryTypographyProps={{ 
+                            className: 'chat-item-preview',
+                            noWrap: true 
+                          }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  );
+                })}
+
+                {archivedDms.length > 0 && (
+                  <Box sx={{ mt: 2, px: 2, width: '100%' }}>
+                    <Button 
+                      onClick={() => setShowArchived(!showArchived)} 
+                      variant="text" 
+                      size="small" 
+                      sx={{ textTransform: 'none', fontWeight: 600 }}
+                    >
+                      {showArchived ? "Hide Archived Chats" : `Show Archived Chats (${archivedDms.length})`}
+                    </Button>
+                    {showArchived && (
+                      <List sx={{ mt: 1 }}>
+                        {archivedDms.map((otherUser) => {
+                          const userAvatar = localStorage.getItem(`avatar_${otherUser.id}`) || otherUser.avatar || '';
+                          const displayName = otherUser.fullname || otherUser.name || otherUser.username || '?';
+                          const initials = displayName.charAt(0).toUpperCase();
+
+                          return (
+                            <ListItem
+                              key={otherUser.id}
+                              disablePadding
+                              secondaryAction={
+                                <Button 
+                                  size="small" 
+                                  variant="outlined" 
+                                  onClick={() => handleUnarchiveChat(otherUser.id)}
+                                  sx={{ textTransform: 'none', py: 0.25, borderRadius: 2 }}
+                                >
+                                  Unarchive
+                                </Button>
+                              }
+                            >
+                              <ListItemButton 
+                                onClick={() => handleUserClick(otherUser)}
+                                className="chat-list-item-new"
+                                sx={{ width: '100%' }}
+                              >
+                                <ListItemAvatar>
+                                  <Avatar src={userAvatar} sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 'bold' }}>
+                                    {!userAvatar && initials}
+                                  </Avatar>
+                                </ListItemAvatar>
+                                <ListItemText 
+                                  primary={displayName}
+                                  secondary="Archived"
+                                />
+                              </ListItemButton>
+                            </ListItem>
+                          );
+                        })}
+                      </List>
+                    )}
+                  </Box>
+                )}
+              </>
             ) : (
               <Box className="chat-empty-state">
                 <ForumIcon sx={{ fontSize: 64, opacity: 0.1, mb: 2 }} />
-                <Typography variant="h6">No learners found</Typography>
-                <Typography variant="body2">Find a peer and start sharing knowledge!</Typography>
+                <Typography variant="h6">No active chats</Typography>
+                <Typography variant="body2">Use the search bar above to find a learner and start a conversation!</Typography>
               </Box>
             )
           ) : (
@@ -296,8 +528,10 @@ const ChatListPage = () => {
               filteredGroupsList.map((group) => {
                 const displayName = group.name || '?';
                 const initials = displayName.substring(0, 2).toUpperCase();
+                const isImg = group.lastMessage?.text?.startsWith('[IMAGE]:');
+                const cleanText = isImg ? '📷 Photo' : (group.lastMessage?.text || '');
                 const lastMsgText = group.lastMessage 
-                  ? `${group.lastMessage.senderId === user.id ? 'You: ' : ''}${group.lastMessage.text}`
+                  ? `${group.lastMessage.senderId === user.id ? 'You: ' : ''}${cleanText}`
                   : "No messages yet...";
 
                 return (
@@ -386,31 +620,35 @@ const ChatListPage = () => {
             <Divider />
 
             <FormGroup sx={{ maxHeight: 200, overflowY: 'auto', pr: 1 }}>
-              {allUsers.map((learner) => (
-                <FormControlLabel
-                  key={learner.id}
-                  control={
-                    <Checkbox 
-                      checked={selectedMembers.includes(learner.id)} 
-                      onChange={() => toggleSelectMember(learner.id)}
-                    />
-                  }
-                  label={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Avatar 
-                        src={localStorage.getItem(`avatar_${learner.id}`) || learner.avatar} 
-                        sx={{ width: 24, height: 24, fontSize: '0.75rem' }}
-                      >
-                        {(learner.fullname || learner.name || learner.username).charAt(0).toUpperCase()}
-                      </Avatar>
-                      <Typography variant="body2">
-                        {learner.fullname || learner.name || learner.username}
-                      </Typography>
-                    </Box>
-                  }
-                  sx={{ py: 0.5, borderBottom: '1px solid rgba(0,0,0,0.02)' }}
-                />
-              ))}
+              {allUsers.map((learner) => {
+                const isBlockedByLearner = learner.blockedUserIds?.includes(String(user.id));
+                return (
+                  <FormControlLabel
+                    key={learner.id}
+                    control={
+                      <Checkbox 
+                        checked={selectedMembers.includes(learner.id)} 
+                        disabled={isBlockedByLearner}
+                        onChange={() => !isBlockedByLearner && toggleSelectMember(learner.id)}
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, opacity: isBlockedByLearner ? 0.5 : 1 }}>
+                        <Avatar 
+                          src={localStorage.getItem(`avatar_${learner.id}`) || learner.avatar} 
+                          sx={{ width: 24, height: 24, fontSize: '0.75rem' }}
+                        >
+                          {(learner.fullname || learner.name || learner.username).charAt(0).toUpperCase()}
+                        </Avatar>
+                        <Typography variant="body2">
+                          {learner.fullname || learner.name || learner.username} {isBlockedByLearner && " (Unavailable)"}
+                        </Typography>
+                      </Box>
+                    }
+                    sx={{ py: 0.5, borderBottom: '1px solid rgba(0,0,0,0.02)' }}
+                  />
+                );
+              })}
             </FormGroup>
           </Box>
         </DialogContent>
@@ -428,6 +666,22 @@ const ChatListPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Menu
+        anchorEl={chatMenuAnchor}
+        open={Boolean(chatMenuAnchor)}
+        onClose={handleCloseChatMenu}
+        PaperProps={{
+          sx: { borderRadius: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }
+        }}
+      >
+        <MenuItem onClick={handleArchiveChat} sx={{ fontSize: '0.85rem' }}>
+          Archive Chat
+        </MenuItem>
+        <MenuItem onClick={handleDeleteChat} sx={{ color: 'error.main', fontSize: '0.85rem' }}>
+          Delete Chat (For You)
+        </MenuItem>
+      </Menu>
     </Box>
   );
 };

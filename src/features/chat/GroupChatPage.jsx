@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -19,24 +19,38 @@ import {
   ListItemText,
   Checkbox,
   FormControlLabel,
-  FormGroup
+  FormGroup,
+  Menu,
+  MenuItem,
+  Popover,
+  InputAdornment
 } from '@mui/material';
 import {
   Send as SendIcon,
   ArrowBack as ArrowBackIcon,
   InfoOutlined as InfoIcon,
-  PersonAddOutlined as AddPersonIcon
+  PersonAddOutlined as AddPersonIcon,
+  MoreVert as MoreVertIcon,
+  Person as PersonIcon,
+  Fingerprint as FingerprintIcon,
+  CalendarToday as CalendarIcon,
+  AlternateEmail as EmailIcon,
+  AttachFile as AttachFileIcon,
+  InsertEmoticon as EmojiIcon,
+  Close as CloseIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
+import ImageEditorModal from './ImageEditorModal';
 import './Chat.css';
 
 const GroupChatPage = () => {
   const { groupId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, blockUser, unblockUser } = useAuth();
 
   const [group, setGroup] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -47,6 +61,149 @@ const GroupChatPage = () => {
   const [openAddMembers, setOpenAddMembers] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [selectedNewMembers, setSelectedNewMembers] = useState([]);
+
+  // Lightbox / Detail view states for group members
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState('');
+  const [lightboxName, setLightboxName] = useState('');
+
+  const [selectedMemberInfo, setSelectedMemberInfo] = useState(null);
+  const [openMemberInfo, setOpenMemberInfo] = useState(false);
+
+  const [selectedImage, setSelectedImage] = useState(null);
+  const fileInputRef = useRef(null);
+  const [emojiAnchor, setEmojiAnchor] = useState(null);
+
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorImageSrc, setEditorImageSrc] = useState('');
+  const [editorShowSend, setEditorShowSend] = useState(false);
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditorImageSrc(reader.result);
+        setEditorShowSend(false);
+        setEditorOpen(true);
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    }
+  };
+
+  const sendEditedImage = async (editedBase64) => {
+    try {
+      const finalMsg = `[IMAGE]:${editedBase64}`;
+      const msg = await socialStore.sendGroupMessage(
+        groupId,
+        user.id,
+        user.username || 'learner',
+        user.avatar || '',
+        finalMsg
+      );
+
+      if (msg) {
+        setMessages(prev => [...prev, msg]);
+        setEditorOpen(false);
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 80);
+      }
+    } catch (err) {
+      console.error('Failed to send edited group image:', err);
+    }
+  };
+
+  const handleEmojiClick = (emoji) => {
+    setInputText(prev => prev + emoji);
+  };
+
+
+
+  // Member dropdown menu anchor state
+  const [memberMenuAnchor, setMemberMenuAnchor] = useState(null);
+  const [menuTargetMember, setMenuTargetMember] = useState(null);
+
+  const handleOpenMemberMenu = (event, member) => {
+    event.stopPropagation();
+    setMemberMenuAnchor(event.currentTarget);
+    setMenuTargetMember(member);
+  };
+
+  const handleCloseMemberMenu = () => {
+    setMemberMenuAnchor(null);
+    setMenuTargetMember(null);
+  };
+
+  const handleToggleAdmin = async () => {
+    if (!menuTargetMember || !group) return;
+    const isTargetAdmin = group.adminIds?.includes(String(menuTargetMember.id));
+    let updated;
+    if (isTargetAdmin) {
+      updated = await socialStore.removeGroupAdmin(groupId, menuTargetMember.id);
+    } else {
+      updated = await socialStore.makeGroupAdmin(groupId, menuTargetMember.id);
+    }
+    if (updated) {
+      setGroup(updated);
+    }
+    handleCloseMemberMenu();
+  };
+
+  const sortedMembers = useMemo(() => {
+    if (!group || !group.members) return [];
+    return [...group.members].sort((a, b) => {
+      const aId = Number(a.id);
+      const bId = Number(b.id);
+      const myId = Number(user.id);
+      const creatorId = Number(group.createdBy);
+
+      // 1. "You" check
+      if (aId === myId && bId !== myId) return -1;
+      if (bId === myId && aId !== myId) return 1;
+
+      // 2. Creator check
+      if (aId === creatorId && bId !== creatorId) return -1;
+      if (bId === creatorId && aId !== creatorId) return 1;
+
+      // 3. Admin status check
+      const aAdmin = group.adminIds?.includes(String(aId));
+      const bAdmin = group.adminIds?.includes(String(bId));
+      if (aAdmin && !bAdmin) return -1;
+      if (!aAdmin && bAdmin) return 1;
+
+      // 4. Alphabetical by name
+      const aName = (a.fullname || a.name || a.username || '').toLowerCase();
+      const bName = (b.fullname || b.name || b.username || '').toLowerCase();
+      return aName.localeCompare(bName);
+    });
+  }, [group?.members, group?.adminIds, group?.createdBy, user.id]);
+
+  const handleRemoveMember = async () => {
+    if (!menuTargetMember || !group) return;
+    const updated = await socialStore.removeGroupMember(groupId, menuTargetMember.id);
+    if (updated) {
+      setGroup(updated);
+    }
+    handleCloseMemberMenu();
+  };
+
+  const handleViewMemberInfo = () => {
+    if (!menuTargetMember) return;
+    setSelectedMemberInfo(menuTargetMember);
+    setOpenMemberInfo(true);
+    handleCloseMemberMenu();
+  };
+
+  const handleViewMemberAvatar = () => {
+    if (!menuTargetMember) return;
+    const avatarUrl = localStorage.getItem(`avatar_${menuTargetMember.id}`) || menuTargetMember.avatar || '';
+    setLightboxUrl(avatarUrl);
+    setLightboxName(menuTargetMember.fullname || menuTargetMember.name || menuTargetMember.username || 'User');
+    setLightboxOpen(true);
+    handleCloseMemberMenu();
+  };
 
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
@@ -102,22 +259,28 @@ const GroupChatPage = () => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!inputText.trim() || !group) return;
+    if ((!inputText.trim() && !selectedImage) || !group) return;
 
     const senderName = user.fullname || user.name || user.username || "You";
     const senderAvatar = user.avatar || "";
+
+    let finalMsg = inputText;
+    if (selectedImage) {
+      finalMsg = `[IMAGE]:${selectedImage}${inputText ? `|${inputText}` : ''}`;
+    }
 
     const msg = await socialStore.sendGroupMessage(
       groupId,
       user.id,
       senderName,
       senderAvatar,
-      inputText
+      finalMsg
     );
 
     if (msg) {
       setMessages(prev => [...prev, msg]);
       setInputText('');
+      setSelectedImage(null);
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 50);
@@ -200,7 +363,14 @@ const GroupChatPage = () => {
                 {!isMe && (
                   <Avatar 
                     src={msg.senderAvatar} 
-                    sx={{ width: 32, height: 32, fontSize: '0.8rem', bgcolor: 'primary.main' }}
+                    sx={{ width: 32, height: 32, fontSize: '0.8rem', bgcolor: 'primary.main', cursor: msg.senderAvatar ? 'pointer' : 'default' }}
+                    onClick={() => {
+                      if (msg.senderAvatar) {
+                        setLightboxUrl(msg.senderAvatar);
+                        setLightboxName(msg.senderName);
+                        setLightboxOpen(true);
+                      }
+                    }}
                   >
                     {!msg.senderAvatar && senderInitials}
                   </Avatar>
@@ -211,8 +381,38 @@ const GroupChatPage = () => {
                       {msg.senderName}
                     </Typography>
                   )}
-                  <Paper className={`message-bubble ${isMe ? 'me' : 'other'}`} sx={{ mt: 0 }}>
-                    <Typography variant="body1">{msg.text}</Typography>
+                  <Paper 
+                    className={`message-bubble ${isMe ? 'me' : 'other'}`} 
+                    sx={{ mt: 0, maxWidth: '100% !important', width: 'fit-content', wordBreak: 'break-word' }}
+                  >
+                    {msg.text?.startsWith('[IMAGE]:') ? (() => {
+                      const parts = msg.text.substring(8).split('|');
+                      const imageUrl = parts[0];
+                      const caption = parts[1] || '';
+                      return (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          <img 
+                            src={imageUrl} 
+                            alt="group attachment"
+                            style={{ maxWidth: '240px', maxHeight: '240px', borderRadius: 8, cursor: 'pointer', objectFit: 'cover' }} 
+                            onClick={() => {
+                              setLightboxUrl(imageUrl);
+                              setLightboxName(msg.senderName);
+                              setLightboxOpen(true);
+                            }}
+                          />
+                          {caption && (
+                            <Typography variant="body1" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                              {caption}
+                            </Typography>
+                          )}
+                        </Box>
+                      );
+                    })() : (
+                      <Typography variant="body1" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                        {msg.text}
+                      </Typography>
+                    )}
                     <Typography variant="caption" className="message-time">
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Typography>
@@ -226,28 +426,108 @@ const GroupChatPage = () => {
 
         <Divider />
 
-        {/* Text Composer */}
-        <Box component="form" onSubmit={handleSendMessage} className="chat-input-area">
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          style={{ display: 'none' }} 
+          accept="image/*" 
+          onChange={handleImageSelect} 
+        />
+
+        {selectedImage && (
+          <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'action.hover', borderTop: '1px solid divider' }}>
+            <img src={selectedImage} alt="preview" style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover' }} />
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="caption" color="text.secondary">Selected Image</Typography>
+            </Box>
+            <IconButton 
+              size="small" 
+              onClick={() => {
+                setEditorImageSrc(selectedImage);
+                setEditorShowSend(false);
+                setEditorOpen(true);
+              }}
+              sx={{ mr: 0.5 }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={() => setSelectedImage(null)}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
+
+        <Box className="chat-input-area">
           <TextField
             fullWidth
-            placeholder="Message group..."
+            placeholder={selectedImage ? "Add a caption..." : "Message group..."}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             variant="outlined"
-            size="small"
+            multiline
+            maxRows={4}
             className="chat-input-field"
             InputProps={{
-              sx: { borderRadius: 4, pr: 0.5 }
+              sx: { borderRadius: 4, pl: 1 },
+              startAdornment: (
+                <InputAdornment position="start">
+                  <IconButton 
+                    size="small" 
+                    onClick={(e) => setEmojiAnchor(e.currentTarget)}
+                    sx={{ color: 'var(--text-secondary)' }}
+                  >
+                    <EmojiIcon fontSize="small" />
+                  </IconButton>
+
+                  <IconButton 
+                    size="small" 
+                    onClick={() => fileInputRef.current.click()}
+                    sx={{ color: 'var(--text-secondary)' }}
+                  >
+                    <AttachFileIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              )
             }}
           />
           <IconButton 
-            type="submit" 
+            onClick={handleSendMessage}
             className="chat-send-btn animate-fade-in"
-            disabled={!inputText.trim()}
+            disabled={!inputText.trim() && !selectedImage}
           >
             <SendIcon />
           </IconButton>
         </Box>
+
+        <Popover
+          open={Boolean(emojiAnchor)}
+          anchorEl={emojiAnchor}
+          onClose={() => setEmojiAnchor(null)}
+          anchorOrigin={{
+            vertical: 'top',
+            horizontal: 'left',
+          }}
+          transformOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+          PaperProps={{ sx: { p: 1, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' } }}
+        >
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 0.5, p: 0.5 }}>
+            {['😀', '😂', '😍', '😎', '😭', '😡', '👍', '👎', '❤️', '🎉', '🔥', '🚀', '🤔', '👏', '🌟', '🙏', '💯', '✨'].map(emoji => (
+              <IconButton 
+                key={emoji} 
+                size="small" 
+                onClick={() => handleEmojiClick(emoji)}
+                sx={{ fontSize: '1.25rem' }}
+              >
+                {emoji}
+              </IconButton>
+            ))}
+          </Box>
+        </Popover>
+
+
       </Paper>
 
       {/* GROUP INFO DIALOG */}
@@ -277,7 +557,14 @@ const GroupChatPage = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
               <Avatar 
                 src={group.avatar} 
-                sx={{ width: 72, height: 72, fontSize: '2rem', bgcolor: 'primary.light', borderRadius: 4 }}
+                sx={{ width: 72, height: 72, fontSize: '2rem', bgcolor: 'primary.light', borderRadius: 4, cursor: group.avatar ? 'pointer' : 'default' }}
+                onClick={() => {
+                  if (group.avatar) {
+                    setLightboxUrl(group.avatar);
+                    setLightboxName(group.name);
+                    setLightboxOpen(true);
+                  }
+                }}
               >
                 {initials}
               </Avatar>
@@ -293,20 +580,48 @@ const GroupChatPage = () => {
               Group Members ({group.members.length})
             </Typography>
 
-            <List sx={{ maxHeight: 200, overflowY: 'auto' }}>
-              {group.members.map((memberId) => {
-                const isUserMe = memberId === user.id;
-                const memberAvatar = localStorage.getItem(`avatar_${memberId}`) || '';
+            <List sx={{ maxHeight: 250, overflowY: 'auto' }}>
+              {sortedMembers.map((member) => {
+                const memberId = Number(member.id);
+                const isUserMe = memberId === Number(user.id);
+                const memberAvatar = localStorage.getItem(`avatar_${memberId}`) || member.avatar || '';
+                const memberName = member.fullname || member.name || member.username || `User #${memberId}`;
+                const isCreator = Number(group.createdBy) === memberId;
+                const isTargetAdmin = group.adminIds?.includes(String(memberId)) || isCreator;
+                const roleLabel = isCreator ? "Group Creator" : (isTargetAdmin ? "Admin" : "Member");
                 
-                // Render list item
                 return (
-                  <ListItem key={memberId} sx={{ px: 0, py: 0.5 }}>
+                  <ListItem 
+                    key={memberId} 
+                    sx={{ px: 0, py: 0.5 }}
+                    secondaryAction={
+                      <IconButton 
+                        size="small" 
+                        onClick={(e) => handleOpenMemberMenu(e, member)}
+                        sx={{ color: 'var(--text-secondary)' }}
+                      >
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
+                    }
+                  >
                     <ListItemAvatar>
-                      <Avatar src={memberAvatar} sx={{ width: 32, height: 32, fontSize: '0.85rem' }} />
+                      <Avatar 
+                        src={memberAvatar} 
+                        sx={{ width: 32, height: 32, fontSize: '0.85rem', cursor: memberAvatar ? 'pointer' : 'default' }}
+                        onClick={() => {
+                          if (memberAvatar) {
+                            setLightboxUrl(memberAvatar);
+                            setLightboxName(memberName);
+                            setLightboxOpen(true);
+                          }
+                        }}
+                      >
+                        {!memberAvatar && memberName.charAt(0).toUpperCase()}
+                      </Avatar>
                     </ListItemAvatar>
                     <ListItemText 
-                      primary={isUserMe ? "You" : `User #${memberId}`} 
-                      secondary={isUserMe ? "Group Creator/Member" : "Learner"}
+                      primary={isUserMe ? `${memberName} (You)` : memberName} 
+                      secondary={roleLabel}
                       primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />
@@ -335,37 +650,42 @@ const GroupChatPage = () => {
         <DialogContent dividers>
           {allUsers.length > 0 ? (
             <FormGroup sx={{ maxHeight: 250, overflowY: 'auto' }}>
-              {allUsers.map((learner) => (
-                <FormControlLabel
-                  key={learner.id}
-                  control={
-                    <Checkbox 
-                      checked={selectedNewMembers.includes(learner.id)} 
-                      onChange={() => {
-                        setSelectedNewMembers(prev => 
-                          prev.includes(learner.id) 
-                            ? prev.filter(id => id !== learner.id) 
-                            : [...prev, learner.id]
-                        );
-                      }}
-                    />
-                  }
-                  label={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Avatar 
-                        src={localStorage.getItem(`avatar_${learner.id}`) || learner.avatar} 
-                        sx={{ width: 24, height: 24, fontSize: '0.75rem' }}
-                      >
-                        {(learner.fullname || learner.name || learner.username).charAt(0).toUpperCase()}
-                      </Avatar>
-                      <Typography variant="body2">
-                        {learner.fullname || learner.name || learner.username}
-                      </Typography>
-                    </Box>
-                  }
-                  sx={{ py: 0.5 }}
-                />
-              ))}
+              {allUsers.map((learner) => {
+                const isBlockedByLearner = learner.blockedUserIds?.includes(String(user.id));
+                return (
+                  <FormControlLabel
+                    key={learner.id}
+                    control={
+                      <Checkbox 
+                        checked={selectedNewMembers.includes(learner.id)} 
+                        disabled={isBlockedByLearner}
+                        onChange={() => {
+                          if (isBlockedByLearner) return;
+                          setSelectedNewMembers(prev => 
+                            prev.includes(learner.id) 
+                              ? prev.filter(id => id !== learner.id) 
+                              : [...prev, learner.id]
+                          );
+                        }}
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, opacity: isBlockedByLearner ? 0.5 : 1 }}>
+                        <Avatar 
+                          src={localStorage.getItem(`avatar_${learner.id}`) || learner.avatar} 
+                          sx={{ width: 24, height: 24, fontSize: '0.75rem' }}
+                        >
+                          {(learner.fullname || learner.name || learner.username).charAt(0).toUpperCase()}
+                        </Avatar>
+                        <Typography variant="body2">
+                          {learner.fullname || learner.name || learner.username} {isBlockedByLearner && " (Unavailable)"}
+                        </Typography>
+                      </Box>
+                    }
+                    sx={{ py: 0.5 }}
+                  />
+                );
+              })}
             </FormGroup>
           ) : (
             <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 3 }}>
@@ -385,6 +705,229 @@ const GroupChatPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* MEMBER ACTIONS CONTEXT MENU */}
+      <Menu
+        anchorEl={memberMenuAnchor}
+        open={Boolean(memberMenuAnchor)}
+        onClose={handleCloseMemberMenu}
+        PaperProps={{ sx: { borderRadius: 3, minWidth: 160, boxShadow: '0 4px 16px rgba(0,0,0,0.1)' } }}
+      >
+        <MenuItem 
+          onClick={handleToggleAdmin}
+          disabled={
+            !group || 
+            !(group.adminIds?.includes(String(user.id)) || Number(group.createdBy) === Number(user.id)) ||
+            (menuTargetMember && Number(group.createdBy) === Number(menuTargetMember.id)) ||
+            (menuTargetMember && Number(menuTargetMember.id) === Number(user.id))
+          }
+          sx={{ fontSize: '0.9rem' }}
+        >
+          {menuTargetMember && group.adminIds?.includes(String(menuTargetMember.id)) ? "Remove Admin" : "Make Admin"}
+        </MenuItem>
+        
+        <MenuItem 
+          onClick={handleRemoveMember}
+          disabled={
+            !group || 
+            !(group.adminIds?.includes(String(user.id)) || Number(group.createdBy) === Number(user.id)) ||
+            (menuTargetMember && Number(group.createdBy) === Number(menuTargetMember.id)) ||
+            (menuTargetMember && Number(menuTargetMember.id) === Number(user.id))
+          }
+          sx={{ fontSize: '0.9rem', color: 'error.main' }}
+        >
+          Remove Member
+        </MenuItem>
+        
+        <Divider sx={{ my: 0.5 }} />
+
+        <MenuItem onClick={handleViewMemberInfo} sx={{ fontSize: '0.9rem' }}>
+          View Info
+        </MenuItem>
+        
+        <MenuItem onClick={handleViewMemberAvatar} sx={{ fontSize: '0.9rem' }}>
+          View Profile Picture
+        </MenuItem>
+      </Menu>
+
+      {/* MEMBER INFO DIALOG */}
+      <Dialog 
+        open={openMemberInfo} 
+        onClose={() => setOpenMemberInfo(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 4 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, textAlign: 'center', pt: 3 }}>
+          Learner Profile
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pb: 3 }}>
+          <Avatar
+            src={selectedMemberInfo ? (localStorage.getItem(`avatar_${selectedMemberInfo.id}`) || selectedMemberInfo.avatar || '') : ''}
+            sx={{ 
+              width: 90, 
+              height: 90, 
+              mb: 2, 
+              bgcolor: 'primary.main', 
+              fontSize: '2.2rem', 
+              fontWeight: 'bold',
+              cursor: selectedMemberInfo ? 'pointer' : 'default'
+            }}
+            onClick={() => {
+              if (selectedMemberInfo) {
+                const url = localStorage.getItem(`avatar_${selectedMemberInfo.id}`) || selectedMemberInfo.avatar || '';
+                setLightboxUrl(url);
+                setLightboxName(selectedMemberInfo.fullname || selectedMemberInfo.name || selectedMemberInfo.username || 'User');
+                setLightboxOpen(true);
+              }
+            }}
+          >
+            {selectedMemberInfo && !(localStorage.getItem(`avatar_${selectedMemberInfo.id}`) || selectedMemberInfo.avatar) && 
+              (selectedMemberInfo.fullname || selectedMemberInfo.name || selectedMemberInfo.username || 'U').charAt(0).toUpperCase()
+            }
+          </Avatar>
+          
+          <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+            {selectedMemberInfo?.fullname || selectedMemberInfo?.name || selectedMemberInfo?.username || 'User'}
+          </Typography>
+          
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+            {selectedMemberInfo?.tag || 'Sophiapath Learner'}
+          </Typography>
+
+          <Divider sx={{ width: '100%', mb: 2.5 }} />
+
+          <Stack spacing={2} sx={{ width: '100%', px: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <FingerprintIcon color="action" />
+              <Box>
+                <Typography variant="caption" color="text.secondary">Username</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  @{selectedMemberInfo?.username || 'learner'}
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <EmailIcon color="action" />
+              <Box>
+                <Typography variant="caption" color="text.secondary">Email Address</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {selectedMemberInfo?.email || 'N/A'}
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <PersonIcon color="action" />
+              <Box>
+                <Typography variant="caption" color="text.secondary">Gender / Age</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {selectedMemberInfo?.gender || 'Rather Not Say'} • {selectedMemberInfo?.age || 20} years old
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <CalendarIcon color="action" />
+              <Box>
+                <Typography variant="caption" color="text.secondary">Joined</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {selectedMemberInfo?.dateTime ? new Date(selectedMemberInfo.dateTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Recently'}
+                </Typography>
+              </Box>
+            </Box>
+          </Stack>
+          {selectedMemberInfo && user.id !== Number(selectedMemberInfo.id) && (
+            <Button
+              variant="outlined"
+              color={user.blockedUserIds?.includes(String(selectedMemberInfo.id)) ? "primary" : "error"}
+              onClick={async () => {
+                const isBlocked = user.blockedUserIds?.includes(String(selectedMemberInfo.id));
+                if (isBlocked) {
+                  await unblockUser(selectedMemberInfo.id);
+                } else {
+                  await blockUser(selectedMemberInfo.id);
+                }
+                setOpenMemberInfo(false);
+              }}
+              sx={{ mt: 3, borderRadius: 3, textTransform: 'none', width: '90%' }}
+            >
+              {user.blockedUserIds?.includes(String(selectedMemberInfo.id)) ? "Unblock User" : "Block User"}
+            </Button>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
+          <Button onClick={() => setOpenMemberInfo(false)} variant="contained" sx={{ px: 4, borderRadius: 2 }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* PROFILE PICTURE LIGHTBOX */}
+      <Dialog 
+        open={lightboxOpen} 
+        onClose={() => setLightboxOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 4, p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }
+        }}
+      >
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
+          {lightboxName}'s Avatar
+        </Typography>
+        {lightboxUrl ? (
+          <img 
+            src={lightboxUrl} 
+            alt={lightboxName} 
+            style={{ width: '100%', maxHeight: '400px', borderRadius: '12px', objectFit: 'cover' }}
+          />
+        ) : (
+          <Avatar sx={{ width: 200, height: 200, fontSize: '5rem', bgcolor: 'primary.main', fontWeight: 'bold', mb: 2 }}>
+            {lightboxName.charAt(0).toUpperCase()}
+          </Avatar>
+        )}
+        <Stack direction="row" spacing={2} sx={{ mt: 2.5, width: '100%', justifyContent: 'center' }}>
+          <Button 
+            onClick={() => setLightboxOpen(false)} 
+            variant="outlined" 
+            sx={{ px: 3, textTransform: 'none', borderRadius: 2 }}
+          >
+            Close
+          </Button>
+          {lightboxUrl && (
+            <Button
+              onClick={() => {
+                setEditorImageSrc(lightboxUrl);
+                setEditorShowSend(true);
+                setEditorOpen(true);
+                setLightboxOpen(false);
+              }}
+              variant="contained"
+              color="primary"
+              startIcon={<EditIcon />}
+              sx={{ px: 3, textTransform: 'none', borderRadius: 2 }}
+            >
+              Edit Image
+            </Button>
+          )}
+        </Stack>
+      </Dialog>
+
+      <ImageEditorModal
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        imageSrc={editorImageSrc}
+        onSave={(editedBase64) => {
+          setSelectedImage(editedBase64);
+          setEditorOpen(false);
+        }}
+        showSendButton={editorShowSend}
+        onSend={(editedBase64) => {
+          sendEditedImage(editedBase64);
+        }}
+      />
     </Box>
   );
 };
