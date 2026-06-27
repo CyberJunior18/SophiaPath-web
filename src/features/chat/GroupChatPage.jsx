@@ -17,6 +17,7 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
+  ListItemButton,
   Checkbox,
   FormControlLabel,
   FormGroup,
@@ -25,7 +26,8 @@ import {
   Popover,
   InputAdornment,
   Switch,
-  Alert
+  Alert,
+  Snackbar
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -41,7 +43,12 @@ import {
   InsertEmoticon as EmojiIcon,
   Close as CloseIcon,
   Edit as EditIcon,
-  PhotoCamera as CameraIcon
+  PhotoCamera as CameraIcon,
+  PushPin as PushPinIcon,
+  ContentCopy as CopyIcon,
+  Reply as ReplyIcon,
+  ForwardToInbox as ForwardIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -62,6 +69,15 @@ const GroupChatPage = () => {
   // Modals state
   const [openInfo, setOpenInfo] = useState(false);
   const [openAddMembers, setOpenAddMembers] = useState(false);
+  const [replyingMessage, setReplyingMessage] = useState(null);
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuMessage, setMenuMessage] = useState(null);
+  const [openForwardDialog, setOpenForwardDialog] = useState(false);
+  const [openPinnedDialog, setOpenPinnedDialog] = useState(false);
+  const [searchMessageId, setSearchMessageId] = useState(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [openSnackbar, setOpenSnackbar] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [selectedNewMembers, setSelectedNewMembers] = useState([]);
 
@@ -80,6 +96,7 @@ const GroupChatPage = () => {
   const [editGroupDescription, setEditGroupDescription] = useState('');
   const [editGroupAvatar, setEditGroupAvatar] = useState('');
   const [editOnlyAdminsCanEdit, setEditOnlyAdminsCanEdit] = useState(false);
+  const [editOnlyAdminsCanSendMessages, setEditOnlyAdminsCanSendMessages] = useState(false);
 
   const groupAvatarInputRef = useRef(null);
   const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
@@ -142,6 +159,7 @@ const GroupChatPage = () => {
       setEditGroupDescription(group.description || '');
       setEditGroupAvatar(group.avatar || '');
       setEditOnlyAdminsCanEdit(!!group.onlyAdminsCanEdit);
+      setEditOnlyAdminsCanSendMessages(!!group.onlyAdminsCanSendMessages);
       setIsEditingGroup(false);
       setAvatarError('');
     }
@@ -150,12 +168,16 @@ const GroupChatPage = () => {
 
   const handleSaveGroupDetails = async () => {
     if (!editGroupName.trim()) return;
-    const updated = await socialStore.updateGroupDetails(groupId, user.id, {
+    const updates = {
       name: editGroupName,
       description: editGroupDescription,
-      avatar: editGroupAvatar,
-      onlyAdminsCanEdit: editOnlyAdminsCanEdit
-    });
+      avatar: editGroupAvatar
+    };
+    if (isAdmin) {
+      updates.onlyAdminsCanEdit = editOnlyAdminsCanEdit;
+      updates.onlyAdminsCanSendMessages = editOnlyAdminsCanSendMessages;
+    }
+    const updated = await socialStore.updateGroupDetails(groupId, user.id, updates);
     if (updated) {
       setGroup(updated);
       setIsEditingGroup(false);
@@ -210,6 +232,107 @@ const GroupChatPage = () => {
 
   const handleEmojiClick = (emoji) => {
     setInputText(prev => prev + emoji);
+  };
+
+  const handleScrollToMessage = (msgId) => {
+    setSearchMessageId(Number(msgId));
+    setHighlightedMessageId(Number(msgId));
+    setTimeout(() => {
+      setHighlightedMessageId(null);
+    }, 2500);
+  };
+
+  useEffect(() => {
+    if (searchMessageId) {
+      const el = document.getElementById(`msg-${searchMessageId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setSearchMessageId(null);
+      }
+    }
+  }, [searchMessageId, messages]);
+
+  const handleMessageBubbleClick = (event, msg) => {
+    if (msg.deleted) return;
+    setMenuAnchor(event.currentTarget);
+    setMenuMessage(msg);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchor(null);
+    setMenuMessage(null);
+  };
+
+  const handleCopyMessage = () => {
+    if (menuMessage) {
+      const cleanText = menuMessage.text.startsWith('[IMAGE]:') 
+        ? menuMessage.text.split('|')[1] || '' 
+        : menuMessage.text;
+      navigator.clipboard.writeText(cleanText);
+      setSnackbarMessage("Copied to clipboard!");
+      setOpenSnackbar(true);
+    }
+    handleCloseMenu();
+  };
+
+  const handlePinToggle = async () => {
+    if (menuMessage) {
+      const newPinState = !menuMessage.pinned;
+      const success = await socialStore.pinGroupMessage(menuMessage.id, newPinState);
+      if (success) {
+        setMessages(prev => prev.map(m => m.id === menuMessage.id ? { ...m, pinned: newPinState } : m));
+        setSnackbarMessage(newPinState ? "Message pinned!" : "Message unpinned!");
+        setOpenSnackbar(true);
+      }
+    }
+    handleCloseMenu();
+  };
+
+  const handleDeleteMessage = async () => {
+    if (menuMessage && Number(menuMessage.senderId) === Number(user.id)) {
+      const success = await socialStore.deleteGroupMessage(menuMessage.id, user.id);
+      if (success) {
+        setMessages(prev => prev.map(m => m.id === menuMessage.id ? { ...m, deleted: true, text: 'This message was deleted' } : m));
+        setSnackbarMessage("Message deleted!");
+        setOpenSnackbar(true);
+      }
+    }
+    handleCloseMenu();
+  };
+
+  const handleForwardClick = () => {
+    setOpenForwardDialog(true);
+    setMenuAnchor(null);
+  };
+
+  const handleForwardMessage = async (recipient) => {
+    if (!menuMessage) return;
+    const cleanText = menuMessage.text;
+    const senderName = user.fullname || user.name || user.username || "You";
+
+    const res = await socialStore.sendDirectMessage(
+      user.id,
+      recipient.id,
+      cleanText,
+      senderName,
+      user.avatar || '',
+      null,
+      null,
+      null,
+      true
+    );
+
+    if (res && res.success) {
+      setSnackbarMessage(`Forwarded to ${recipient.fullname || recipient.username}`);
+      setOpenSnackbar(true);
+    }
+    setOpenForwardDialog(false);
+    setMenuMessage(null);
+  };
+
+  const handleReplyClick = () => {
+    setReplyingMessage(menuMessage);
+    handleCloseMenu();
   };
 
 
@@ -363,18 +486,27 @@ const GroupChatPage = () => {
       finalMsg = `[IMAGE]:${selectedImage}${inputText ? `|${inputText}` : ''}`;
     }
 
+    const replyToId = replyingMessage ? String(replyingMessage.id) : null;
+    const replyToMessage = replyingMessage ? (replyingMessage.text.startsWith('[IMAGE]:') ? '📷 Photo' : replyingMessage.text) : null;
+    const replyToUsername = replyingMessage ? replyingMessage.senderName : null;
+
     const msg = await socialStore.sendGroupMessage(
       groupId,
       user.id,
       senderName,
       senderAvatar,
-      finalMsg
+      finalMsg,
+      replyToId,
+      replyToMessage,
+      replyToUsername,
+      false // forwarded
     );
 
     if (msg) {
       setMessages(prev => [...prev, msg]);
       setInputText('');
       setSelectedImage(null);
+      setReplyingMessage(null);
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 50);
@@ -417,6 +549,7 @@ const GroupChatPage = () => {
   const isCreator = group && Number(group.createdBy) === Number(user?.id);
   const isAdmin = group && (group.adminIds?.includes(String(user?.id)) || isCreator);
   const canEditGroupDetails = group && (!group.onlyAdminsCanEdit || isAdmin);
+  const canSendMessage = group && (!group.onlyAdminsCanSendMessages || isAdmin);
   const initials = group.name.substring(0, 2).toUpperCase();
 
   return (
@@ -452,6 +585,30 @@ const GroupChatPage = () => {
             <InfoIcon />
           </IconButton>
         </Box>
+
+        {messages.filter(m => m.pinned && !m.deleted).length > 0 && (
+          <Box sx={{ 
+            bgcolor: 'background.paper', 
+            borderBottom: '1px solid var(--divider)', 
+            p: 1, 
+            px: 2, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            zIndex: 10
+          }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              📌 Pinned Messages ({messages.filter(m => m.pinned && !m.deleted).length})
+            </Typography>
+            <Button 
+              size="small" 
+              onClick={() => setOpenPinnedDialog(true)}
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            >
+              View Pinned
+            </Button>
+          </Box>
+        )}
 
         {/* Message Feed */}
         <Box 
@@ -491,10 +648,89 @@ const GroupChatPage = () => {
                     </Typography>
                   )}
                   <Paper 
-                    className={`message-bubble ${isMe ? 'me' : 'other'}`} 
-                    sx={{ mt: 0, maxWidth: '100% !important', width: 'fit-content', wordBreak: 'break-word' }}
+                    id={`msg-${msg.id}`}
+                    onClick={(e) => handleMessageBubbleClick(e, msg)}
+                    className={`message-bubble ${isMe ? 'me' : 'other'} ${highlightedMessageId === msg.id ? 'highlighted-msg' : ''}`} 
+                    sx={{ 
+                      mt: 0, 
+                      maxWidth: '100% !important', 
+                      width: 'fit-content', 
+                      wordBreak: 'break-word',
+                      cursor: 'pointer',
+                      position: 'relative',
+                      transition: 'background-color 0.5s ease',
+                      ...(highlightedMessageId === msg.id ? {
+                        bgcolor: isMe ? '#2563eb' : 'rgba(61, 92, 255, 0.25)',
+                      } : {})
+                    }}
                   >
-                    {msg.text?.startsWith('[IMAGE]:') ? (() => {
+                    {msg.forwarded && (
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 0.5, 
+                          fontStyle: 'italic', 
+                          opacity: 0.7, 
+                          fontSize: '0.68rem', 
+                          mb: 0.5,
+                          color: isMe ? 'rgba(255,255,255,0.8)' : 'text.secondary'
+                        }}
+                      >
+                        <ForwardIcon sx={{ fontSize: 12 }} /> Forwarded
+                      </Typography>
+                    )}
+
+                    {msg.replyToId && (
+                      <Box 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleScrollToMessage(msg.replyToId);
+                        }}
+                        sx={{ 
+                          bgcolor: isMe ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.05)', 
+                          borderLeft: `3px solid ${isMe ? '#fff' : 'var(--primary-color)'}`, 
+                          p: 0.75, 
+                          mb: 0.75, 
+                          borderRadius: 1, 
+                          cursor: 'pointer',
+                          opacity: 0.9,
+                          '&:hover': { opacity: 1 }
+                        }}
+                      >
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            fontWeight: 700, 
+                            color: isMe ? '#fff' : 'primary.main', 
+                            display: 'block',
+                            fontSize: '0.7rem'
+                          }}
+                        >
+                          Replying to {msg.replyToUsername || 'User'}
+                        </Typography>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: isMe ? 'rgba(255,255,255,0.9)' : 'text.secondary', 
+                            display: 'block', 
+                            maxWidth: '240px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          {msg.replyToMessage}
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {msg.deleted ? (
+                      <Typography variant="body1" sx={{ fontStyle: 'italic', color: isMe ? 'rgba(255,255,255,0.6)' : 'text.secondary' }}>
+                        This message was deleted
+                      </Typography>
+                    ) : msg.text?.startsWith('[IMAGE]:') ? (() => {
                       const parts = msg.text.substring(8).split('|');
                       const imageUrl = parts[0];
                       const caption = parts[1] || '';
@@ -504,7 +740,8 @@ const GroupChatPage = () => {
                             src={imageUrl} 
                             alt="group attachment"
                             style={{ maxWidth: '240px', maxHeight: '240px', borderRadius: 8, cursor: 'pointer', objectFit: 'cover' }} 
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setLightboxUrl(imageUrl);
                               setLightboxName(msg.senderName);
                               setLightboxIsProfile(false);
@@ -523,9 +760,14 @@ const GroupChatPage = () => {
                         {msg.text}
                       </Typography>
                     )}
-                    <Typography variant="caption" className="message-time">
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mt: 0.5, gap: 0.5 }}>
+                      {msg.pinned && (
+                        <PushPinIcon sx={{ fontSize: 11, color: isMe ? 'rgba(255,255,255,0.7)' : 'text.secondary', transform: 'rotate(45deg)' }} />
+                      )}
+                      <Typography variant="caption" className="message-time" sx={{ m: 0 }}>
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Typography>
+                    </Box>
                   </Paper>
                 </Box>
               </Box>
@@ -567,47 +809,71 @@ const GroupChatPage = () => {
           </Box>
         )}
 
-        <Box className="chat-input-area">
-          <TextField
-            fullWidth
-            placeholder={selectedImage ? "Add a caption..." : "Message group..."}
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            variant="outlined"
-            multiline
-            maxRows={4}
-            className="chat-input-field"
-            InputProps={{
-              sx: { borderRadius: 4, pl: 1 },
-              startAdornment: (
-                <InputAdornment position="start">
-                  <IconButton 
-                    size="small" 
-                    onClick={(e) => setEmojiAnchor(e.currentTarget)}
-                    sx={{ color: 'var(--text-secondary)' }}
-                  >
-                    <EmojiIcon fontSize="small" />
-                  </IconButton>
+        {replyingMessage && (
+          <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'action.hover', borderTop: '1px solid var(--divider)', borderBottom: '1px solid var(--divider)' }}>
+            <Box sx={{ borderLeft: '3px solid var(--primary-color)', pl: 1, flexGrow: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.main', display: 'block' }}>
+                Replying to {replyingMessage.senderId === user.id ? 'You' : replyingMessage.senderName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', maxWidth: '300px' }}>
+                {replyingMessage.text.startsWith('[IMAGE]:') ? '📷 Photo' : replyingMessage.text}
+              </Typography>
+            </Box>
+            <IconButton size="small" onClick={() => setReplyingMessage(null)}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
 
-                  <IconButton 
-                    size="small" 
-                    onClick={() => fileInputRef.current.click()}
-                    sx={{ color: 'var(--text-secondary)' }}
-                  >
-                    <AttachFileIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              )
-            }}
-          />
-          <IconButton 
-            onClick={handleSendMessage}
-            className="chat-send-btn animate-fade-in"
-            disabled={!inputText.trim() && !selectedImage}
-          >
-            <SendIcon />
-          </IconButton>
-        </Box>
+        {!canSendMessage ? (
+          <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: 'action.disabledBackground', borderTop: '1px solid divider' }}>
+            <Typography variant="body2" sx={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+              Only admins can send messages to this group.
+            </Typography>
+          </Box>
+        ) : (
+          <Box className="chat-input-area">
+            <TextField
+              fullWidth
+              placeholder={selectedImage ? "Add a caption..." : "Message group..."}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              variant="outlined"
+              multiline
+              maxRows={4}
+              className="chat-input-field"
+              InputProps={{
+                sx: { borderRadius: 4, pl: 1 },
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => setEmojiAnchor(e.currentTarget)}
+                      sx={{ color: 'var(--text-secondary)' }}
+                    >
+                      <EmojiIcon fontSize="small" />
+                    </IconButton>
+
+                    <IconButton 
+                      size="small" 
+                      onClick={() => fileInputRef.current.click()}
+                      sx={{ color: 'var(--text-secondary)' }}
+                    >
+                      <AttachFileIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+            <IconButton 
+              onClick={handleSendMessage}
+              className="chat-send-btn animate-fade-in"
+              disabled={!inputText.trim() && !selectedImage}
+            >
+              <SendIcon />
+            </IconButton>
+          </Box>
+        )}
 
         <Popover
           open={Boolean(emojiAnchor)}
@@ -647,10 +913,16 @@ const GroupChatPage = () => {
         maxWidth="xs"
         fullWidth
         PaperProps={{
-          sx: { borderRadius: 4 }
+          sx: { borderRadius: 2, position: 'relative' }
         }}
       >
-        <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenInfo(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
           <span>Group Information</span>
           <Box sx={{ display: 'flex', gap: 1 }}>
             {canEditGroupDetails && !isEditingGroup && (
@@ -678,6 +950,47 @@ const GroupChatPage = () => {
           <>
             <DialogContent dividers>
               <Stack spacing={2} sx={{ py: 1 }}>
+                {/* Custom Avatar Upload Zone (matching ProfilePage) */}
+                <Box className="avatar-upload-section" sx={{ mb: 3 }}>
+                  <input
+                    type="file"
+                    ref={groupAvatarInputRef}
+                    onChange={handleAvatarFileChange}
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                  />
+                  
+                  <Box 
+                    className={`avatar-dropzone ${isDraggingAvatar ? 'dragging' : ''}`}
+                    onDragOver={handleAvatarDragOver}
+                    onDragLeave={handleAvatarDragLeave}
+                    onDrop={handleAvatarDrop}
+                    onClick={triggerAvatarFileInput}
+                  >
+                    <Avatar
+                      src={editGroupAvatar}
+                      className="avatar-preview"
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        fontSize: '2rem',
+                        bgcolor: 'primary.light'
+                      }}
+                    >
+                      {editGroupName ? editGroupName.charAt(0).toUpperCase() : 'G'}
+                    </Avatar>
+                    <Box className="avatar-hover-overlay">
+                      <CameraIcon sx={{ fontSize: 32 }} />
+                    </Box>
+                  </Box>
+
+                  {avatarError && (
+                    <Alert severity="warning" className="avatar-error-alert" sx={{ mt: 1, py: 0, px: 2, borderRadius: 2 }}>
+                      {avatarError}
+                    </Alert>
+                  )}
+                </Box>
+
                 <TextField
                   label="Group Name"
                   value={editGroupName}
@@ -698,59 +1011,29 @@ const GroupChatPage = () => {
                   InputProps={{ sx: { borderRadius: 3 } }}
                 />
 
-                  {/* Custom Avatar Upload Zone (matching ProfilePage) */}
-                  <Box className="avatar-upload-section" sx={{ mb: 3 }}>
-                    <input
-                      type="file"
-                      ref={groupAvatarInputRef}
-                      onChange={handleAvatarFileChange}
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                    />
-                    
-                    <Box 
-                      className={`avatar-dropzone ${isDraggingAvatar ? 'dragging' : ''}`}
-                      onDragOver={handleAvatarDragOver}
-                      onDragLeave={handleAvatarDragLeave}
-                      onDrop={handleAvatarDrop}
-                      onClick={triggerAvatarFileInput}
-                    >
-                      <Avatar
-                        src={editGroupAvatar}
-                        className="avatar-preview"
-                        sx={{
-                          width: '100%',
-                          height: '100%',
-                          fontSize: '2rem',
-                          bgcolor: 'primary.light'
-                        }}
-                      >
-                        {editGroupName ? editGroupName.charAt(0).toUpperCase() : 'G'}
-                      </Avatar>
-                      <Box className="avatar-hover-overlay">
-                        <CameraIcon sx={{ fontSize: 32 }} />
-                      </Box>
-                    </Box>
-
-                    {avatarError && (
-                      <Alert severity="warning" className="avatar-error-alert" sx={{ mt: 1, py: 0, px: 2, borderRadius: 2 }}>
-                        {avatarError}
-                      </Alert>
-                    )}
-                  </Box>
-
                 {isAdmin && (
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={editOnlyAdminsCanEdit}
-                        onChange={(e) => setEditOnlyAdminsCanEdit(e.target.checked)}
-                        color="primary"
-                      />
-                    }
-                    label="Only admins can modify group details"
-                    sx={{ mt: 1 }}
-                  />
+                  <Stack spacing={1} sx={{ mt: 1 }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={editOnlyAdminsCanEdit}
+                          onChange={(e) => setEditOnlyAdminsCanEdit(e.target.checked)}
+                          color="primary"
+                        />
+                      }
+                      label="Only admins can modify group details"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={editOnlyAdminsCanSendMessages}
+                          onChange={(e) => setEditOnlyAdminsCanSendMessages(e.target.checked)}
+                          color="primary"
+                        />
+                      }
+                      label="Only admins can send messages"
+                    />
+                  </Stack>
                 )}
               </Stack>
             </DialogContent>
@@ -855,9 +1138,6 @@ const GroupChatPage = () => {
                 </List>
               </Stack>
             </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setOpenInfo(false)} sx={{ textTransform: 'none' }}>Close</Button>
-            </DialogActions>
           </>
         )}
       </Dialog>
@@ -869,10 +1149,18 @@ const GroupChatPage = () => {
         maxWidth="xs"
         fullWidth
         PaperProps={{
-          sx: { borderRadius: 4 }
+          sx: { borderRadius: 2, position: 'relative' }
         }}
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>Add Members</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenAddMembers(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Add Members
+        </DialogTitle>
         <DialogContent dividers>
           {allUsers.length > 0 ? (
             <FormGroup sx={{ maxHeight: 250, overflowY: 'auto' }}>
@@ -920,7 +1208,6 @@ const GroupChatPage = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenAddMembers(false)} sx={{ textTransform: 'none' }}>Cancel</Button>
           <Button 
             onClick={handleAddMembersSubmit} 
             variant="contained" 
@@ -937,7 +1224,7 @@ const GroupChatPage = () => {
         anchorEl={memberMenuAnchor}
         open={Boolean(memberMenuAnchor)}
         onClose={handleCloseMemberMenu}
-        PaperProps={{ sx: { borderRadius: 3, minWidth: 160, boxShadow: '0 4px 16px rgba(0,0,0,0.1)' } }}
+        PaperProps={{ sx: { borderRadius: 1, minWidth: 160, boxShadow: '0 4px 16px rgba(0,0,0,0.1)' } }}
       >
         <MenuItem 
           onClick={handleToggleAdmin}
@@ -982,9 +1269,15 @@ const GroupChatPage = () => {
         onClose={() => setOpenMemberInfo(false)}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 4 } }}
+        PaperProps={{ sx: { borderRadius: 2, position: 'relative' } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, textAlign: 'center', pt: 3 }}>
+        <DialogTitle sx={{ fontWeight: 700, textAlign: 'center', pt: 3, pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenMemberInfo(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
           Learner Profile
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pb: 3 }}>
@@ -1084,11 +1377,6 @@ const GroupChatPage = () => {
             </Button>
           )}
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
-          <Button onClick={() => setOpenMemberInfo(false)} variant="contained" sx={{ px: 4, borderRadius: 2 }}>
-            Close
-          </Button>
-        </DialogActions>
       </Dialog>
 
       {/* PROFILE PICTURE LIGHTBOX */}
@@ -1154,6 +1442,131 @@ const GroupChatPage = () => {
         onSend={(editedBase64) => {
           sendEditedImage(editedBase64);
         }}
+      />
+
+      {/* Context Menu on Message Bubbles */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={handleCloseMenu}
+        PaperProps={{ sx: { borderRadius: 1 } }}
+      >
+        <MenuItem onClick={handleReplyClick}>
+          <ReplyIcon sx={{ mr: 1, fontSize: 20 }} /> Reply
+        </MenuItem>
+        <MenuItem onClick={handleCopyMessage}>
+          <CopyIcon sx={{ mr: 1, fontSize: 20 }} /> Copy
+        </MenuItem>
+        <MenuItem onClick={handlePinToggle}>
+          <PushPinIcon sx={{ mr: 1, fontSize: 20, transform: 'rotate(45deg)' }} /> {menuMessage?.pinned ? "Unpin" : "Pin"}
+        </MenuItem>
+        <MenuItem onClick={handleForwardClick}>
+          <ForwardIcon sx={{ mr: 1, fontSize: 20 }} /> Forward
+        </MenuItem>
+        {menuMessage?.senderId === user.id && (
+          <MenuItem onClick={handleDeleteMessage} sx={{ color: 'error.main' }}>
+            <DeleteIcon sx={{ mr: 1, fontSize: 20 }} /> Delete
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* Pinned Messages List Dialog */}
+      <Dialog open={openPinnedDialog} onClose={() => setOpenPinnedDialog(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2, position: 'relative' } }}>
+        <DialogTitle sx={{ fontWeight: 'bold', pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenPinnedDialog(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Pinned Messages
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 0 }}>
+          {messages.filter(m => m.pinned && !m.deleted).length === 0 ? (
+            <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
+              No pinned messages
+            </Box>
+          ) : (
+            <List>
+              {messages.filter(m => m.pinned && !m.deleted).map(msg => {
+                const isImg = msg.text.startsWith('[IMAGE]:');
+                const cleanText = isImg ? '📷 Photo' : msg.text;
+                const senderName = msg.senderId === user.id ? 'You' : msg.senderName;
+                return (
+                  <ListItemButton 
+                    key={msg.id}
+                    onClick={() => {
+                      setOpenPinnedDialog(false);
+                      handleScrollToMessage(msg.id);
+                    }}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: msg.senderId === user.id ? 'primary.main' : 'secondary.main', width: 32, height: 32, fontSize: '0.85rem' }}>
+                        {senderName.charAt(0).toUpperCase()}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText 
+                      primary={cleanText}
+                      secondary={`${senderName} • ${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                      primaryTypographyProps={{ variant: 'body2', noWrap: true, sx: { fontWeight: 500 } }}
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
+                  </ListItemButton>
+                );
+              })}
+            </List>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Forward Message Dialog */}
+      <Dialog open={openForwardDialog} onClose={() => setOpenForwardDialog(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2, position: 'relative' } }}>
+        <DialogTitle sx={{ fontWeight: 'bold', pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenForwardDialog(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Forward Message
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 0 }}>
+          <List>
+            {allUsers
+              .filter(u => u.id !== user.id && !user.blockedUserIds?.includes(String(u.id)) && !u.blockedUserIds?.includes(String(user.id)))
+              .map(target => {
+                const uAvatar = localStorage.getItem(`avatar_${target.id}`) || target.avatar || '';
+                const uName = target.fullname || target.name || target.username || '?';
+                return (
+                  <ListItemButton 
+                    key={target.id}
+                    onClick={() => handleForwardMessage(target)}
+                  >
+                    <ListItemAvatar>
+                      <Avatar src={uAvatar} sx={{ width: 36, height: 36 }}>
+                        {!uAvatar && uName.charAt(0).toUpperCase()}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText 
+                      primary={uName} 
+                      secondary={`@${target.username}`}
+                      primaryTypographyProps={{ variant: 'body2', sx: { fontWeight: 600 } }}
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
+                  </ListItemButton>
+                );
+              })}
+          </List>
+        </DialogContent>
+      </Dialog>
+
+      {/* Snackbar alerts */}
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={3000}
+        onClose={() => setOpenSnackbar(false)}
+        message={snackbarMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
     </Box>
   );

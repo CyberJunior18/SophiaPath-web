@@ -30,12 +30,24 @@ import {
   Comment as CommentIcon,
   Search as SearchIcon,
   Subject as SubjectIcon,
-  Code as CodeIcon
+  Code as CodeIcon,
+  People as PeopleIcon,
+  Close as CloseIcon,
+  MoreVert as MoreVertIcon,
+  PhotoCamera as CameraIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
 import './Community.css';
+
+const formatMemberCount = (count) => {
+  if (!count) return '0';
+  if (count >= 1000) {
+    return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  }
+  return count.toString();
+};
 
 const CommunityDetailPage = () => {
   const { communityId, roomId: paramRoomId } = useParams();
@@ -49,7 +61,17 @@ const CommunityDetailPage = () => {
   // Filtering & Sorting
   const [sortBy, setSortBy] = useState('hot'); // 'new' or 'hot'
   const [searchQuery, setSearchQuery] = useState('');
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(10);
+  const [openMembersDialog, setOpenMembersDialog] = useState(false);
+  const [communityMenuAnchor, setCommunityMenuAnchor] = useState(null);
+  const [memberMenuAnchor, setMemberMenuAnchor] = useState(null);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [openSettings, setOpenSettings] = useState(false);
+  const [maxMembers, setMaxMembers] = useState(100);
+  const [openEditCommunity, setOpenEditCommunity] = useState(false);
+  const [editCommunityName, setEditCommunityName] = useState('');
+  const [editCommunityDesc, setEditCommunityDesc] = useState('');
 
   // Dialogs & Creators
   const [openCreateRoom, setOpenCreateRoom] = useState(false);
@@ -121,15 +143,46 @@ const CommunityDetailPage = () => {
 
   // Filtered questions based on search query
   const filteredQuestions = useMemo(() => {
-    return questions.filter(q => 
-      q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      q.content.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const qTerm = searchQuery.toLowerCase().trim();
+    if (!qTerm) return questions;
+    return questions.filter(q => {
+      const titleWords = (q.title || '').toLowerCase().split(/\s+/);
+      const contentWords = (q.content || '').toLowerCase().split(/\s+/);
+      return titleWords.some(w => w.startsWith(qTerm)) || contentWords.some(w => w.startsWith(qTerm));
+    });
   }, [questions, searchQuery]);
 
   const displayedQuestions = useMemo(() => {
     return filteredQuestions.slice(0, visibleCount);
   }, [filteredQuestions, visibleCount]);
+
+  const sortedMembers = useMemo(() => {
+    if (!community?.members) return [];
+    
+    // Filter members by search query
+    const filtered = community.members.filter(m => {
+      const q = memberSearchQuery.toLowerCase().trim();
+      if (!q) return true;
+      const name = (m.fullname || m.username || '').toLowerCase();
+      const nameWords = name.split(/\s+/);
+      return nameWords.some(w => w.startsWith(q));
+    });
+
+    // Sort: Owner -> Moderators -> Members
+    return [...filtered].sort((a, b) => {
+      const isAOwner = Number(community.ownerId) === Number(a.id);
+      const isBOwner = Number(community.ownerId) === Number(b.id);
+      if (isAOwner && !isBOwner) return -1;
+      if (!isAOwner && isBOwner) return 1;
+
+      const isAMod = community.moderatorIds?.includes(String(a.id));
+      const isBMod = community.moderatorIds?.includes(String(b.id));
+      if (isAMod && !isBMod) return -1;
+      if (!isAMod && isBMod) return 1;
+
+      return 0;
+    });
+  }, [community?.members, community?.ownerId, community?.moderatorIds, memberSearchQuery]);
 
   useEffect(() => {
     setVisibleCount(10);
@@ -155,6 +208,17 @@ const CommunityDetailPage = () => {
     }
   };
 
+  const handlePostImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPostImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleAskQuestionSubmit = async () => {
     if (!postTitle.trim() || !postContent.trim() || !activeRoomId) return;
     
@@ -163,8 +227,8 @@ const CommunityDetailPage = () => {
     if (showCodeField && postCode.trim()) {
       fullContent += `\n\n\`\`\`java\n${postCode}\n\`\`\``;
     }
-    if (showImageField && postImage.trim()) {
-      fullContent += `\n\n![Image Attachment](${postImage.trim()})`;
+    if (showImageField && postImage) {
+      fullContent += `\n\n![Image Attachment](${postImage})`;
     }
     if (showLinkField && postLink.trim()) {
       const label = postLinkLabel.trim() || 'Link';
@@ -185,6 +249,15 @@ const CommunityDetailPage = () => {
     setShowLinkField(false);
     setOpenAskQuestion(false);
     loadQuestions();
+  };
+
+  const handleDeleteCommunityClick = async () => {
+    if (window.confirm("Are you sure you want to delete this community? This action is permanent and will delete all rooms, posts, comments, and replies.")) {
+      const success = await socialStore.deleteCommunity(community.id);
+      if (success) {
+        navigate('/communities');
+      }
+    }
   };
 
   const handleUpvote = async (e, questionId) => {
@@ -213,6 +286,14 @@ const CommunityDetailPage = () => {
     }
   };
 
+  if (!user) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="body1">Loading User Profile...</Typography>
+      </Box>
+    );
+  }
+
   if (!community) {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
@@ -222,6 +303,8 @@ const CommunityDetailPage = () => {
   }
 
   const activeRoom = community.rooms?.find(r => r.id === activeRoomId) || {};
+  const isOwner = Number(community.ownerId) === Number(user?.id);
+  const isMod = community.moderatorIds?.includes(String(user?.id)) || isOwner;
 
   return (
     <Box className="community-detail-container">
@@ -240,41 +323,56 @@ const CommunityDetailPage = () => {
           >
             <ArrowBackIcon fontSize="small" />
           </IconButton>
+
+          <IconButton
+            onClick={(e) => setCommunityMenuAnchor(e.currentTarget)}
+            sx={{ 
+              position: 'absolute',
+              right: 12,
+              top: 12,
+              color: 'white', 
+              bgcolor: 'rgba(255,255,255,0.15)', 
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+              borderRadius: 1.5,
+              p: 0.5
+            }}
+            size="small"
+          >
+            <MoreVertIcon sx={{ fontSize: 18 }} />
+          </IconButton>
           
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
             <Typography variant="h3" sx={{ fontSize: '1.8rem', p: 0 }} className="community-sidebar-title">
               {community.icon} {community.name}
             </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setOpenMembersDialog(true)}
+              startIcon={<PeopleIcon sx={{ fontSize: 16 }} />}
+              sx={{
+                borderRadius: 1.5,
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: '0.72rem',
+                color: 'white',
+                borderColor: 'rgba(255,255,255,0.4)',
+                bgcolor: 'rgba(255,255,255,0.1)',
+                px: 1.25,
+                py: 0.25,
+                minWidth: 0,
+                '&:hover': {
+                  borderColor: 'white',
+                  bgcolor: 'rgba(255,255,255,0.2)'
+                }
+              }}
+            >
+              {formatMemberCount(community.members?.length || 0)}
+            </Button>
           </Stack>
-          <Typography variant="body2" sx={{ opacity: 0.85, fontSize: '0.8rem', lineHeight: 1.4, mb: 1 }}>
+          <Typography variant="body2" sx={{ opacity: 0.85, fontSize: '0.8rem', lineHeight: 1.4, mt: 1 }}>
             {community.description}
           </Typography>
-          <Button
-            size="small"
-            variant="contained"
-            onClick={async () => {
-              await socialStore.toggleJoinCommunity(community.id);
-              loadCommunity();
-            }}
-            sx={{
-              alignSelf: 'flex-start',
-              borderRadius: 3,
-              textTransform: 'none',
-              fontWeight: 600,
-              px: 2,
-              py: 0.5,
-              bgcolor: community.isJoined ? 'rgba(255,255,255,0.15)' : 'white',
-              color: community.isJoined ? 'white' : '#3D5CFF',
-              border: community.isJoined ? '1px solid rgba(255,255,255,0.3)' : 'none',
-              boxShadow: 'none',
-              '&:hover': {
-                bgcolor: community.isJoined ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.9)',
-                boxShadow: 'none'
-              }
-            }}
-          >
-            {community.isJoined ? "Leave Community" : "Join Community"}
-          </Button>
         </Box>
 
         <Divider />
@@ -284,15 +382,16 @@ const CommunityDetailPage = () => {
           <Typography variant="subtitle2" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
             Rooms / Channels
           </Typography>
-          <IconButton 
-            size="small" 
-            color="primary" 
-            onClick={() => setOpenCreateRoom(true)}
-            disabled={!community.isJoined}
-            sx={{ border: '1.5px solid var(--divider)', borderRadius: 2 }}
-          >
-            <AddIcon fontSize="small" />
-          </IconButton>
+          {isMod && (
+            <IconButton 
+              size="small" 
+              color="primary" 
+              onClick={() => setOpenCreateRoom(true)}
+              sx={{ border: '1.5px solid var(--divider)', borderRadius: 2 }}
+            >
+              <AddIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
 
         {/* Scrollable list of Rooms */}
@@ -316,6 +415,7 @@ const CommunityDetailPage = () => {
             </ListItemButton>
           ))}
         </List>
+
       </Box>
 
       {/* RIGHT SIDEBAR: Questions Feed */}
@@ -413,11 +513,38 @@ const CommunityDetailPage = () => {
                   <Box className="post-card-body">
                     <Box className="post-meta">
                       <Avatar sx={{ width: 18, height: 18, fontSize: '0.65rem' }}>
-                        {q.authorName.charAt(0).toUpperCase()}
+                        {q.authorName?.charAt(0)?.toUpperCase() || '?'}
                       </Avatar>
                       <span className="post-author">{q.authorName}</span>
+                      {(() => {
+                        const isQOwner = Number(community.ownerId) === Number(q.authorId);
+                        const isQMod = community.moderatorIds?.includes(String(q.authorId));
+                        if (isQOwner) {
+                          return (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.12)', padding: '1px 5px', borderRadius: 3, marginLeft: 4 }}>
+                              Owner
+                            </span>
+                          );
+                        } else if (isQMod) {
+                          return (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#3D5CFF', backgroundColor: 'rgba(61, 92, 255, 0.12)', padding: '1px 5px', borderRadius: 3, marginLeft: 4 }}>
+                              Moderator
+                            </span>
+                          );
+                        }
+                        return (
+                          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-secondary)', backgroundColor: 'rgba(0,0,0,0.05)', padding: '1px 5px', borderRadius: 3, marginLeft: 4 }}>
+                            Member
+                          </span>
+                        );
+                      })()}
                       <span>•</span>
                       <span>{new Date(q.timestamp).toLocaleDateString()}</span>
+                      {!q.approved && (
+                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.12)', padding: '2px 6px', borderRadius: 4, marginLeft: 8 }}>
+                          Pending Approval
+                        </span>
+                      )}
                     </Box>
 
                     <Typography variant="h6" className="post-title">
@@ -425,14 +552,33 @@ const CommunityDetailPage = () => {
                     </Typography>
 
                     <Typography variant="body2" className="post-excerpt">
-                      {q.content.replace(/```[\s\S]*?```/g, "[Code Block]")}
+                      {q.content
+                        .replace(/```[\s\S]*?```/g, "[Code Block]")
+                        .replace(/!\[[^\]]*\]\([^)]*\)/g, "[Image]")
+                        .replace(/\[[^\]]*\]\([^)]*\)/g, "[Link]")
+                      }
                     </Typography>
 
-                    <Box className="post-footer-actions">
+                    <Box className="post-footer-actions" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box className="post-footer-action-item">
                         <CommentIcon sx={{ fontSize: 16 }} />
                         <span>{q.commentsCount || 0} comments</span>
                       </Box>
+                      {isMod && !q.approved && (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await socialStore.approveQuestion(q.id);
+                            loadQuestions();
+                          }}
+                          sx={{ borderRadius: 2, textTransform: 'none', py: 0.25, fontSize: '0.72rem', fontWeight: 700 }}
+                        >
+                          Approve Post
+                        </Button>
+                      )}
                     </Box>
                   </Box>
                 </Card>
@@ -466,9 +612,20 @@ const CommunityDetailPage = () => {
         onClose={() => setOpenCreateRoom(false)}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 4 } }}
+        PaperProps={{ 
+          sx: { borderRadius: 2, position: 'relative' },
+          elevation: 6 
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>Create New Room</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenCreateRoom(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Create New Room
+        </DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             label="Room Name"
@@ -477,7 +634,8 @@ const CommunityDetailPage = () => {
             value={roomName}
             onChange={(e) => setRoomName(e.target.value)}
             required
-            InputProps={{ sx: { borderRadius: 3 } }}
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+            inputProps={{ maxLength: 50 }}
           />
           <TextField
             label="Description"
@@ -487,13 +645,11 @@ const CommunityDetailPage = () => {
             rows={2}
             value={roomDesc}
             onChange={(e) => setRoomDesc(e.target.value)}
-            InputProps={{ sx: { borderRadius: 3 } }}
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+            inputProps={{ maxLength: 200 }}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenCreateRoom(false)} sx={{ textTransform: 'none' }}>
-            Cancel
-          </Button>
           <Button 
             onClick={handleCreateRoomSubmit} 
             variant="contained" 
@@ -511,9 +667,20 @@ const CommunityDetailPage = () => {
         onClose={() => setOpenAskQuestion(false)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 4 } }}
+        PaperProps={{ 
+          sx: { borderRadius: 2, position: 'relative' },
+          elevation: 6
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>Post a Question</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenAskQuestion(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Post a Question
+        </DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             label="Title"
@@ -522,7 +689,8 @@ const CommunityDetailPage = () => {
             value={postTitle}
             onChange={(e) => setPostTitle(e.target.value)}
             required
-            InputProps={{ sx: { borderRadius: 3 } }}
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+            inputProps={{ maxLength: 150 }}
           />
           <TextField
             label="Question Description"
@@ -533,14 +701,15 @@ const CommunityDetailPage = () => {
             value={postContent}
             onChange={(e) => setPostContent(e.target.value)}
             required
-            InputProps={{ sx: { borderRadius: 3 } }}
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+            inputProps={{ maxLength: 2000 }}
           />
           
           <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
             <IconButton
               color="primary"
               onClick={handleAddClick}
-              sx={{ border: '1.5px solid var(--divider)', borderRadius: 2, width: 40, height: 40 }}
+              sx={{ border: '1.5px solid var(--divider)', borderRadius: 1.5, width: 40, height: 40 }}
             >
               <AddIcon />
             </IconButton>
@@ -550,7 +719,7 @@ const CommunityDetailPage = () => {
               onClose={handleAddClose}
             >
               <MenuItem onClick={() => handleOptionSelect('code')}>Code Snippet</MenuItem>
-              <MenuItem onClick={() => handleOptionSelect('image')}>Image Link</MenuItem>
+              <MenuItem onClick={() => handleOptionSelect('image')}>Image</MenuItem>
               <MenuItem onClick={() => handleOptionSelect('link')}>External Link</MenuItem>
             </Menu>
           </Box>
@@ -566,8 +735,9 @@ const CommunityDetailPage = () => {
                 value={postCode}
                 onChange={(e) => setPostCode(e.target.value)}
                 InputProps={{
-                  sx: { fontFamily: 'monospace', pr: 4, borderRadius: 3 }
+                  sx: { fontFamily: 'monospace', pr: 4, borderRadius: 1.5 }
                 }}
+                inputProps={{ maxLength: 1000 }}
               />
               <IconButton 
                 size="small" 
@@ -580,29 +750,58 @@ const CommunityDetailPage = () => {
           )}
 
           {showImageField && (
-            <Box sx={{ position: 'relative', mt: 1 }}>
-              <TextField
-                label="Image URL"
-                placeholder="https://example.com/image.jpg"
-                fullWidth
-                value={postImage}
-                onChange={(e) => setPostImage(e.target.value)}
-                InputProps={{
-                  sx: { pr: 4, borderRadius: 3 }
-                }}
-              />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, border: '1px dashed var(--divider)', p: 1.5, borderRadius: 1.5, position: 'relative' }}>
               <IconButton 
                 size="small" 
                 onClick={() => { setShowImageField(false); setPostImage(''); }}
-                sx={{ position: 'absolute', top: 8, right: 8 }}
+                sx={{ position: 'absolute', top: 4, right: 4 }}
               >
                 ✕
               </IconButton>
+              
+              <input
+                type="file"
+                accept="image/*"
+                id="post-image-file-input"
+                style={{ display: 'none' }}
+                onChange={handlePostImageUpload}
+              />
+              
+              {!postImage ? (
+                <Button
+                  variant="outlined"
+                  component="label"
+                  htmlFor="post-image-file-input"
+                  startIcon={<CameraIcon />}
+                  sx={{ textTransform: 'none', borderRadius: 2, mt: 1 }}
+                >
+                  Upload Image
+                </Button>
+              ) : (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+                  <img 
+                    src={postImage} 
+                    alt="upload preview" 
+                    style={{ width: 60, height: 60, borderRadius: 6, objectFit: 'cover', border: '1px solid var(--divider)' }} 
+                  />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" display="block">Image Selected</Typography>
+                    <Button 
+                      size="small" 
+                      color="error" 
+                      onClick={() => setPostImage('')}
+                      sx={{ textTransform: 'none', p: 0, minWidth: 0, fontSize: '0.75rem' }}
+                    >
+                      Remove
+                    </Button>
+                  </Box>
+                </Box>
+              )}
             </Box>
           )}
 
           {showLinkField && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, border: '1px solid var(--divider)', p: 2, borderRadius: 2, position: 'relative', mt: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, border: '1px solid var(--divider)', p: 2, borderRadius: 1.5, position: 'relative', mt: 1 }}>
               <Typography variant="caption" sx={{ fontWeight: 600 }}>External Link</Typography>
               <TextField
                 label="Link URL"
@@ -610,7 +809,8 @@ const CommunityDetailPage = () => {
                 fullWidth
                 value={postLink}
                 onChange={(e) => setPostLink(e.target.value)}
-                InputProps={{ sx: { borderRadius: 3 } }}
+                InputProps={{ sx: { borderRadius: 1.5 } }}
+                inputProps={{ maxLength: 500 }}
               />
               <TextField
                 label="Link Label (Optional)"
@@ -618,7 +818,8 @@ const CommunityDetailPage = () => {
                 fullWidth
                 value={postLinkLabel}
                 onChange={(e) => setPostLinkLabel(e.target.value)}
-                InputProps={{ sx: { borderRadius: 3 } }}
+                InputProps={{ sx: { borderRadius: 1.5 } }}
+                inputProps={{ maxLength: 100 }}
               />
               <IconButton 
                 size="small" 
@@ -631,9 +832,6 @@ const CommunityDetailPage = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenAskQuestion(false)} sx={{ textTransform: 'none' }}>
-            Cancel
-          </Button>
           <Button 
             onClick={handleAskQuestionSubmit} 
             variant="contained" 
@@ -641,6 +839,287 @@ const CommunityDetailPage = () => {
             sx={{ textTransform: 'none', borderRadius: 2 }}
           >
             Post Question
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* MEMBERS LIST DIALOG */}
+      <Dialog
+        open={openMembersDialog}
+        onClose={() => setOpenMembersDialog(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2, position: 'relative' },
+          elevation: 6
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenMembersDialog(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Community Members
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            placeholder="Search members..."
+            size="small"
+            variant="outlined"
+            value={memberSearchQuery}
+            onChange={(e) => setMemberSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+              sx: { borderRadius: 1.5, height: 36, fontSize: '0.82rem', bgcolor: 'action.hover' }
+            }}
+            fullWidth
+          />
+          <List sx={{ maxHeight: 400, overflowY: 'auto', p: 0 }}>
+            {sortedMembers.map((m) => {
+              const isMOwner = Number(community.ownerId) === Number(m.id);
+              const isMMod = community.moderatorIds?.includes(String(m.id));
+              let roleTag = 'Member';
+              let roleColor = 'var(--text-secondary)';
+              let roleBg = 'rgba(0,0,0,0.05)';
+              
+              if (isMOwner) {
+                roleTag = 'Owner';
+                roleColor = '#F59E0B';
+                roleBg = 'rgba(245, 158, 11, 0.15)';
+              } else if (isMMod) {
+                roleTag = 'Moderator';
+                roleColor = '#3D5CFF';
+                roleBg = 'rgba(61, 92, 255, 0.15)';
+              }
+
+              return (
+                <Box 
+                  key={m.id} 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    py: 1, 
+                    px: 1, 
+                    borderRadius: 1.5,
+                    '&:hover': { bgcolor: 'action.hover' }
+                  }}
+                >
+                  <Avatar sx={{ width: 32, height: 32, fontSize: '0.85rem', mr: 1.5 }}>
+                    {m.fullname?.charAt(0).toUpperCase() || m.username?.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, noWrap: true }}>
+                        {m.fullname || m.username}
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', color: roleColor, backgroundColor: roleBg }}>
+                          {roleTag}
+                        </span>
+                        {isOwner && !isMOwner && (
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMemberMenuAnchor(e.currentTarget);
+                              setSelectedMember(m);
+                            }}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <MoreVertIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        )}
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              );
+            })}
+          </List>
+        </DialogContent>
+      </Dialog>
+
+      {/* COMMUNITY MENU */}
+      <Menu
+        anchorEl={communityMenuAnchor}
+        open={Boolean(communityMenuAnchor)}
+        onClose={() => setCommunityMenuAnchor(null)}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        PaperProps={{ sx: { borderRadius: 1, minWidth: 160 } }}
+      >
+        {isOwner && (
+          <MenuItem onClick={() => {
+            setCommunityMenuAnchor(null);
+            setEditCommunityName(community.name);
+            setEditCommunityDesc(community.description);
+            setOpenEditCommunity(true);
+          }}>
+            Edit Community
+          </MenuItem>
+        )}
+        {isOwner && (
+          <MenuItem onClick={() => {
+            setCommunityMenuAnchor(null);
+            setOpenSettings(true);
+          }}>
+            Settings
+          </MenuItem>
+        )}
+        {isOwner && (
+          <MenuItem onClick={() => {
+            setCommunityMenuAnchor(null);
+            handleDeleteCommunityClick();
+          }} sx={{ color: 'error.main' }}>
+            Delete Community
+          </MenuItem>
+        )}
+        {!isOwner && (
+          <MenuItem onClick={async () => {
+            setCommunityMenuAnchor(null);
+            await socialStore.toggleJoinCommunity(community.id);
+            loadCommunity();
+          }}>
+            {community.isJoined ? "Leave Community" : "Join Community"}
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* MEMBER ACTION MENU */}
+      <Menu
+        anchorEl={memberMenuAnchor}
+        open={Boolean(memberMenuAnchor)}
+        onClose={() => {
+          setMemberMenuAnchor(null);
+          setSelectedMember(null);
+        }}
+        PaperProps={{ sx: { borderRadius: 1, minWidth: 160 } }}
+      >
+        {selectedMember && (
+          <MenuItem onClick={async () => {
+            setMemberMenuAnchor(null);
+            const isMMod = community.moderatorIds?.includes(String(selectedMember.id));
+            if (isMMod) {
+              await socialStore.removeModerator(community.id, selectedMember.id);
+            } else {
+              await socialStore.addModerator(community.id, selectedMember.id);
+            }
+            setSelectedMember(null);
+            loadCommunity();
+          }}>
+            {selectedMember && community.moderatorIds?.includes(String(selectedMember.id)) ? 'Demote to Member' : 'Promote to Moderator'}
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* COMMUNITY SETTINGS DIALOG */}
+      <Dialog
+        open={openSettings}
+        onClose={() => setOpenSettings(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2, position: 'relative' },
+          elevation: 6
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenSettings(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Community Settings
+        </DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Configure settings for {community.name}.
+          </Typography>
+          <TextField
+            label="Maximum Members Limit"
+            type="number"
+            fullWidth
+            value={maxMembers}
+            onChange={(e) => setMaxMembers(Number(e.target.value))}
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            variant="contained"
+            onClick={() => setOpenSettings(false)}
+            sx={{ textTransform: 'none', borderRadius: 2 }}
+          >
+            Save Settings
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* EDIT COMMUNITY DIALOG */}
+      <Dialog
+        open={openEditCommunity}
+        onClose={() => setOpenEditCommunity(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2, position: 'relative' },
+          elevation: 6
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenEditCommunity(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Edit Community Info
+        </DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Community Name"
+            fullWidth
+            value={editCommunityName}
+            onChange={(e) => setEditCommunityName(e.target.value)}
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+            inputProps={{ maxLength: 50 }}
+          />
+          <TextField
+            label="Description"
+            fullWidth
+            multiline
+            rows={3}
+            value={editCommunityDesc}
+            onChange={(e) => setEditCommunityDesc(e.target.value)}
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+            inputProps={{ maxLength: 300 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              await socialStore.updateCommunity(community.id, editCommunityName, editCommunityDesc, community.icon);
+              setOpenEditCommunity(false);
+              loadCommunity();
+            }}
+            sx={{ textTransform: 'none', borderRadius: 2 }}
+            disabled={!editCommunityName.trim()}
+          >
+            Save Changes
           </Button>
         </DialogActions>
       </Dialog>

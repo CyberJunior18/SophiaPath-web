@@ -459,16 +459,23 @@ export default function ImageEditorModal({ open, onClose, imageSrc, onSave, show
       fullWidth
       PaperProps={{
         sx: {
-          borderRadius: 4,
+          borderRadius: 2,
           bgcolor: 'background.paper',
           backgroundImage: 'none',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+          position: 'relative'
         }
       }}
     >
-      <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
+      <DialogTitle sx={{ fontWeight: 700, pr: 7, p: 2 }}>
+        <IconButton 
+          onClick={onClose} 
+          size="small"
+          sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+        >
+          <CloseIcon />
+        </IconButton>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>Image Editor</Typography>
-        <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
       </DialogTitle>
 
       <DialogContent dividers sx={{ p: 0, bgcolor: '#121212', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '400px' }}>
@@ -605,9 +612,6 @@ export default function ImageEditorModal({ open, onClose, imageSrc, onSave, show
       </DialogContent>
 
       <DialogActions sx={{ p: 2.5, gap: 1.5 }}>
-        <Button onClick={onClose} sx={{ textTransform: 'none', px: 3 }}>
-          Cancel
-        </Button>
         
         {showSendButton && onSend ? (
           <>

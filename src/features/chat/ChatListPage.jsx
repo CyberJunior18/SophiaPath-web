@@ -32,7 +32,8 @@ import {
   Forum as ForumIcon,
   Group as GroupIcon,
   Add as AddIcon,
-  MoreVert as MoreVertIcon
+  MoreVert as MoreVertIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -669,10 +670,18 @@ const ChatListPage = () => {
         maxWidth="xs"
         fullWidth
         PaperProps={{
-          sx: { borderRadius: 4, bgcolor: 'background.paper' }
+          sx: { borderRadius: 2, bgcolor: 'background.paper', position: 'relative' }
         }}
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>Create New Group</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenCreateGroup(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Create New Group
+        </DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
@@ -734,9 +743,6 @@ const ChatListPage = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenCreateGroup(false)} sx={{ textTransform: 'none' }}>
-            Cancel
-          </Button>
           <Button 
             onClick={handleCreateGroupSubmit} 
             variant="contained" 

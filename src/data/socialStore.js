@@ -172,7 +172,7 @@ export const socialStore = {
     }
   },
 
-  sendGroupMessage: async (groupId, senderId, senderName, senderAvatar, text) => {
+  sendGroupMessage: async (groupId, senderId, senderName, senderAvatar, text, replyToId = null, replyToMessage = null, replyToUsername = null, forwarded = false) => {
     try {
       const res = await fetch(`/api/groups/${groupId}/send-message`, {
         method: 'POST',
@@ -181,12 +181,45 @@ export const socialStore = {
           senderId: Number(senderId),
           senderName,
           senderAvatar,
-          text
+          text,
+          replyToId,
+          replyToMessage,
+          replyToUsername,
+          forwarded
         })
       });
       if (!res.ok) throw new Error('Failed to send group message');
       const data = await res.json();
       return data.message;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  pinGroupMessage: async (messageId, pin) => {
+    try {
+      const res = await fetch(`/api/groups/message/${messageId}/pin`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ pin })
+      });
+      if (!res.ok) throw new Error('Failed to pin group message');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  deleteGroupMessage: async (messageId, userId) => {
+    try {
+      const res = await fetch(`/api/groups/message/${messageId}?userId=${userId}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error('Failed to delete group message');
+      return await res.json();
     } catch (e) {
       console.error(e);
       return null;
@@ -390,145 +423,89 @@ export const socialStore = {
       return { typing: false };
     }
   },
-
-  // --- COMMUNITIES ---
   getCommunities: async () => {
-    initLocalCommunities();
-    const userId = getUserId();
-    const list = JSON.parse(localStorage.getItem('sophia_communities') || '[]');
-    const rooms = JSON.parse(localStorage.getItem('sophia_rooms') || '[]');
-    return list.map(c => ({
-      ...c,
-      rooms: rooms.filter(r => r.communityId === c.id),
-      isJoined: c.members?.includes(userId)
-    }));
+    try {
+      const res = await fetch('/api/communities', { headers: getHeaders() });
+      if (!res.ok) return [];
+      const list = await res.json();
+      const userId = getUserId();
+      return list.map(c => ({
+        ...c,
+        isJoined: c.members?.some(m => Number(m.id) === Number(userId))
+      }));
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
   },
 
   getCommunityById: async (communityId) => {
-    initLocalCommunities();
+    const res = await fetch(`/api/communities/${communityId}`, { headers: getHeaders() });
+    if (!res.ok) return null;
+    const c = await res.json();
     const userId = getUserId();
-    const list = JSON.parse(localStorage.getItem('sophia_communities') || '[]');
-    const rooms = JSON.parse(localStorage.getItem('sophia_rooms') || '[]');
-    const c = list.find(item => Number(item.id) === Number(communityId));
-    if (!c) return null;
     return {
       ...c,
-      rooms: rooms.filter(r => r.communityId === c.id),
-      isJoined: c.members?.includes(userId)
+      isJoined: c.members?.some(m => Number(m.id) === Number(userId))
     };
   },
 
   toggleJoinCommunity: async (communityId) => {
-    initLocalCommunities();
     const userId = getUserId();
-    if (!userId) return null;
-    const list = JSON.parse(localStorage.getItem('sophia_communities') || '[]');
-    const cIndex = list.findIndex(item => Number(item.id) === Number(communityId));
-    if (cIndex === -1) return null;
-    
-    let c = list[cIndex];
-    c.members = c.members || [];
-    const idx = c.members.indexOf(userId);
-    if (idx === -1) {
-      c.members.push(userId);
-      c.membersCount = (c.membersCount || 0) + 1;
-    } else {
-      c.members.splice(idx, 1);
-      c.membersCount = Math.max(0, (c.membersCount || 0) - 1);
-    }
-    list[cIndex] = c;
-    localStorage.setItem('sophia_communities', JSON.stringify(list));
-    return c;
+    const res = await fetch(`/api/communities/${communityId}/join`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId })
+    });
+    if (!res.ok) return null;
+    return res.json();
   },
 
   createCommunity: async (name, description, icon) => {
-    initLocalCommunities();
-    const list = JSON.parse(localStorage.getItem('sophia_communities') || '[]');
-    const nameExists = list.some(c => c.name.toLowerCase() === name.toLowerCase());
-    if (nameExists) {
-      alert("A community with this name already exists.");
+    const ownerId = getUserId();
+    const res = await fetch('/api/communities/create', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ name, description, icon, ownerId })
+    });
+    if (!res.ok) {
+      const errorData = await res.json();
+      alert(errorData.message || "Failed to create community.");
       return null;
     }
-    const newId = list.length > 0 ? Math.max(...list.map(item => item.id)) + 1 : 1;
-    const gradients = [
-      'linear-gradient(135deg, #3D5CFF 0%, #7C8DFF 100%)',
-      'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-      'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-      'linear-gradient(135deg, #EC4899 0%, #BE185D 100%)',
-      'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)'
-    ];
-    const bannerColor = gradients[Math.floor(Math.random() * gradients.length)];
-    const newC = {
-      id: newId,
-      name,
-      description,
-      icon,
-      bannerColor,
-      membersCount: 0,
-      members: []
-    };
-    list.push(newC);
-    localStorage.setItem('sophia_communities', JSON.stringify(list));
-    
-    // Auto-create general room
-    const rooms = JSON.parse(localStorage.getItem('sophia_rooms') || '[]');
-    const newRoomId = rooms.length > 0 ? Math.max(...rooms.map(r => r.id)) + 1 : 1;
-    rooms.push({
-      id: newRoomId,
-      communityId: newId,
-      name: 'general',
-      description: `General discussion room for ${name}`
-    });
-    localStorage.setItem('sophia_rooms', JSON.stringify(rooms));
-    
-    return newC;
+    return res.json();
   },
 
   createRoom: async (communityId, name, description) => {
-    initLocalCommunities();
-    const rooms = JSON.parse(localStorage.getItem('sophia_rooms') || '[]');
-    const newRoomId = rooms.length > 0 ? Math.max(...rooms.map(r => r.id)) + 1 : 1;
-    const formattedName = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '');
-    const newRoom = {
-      id: newRoomId,
-      communityId: Number(communityId),
-      name: formattedName,
-      description
-    };
-    rooms.push(newRoom);
-    localStorage.setItem('sophia_rooms', JSON.stringify(rooms));
-    return newRoom;
+    const creatorId = getUserId();
+    const res = await fetch(`/api/communities/${communityId}/create-room`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ name, description, creatorId })
+    });
+    if (!res.ok) return null;
+    return res.json();
   },
 
-  // --- QUESTIONS (POSTS) ---
   getQuestions: async (roomId, sortBy = 'hot') => {
-    initLocalCommunities();
     const userId = getUserId();
-    const all = JSON.parse(localStorage.getItem('sophia_questions') || '[]');
-    const questions = all.filter(q => Number(q.roomId) === Number(roomId));
-    
-    const mapped = questions.map(q => ({
+    const res = await fetch(`/api/communities/rooms/${roomId}/questions?sortBy=${sortBy}&userId=${userId}`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) return [];
+    const questions = await res.json();
+    return questions.map(q => ({
       ...q,
       userUpvoted: q.upvotedUsers?.includes(userId),
       userDownvoted: q.downvotedUsers?.includes(userId)
     }));
-
-    if (sortBy === 'new') {
-      return mapped.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    }
-    return mapped.sort((a, b) => {
-      const diff = (b.upvotes || 0) - (a.upvotes || 0);
-      if (diff !== 0) return diff;
-      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-    });
   },
 
   getQuestionById: async (questionId) => {
-    initLocalCommunities();
     const userId = getUserId();
-    const all = JSON.parse(localStorage.getItem('sophia_questions') || '[]');
-    const q = all.find(item => Number(item.id) === Number(questionId));
-    if (!q) return null;
+    const res = await fetch(`/api/communities/questions/${questionId}`, { headers: getHeaders() });
+    if (!res.ok) return null;
+    const q = await res.json();
     return {
       ...q,
       userUpvoted: q.upvotedUsers?.includes(userId),
@@ -537,246 +514,221 @@ export const socialStore = {
   },
 
   createQuestion: async (roomId, title, content, author) => {
-    initLocalCommunities();
-    const rooms = JSON.parse(localStorage.getItem('sophia_rooms') || '[]');
-    const room = rooms.find(r => Number(r.id) === Number(roomId));
-    if (!room) return null;
-    
-    const communities = JSON.parse(localStorage.getItem('sophia_communities') || '[]');
-    const community = communities.find(c => Number(c.id) === Number(room.communityId));
-    if (!community) return null;
-    
-    const isMember = community.members?.includes(Number(author.id));
-    if (!isMember) {
-      alert("Only members of this community can post questions.");
+    const res = await fetch(`/api/communities/rooms/${roomId}/questions/create`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        title,
+        content,
+        authorId: Number(author.id),
+        authorName: author.name || author.fullname || author.username || 'learner',
+        authorAvatar: author.avatar || ''
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.message || "Failed to create post.");
       return null;
     }
-
-    const all = JSON.parse(localStorage.getItem('sophia_questions') || '[]');
-    const newId = all.length > 0 ? Math.max(...all.map(item => item.id)) + 1 : 1;
-    const newQ = {
-      id: newId,
-      roomId: Number(roomId),
-      title,
-      content,
-      authorId: Number(author.id),
-      authorName: author.name || author.fullname || author.username || 'learner',
-      authorAvatar: author.avatar || '',
-      timestamp: new Date().toISOString(),
-      upvotes: 0,
-      upvotedUsers: [],
-      downvotedUsers: [],
-      commentsCount: 0
-    };
-    all.push(newQ);
-    localStorage.setItem('sophia_questions', JSON.stringify(all));
-    return newQ;
+    return res.json();
   },
 
   upvoteQuestion: async (questionId, userId) => {
-    initLocalCommunities();
-    const uId = Number(userId);
-    if (!uId) return null;
-    const all = JSON.parse(localStorage.getItem('sophia_questions') || '[]');
-    const qIndex = all.findIndex(item => Number(item.id) === Number(questionId));
-    if (qIndex === -1) return null;
-
-    let q = all[qIndex];
-    q.upvotedUsers = q.upvotedUsers || [];
-    q.downvotedUsers = q.downvotedUsers || [];
-
-    const upIdx = q.upvotedUsers.indexOf(uId);
-    const downIdx = q.downvotedUsers.indexOf(uId);
-
-    if (upIdx === -1) {
-      q.upvotedUsers.push(uId);
-      if (downIdx !== -1) {
-        q.downvotedUsers.splice(downIdx, 1);
-      }
-    } else {
-      q.upvotedUsers.splice(upIdx, 1);
-    }
-    q.upvotes = q.upvotedUsers.length - q.downvotedUsers.length;
-    all[qIndex] = q;
-    localStorage.setItem('sophia_questions', JSON.stringify(all));
-    return q;
+    const res = await fetch(`/api/communities/questions/${questionId}/upvote`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId: Number(userId) })
+    });
+    if (!res.ok) return null;
+    return res.json();
   },
 
   downvoteQuestion: async (questionId, userId) => {
-    initLocalCommunities();
-    const uId = Number(userId);
-    if (!uId) return null;
-    const all = JSON.parse(localStorage.getItem('sophia_questions') || '[]');
-    const qIndex = all.findIndex(item => Number(item.id) === Number(questionId));
-    if (qIndex === -1) return null;
-
-    let q = all[qIndex];
-    q.upvotedUsers = q.upvotedUsers || [];
-    q.downvotedUsers = q.downvotedUsers || [];
-
-    const upIdx = q.upvotedUsers.indexOf(uId);
-    const downIdx = q.downvotedUsers.indexOf(uId);
-
-    if (downIdx === -1) {
-      q.downvotedUsers.push(uId);
-      if (upIdx !== -1) {
-        q.upvotedUsers.splice(upIdx, 1);
-      }
-    } else {
-      q.downvotedUsers.splice(downIdx, 1);
-    }
-    q.upvotes = q.upvotedUsers.length - q.downvotedUsers.length;
-    all[qIndex] = q;
-    localStorage.setItem('sophia_questions', JSON.stringify(all));
-    return q;
+    const res = await fetch(`/api/communities/questions/${questionId}/downvote`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId: Number(userId) })
+    });
+    if (!res.ok) return null;
+    return res.json();
   },
 
-  // --- COMMENTS & REPLIES ---
   getComments: async (questionId) => {
-    initLocalCommunities();
     const userId = getUserId();
-    const allComments = JSON.parse(localStorage.getItem('sophia_comments') || '[]');
-    const allReplies = JSON.parse(localStorage.getItem('sophia_replies') || '[]');
-    
-    const comments = allComments.filter(c => Number(c.questionId) === Number(questionId));
-    
-    const mapped = comments.map(c => {
-      const replies = allReplies.filter(r => Number(r.commentId) === Number(c.id));
-      return {
-        ...c,
-        userUpvoted: c.upvotedUsers?.includes(userId),
-        userDownvoted: c.downvotedUsers?.includes(userId),
-        replies: replies.map(r => ({
-          ...r,
-          userUpvoted: r.upvotedUsers?.includes(userId),
-          userDownvoted: r.downvotedUsers?.includes(userId)
-        })).sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0))
-      };
+    const res = await fetch(`/api/communities/questions/${questionId}/comments`, {
+      headers: getHeaders()
     });
-
-    // Sort by votes
-    return mapped.sort((a, b) => {
-      const diff = (b.upvotes || 0) - (a.upvotes || 0);
-      if (diff !== 0) return diff;
-      return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
-    });
+    if (!res.ok) return [];
+    const list = await res.json();
+    return list.map(c => ({
+      ...c,
+      userUpvoted: c.upvotedUsers?.includes(userId),
+      userDownvoted: c.downvotedUsers?.includes(userId),
+      replies: (c.replies || []).map(r => ({
+        ...r,
+        userUpvoted: r.upvotedUsers?.includes(userId),
+        userDownvoted: r.downvotedUsers?.includes(userId)
+      })).sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0))
+    }));
   },
 
   addComment: async (questionId, content, author) => {
-    initLocalCommunities();
-    const allComments = JSON.parse(localStorage.getItem('sophia_comments') || '[]');
-    const newId = allComments.length > 0 ? Math.max(...allComments.map(item => item.id)) + 1 : 1;
-    const newC = {
-      id: newId,
-      questionId: Number(questionId),
-      content,
-      authorId: Number(author.id),
-      authorName: author.name || author.fullname || author.username || 'learner',
-      authorAvatar: author.avatar || '',
-      timestamp: new Date().toISOString(),
-      upvotes: 0,
-      upvotedUsers: [],
-      downvotedUsers: []
-    };
-    allComments.push(newC);
-    localStorage.setItem('sophia_comments', JSON.stringify(allComments));
-
-    // Increment commentsCount in question
-    const questions = JSON.parse(localStorage.getItem('sophia_questions') || '[]');
-    const qIndex = questions.findIndex(item => Number(item.id) === Number(questionId));
-    if (qIndex !== -1) {
-      questions[qIndex].commentsCount = (questions[qIndex].commentsCount || 0) + 1;
-      localStorage.setItem('sophia_questions', JSON.stringify(questions));
-    }
-
-    return newC;
+    const res = await fetch(`/api/communities/questions/${questionId}/comments/create`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        content,
+        authorId: Number(author.id),
+        authorName: author.name || author.fullname || author.username || 'learner',
+        authorAvatar: author.avatar || ''
+      })
+    });
+    if (!res.ok) return null;
+    return res.json();
   },
 
-  addReply: async (questionId, commentId, content, author) => {
-    initLocalCommunities();
-    const allReplies = JSON.parse(localStorage.getItem('sophia_replies') || '[]');
-    const newId = allReplies.length > 0 ? Math.max(...allReplies.map(item => item.id)) + 1 : 1;
-    const newR = {
-      id: newId,
-      commentId: Number(commentId),
-      content,
-      authorId: Number(author.id),
-      authorName: author.name || author.fullname || author.username || 'learner',
-      authorAvatar: author.avatar || '',
-      timestamp: new Date().toISOString(),
-      upvotes: 0,
-      upvotedUsers: [],
-      downvotedUsers: []
-    };
-    allReplies.push(newR);
-    localStorage.setItem('sophia_replies', JSON.stringify(allReplies));
-
-    // Increment commentsCount in question
-    const questions = JSON.parse(localStorage.getItem('sophia_questions') || '[]');
-    const qIndex = questions.findIndex(item => Number(item.id) === Number(questionId));
-    if (qIndex !== -1) {
-      questions[qIndex].commentsCount = (questions[qIndex].commentsCount || 0) + 1;
-      localStorage.setItem('sophia_questions', JSON.stringify(questions));
-    }
-
-    return newR;
+  addReply: async (questionId, commentId, content, author, parentReplyId) => {
+    const res = await fetch(`/api/communities/comments/${commentId}/replies/create`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        content,
+        authorId: Number(author.id),
+        authorName: author.name || author.fullname || author.username || 'learner',
+        authorAvatar: author.avatar || '',
+        parentReplyId: parentReplyId ? Number(parentReplyId) : undefined
+      })
+    });
+    if (!res.ok) return null;
+    return res.json();
   },
 
   upvoteComment: async (questionId, commentId, userId) => {
-    initLocalCommunities();
-    const uId = Number(userId);
-    if (!uId) return null;
-    const allComments = JSON.parse(localStorage.getItem('sophia_comments') || '[]');
-    const cIndex = allComments.findIndex(item => Number(item.id) === Number(commentId));
-    if (cIndex === -1) return null;
-
-    let c = allComments[cIndex];
-    c.upvotedUsers = c.upvotedUsers || [];
-    c.downvotedUsers = c.downvotedUsers || [];
-
-    const upIdx = c.upvotedUsers.indexOf(uId);
-    const downIdx = c.downvotedUsers.indexOf(uId);
-
-    if (upIdx === -1) {
-      c.upvotedUsers.push(uId);
-      if (downIdx !== -1) {
-        c.downvotedUsers.splice(downIdx, 1);
-      }
-    } else {
-      c.upvotedUsers.splice(upIdx, 1);
-    }
-    c.upvotes = c.upvotedUsers.length - c.downvotedUsers.length;
-    allComments[cIndex] = c;
-    localStorage.setItem('sophia_comments', JSON.stringify(allComments));
-    return c;
+    const res = await fetch(`/api/communities/comments/${commentId}/upvote`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId: Number(userId) })
+    });
+    if (!res.ok) return null;
+    return res.json();
   },
 
   downvoteComment: async (questionId, commentId, userId) => {
-    initLocalCommunities();
-    const uId = Number(userId);
-    if (!uId) return null;
-    const allComments = JSON.parse(localStorage.getItem('sophia_comments') || '[]');
-    const cIndex = allComments.findIndex(item => Number(item.id) === Number(commentId));
-    if (cIndex === -1) return null;
+    const res = await fetch(`/api/communities/comments/${commentId}/downvote`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId: Number(userId) })
+    });
+    if (!res.ok) return null;
+    return res.json();
+  },
 
-    let c = allComments[cIndex];
-    c.upvotedUsers = c.upvotedUsers || [];
-    c.downvotedUsers = c.downvotedUsers || [];
+  approveQuestion: async (questionId) => {
+    const userId = getUserId();
+    const res = await fetch(`/api/communities/questions/${questionId}/approve`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId })
+    });
+    if (!res.ok) return null;
+    return res.json();
+  },
 
-    const upIdx = c.upvotedUsers.indexOf(uId);
-    const downIdx = c.downvotedUsers.indexOf(uId);
+  addModerator: async (communityId, moderatorId) => {
+    const res = await fetch(`/api/communities/${communityId}/add-moderator`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ moderatorId: Number(moderatorId) })
+    });
+    if (!res.ok) return null;
+    return res.json();
+  },
 
-    if (downIdx === -1) {
-      c.downvotedUsers.push(uId);
-      if (upIdx !== -1) {
-        c.upvotedUsers.splice(upIdx, 1);
-      }
-    } else {
-      c.downvotedUsers.splice(downIdx, 1);
-    }
-    c.upvotes = c.upvotedUsers.length - c.downvotedUsers.length;
-    allComments[cIndex] = c;
-    localStorage.setItem('sophia_comments', JSON.stringify(allComments));
-    return c;
+  removeModerator: async (communityId, moderatorId) => {
+    const res = await fetch(`/api/communities/${communityId}/remove-moderator`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ moderatorId: Number(moderatorId) })
+    });
+    if (!res.ok) return null;
+    return res.json();
+  },
+
+  updateCommunity: async (communityId, name, description, icon) => {
+    const res = await fetch(`/api/communities/${communityId}/update`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ name, description, icon })
+    });
+    if (!res.ok) return null;
+    return res.json();
+  },
+
+  deleteCommunity: async (communityId) => {
+    const userId = getUserId();
+    const res = await fetch(`/api/communities/${communityId}/delete`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId })
+    });
+    return res.ok;
+  },
+
+  updateQuestion: async (questionId, title, content) => {
+    const res = await fetch(`/api/communities/questions/${questionId}/update`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ title, content })
+    });
+    if (!res.ok) return null;
+    return res.json();
+  },
+
+  deleteQuestion: async (questionId) => {
+    const res = await fetch(`/api/communities/questions/${questionId}/delete`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return res.ok;
+  },
+
+  updateComment: async (commentId, content) => {
+    const res = await fetch(`/api/communities/comments/${commentId}/update`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ content })
+    });
+    if (!res.ok) return null;
+    return res.json();
+  },
+
+  deleteComment: async (commentId) => {
+    const userId = getUserId();
+    const res = await fetch(`/api/communities/comments/${commentId}/delete`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId })
+    });
+    return res.ok;
+  },
+
+  updateReply: async (replyId, content) => {
+    const res = await fetch(`/api/communities/replies/${replyId}/update`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ content })
+    });
+    if (!res.ok) return null;
+    return res.json();
+  },
+
+  deleteReply: async (replyId) => {
+    const userId = getUserId();
+    const res = await fetch(`/api/communities/replies/${replyId}/delete`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId })
+    });
+    return res.ok;
   }
 };

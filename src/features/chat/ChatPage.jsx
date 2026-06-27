@@ -601,14 +601,31 @@ const ChatPage = () => {
               caption = parts[1] || '';
             }
 
+            const isMe = msg.senderId === user.id;
             return (
               <Box 
                 key={msg.id} 
                 id={`msg-${msg.id}`}
-                className={`message-bubble-wrapper ${msg.senderId === user.id ? 'is-me' : 'is-other'}`}
+                className={`message-bubble-wrapper ${isMe ? 'is-me' : 'is-other'}`}
+                sx={{ gap: 1.5, mb: 1, alignItems: 'flex-end' }}
               >
+                {!isMe && (
+                  <Avatar 
+                    src={resolvedAvatar} 
+                    sx={{ width: 32, height: 32, fontSize: '0.8rem', bgcolor: 'primary.main', cursor: resolvedAvatar ? 'pointer' : 'default', mb: 0.5 }}
+                    onClick={() => {
+                      if (resolvedAvatar) {
+                        setLightboxUrl(resolvedAvatar);
+                        setLightboxName(displayName);
+                        setLightboxOpen(true);
+                      }
+                    }}
+                  >
+                    {!resolvedAvatar && initials}
+                  </Avatar>
+                )}
                 <Paper 
-                  className={`message-bubble ${msg.senderId === user.id ? 'me' : 'other'} ${msg.id === highlightMessageId ? 'pulse-highlight' : ''}`}
+                  className={`message-bubble ${isMe ? 'me' : 'other'} ${msg.id === highlightMessageId ? 'pulse-highlight' : ''}`}
                   onClick={(e) => handleMessageBubbleClick(e, msg)}
                   sx={{
                     transition: 'all 0.5s ease',
@@ -739,7 +756,7 @@ const ChatPage = () => {
               position: 'absolute',
               bottom: 85,
               right: 24,
-              backgroundColor: '#10b981',
+              backgroundColor: 'primary.main',
               color: 'white',
               boxShadow: '0 4px 20px rgba(16, 185, 129, 0.4)',
               '&:hover': {
@@ -892,8 +909,14 @@ const ChatPage = () => {
       </Paper>
 
       {/* Other User Profile Dialog */}
-      <Dialog open={openProfile} onClose={() => setOpenProfile(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', pt: 3 }}>
+      <Dialog open={openProfile} onClose={() => setOpenProfile(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2, position: 'relative' } }}>
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', pt: 3, pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenProfile(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
           Learner Profile
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pb: 3 }}>
@@ -972,11 +995,6 @@ const ChatPage = () => {
             </Button>
           )}
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
-          <Button onClick={() => setOpenProfile(false)} variant="contained" sx={{ px: 4, borderRadius: 2 }}>
-            Close
-          </Button>
-        </DialogActions>
       </Dialog>
 
       {/* PROFILE PICTURE LIGHTBOX */}
@@ -1049,6 +1067,7 @@ const ChatPage = () => {
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
         onClose={handleCloseMenu}
+        PaperProps={{ sx: { borderRadius: 1 } }}
       >
         <MenuItem onClick={handleReplyClick}>
           <ReplyIcon sx={{ mr: 1, fontSize: 20 }} /> Reply
@@ -1070,8 +1089,16 @@ const ChatPage = () => {
       </Menu>
 
       {/* Pinned Messages List Dialog */}
-      <Dialog open={openPinnedDialog} onClose={() => setOpenPinnedDialog(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold' }}>Pinned Messages</DialogTitle>
+      <Dialog open={openPinnedDialog} onClose={() => setOpenPinnedDialog(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2, position: 'relative' } }}>
+        <DialogTitle sx={{ fontWeight: 'bold', pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenPinnedDialog(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Pinned Messages
+        </DialogTitle>
         <DialogContent dividers sx={{ p: 0 }}>
           {messages.filter(m => m.pinned && !m.deleted).length === 0 ? (
             <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
@@ -1108,14 +1135,19 @@ const ChatPage = () => {
             </List>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenPinnedDialog(false)}>Close</Button>
-        </DialogActions>
       </Dialog>
 
       {/* Forward Message Dialog */}
-      <Dialog open={openForwardDialog} onClose={() => setOpenForwardDialog(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold' }}>Forward Message</DialogTitle>
+      <Dialog open={openForwardDialog} onClose={() => setOpenForwardDialog(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2, position: 'relative' } }}>
+        <DialogTitle sx={{ fontWeight: 'bold', pr: 7 }}>
+          <IconButton
+            onClick={() => setOpenForwardDialog(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Forward Message
+        </DialogTitle>
         <DialogContent dividers sx={{ p: 0 }}>
           <List>
             {allUsers
@@ -1144,9 +1176,6 @@ const ChatPage = () => {
               })}
           </List>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenForwardDialog(false)}>Cancel</Button>
-        </DialogActions>
       </Dialog>
 
       {/* Snackbar alerts */}

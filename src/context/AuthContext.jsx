@@ -81,7 +81,7 @@ export const AuthProvider = ({ children }) => {
               gender: userData.gender,
               tag: userData.tag,
               joinedDate: userData.dateTime,
-              avatar: localStorage.getItem(`avatar_${userData.id}`) || 'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
+              avatar: localStorage.getItem(`avatar_${userData.id}`) || userData.avatar || 'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
               achievements: [],
               streak: 0,
               ...progress
@@ -166,7 +166,7 @@ export const AuthProvider = ({ children }) => {
           gender: userData.gender,
           tag: userData.tag,
           joinedDate: userData.dateTime,
-          avatar: localStorage.getItem(`avatar_${userData.id}`) || 'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
+          avatar: localStorage.getItem(`avatar_${userData.id}`) || userData.avatar || 'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
           achievements: [],
           streak: 0,
           ...progress
@@ -352,6 +352,7 @@ export const AuthProvider = ({ children }) => {
       if (profileData.tag !== undefined) payload.tag = profileData.tag;
       if (profileData.gender !== undefined) payload.gender = profileData.gender;
       if (profileData.age !== undefined) payload.age = Number(profileData.age);
+      if (profileData.avatar !== undefined) payload.avatar = profileData.avatar;
 
       const res = await fetch('/users/me', {
         method: 'PATCH',

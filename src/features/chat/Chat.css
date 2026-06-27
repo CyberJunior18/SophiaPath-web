@@ -63,7 +63,7 @@
 }
 
 .chat-header-status {
-  color: var(--success-main);
+  color: var(--primary-main);
   font-weight: 700;
   font-size: 0.75rem;
 }

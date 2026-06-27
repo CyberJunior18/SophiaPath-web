@@ -75,6 +75,16 @@ const AnimatedPage = ({ children }) => (
   </motion.div>
 );
 
+const getRouteKey = (pathname) => {
+  if (!pathname) return '';
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length === 0) return '/';
+  if (segments[0] === 'communities') return 'communities';
+  if (segments[0] === 'chat' || segments[0] === 'chats' || segments[0] === 'group') return 'chats';
+  if (segments[0] === 'course' || segments[0] === 'learning-path' || segments[0] === 'learning') return 'learning';
+  return segments[0];
+};
+
 const NavigationPage = () => {
   const { user, logout } = useAuth();
   const { toggleTheme, isDarkMode } = useAppTheme();
@@ -252,7 +262,7 @@ const NavigationPage = () => {
         {!sidebarCollapsed ? (
           <motion.div className="nav-profile-card" variants={itemVariants}>
             <Avatar
-              src="https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"
+              src={user?.avatar || "https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"}
               sx={{ width: 56, height: 56 }}
             />
             <div className="nav-profile-copy">
@@ -262,7 +272,7 @@ const NavigationPage = () => {
         ) : (
           <motion.div className="nav-profile-card collapsed" variants={itemVariants} style={{ justifyContent: 'center', padding: '0.5rem' }}>
             <Avatar
-              src="https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"
+              src={user?.avatar || "https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"}
               sx={{ width: 40, height: 40 }}
             />
           </motion.div>
@@ -520,7 +530,7 @@ const NavigationPage = () => {
               <LogoutIcon />
             </IconButton>
             <Avatar
-              src="https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"
+              src={user?.avatar || "https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"}
               sx={{ width: 48, height: 48 }}
               onClick={() => navigate('/profile')}
               style={{ cursor: 'pointer' }}
@@ -531,7 +541,7 @@ const NavigationPage = () => {
 
         <section className="nav-content">
           <AnimatePresence mode="wait">
-            <Routes location={location} key={location.pathname}>
+            <Routes location={location} key={getRouteKey(location.pathname)}>
               <Route path="/" element={<AnimatedPage><LearningPage /></AnimatedPage>} />
               <Route path="/challenge" element={<AnimatedPage><ChallengePage /></AnimatedPage>} />
               <Route path="/profile" element={<AnimatedPage><ProfilePage /></AnimatedPage>} />
