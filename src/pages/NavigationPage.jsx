@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Avatar,
   Box,
@@ -54,7 +54,8 @@ import CommunityDetailPage from '../features/community/CommunityDetailPage';
 import QuestionDetailPage from '../features/community/QuestionDetailPage';
 
 
-import { useNavigate, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { useNavigate, Routes, Route, useLocation, Navigate, useParams } from 'react-router-dom';
+import { socialStore } from '../data/socialStore';
 import './NavigationPage.css';
 import { useTheme as useAppTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -564,11 +565,36 @@ const NavigationPage = () => {
               <Route path="/learning/:courseId/:sectionId/:lessonId" element={<AnimatedPage><LearningContentPage /></AnimatedPage>} />
               <Route path="/philosophy-lab" element={<AnimatedPage><PhilosophyLabPage /></AnimatedPage>} />
               <Route path="/cyber-lab" element={<AnimatedPage><CyberLabPage /></AnimatedPage>} />
+              <Route path="/communities/join-invite/:communityId" element={<AnimatedPage><JoinInviteHandler /></AnimatedPage>} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </AnimatePresence>
         </section>
       </main>
+    </Box>
+  );
+};
+
+const JoinInviteHandler = () => {
+  const { communityId } = useParams();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const join = async () => {
+      try {
+        await socialStore.joinCommunityByInvite(communityId);
+        navigate(`/communities/${communityId}`);
+      } catch (e) {
+        console.error(e);
+        navigate('/communities');
+      }
+    };
+    join();
+  }, [communityId, navigate]);
+
+  return (
+    <Box sx={{ p: 4, textAlign: 'center' }}>
+      <Typography>Joining community via invite link...</Typography>
     </Box>
   );
 };

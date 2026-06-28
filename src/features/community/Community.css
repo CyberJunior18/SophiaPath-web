@@ -105,8 +105,6 @@
 .community-detail-container {
   display: flex;
   gap: 1.75rem;
-  height: calc(100vh - 180px);
-  min-height: 600px;
 }
 
 @media (max-width: 960px) {
@@ -127,13 +125,16 @@
   background: var(--background-paper);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
   overflow: hidden;
-  height: 100%;
+  height: calc(100vh - 180px);
+  position: sticky;
+  top: 100px;
 }
 
 @media (max-width: 960px) {
   .community-sidebar {
     width: 100%;
     height: auto;
+    position: static;
   }
 }
 
@@ -210,7 +211,7 @@
 
 .community-feed-posts {
   flex-grow: 1;
-  overflow-y: auto;
+  overflow-y: visible;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;

@@ -48,7 +48,9 @@ import {
   ContentCopy as CopyIcon,
   Reply as ReplyIcon,
   ForwardToInbox as ForwardIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Star as StarIcon,
+  Poll as PollIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -90,6 +92,11 @@ const GroupChatPage = () => {
   const [selectedMemberInfo, setSelectedMemberInfo] = useState(null);
   const [openMemberInfo, setOpenMemberInfo] = useState(false);
 
+  // Group Poll States
+  const [openGroupPollCreator, setOpenGroupPollCreator] = useState(false);
+  const [groupPollQuestion, setGroupPollQuestion] = useState('');
+  const [groupPollOptions, setGroupPollOptions] = useState(['', '']);
+
   // Group Details Editing States
   const [isEditingGroup, setIsEditingGroup] = useState(false);
   const [editGroupName, setEditGroupName] = useState('');
@@ -97,6 +104,7 @@ const GroupChatPage = () => {
   const [editGroupAvatar, setEditGroupAvatar] = useState('');
   const [editOnlyAdminsCanEdit, setEditOnlyAdminsCanEdit] = useState(false);
   const [editOnlyAdminsCanSendMessages, setEditOnlyAdminsCanSendMessages] = useState(false);
+  const [editOnlyAdminsCanAddMembers, setEditOnlyAdminsCanAddMembers] = useState(false);
 
   const groupAvatarInputRef = useRef(null);
   const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
@@ -160,6 +168,7 @@ const GroupChatPage = () => {
       setEditGroupAvatar(group.avatar || '');
       setEditOnlyAdminsCanEdit(!!group.onlyAdminsCanEdit);
       setEditOnlyAdminsCanSendMessages(!!group.onlyAdminsCanSendMessages);
+      setEditOnlyAdminsCanAddMembers(!!group.onlyAdminsCanAddMembers);
       setIsEditingGroup(false);
       setAvatarError('');
     }
@@ -176,6 +185,7 @@ const GroupChatPage = () => {
     if (isAdmin) {
       updates.onlyAdminsCanEdit = editOnlyAdminsCanEdit;
       updates.onlyAdminsCanSendMessages = editOnlyAdminsCanSendMessages;
+      updates.onlyAdminsCanAddMembers = editOnlyAdminsCanAddMembers;
     }
     const updated = await socialStore.updateGroupDetails(groupId, user.id, updates);
     if (updated) {
@@ -192,19 +202,27 @@ const GroupChatPage = () => {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorImageSrc, setEditorImageSrc] = useState('');
   const [editorShowSend, setEditorShowSend] = useState(false);
+  const [pendingImagesQueue, setPendingImagesQueue] = useState([]);
 
   const handleImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditorImageSrc(reader.result);
-        setEditorShowSend(false);
-        setEditorOpen(true);
-      };
-      reader.readAsDataURL(file);
-      e.target.value = '';
-    }
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const promises = files.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(promises).then(dataUrls => {
+      setPendingImagesQueue(dataUrls);
+      setEditorImageSrc(dataUrls[0]);
+      setEditorShowSend(false);
+      setEditorOpen(true);
+    });
+    e.target.value = '';
   };
 
   const sendEditedImage = async (editedBase64) => {
@@ -220,7 +238,18 @@ const GroupChatPage = () => {
 
       if (msg) {
         setMessages(prev => [...prev, msg]);
-        setEditorOpen(false);
+        
+        setPendingImagesQueue(prevQueue => {
+          const nextQueue = prevQueue.slice(1);
+          if (nextQueue.length > 0) {
+            setEditorImageSrc(nextQueue[0]);
+            setEditorShowSend(false);
+            setEditorOpen(true);
+          } else {
+            setEditorOpen(false);
+          }
+          return nextQueue;
+        });
         setTimeout(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 80);
@@ -335,6 +364,55 @@ const GroupChatPage = () => {
     handleCloseMenu();
   };
 
+  const handleStarToggle = () => {
+    if (!menuMessage) return;
+    let list = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
+    const isStarred = list.some(m => String(m.id) === String(menuMessage.id));
+    if (isStarred) {
+      list = list.filter(m => String(m.id) !== String(menuMessage.id));
+      setSnackbarMessage("Message unstarred!");
+    } else {
+      list.push({
+        id: menuMessage.id,
+        groupId: groupId,
+        type: 'group',
+        text: menuMessage.text,
+        senderName: menuMessage.senderId === user.id ? 'You' : (menuMessage.senderName || 'user'),
+        senderAvatar: menuMessage.senderAvatar,
+        timestamp: menuMessage.timestamp
+      });
+      setSnackbarMessage("Message starred!");
+    }
+    localStorage.setItem('starred_messages_list', JSON.stringify(list));
+    setOpenSnackbar(true);
+    handleCloseMenu();
+  };
+
+  const handleSendGroupPoll = async () => {
+    if (!groupPollQuestion.trim()) return;
+    const cleanOpts = groupPollOptions.filter(o => o.trim() !== '');
+    if (cleanOpts.length < 2) return;
+
+    await socialStore.sendGroupMessage(
+      groupId,
+      user.id,
+      user.username || 'learner',
+      user.avatar || '',
+      `[POLL]: ${groupPollQuestion}`,
+      null,
+      null,
+      null,
+      false,
+      groupPollQuestion,
+      cleanOpts
+    );
+
+    setGroupPollQuestion('');
+    setGroupPollOptions(['', '']);
+    setOpenGroupPollCreator(false);
+    loadGroupDetails();
+  };
+
 
 
   // Member dropdown menu anchor state
@@ -447,21 +525,17 @@ const GroupChatPage = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const res = await fetch('/users', { headers });
-        if (res.ok) {
-          const list = await res.json();
-          // Exclude current members
-          if (group) {
-            const filtered = list.filter(u => !group.members.some(m => Number(m.id) === Number(u.id)));
-            setAllUsers(filtered);
-          } else {
-            setAllUsers(list.filter(u => u.id !== user.id));
-          }
+        const activePartners = await socialStore.getActiveChats(user.id);
+        const list = activePartners || [];
+        // Exclude current members
+        if (group) {
+          const filtered = list.filter(u => !group.members.some(m => Number(m.id) === Number(u.id)));
+          setAllUsers(filtered);
+        } else {
+          setAllUsers(list.filter(u => u.id !== user.id));
         }
       } catch (err) {
-        console.error('Failed to fetch learners:', err);
+        console.error('Failed to fetch active contacts:', err);
       }
     };
     if (openAddMembers || openInfo) {
@@ -550,6 +624,7 @@ const GroupChatPage = () => {
   const isAdmin = group && (group.adminIds?.includes(String(user?.id)) || isCreator);
   const canEditGroupDetails = group && (!group.onlyAdminsCanEdit || isAdmin);
   const canSendMessage = group && (!group.onlyAdminsCanSendMessages || isAdmin);
+  const canAddMembers = group && (!group.onlyAdminsCanAddMembers || isAdmin);
   const initials = group.name.substring(0, 2).toUpperCase();
 
   return (
@@ -558,7 +633,7 @@ const GroupChatPage = () => {
         
         {/* Header */}
         <Box className="chat-header">
-          <IconButton onClick={() => navigate('/chats')} className="chat-back-btn">
+          <IconButton onClick={() => navigate('/chats?tab=groups')} className="chat-back-btn">
             <ArrowBackIcon />
           </IconButton>
           
@@ -730,7 +805,92 @@ const GroupChatPage = () => {
                       <Typography variant="body1" sx={{ fontStyle: 'italic', color: isMe ? 'rgba(255,255,255,0.6)' : 'text.secondary' }}>
                         This message was deleted
                       </Typography>
-                    ) : msg.text?.startsWith('[IMAGE]:') ? (() => {
+                    ) : msg.pollQuestion ? (() => {
+                      let opts = [];
+                      try {
+                        opts = typeof msg.pollOptions === 'string' ? JSON.parse(msg.pollOptions) : msg.pollOptions;
+                      } catch (e) {
+                        opts = msg.pollOptions || [];
+                      }
+
+                      let votes = {};
+                      try {
+                        votes = typeof msg.pollVotes === 'string' ? JSON.parse(msg.pollVotes) : msg.pollVotes || {};
+                      } catch (e) {
+                        votes = {};
+                      }
+
+                      const totalVotes = Object.keys(votes || {}).length;
+                      const userVoteVal = votes[user?.id] !== undefined ? votes[user?.id] : votes[String(user?.id)];
+                      const hasVoted = userVoteVal !== undefined;
+
+                      const handleVote = async (optionIndex) => {
+                        await socialStore.voteGroupPoll(msg.id, optionIndex);
+                        loadGroupDetails();
+                      };
+
+                      return (
+                        <Box sx={{ minWidth: 200, mt: 1 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: isMe ? '#fff' : 'text.primary' }}>
+                            📊 {msg.pollQuestion}
+                          </Typography>
+                          <Stack spacing={1}>
+                            {opts.map((opt, oIdx) => {
+                              const optVotes = Object.values(votes || {}).filter(v => Number(v) === oIdx).length;
+                              const pct = totalVotes > 0 ? Math.round((optVotes / totalVotes) * 100) : 0;
+                              const isUserChoice = hasVoted && Number(userVoteVal) === oIdx;
+                              return (
+                                <Box
+                                  key={oIdx}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleVote(oIdx);
+                                  }}
+                                  sx={{
+                                    p: 1,
+                                    borderRadius: 1.5,
+                                    bgcolor: isUserChoice 
+                                      ? (isMe ? 'rgba(255,255,255,0.2)' : 'rgba(61,92,255,0.06)') 
+                                      : (isMe ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.03)'),
+                                    border: `1px solid ${isUserChoice 
+                                      ? (isMe ? '#fff' : 'var(--primary-color)') 
+                                      : (isMe ? 'rgba(255,255,255,0.2)' : 'var(--divider)')}`,
+                                    cursor: 'pointer',
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    '&:hover': { bgcolor: isMe ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }
+                                  }}
+                                >
+                                  {/* Progress bar fill */}
+                                  <Box sx={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    bottom: 0,
+                                    width: `${pct}%`,
+                                    bgcolor: isMe ? 'rgba(255,255,255,0.15)' : 'rgba(61,92,255,0.08)',
+                                    zIndex: 0,
+                                    transition: 'width 0.3s ease'
+                                  }} />
+                                  
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: isMe ? '#fff' : 'text.primary' }}>
+                                      {opt}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ fontWeight: 700, color: isMe ? 'rgba(255,255,255,0.9)' : 'text.secondary' }}>
+                                      {optVotes} ({pct}%)
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              );
+                            })}
+                          </Stack>
+                          <Typography variant="caption" sx={{ mt: 1, display: 'block', opacity: 0.8, color: isMe ? 'rgba(255,255,255,0.9)' : 'text.secondary' }}>
+                            Total votes: {totalVotes}
+                          </Typography>
+                        </Box>
+                      );
+                    })() : msg.text?.startsWith('[IMAGE]:') ? (() => {
                       const parts = msg.text.substring(8).split('|');
                       const imageUrl = parts[0];
                       const caption = parts[1] || '';
@@ -780,6 +940,7 @@ const GroupChatPage = () => {
 
         <input 
           type="file" 
+          multiple
           ref={fileInputRef} 
           style={{ display: 'none' }} 
           accept="image/*" 
@@ -861,6 +1022,14 @@ const GroupChatPage = () => {
                     >
                       <AttachFileIcon fontSize="small" />
                     </IconButton>
+
+                    <IconButton 
+                      size="small" 
+                      onClick={() => setOpenGroupPollCreator(true)}
+                      sx={{ color: 'var(--text-secondary)' }}
+                    >
+                      <PollIcon fontSize="small" />
+                    </IconButton>
                   </InputAdornment>
                 )
               }}
@@ -935,15 +1104,17 @@ const GroupChatPage = () => {
                 Edit
               </Button>
             )}
-            <Button 
-              variant="outlined" 
-              size="small" 
-              startIcon={<AddPersonIcon />}
-              onClick={() => setOpenAddMembers(true)}
-              sx={{ textTransform: 'none', borderRadius: 3 }}
-            >
-              Add
-            </Button>
+            {canAddMembers && (
+              <Button 
+                variant="outlined" 
+                size="small" 
+                startIcon={<AddPersonIcon />}
+                onClick={() => setOpenAddMembers(true)}
+                sx={{ textTransform: 'none', borderRadius: 3 }}
+              >
+                Add
+              </Button>
+            )}
           </Box>
         </DialogTitle>
         {isEditingGroup ? (
@@ -1032,6 +1203,16 @@ const GroupChatPage = () => {
                         />
                       }
                       label="Only admins can send messages"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={editOnlyAdminsCanAddMembers}
+                          onChange={(e) => setEditOnlyAdminsCanAddMembers(e.target.checked)}
+                          color="primary"
+                        />
+                      }
+                      label="Only admins can add members"
                     />
                   </Stack>
                 )}
@@ -1432,7 +1613,7 @@ const GroupChatPage = () => {
 
       <ImageEditorModal
         open={editorOpen}
-        onClose={() => setEditorOpen(false)}
+        onClose={() => { setEditorOpen(false); setPendingImagesQueue([]); }}
         imageSrc={editorImageSrc}
         onSave={(editedBase64) => {
           setSelectedImage(editedBase64);
@@ -1453,6 +1634,9 @@ const GroupChatPage = () => {
       >
         <MenuItem onClick={handleReplyClick}>
           <ReplyIcon sx={{ mr: 1, fontSize: 20 }} /> Reply
+        </MenuItem>
+        <MenuItem onClick={handleStarToggle}>
+          <StarIcon sx={{ mr: 1, fontSize: 20, color: '#f59e0b' }} /> Star Message
         </MenuItem>
         <MenuItem onClick={handleCopyMessage}>
           <CopyIcon sx={{ mr: 1, fontSize: 20 }} /> Copy
@@ -1568,6 +1752,79 @@ const GroupChatPage = () => {
         message={snackbarMessage}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
+      {/* Group Poll Creator Dialog */}
+      <Dialog
+        open={openGroupPollCreator}
+        onClose={() => setOpenGroupPollCreator(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2, p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          📊 Create Group Poll
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1, maxHeight: 280, overflowY: 'auto' }}>
+          <TextField
+            label="Poll Question"
+            placeholder="Ask a question..."
+            fullWidth
+            value={groupPollQuestion}
+            onChange={(e) => setGroupPollQuestion(e.target.value)}
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+            inputProps={{ maxLength: 100 }}
+          />
+          {groupPollOptions.map((opt, index) => (
+            <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <TextField
+                label={`Option ${index + 1}`}
+                placeholder={`Enter option ${index + 1}`}
+                fullWidth
+                value={opt}
+                onChange={(e) => {
+                  const next = [...groupPollOptions];
+                  next[index] = e.target.value;
+                  setGroupPollOptions(next);
+                }}
+                InputProps={{ sx: { borderRadius: 1.5 } }}
+                inputProps={{ maxLength: 50 }}
+              />
+              {groupPollOptions.length > 2 && (
+                <IconButton 
+                  color="error" 
+                  onClick={() => setGroupPollOptions(groupPollOptions.filter((_, idx) => idx !== index))}
+                  sx={{ border: '1px solid var(--divider)', borderRadius: 1.5, width: 40, height: 40 }}
+                >
+                  ✕
+                </IconButton>
+              )}
+            </Box>
+          ))}
+          <Button
+            size="small"
+            onClick={() => setGroupPollOptions([...groupPollOptions, ''])}
+            sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
+          >
+            + Add Option
+          </Button>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            variant="contained"
+            disabled={!groupPollQuestion.trim() || groupPollOptions.filter(o => o.trim() !== '').length < 2}
+            onClick={handleSendGroupPoll}
+            sx={{ textTransform: 'none', borderRadius: 2 }}
+          >
+            Send Poll
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => setOpenGroupPollCreator(false)}
+            sx={{ textTransform: 'none', borderRadius: 2 }}
+          >
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

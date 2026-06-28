@@ -11,7 +11,20 @@ import {
   TextField,
   Paper,
   FormControlLabel,
-  Switch
+  Switch,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  ListItemButton
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -22,7 +35,11 @@ import {
   Delete as DeleteIcon,
   Reply as ReplyIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
-  KeyboardArrowRight as KeyboardArrowRightIcon
+  KeyboardArrowRight as KeyboardArrowRightIcon,
+  PhotoCamera as CameraIcon,
+  Bookmark as BookmarkIcon,
+  BookmarkBorder as BookmarkBorderIcon,
+  Share as ShareIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -246,6 +263,42 @@ const RenderReplyNode = ({
   );
 };
 
+const parseMarkdownContent = (content) => {
+  let text = content || '';
+  let code = '';
+  let lang = 'javascript';
+  let images = [];
+  let link = '';
+  let linkLabel = '';
+
+  // 1. Extract code block
+  const codeMatch = text.match(/```([a-z]*)\n([\s\S]*?)\n```/);
+  if (codeMatch) {
+    lang = codeMatch[1] || 'javascript';
+    code = codeMatch[2] || '';
+    text = text.replace(/```[a-z]*\n[\s\S]*?\n```/g, '');
+  }
+
+  // 2. Extract image attachments
+  const imgRegex = /!\[Image Attachment\]\(([^)]*)\)/g;
+  let imgMatch;
+  while ((imgMatch = imgRegex.exec(text)) !== null) {
+    if (imgMatch[1]) images.push(imgMatch[1]);
+  }
+  text = text.replace(/!\[Image Attachment\]\(([^)]*)\)/g, '');
+
+  // 3. Extract link attachment
+  const linkMatch = text.match(/(?!^!)\[([^\]]*)\]\(([^)]*)\)/);
+  if (linkMatch) {
+    linkLabel = linkMatch[1] || '';
+    link = linkMatch[2] || '';
+    text = text.replace(/\[([^\]]*)\]\(([^)]*)\)/g, '');
+  }
+
+  text = text.trim();
+  return { text, code, lang, images, link, linkLabel };
+};
+
 const QuestionDetailPage = () => {
   const { communityId, roomId, questionId } = useParams();
   const navigate = useNavigate();
@@ -260,7 +313,20 @@ const QuestionDetailPage = () => {
   const [isEditingPost, setIsEditingPost] = useState(false);
   const [editPostTitle, setEditPostTitle] = useState('');
   const [editPostContent, setEditPostContent] = useState('');
-
+  const [editPostCode, setEditPostCode] = useState('');
+  const [editPostLanguage, setEditPostLanguage] = useState('javascript');
+  const [editPostImages, setEditPostImages] = useState([]);
+  const [editPostLink, setEditPostLink] = useState('');
+  const [editPostLinkLabel, setEditPostLinkLabel] = useState('');
+  const [showEditCode, setShowEditCode] = useState(false);
+  const [showEditImages, setShowEditImages] = useState(false);
+  const [showEditLink, setShowEditLink] = useState(false);
+  // Bookmark & Sharing states
+  const [isSaved, setIsSaved] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareTargetsChats, setShareTargetsChats] = useState([]);
+  const [shareTargetsGroups, setShareTargetsGroups] = useState([]);
+  const [copiedLink, setCopiedLink] = useState(false);
   // Comment Edit states
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingCommentText, setEditingCommentText] = useState('');
@@ -438,8 +504,75 @@ const QuestionDetailPage = () => {
     if (questionId) {
       loadQuestionAndComments();
       setVisibleCommentsCount(10);
+      const saved = JSON.parse(localStorage.getItem('saved_posts_list') || '[]').includes(Number(questionId));
+      setIsSaved(saved);
     }
   }, [questionId]);
+
+  const handleToggleSavePost = () => {
+    let list = JSON.parse(localStorage.getItem('saved_posts_list') || '[]');
+    const idNum = Number(questionId);
+    if (list.includes(idNum)) {
+      list = list.filter(id => id !== idNum);
+      setIsSaved(false);
+    } else {
+      list.push(idNum);
+      setIsSaved(true);
+    }
+    localStorage.setItem('saved_posts_list', JSON.stringify(list));
+  };
+
+  const handleOpenShareDialog = async () => {
+    setShareDialogOpen(true);
+    const chats = await socialStore.getUserConversations();
+    const groups = await socialStore.getGroups(user?.id);
+    setShareTargetsChats(chats || []);
+    setShareTargetsGroups(groups || []);
+  };
+
+  const handleShareToChat = async (partner) => {
+    const msgText = `[SHARED_POST]:${questionId}|${question?.title}`;
+    await socialStore.sendDirectMessage(
+      user?.id,
+      partner.id,
+      msgText,
+      user?.name || user?.fullname || user?.username,
+      user?.avatar || ''
+    );
+    alert(`Successfully shared to ${partner.name || partner.fullname || partner.username}!`);
+    setShareDialogOpen(false);
+  };
+
+  const handleShareToGroup = async (group) => {
+    const msgText = `[SHARED_POST]:${questionId}|${question?.title}`;
+    await socialStore.sendGroupMessage(
+      group.id,
+      user?.id,
+      user?.name || user?.fullname || user?.username,
+      user?.avatar || '',
+      msgText
+    );
+    alert(`Successfully shared to ${group.name}!`);
+    setShareDialogOpen(false);
+  };
+
+  const handleShareLinkExternal = () => {
+    const postUrl = window.location.href;
+    navigator.clipboard.writeText(postUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handlePollVote = async (optionIndex) => {
+    if (!question) return;
+    const updated = await socialStore.votePostPoll(questionId, optionIndex);
+    if (updated) {
+      setQuestion(prev => ({
+        ...prev,
+        pollVotes: updated.pollVotes
+      }));
+    }
+  };
 
   const handlePostUpvote = async () => {
     if (!question) return;
@@ -510,17 +643,58 @@ const QuestionDetailPage = () => {
     loadQuestionAndComments();
   };
 
+  const handleEditPostImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditPostImages(prev => [...prev, reader.result]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleStartEditPost = () => {
+    const parsed = parseMarkdownContent(question?.content || '');
     setEditPostTitle(question?.title || '');
-    setEditPostContent(question?.content || '');
+    setEditPostContent(parsed.text);
+    setEditPostCode(parsed.code);
+    setEditPostLanguage(parsed.lang);
+    setEditPostImages(parsed.images || []);
+    setEditPostLink(parsed.link);
+    setEditPostLinkLabel(parsed.linkLabel);
+    setShowEditCode(!!parsed.code);
+    setShowEditImages((parsed.images || []).length > 0);
+    setShowEditLink(!!parsed.link);
     setIsEditingPost(true);
   };
 
   const handleSavePost = async () => {
     if (!editPostTitle.trim() || !editPostContent.trim()) return;
-    const updated = await socialStore.updateQuestion(questionId, editPostTitle, editPostContent);
+    
+    let fullContent = editPostContent;
+    if (showEditCode && editPostCode.trim()) {
+      fullContent += `\n\n\`\`\`${editPostLanguage}\n${editPostCode}\n\`\`\``;
+    }
+    if (showEditImages && editPostImages.length > 0) {
+      editPostImages.forEach(img => {
+        if (img) fullContent += `\n\n![Image Attachment](${img})`;
+      });
+    }
+    if (showEditLink && editPostLink.trim()) {
+      const label = editPostLinkLabel.trim() || 'Link';
+      fullContent += `\n\n[${label}](${editPostLink.trim()})`;
+    }
+
+    const updated = await socialStore.updateQuestion(
+      questionId, 
+      editPostTitle, 
+      fullContent,
+      question?.pollQuestion || null,
+      question?.pollOptions || null
+    );
     if (updated) {
-      setQuestion(prev => ({ ...prev, title: editPostTitle, content: editPostContent }));
+      setQuestion(prev => ({ ...prev, title: editPostTitle, content: fullContent }));
       setIsEditingPost(false);
       loadQuestionAndComments();
     }
@@ -638,35 +812,21 @@ const QuestionDetailPage = () => {
         const label = linkMatch[1] || 'Link';
         const url = linkMatch[2];
         return (
-          <Button
+          <a
             key={index}
-            variant="contained"
-            size="small"
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              bgcolor: '#2563eb',
-              color: '#ffffff',
-              px: 1.5,
-              py: 0.5,
-              mx: 0.5,
-              my: 0.5,
-              textTransform: 'none',
-              borderRadius: '6px',
-              fontSize: '0.85rem',
+            style={{
+              color: 'var(--primary-color, #3D5CFF)',
               fontWeight: 600,
-              boxShadow: 'none',
-              '&:hover': {
-                bgcolor: '#1d4ed8',
-                boxShadow: '0 2px 4px rgba(37,99,235,0.2)'
-              }
+              textDecoration: 'underline',
+              margin: '0 4px',
+              display: 'inline-block'
             }}
           >
             {label}
-          </Button>
+          </a>
         );
       }
       
@@ -700,6 +860,167 @@ const QuestionDetailPage = () => {
         </Typography>
       );
     });
+  };
+
+  const renderPostPoll = () => {
+    if (!question?.pollQuestion) return null;
+
+    let opts = [];
+    if (question.pollOptions) {
+      if (Array.isArray(question.pollOptions)) {
+        opts = question.pollOptions;
+      } else if (typeof question.pollOptions === 'string') {
+        try {
+          if (question.pollOptions.startsWith('[')) {
+            opts = JSON.parse(question.pollOptions);
+          } else {
+            opts = question.pollOptions.split(',');
+          }
+        } catch (e) {
+          opts = question.pollOptions.split(',');
+        }
+      }
+    }
+    if (opts.length === 0) return null;
+
+    let votes = {};
+    if (question.pollVotes) {
+      try {
+        votes = typeof question.pollVotes === 'string' ? JSON.parse(question.pollVotes) : question.pollVotes;
+      } catch (e) {
+        votes = {};
+      }
+    }
+
+    const totalVotes = Object.keys(votes || {}).length;
+    const userVoteVal = votes[user?.id] !== undefined ? votes[user?.id] : votes[String(user?.id)];
+    const hasVoted = userVoteVal !== undefined;
+
+    return (
+      <Box sx={{ mt: 3, p: 2.5, borderRadius: 2.5, border: '1px solid var(--divider)', bgcolor: 'rgba(0,0,0,0.01)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+          📊 {question.pollQuestion}
+        </Typography>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {opts.map((opt, idx) => {
+            const optVotes = Object.values(votes || {}).filter(v => Number(v) === idx).length;
+            const percent = totalVotes > 0 ? Math.round((optVotes / totalVotes) * 100) : 0;
+            const isUserChoice = hasVoted && Number(userVoteVal) === idx;
+
+            return (
+              <Box
+                key={idx}
+                onClick={() => handlePollVote(idx)}
+                sx={{
+                  position: 'relative',
+                  borderRadius: 1.5,
+                  border: `1px solid ${isUserChoice ? 'var(--primary-color)' : 'var(--divider)'}`,
+                  p: 1.5,
+                  cursor: 'pointer',
+                  overflow: 'hidden',
+                  bgcolor: isUserChoice ? 'rgba(61,92,255,0.04)' : 'transparent',
+                  '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' },
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <Box
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    bottom: 0,
+                    width: `${percent}%`,
+                    backgroundColor: isUserChoice ? 'rgba(61,92,255,0.1)' : 'rgba(0,0,0,0.04)',
+                    zIndex: 0,
+                    transition: 'width 0.4s ease-out'
+                  }}
+                />
+
+                <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="body2" sx={{ fontWeight: isUserChoice ? 700 : 500, color: 'var(--text-primary)' }}>
+                    {opt} {isUserChoice && ' ✓'}
+                  </Typography>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    {optVotes} vote{optVotes !== 1 && 's'} ({percent}%)
+                  </Typography>
+                </Box>
+              </Box>
+            );
+          })}
+        </Box>
+        <Typography variant="caption" sx={{ color: 'var(--text-secondary)', alignSelf: 'flex-end' }}>
+          Total votes: {totalVotes}
+        </Typography>
+      </Box>
+    );
+  };
+
+  const renderShareDialog = () => {
+    return (
+      <Dialog open={shareDialogOpen} onClose={() => setShareDialogOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 2 } }}>
+        <DialogTitle sx={{ fontWeight: 800, pr: 5 }}>
+          Share Post
+          <IconButton
+            onClick={() => setShareDialogOpen(false)}
+            sx={{ position: 'absolute', top: 8, right: 8, color: 'var(--text-secondary)' }}
+          >
+            ✕
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pb: 1 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'var(--text-primary)' }}>
+            Share internally
+          </Typography>
+          
+          <List sx={{ pt: 0, maxHeight: 220, overflowY: 'auto' }}>
+            {shareTargetsChats.length === 0 && shareTargetsGroups.length === 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ p: 2, display: 'block' }}>
+                No direct chats or groups found to share with.
+              </Typography>
+            )}
+            
+            {shareTargetsChats.map((partner) => (
+              <ListItem key={partner.id} disablePadding>
+                <ListItemButton onClick={() => handleShareToChat(partner)} sx={{ borderRadius: 1 }}>
+                  <ListItemAvatar>
+                    <Avatar src={partner.avatar} sx={{ width: 32, height: 32 }} />
+                  </ListItemAvatar>
+                  <ListItemText primary={partner.name || partner.fullname || partner.username || 'user'} primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+
+            {shareTargetsGroups.map((group) => (
+              <ListItem key={group.id} disablePadding>
+                <ListItemButton onClick={() => handleShareToGroup(group)} sx={{ borderRadius: 1 }}>
+                  <ListItemAvatar>
+                    <Avatar sx={{ width: 32, height: 32, bgcolor: 'var(--primary-color)' }}>
+                      {group.name?.charAt(0)}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText primary={group.name} primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+
+          <Divider sx={{ my: 1.5 }} />
+
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'var(--text-primary)' }}>
+            Share externally
+          </Typography>
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={handleShareLinkExternal}
+            sx={{ textTransform: 'none', borderRadius: 2, py: 1 }}
+          >
+            {copiedLink ? '✓ Copied link to clipboard!' : 'Copy Post Link'}
+          </Button>
+        </DialogContent>
+      </Dialog>
+    );
   };
 
   if (!user) {
@@ -777,6 +1098,8 @@ const QuestionDetailPage = () => {
 
         {isEditingPost ? (
           <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>Edit Post</Typography>
+            
             <TextField
               label="Post Title"
               fullWidth
@@ -785,16 +1108,140 @@ const QuestionDetailPage = () => {
               InputProps={{ sx: { borderRadius: 1.5 } }}
               inputProps={{ maxLength: 150 }}
             />
+            
             <TextField
-              label="Post Content"
+              label="Post Description"
               fullWidth
               multiline
-              rows={6}
+              rows={4}
               value={editPostContent}
               onChange={(e) => setEditPostContent(e.target.value)}
               InputProps={{ sx: { borderRadius: 1.5 } }}
               inputProps={{ maxLength: 2000 }}
             />
+
+            {/* Code Attachment Section */}
+            <FormControlLabel
+              control={<Switch checked={showEditCode} onChange={(e) => setShowEditCode(e.target.checked)} />}
+              label="Include Code Snippet"
+            />
+            {showEditCode && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, border: '1px solid var(--divider)', p: 2, borderRadius: 1.5 }}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Language</InputLabel>
+                  <Select
+                    value={editPostLanguage}
+                    label="Language"
+                    onChange={(e) => setEditPostLanguage(e.target.value)}
+                    sx={{ borderRadius: 1.5 }}
+                  >
+                    <MenuItem value="javascript">JavaScript</MenuItem>
+                    <MenuItem value="python">Python</MenuItem>
+                    <MenuItem value="java">Java</MenuItem>
+                    <MenuItem value="cpp">C++</MenuItem>
+                    <MenuItem value="html">HTML/CSS</MenuItem>
+                    <MenuItem value="sql">SQL</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField
+                  label="Code Snippet"
+                  fullWidth
+                  multiline
+                  rows={4}
+                  value={editPostCode}
+                  onChange={(e) => setEditPostCode(e.target.value)}
+                  InputProps={{ sx: { fontFamily: 'monospace', borderRadius: 1.5 } }}
+                  inputProps={{ maxLength: 1000 }}
+                />
+              </Box>
+            )}
+
+            {/* Images Attachment Section */}
+            <FormControlLabel
+              control={<Switch checked={showEditImages} onChange={(e) => setShowEditImages(e.target.checked)} />}
+              label="Attach Images"
+            />
+            {showEditImages && (
+              <Box sx={{ border: '1px dashed var(--divider)', p: 2, borderRadius: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  id="edit-post-images-picker"
+                  style={{ display: 'none' }}
+                  onChange={handleEditPostImageUpload}
+                />
+                <Button
+                  variant="outlined"
+                  component="label"
+                  htmlFor="edit-post-images-picker"
+                  startIcon={<CameraIcon />}
+                  sx={{ textTransform: 'none', borderRadius: 2 }}
+                >
+                  Upload Images
+                </Button>
+                
+                {editPostImages.length > 0 && (
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+                    {editPostImages.map((img, idx) => (
+                      <Box key={idx} sx={{ position: 'relative', width: 60, height: 60 }}>
+                        <img
+                          src={img}
+                          alt="preview"
+                          style={{ width: '100%', height: '100%', borderRadius: 4, objectFit: 'cover', border: '1px solid var(--divider)' }}
+                        />
+                        <IconButton
+                          size="small"
+                          onClick={() => setEditPostImages(prev => prev.filter((_, i) => i !== idx))}
+                          sx={{
+                            position: 'absolute',
+                            top: -6,
+                            right: -6,
+                            bgcolor: 'error.main',
+                            color: 'white',
+                            width: 16,
+                            height: 16,
+                            fontSize: '0.6rem',
+                            '&:hover': { bgcolor: 'error.dark' }
+                          }}
+                        >
+                          ✕
+                        </IconButton>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            )}
+
+            {/* Link Attachment Section */}
+            <FormControlLabel
+              control={<Switch checked={showEditLink} onChange={(e) => setShowEditLink(e.target.checked)} />}
+              label="Attach External Link"
+            />
+            {showEditLink && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, border: '1px solid var(--divider)', p: 2, borderRadius: 1.5 }}>
+                <TextField
+                  label="Link URL"
+                  placeholder="https://example.com"
+                  fullWidth
+                  value={editPostLink}
+                  onChange={(e) => setEditPostLink(e.target.value)}
+                  InputProps={{ sx: { borderRadius: 1.5 } }}
+                  inputProps={{ maxLength: 500 }}
+                />
+                <TextField
+                  label="Link Label"
+                  placeholder="Visit Website"
+                  fullWidth
+                  value={editPostLinkLabel}
+                  onChange={(e) => setEditPostLinkLabel(e.target.value)}
+                  InputProps={{ sx: { borderRadius: 1.5 } }}
+                  inputProps={{ maxLength: 100 }}
+                />
+              </Box>
+            )}
+
             <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
               <Button variant="contained" onClick={handleSavePost} sx={{ textTransform: 'none', borderRadius: 2 }}>
                 Save Changes
@@ -806,28 +1253,41 @@ const QuestionDetailPage = () => {
           </Box>
         ) : (
           <>
-            <Box className="question-detail-header-block" sx={{ pt: 0 }}>
-              <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
+            <Box className="question-detail-header-block" sx={{ pt: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+              <Typography variant="h4" sx={{ fontWeight: 800, mb: 0 }}>
                 {question.title}
               </Typography>
 
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ border: '1px solid var(--divider)', borderRadius: 4, px: 1.5, py: 0.5, width: 'fit-content', bgcolor: 'rgba(0,0,0,0.02)' }}>
-                <IconButton
-                  size="small"
-                  onClick={handlePostUpvote}
-                  sx={{ color: question.userUpvoted ? '#10b981' : 'var(--text-disabled)' }}
-                >
-                  <UpvoteIcon />
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                {/* Vote counter */}
+                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ border: '1px solid var(--divider)', borderRadius: 4, px: 1.5, py: 0.5, bgcolor: 'rgba(0,0,0,0.02)' }}>
+                  <IconButton
+                    size="small"
+                    onClick={handlePostUpvote}
+                    sx={{ color: question.userUpvoted ? '#10b981' : 'var(--text-disabled)' }}
+                  >
+                    <UpvoteIcon fontSize="small" />
+                  </IconButton>
+                  <Typography sx={{ fontWeight: 700, px: 0.5, fontSize: '0.9rem' }}>
+                    {question.upvotes || 0}
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={handlePostDownvote}
+                    sx={{ color: question.userDownvoted ? '#ef4444' : 'var(--text-disabled)' }}
+                  >
+                    <DownvoteIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+
+                {/* Bookmark/Save button */}
+                <IconButton onClick={handleToggleSavePost} size="small" sx={{ border: '1px solid var(--divider)', borderRadius: 2, color: isSaved ? '#f59e0b' : 'var(--text-secondary)' }}>
+                  {isSaved ? <BookmarkIcon fontSize="small" /> : <BookmarkBorderIcon fontSize="small" />}
                 </IconButton>
-                <Typography sx={{ fontWeight: 700, px: 0.5 }}>
-                  {question.upvotes || 0}
-                </Typography>
-                <IconButton
-                  size="small"
-                  onClick={handlePostDownvote}
-                  sx={{ color: question.userDownvoted ? '#ef4444' : 'var(--text-disabled)' }}
-                >
-                  <DownvoteIcon />
+
+                {/* Share Button */}
+                <IconButton onClick={handleOpenShareDialog} size="small" sx={{ border: '1px solid var(--divider)', borderRadius: 2, color: 'var(--text-secondary)' }}>
+                  <ShareIcon fontSize="small" />
                 </IconButton>
               </Stack>
             </Box>
@@ -836,6 +1296,12 @@ const QuestionDetailPage = () => {
             <Box className="question-detail-content">
               {renderQuestionBody(question?.content)}
             </Box>
+
+            {/* Poll Component */}
+            {renderPostPoll()}
+
+            {/* Share Dialog */}
+            {renderShareDialog()}
           </>
         )}
       </Card>

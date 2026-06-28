@@ -20,7 +20,13 @@ import {
   Tabs,
   InputAdornment,
   Menu,
-  MenuItem
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  Switch,
+  FormControlLabel,
+  ListItem
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -68,10 +74,15 @@ const CommunityDetailPage = () => {
   const [memberMenuAnchor, setMemberMenuAnchor] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
   const [openSettings, setOpenSettings] = useState(false);
-  const [maxMembers, setMaxMembers] = useState(100);
+  const [maxMembers, setMaxMembers] = useState(1000);
   const [openEditCommunity, setOpenEditCommunity] = useState(false);
   const [editCommunityName, setEditCommunityName] = useState('');
   const [editCommunityDesc, setEditCommunityDesc] = useState('');
+  const [communityPrivate, setCommunityPrivate] = useState(false);
+  const [communityNSFW, setCommunityNSFW] = useState(false);
+  const [communityRules, setCommunityRules] = useState([]);
+  const [newRuleText, setNewRuleText] = useState('');
+  const [communityCategory, setCommunityCategory] = useState('Software Engineering');
 
   // Dialogs & Creators
   const [openCreateRoom, setOpenCreateRoom] = useState(false);
@@ -82,9 +93,19 @@ const CommunityDetailPage = () => {
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
   const [postCode, setPostCode] = useState('');
-  const [postImage, setPostImage] = useState('');
+  const [postLanguage, setPostLanguage] = useState('javascript');
+  const [postImages, setPostImages] = useState([]);
   const [postLink, setPostLink] = useState('');
   const [postLinkLabel, setPostLinkLabel] = useState('');
+
+  // Poll states inside post creator
+  const [showPollField, setShowPollField] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
+
+  // NSFW age check states
+  const [ageWarningOpen, setAgeWarningOpen] = useState(false);
+  const [consentedNSFW, setConsentedNSFW] = useState(false);
 
   // Visibility states for optional attachment fields
   const [showCodeField, setShowCodeField] = useState(false);
@@ -106,14 +127,22 @@ const CommunityDetailPage = () => {
     if (option === 'code') setShowCodeField(true);
     if (option === 'image') setShowImageField(true);
     if (option === 'link') setShowLinkField(true);
+    if (option === 'poll') setShowPollField(true);
     handleAddClose();
   };
 
-  // 1. Load community details
   const loadCommunity = async () => {
     const data = await socialStore.getCommunityById(communityId);
     if (data) {
       setCommunity(data);
+      // Track last visited
+      try {
+        const visits = JSON.parse(localStorage.getItem('sophiapath_community_visits') || '{}');
+        visits[communityId] = Date.now();
+        localStorage.setItem('sophiapath_community_visits', JSON.stringify(visits));
+      } catch (e) {
+        console.error(e);
+      }
       // If a roomId is in params, use it; otherwise default to first room
       if (paramRoomId) {
         setActiveRoomId(Number(paramRoomId));
@@ -209,14 +238,14 @@ const CommunityDetailPage = () => {
   };
 
   const handlePostImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPostImage(reader.result);
+        setPostImages(prev => [...prev, reader.result]);
       };
       reader.readAsDataURL(file);
-    }
+    });
   };
 
   const handleAskQuestionSubmit = async () => {
@@ -225,30 +254,70 @@ const CommunityDetailPage = () => {
     // Combine content and optional code/image/link attachments
     let fullContent = postContent;
     if (showCodeField && postCode.trim()) {
-      fullContent += `\n\n\`\`\`java\n${postCode}\n\`\`\``;
+      fullContent += `\n\n\`\`\`${postLanguage}\n${postCode}\n\`\`\``;
     }
-    if (showImageField && postImage) {
-      fullContent += `\n\n![Image Attachment](${postImage})`;
+    if (showImageField && postImages.length > 0) {
+      postImages.forEach(img => {
+        if (img) fullContent += `\n\n![Image Attachment](${img})`;
+      });
     }
     if (showLinkField && postLink.trim()) {
       const label = postLinkLabel.trim() || 'Link';
       fullContent += `\n\n[${label}](${postLink.trim()})`;
     }
 
-    await socialStore.createQuestion(activeRoomId, postTitle, fullContent, user);
+    const qPoll = showPollField && pollQuestion.trim() ? pollQuestion.trim() : null;
+    const oPoll = showPollField && pollQuestion.trim() ? pollOptions.filter(o => o.trim() !== '') : null;
+
+    await socialStore.createQuestion(activeRoomId, postTitle, fullContent, user, qPoll, oPoll);
     
     // Reset all fields
     setPostTitle('');
     setPostContent('');
     setPostCode('');
-    setPostImage('');
+    setPostLanguage('javascript');
+    setPostImages([]);
     setPostLink('');
     setPostLinkLabel('');
     setShowCodeField(false);
     setShowImageField(false);
     setShowLinkField(false);
+    setShowPollField(false);
+    setPollQuestion('');
+    setPollOptions(['', '']);
     setOpenAskQuestion(false);
     loadQuestions();
+  };
+
+  const handleOpenSettingsClick = () => {
+    setMaxMembers(community?.maxMembers || 1000);
+    setCommunityPrivate(community?.isPrivate || false);
+    setCommunityNSFW(community?.isNSFW || false);
+    setCommunityRules(community?.rules || []);
+    setCommunityCategory(community?.category || 'Software Engineering');
+    setOpenSettings(true);
+  };
+
+  const handleSaveSettingsSubmit = async () => {
+    const updated = await socialStore.updateCommunity(
+      communityId,
+      community.name,
+      community.description,
+      community.icon,
+      communityPrivate,
+      communityNSFW,
+      communityRules,
+      communityCategory,
+      maxMembers
+    );
+    if (updated) {
+      setCommunity(prev => ({
+        ...prev,
+        ...updated
+      }));
+      setOpenSettings(false);
+      loadCommunity();
+    }
   };
 
   const handleDeleteCommunityClick = async () => {
@@ -474,7 +543,7 @@ const CommunityDetailPage = () => {
         </Box>
 
         {/* Post cards feed */}
-        <Box className="community-feed-posts">
+        <Box className="community-feed-posts" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {displayedQuestions.length > 0 ? (
             displayedQuestions.map((q) => {
               const hasUpvoted = q.userUpvoted;
@@ -485,6 +554,7 @@ const CommunityDetailPage = () => {
                   key={q.id} 
                   className="post-card"
                   onClick={() => navigate(`/communities/${communityId}/room/${activeRoomId}/question/${q.id}`)}
+                  sx={{ flexShrink: 0 }}
                 >
                   {/* Upvote side column */}
                   <Box className="post-votes-sidebar">
@@ -565,19 +635,36 @@ const CommunityDetailPage = () => {
                         <span>{q.commentsCount || 0} comments</span>
                       </Box>
                       {isMod && !q.approved && (
-                        <Button
-                          size="small"
-                          variant="contained"
-                          color="success"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            await socialStore.approveQuestion(q.id);
-                            loadQuestions();
-                          }}
-                          sx={{ borderRadius: 2, textTransform: 'none', py: 0.25, fontSize: '0.72rem', fontWeight: 700 }}
-                        >
-                          Approve Post
-                        </Button>
+                        <Stack direction="row" spacing={1} onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await socialStore.approveQuestion(q.id);
+                              loadQuestions();
+                            }}
+                            sx={{ borderRadius: 1.5, textTransform: 'none', py: 0.25, px: 1.5, fontSize: '0.72rem', fontWeight: 700 }}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="error"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (window.confirm("Are you sure you want to reject and delete this pending post?")) {
+                                await socialStore.deleteQuestion(q.id);
+                                loadQuestions();
+                              }
+                            }}
+                            sx={{ borderRadius: 1.5, textTransform: 'none', py: 0.25, px: 1.5, fontSize: '0.72rem', fontWeight: 700 }}
+                          >
+                            Reject
+                          </Button>
+                        </Stack>
                       )}
                     </Box>
                   </Box>
@@ -593,7 +680,7 @@ const CommunityDetailPage = () => {
           )}
 
           {filteredQuestions.length > visibleCount && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 4, flexShrink: 0 }}>
               <Button 
                 variant="outlined" 
                 onClick={() => setVisibleCount(prev => prev + 10)}
@@ -705,27 +792,69 @@ const CommunityDetailPage = () => {
             inputProps={{ maxLength: 2000 }}
           />
           
-          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-            <IconButton
-              color="primary"
-              onClick={handleAddClick}
-              sx={{ border: '1.5px solid var(--divider)', borderRadius: 1.5, width: 40, height: 40 }}
+          <Stack direction="row" spacing={1.5} sx={{ mt: 1, alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--text-secondary)' }}>
+              Add to post:
+            </Typography>
+            <Button
+              size="small"
+              variant={showCodeField ? "contained" : "outlined"}
+              onClick={() => setShowCodeField(!showCodeField)}
+              sx={{ textTransform: 'none', borderRadius: 1.5, py: 0.5, fontWeight: 700 }}
             >
-              <AddIcon />
-            </IconButton>
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleAddClose}
+              💻 Code
+            </Button>
+            <Button
+              size="small"
+              variant={showImageField ? "contained" : "outlined"}
+              onClick={() => setShowImageField(!showImageField)}
+              sx={{ textTransform: 'none', borderRadius: 1.5, py: 0.5, fontWeight: 700 }}
             >
-              <MenuItem onClick={() => handleOptionSelect('code')}>Code Snippet</MenuItem>
-              <MenuItem onClick={() => handleOptionSelect('image')}>Image</MenuItem>
-              <MenuItem onClick={() => handleOptionSelect('link')}>External Link</MenuItem>
-            </Menu>
-          </Box>
+              📷 Images
+            </Button>
+            <Button
+              size="small"
+              variant={showLinkField ? "contained" : "outlined"}
+              onClick={() => setShowLinkField(!showLinkField)}
+              sx={{ textTransform: 'none', borderRadius: 1.5, py: 0.5, fontWeight: 700 }}
+            >
+              🔗 Link
+            </Button>
+            <Button
+              size="small"
+              variant={showPollField ? "contained" : "outlined"}
+              onClick={() => setShowPollField(!showPollField)}
+              sx={{ textTransform: 'none', borderRadius: 1.5, py: 0.5, fontWeight: 700 }}
+            >
+              📊 Poll
+            </Button>
+          </Stack>
 
           {showCodeField && (
-            <Box sx={{ position: 'relative', mt: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, border: '1px solid var(--divider)', p: 2, borderRadius: 1.5, position: 'relative', mt: 1 }}>
+              <IconButton 
+                size="small" 
+                onClick={() => { setShowCodeField(false); setPostCode(''); }}
+                sx={{ position: 'absolute', top: 4, right: 4 }}
+              >
+                ✕
+              </IconButton>
+              <FormControl size="small" fullWidth sx={{ mt: 2 }}>
+                <InputLabel>Language</InputLabel>
+                <Select
+                  value={postLanguage}
+                  label="Language"
+                  onChange={(e) => setPostLanguage(e.target.value)}
+                  sx={{ borderRadius: 1.5 }}
+                >
+                  <MenuItem value="javascript">JavaScript</MenuItem>
+                  <MenuItem value="python">Python</MenuItem>
+                  <MenuItem value="java">Java</MenuItem>
+                  <MenuItem value="cpp">C++</MenuItem>
+                  <MenuItem value="html">HTML/CSS</MenuItem>
+                  <MenuItem value="sql">SQL</MenuItem>
+                </Select>
+              </FormControl>
               <TextField
                 label="Code Snippet"
                 placeholder="Paste code snippets here..."
@@ -735,25 +864,18 @@ const CommunityDetailPage = () => {
                 value={postCode}
                 onChange={(e) => setPostCode(e.target.value)}
                 InputProps={{
-                  sx: { fontFamily: 'monospace', pr: 4, borderRadius: 1.5 }
+                  sx: { fontFamily: 'monospace', borderRadius: 1.5 }
                 }}
                 inputProps={{ maxLength: 1000 }}
               />
-              <IconButton 
-                size="small" 
-                onClick={() => { setShowCodeField(false); setPostCode(''); }}
-                sx={{ position: 'absolute', top: 8, right: 8 }}
-              >
-                ✕
-              </IconButton>
             </Box>
           )}
 
           {showImageField && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, border: '1px dashed var(--divider)', p: 1.5, borderRadius: 1.5, position: 'relative' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1, border: '1px dashed var(--divider)', p: 2, borderRadius: 1.5, position: 'relative' }}>
               <IconButton 
                 size="small" 
-                onClick={() => { setShowImageField(false); setPostImage(''); }}
+                onClick={() => { setShowImageField(false); setPostImages([]); }}
                 sx={{ position: 'absolute', top: 4, right: 4 }}
               >
                 ✕
@@ -761,40 +883,51 @@ const CommunityDetailPage = () => {
               
               <input
                 type="file"
+                multiple
                 accept="image/*"
                 id="post-image-file-input"
                 style={{ display: 'none' }}
                 onChange={handlePostImageUpload}
               />
               
-              {!postImage ? (
-                <Button
-                  variant="outlined"
-                  component="label"
-                  htmlFor="post-image-file-input"
-                  startIcon={<CameraIcon />}
-                  sx={{ textTransform: 'none', borderRadius: 2, mt: 1 }}
-                >
-                  Upload Image
-                </Button>
-              ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-                  <img 
-                    src={postImage} 
-                    alt="upload preview" 
-                    style={{ width: 60, height: 60, borderRadius: 6, objectFit: 'cover', border: '1px solid var(--divider)' }} 
-                  />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Image Selected</Typography>
-                    <Button 
-                      size="small" 
-                      color="error" 
-                      onClick={() => setPostImage('')}
-                      sx={{ textTransform: 'none', p: 0, minWidth: 0, fontSize: '0.75rem' }}
-                    >
-                      Remove
-                    </Button>
-                  </Box>
+              <Button
+                variant="outlined"
+                component="label"
+                htmlFor="post-image-file-input"
+                startIcon={<CameraIcon />}
+                sx={{ textTransform: 'none', borderRadius: 2, mt: 2 }}
+              >
+                Upload Images
+              </Button>
+
+              {postImages.length > 0 && (
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+                  {postImages.map((img, idx) => (
+                    <Box key={idx} sx={{ position: 'relative', width: 60, height: 60 }}>
+                      <img
+                        src={img}
+                        alt="preview"
+                        style={{ width: '100%', height: '100%', borderRadius: 4, objectFit: 'cover', border: '1px solid var(--divider)' }}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => setPostImages(prev => prev.filter((_, i) => i !== idx))}
+                        sx={{
+                          position: 'absolute',
+                          top: -6,
+                          right: -6,
+                          bgcolor: 'error.main',
+                          color: 'white',
+                          width: 16,
+                          height: 16,
+                          fontSize: '0.6rem',
+                          '&:hover': { bgcolor: 'error.dark' }
+                        }}
+                      >
+                        ✕
+                      </IconButton>
+                    </Box>
+                  ))}
                 </Box>
               )}
             </Box>
@@ -802,7 +935,14 @@ const CommunityDetailPage = () => {
 
           {showLinkField && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, border: '1px solid var(--divider)', p: 2, borderRadius: 1.5, position: 'relative', mt: 1 }}>
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>External Link</Typography>
+              <IconButton 
+                size="small" 
+                onClick={() => { setShowLinkField(false); setPostLink(''); setPostLinkLabel(''); }}
+                sx={{ position: 'absolute', top: 4, right: 4 }}
+              >
+                ✕
+              </IconButton>
+              <Typography variant="caption" sx={{ fontWeight: 600, mt: 2 }}>External Link</Typography>
               <TextField
                 label="Link URL"
                 placeholder="https://example.com"
@@ -813,21 +953,69 @@ const CommunityDetailPage = () => {
                 inputProps={{ maxLength: 500 }}
               />
               <TextField
-                label="Link Label (Optional)"
-                placeholder="e.g. Documentation"
+                label="Link Label"
+                placeholder="Visit Website"
                 fullWidth
                 value={postLinkLabel}
                 onChange={(e) => setPostLinkLabel(e.target.value)}
                 InputProps={{ sx: { borderRadius: 1.5 } }}
                 inputProps={{ maxLength: 100 }}
               />
+            </Box>
+          )}
+
+          {showPollField && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, border: '1px solid var(--divider)', p: 2, borderRadius: 1.5, position: 'relative', mt: 1, maxHeight: 250, overflowY: 'auto' }}>
               <IconButton 
                 size="small" 
-                onClick={() => { setShowLinkField(false); setPostLink(''); setPostLinkLabel(''); }}
-                sx={{ position: 'absolute', top: 8, right: 8 }}
+                onClick={() => { setShowPollField(false); setPollQuestion(''); setPollOptions(['', '']); }}
+                sx={{ position: 'absolute', top: 4, right: 4 }}
               >
                 ✕
               </IconButton>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 2 }}>Interactive Poll</Typography>
+              <TextField
+                label="Poll Question"
+                placeholder="Ask a question..."
+                fullWidth
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+                InputProps={{ sx: { borderRadius: 1.5 } }}
+                inputProps={{ maxLength: 100 }}
+              />
+              {pollOptions.map((opt, index) => (
+                <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <TextField
+                    label={`Option ${index + 1}`}
+                    placeholder={`Enter option ${index + 1}`}
+                    fullWidth
+                    value={opt}
+                    onChange={(e) => {
+                      const next = [...pollOptions];
+                      next[index] = e.target.value;
+                      setPollOptions(next);
+                    }}
+                    InputProps={{ sx: { borderRadius: 1.5 } }}
+                    inputProps={{ maxLength: 50 }}
+                  />
+                  {pollOptions.length > 2 && (
+                    <IconButton 
+                      color="error" 
+                      onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== index))}
+                      sx={{ border: '1px solid var(--divider)', borderRadius: 1.5, width: 40, height: 40 }}
+                    >
+                      ✕
+                    </IconButton>
+                  )}
+                </Box>
+              ))}
+              <Button
+                size="small"
+                onClick={() => setPollOptions([...pollOptions, ''])}
+                sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
+              >
+                + Add Option
+              </Button>
             </Box>
           )}
         </DialogContent>
@@ -973,7 +1161,7 @@ const CommunityDetailPage = () => {
         {isOwner && (
           <MenuItem onClick={() => {
             setCommunityMenuAnchor(null);
-            setOpenSettings(true);
+            handleOpenSettingsClick();
           }}>
             Settings
           </MenuItem>
@@ -1028,7 +1216,7 @@ const CommunityDetailPage = () => {
       <Dialog
         open={openSettings}
         onClose={() => setOpenSettings(false)}
-        maxWidth="xs"
+        maxWidth="sm"
         fullWidth
         PaperProps={{
           sx: { borderRadius: 2, position: 'relative' },
@@ -1044,10 +1232,11 @@ const CommunityDetailPage = () => {
           </IconButton>
           Community Settings
         </DialogTitle>
-        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
           <Typography variant="body2" color="text.secondary">
             Configure settings for {community.name}.
           </Typography>
+
           <TextField
             label="Maximum Members Limit"
             type="number"
@@ -1056,11 +1245,115 @@ const CommunityDetailPage = () => {
             onChange={(e) => setMaxMembers(Number(e.target.value))}
             InputProps={{ sx: { borderRadius: 1.5 } }}
           />
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={communityCategory}
+              label="Category"
+              onChange={(e) => setCommunityCategory(e.target.value)}
+              sx={{ borderRadius: 1.5 }}
+            >
+              <MenuItem value="Software Engineering">Software Engineering & Programming</MenuItem>
+              <MenuItem value="Artificial Intelligence">Artificial Intelligence & Data Science</MenuItem>
+              <MenuItem value="Cybersecurity">Cybersecurity & Networking</MenuItem>
+              <MenuItem value="Physics">Physics & Space Science</MenuItem>
+              <MenuItem value="Philosophy">Philosophy & Logic</MenuItem>
+              <MenuItem value="Economics">Economics & Finance</MenuItem>
+              <MenuItem value="Art & Design">Art, Design & Creative Writing</MenuItem>
+              <MenuItem value="Medicine">Medicine & Life Sciences</MenuItem>
+              <MenuItem value="Mathematics">Mathematics</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Stack spacing={1}>
+            <FormControlLabel
+              control={<Switch checked={communityPrivate} onChange={(e) => setCommunityPrivate(e.target.checked)} />}
+              label="Private Community (Requires invite link to join)"
+            />
+            <FormControlLabel
+              control={<Switch checked={communityNSFW} onChange={(e) => setCommunityNSFW(e.target.checked)} />}
+              label="NSFW / 18+ Content Warning"
+            />
+          </Stack>
+
+          {communityPrivate && (
+            <Box sx={{ border: '1px solid var(--divider)', p: 1.5, borderRadius: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--text-secondary)' }}>
+                Invite-Only Join Link:
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  readOnly
+                  value={`${window.location.origin}/communities/join-invite/${communityId}`}
+                  InputProps={{ sx: { borderRadius: 1.5, fontSize: '0.8rem', bgcolor: 'rgba(0,0,0,0.01)' } }}
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/communities/join-invite/${communityId}`);
+                    alert("Invite link copied to clipboard!");
+                  }}
+                  sx={{ textTransform: 'none', borderRadius: 1.5 }}
+                >
+                  Copy
+                </Button>
+              </Stack>
+            </Box>
+          )}
+
+          <Divider />
+
+          {/* Rules Management */}
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+              Community Rules & Guidelines
+            </Typography>
+            <List dense sx={{ border: communityRules.length > 0 ? '1px solid var(--divider)' : 'none', borderRadius: 1.5, mb: 1.5 }}>
+              {communityRules.map((rule, idx) => (
+                <ListItem
+                  key={idx}
+                  secondaryAction={
+                    <IconButton size="small" color="error" onClick={() => setCommunityRules(prev => prev.filter((_, i) => i !== idx))}>
+                      ✕
+                    </IconButton>
+                  }
+                >
+                  <ListItemText primary={`${idx + 1}. ${rule}`} primaryTypographyProps={{ variant: 'body2' }} />
+                </ListItem>
+              ))}
+            </List>
+            <Stack direction="row" spacing={1}>
+              <TextField
+                placeholder="Enter a new rule..."
+                size="small"
+                fullWidth
+                value={newRuleText}
+                onChange={(e) => setNewRuleText(e.target.value)}
+                InputProps={{ sx: { borderRadius: 1.5 } }}
+              />
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  if (newRuleText.trim()) {
+                    setCommunityRules(prev => [...prev, newRuleText.trim()]);
+                    setNewRuleText('');
+                  }
+                }}
+                sx={{ textTransform: 'none', borderRadius: 1.5 }}
+              >
+                Add
+              </Button>
+            </Stack>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button
             variant="contained"
-            onClick={() => setOpenSettings(false)}
+            onClick={handleSaveSettingsSubmit}
             sx={{ textTransform: 'none', borderRadius: 2 }}
           >
             Save Settings
@@ -1120,6 +1413,43 @@ const CommunityDetailPage = () => {
             disabled={!editCommunityName.trim()}
           >
             Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* NSFW Age Warning Block Dialog */}
+      <Dialog
+        open={!!community?.isNSFW && !consentedNSFW}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2, p: 2 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, textAlign: 'center', color: 'error.main' }}>
+          ⚠️ 18+ Content Warning
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center' }}>
+          <Typography variant="body1" sx={{ fontWeight: 600, mb: 2 }}>
+            This community is flagged as NSFW (Not Safe For Work).
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            You must be at least 18 years old and consent to viewing sensitive/adult content to proceed.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 2 }}>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => setConsentedNSFW(true)}
+            sx={{ textTransform: 'none', borderRadius: 2 }}
+          >
+            Confirm & Enter
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/communities')}
+            sx={{ textTransform: 'none', borderRadius: 2 }}
+          >
+            Go Back
           </Button>
         </DialogActions>
       </Dialog>

@@ -42,7 +42,8 @@ import {
   Reply as ReplyIcon,
   Delete as DeleteIcon,
   ContentCopy as CopyIcon,
-  ForwardToInbox as ForwardIcon
+  ForwardToInbox as ForwardIcon,
+  Star as StarIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -77,6 +78,7 @@ const ChatPage = () => {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorImageSrc, setEditorImageSrc] = useState('');
   const [editorShowSend, setEditorShowSend] = useState(false);
+  const [pendingImagesQueue, setPendingImagesQueue] = useState([]);
 
   // New Chat States
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
@@ -95,17 +97,24 @@ const ChatPage = () => {
   const [allUsers, setAllUsers] = useState([]);
 
   const handleImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditorImageSrc(reader.result);
-        setEditorShowSend(false);
-        setEditorOpen(true);
-      };
-      reader.readAsDataURL(file);
-      e.target.value = '';
-    }
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const promises = files.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(promises).then(dataUrls => {
+      setPendingImagesQueue(dataUrls);
+      setEditorImageSrc(dataUrls[0]);
+      setEditorShowSend(false);
+      setEditorOpen(true);
+    });
+    e.target.value = '';
   };
 
   const sendEditedImage = async (editedBase64) => {
@@ -147,7 +156,18 @@ const ChatPage = () => {
           forwarded: msg.forwarded
         };
         setMessages(prev => [...prev, newMessage]);
-        setEditorOpen(false);
+        
+        setPendingImagesQueue(prevQueue => {
+          const nextQueue = prevQueue.slice(1);
+          if (nextQueue.length > 0) {
+            setEditorImageSrc(nextQueue[0]);
+            setEditorShowSend(false);
+            setEditorOpen(true);
+          } else {
+            setEditorOpen(false);
+          }
+          return nextQueue;
+        });
         
         // Unarchive check
         const archivedList = JSON.parse(localStorage.getItem(`sophiapath_archived_chats_${user.id}`) || '[]');
@@ -429,6 +449,30 @@ const ChatPage = () => {
     handleCloseMenu();
   };
 
+  const handleStarToggle = () => {
+    if (!menuMessage) return;
+    let list = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
+    const isStarred = list.some(m => String(m.id) === String(menuMessage.id));
+    if (isStarred) {
+      list = list.filter(m => String(m.id) !== String(menuMessage.id));
+      setSnackbarMessage("Message unstarred!");
+    } else {
+      list.push({
+        id: menuMessage.id,
+        chatPartnerId: userId,
+        type: 'direct',
+        text: menuMessage.text,
+        senderName: menuMessage.senderId === user.id ? 'You' : (targetUserDetails?.fullname || targetUserDetails?.name || targetUserDetails?.username || 'user'),
+        senderAvatar: menuMessage.senderId === user.id ? user.avatar : targetUserDetails?.avatar,
+        timestamp: menuMessage.timestamp
+      });
+      setSnackbarMessage("Message starred!");
+    }
+    localStorage.setItem('starred_messages_list', JSON.stringify(list));
+    setOpenSnackbar(true);
+    handleCloseMenu();
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputText.trim() && !selectedImage) return;
@@ -520,7 +564,7 @@ const ChatPage = () => {
     <Box className="chat-page-container">
       <Paper className="chat-window glass-panel-strong" sx={{ position: 'relative' }}>
         <Box className="chat-header">
-          <IconButton onClick={() => navigate(-1)} className="chat-back-btn">
+          <IconButton onClick={() => navigate('/chats?tab=dms')} className="chat-back-btn">
             <ArrowBackIcon />
           </IconButton>
           
@@ -776,6 +820,7 @@ const ChatPage = () => {
 
         <input 
           type="file" 
+          multiple
           ref={fileInputRef} 
           style={{ display: 'none' }} 
           accept="image/*" 
@@ -1050,7 +1095,7 @@ const ChatPage = () => {
 
       <ImageEditorModal
         open={editorOpen}
-        onClose={() => setEditorOpen(false)}
+        onClose={() => { setEditorOpen(false); setPendingImagesQueue([]); }}
         imageSrc={editorImageSrc}
         onSave={(editedBase64) => {
           setSelectedImage(editedBase64);
@@ -1071,6 +1116,9 @@ const ChatPage = () => {
       >
         <MenuItem onClick={handleReplyClick}>
           <ReplyIcon sx={{ mr: 1, fontSize: 20 }} /> Reply
+        </MenuItem>
+        <MenuItem onClick={handleStarToggle}>
+          <StarIcon sx={{ mr: 1, fontSize: 20, color: '#f59e0b' }} /> Star Message
         </MenuItem>
         <MenuItem onClick={handleCopyMessage}>
           <CopyIcon sx={{ mr: 1, fontSize: 20 }} /> Copy

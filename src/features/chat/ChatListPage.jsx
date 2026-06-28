@@ -25,7 +25,8 @@ import {
   ListItem,
   IconButton,
   Menu,
-  MenuItem
+  MenuItem,
+  Stack
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -33,9 +34,10 @@ import {
   Group as GroupIcon,
   Add as AddIcon,
   MoreVert as MoreVertIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Star as StarIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
 import './Chat.css';
@@ -43,6 +45,29 @@ import './Chat.css';
 const ChatListPage = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState(0); // 0 = Direct Messages, 1 = Groups
+  
+  // Starred messages states
+  const [starredMessages, setStarredMessages] = useState([]);
+  const [starredMenuAnchor, setStarredMenuAnchor] = useState(null);
+
+  const loadStarredMessages = () => {
+    const list = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
+    setStarredMessages(list);
+  };
+
+  const handleOpenStarredMenu = (e) => {
+    loadStarredMessages();
+    setStarredMenuAnchor(e.currentTarget);
+  };
+
+  const handleCloseStarredMenu = () => {
+    setStarredMenuAnchor(null);
+  };
+
+  useEffect(() => {
+    loadStarredMessages();
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [allUsers, setAllUsers] = useState([]);
   const [lastMessages, setLastMessages] = useState({});
@@ -64,6 +89,17 @@ const ChatListPage = () => {
   const [messageSearchResults, setMessageSearchResults] = useState([]);
   
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam === 'groups') {
+      setActiveTab(1);
+    } else if (tabParam === 'dms') {
+      setActiveTab(0);
+    }
+  }, [location]);
 
   useEffect(() => {
     if (activeTab === 0 && searchQuery.trim()) {
@@ -344,22 +380,87 @@ const ChatListPage = () => {
             <Tab label="Group Chats" icon={<GroupIcon sx={{ fontSize: 18 }} />} iconPosition="start" sx={{ minHeight: 48 }} />
           </Tabs>
 
-          {activeTab === 1 && (
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => setOpenCreateGroup(true)}
-              sx={{
-                borderRadius: 4,
-                textTransform: 'none',
-                boxShadow: '0 4px 14px rgba(61, 92, 255, 0.25)',
-                fontWeight: 600
-              }}
-            >
-              Create Group
-            </Button>
-          )}
+          <Stack direction="row" spacing={1} alignItems="center">
+            {activeTab === 1 && (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setOpenCreateGroup(true)}
+                sx={{
+                  borderRadius: 4,
+                  textTransform: 'none',
+                  boxShadow: '0 4px 14px rgba(61, 92, 255, 0.25)',
+                  fontWeight: 600
+                }}
+              >
+                Create Group
+              </Button>
+            )}
+
+            {/* Starred Messages Dropdown Menu */}
+            <IconButton onClick={handleOpenStarredMenu} sx={{ border: '1.5px solid var(--divider)', borderRadius: 1.5, p: 0.75 }}>
+              <StarIcon sx={{ color: '#f59e0b', fontSize: 20 }} />
+            </IconButton>
+          </Stack>
+
+          <Menu
+            anchorEl={starredMenuAnchor}
+            open={Boolean(starredMenuAnchor)}
+            onClose={handleCloseStarredMenu}
+            PaperProps={{
+              sx: { width: 320, maxHeight: 400, borderRadius: 1.5, mt: 1 }
+            }}
+          >
+            <Box sx={{ p: 2, borderBottom: '1px solid var(--divider)' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Starred Messages</Typography>
+            </Box>
+            {starredMessages.length === 0 ? (
+              <MenuItem disabled>
+                <Typography variant="body2" color="text.secondary">No starred messages yet.</Typography>
+              </MenuItem>
+            ) : (
+              starredMessages.map((msg) => (
+                <MenuItem
+                  key={msg.id}
+                  onClick={() => {
+                    handleCloseStarredMenu();
+                    if (msg.type === 'group') {
+                      navigate(`/group/${msg.groupId}`);
+                    } else {
+                      navigate(`/chat/${msg.chatPartnerId}`);
+                    }
+                  }}
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    borderBottom: '1px solid rgba(0,0,0,0.04)',
+                    py: 1.5,
+                    whiteSpace: 'normal'
+                  }}
+                >
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5, width: '100%' }}>
+                    <Avatar src={msg.senderAvatar} sx={{ width: 18, height: 18 }} />
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>{msg.senderName}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                      {msg.type === 'group' ? 'Group' : 'DM'}
+                    </Typography>
+                  </Stack>
+                  <Typography variant="body2" color="text.primary" sx={{
+                    fontSize: '0.825rem',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical'
+                  }}>
+                    {msg.text?.startsWith('[IMAGE]:') ? '[Image Message]' : msg.text}
+                  </Typography>
+                </MenuItem>
+              ))
+            )}
+          </Menu>
         </Box>
 
         {/* Search Bar */}
@@ -610,10 +711,13 @@ const ChatListPage = () => {
               filteredGroupsList.map((group) => {
                 const displayName = group.name || '?';
                 const initials = displayName.substring(0, 2).toUpperCase();
-                const isImg = group.lastMessage?.text?.startsWith('[IMAGE]:');
-                const cleanText = isImg ? '📷 Photo' : (group.lastMessage?.text || '');
-                const lastMsgText = group.lastMessage 
-                  ? `${group.lastMessage.senderId === user.id ? 'You: ' : ''}${cleanText}`
+                const lastMessage = group.messages && group.messages.length > 0 
+                  ? group.messages[group.messages.length - 1] 
+                  : null;
+                const isImg = lastMessage?.text?.startsWith('[IMAGE]:');
+                const cleanText = isImg ? '📷 Photo' : (lastMessage?.text || '');
+                const lastMsgText = lastMessage 
+                  ? `${lastMessage.senderId === user.id ? 'You: ' : `${lastMessage.senderUsername || 'Member'}: `}${cleanText}`
                   : "No messages yet...";
 
                 return (
@@ -710,7 +814,7 @@ const ChatListPage = () => {
             <Divider />
 
             <FormGroup sx={{ maxHeight: 200, overflowY: 'auto', pr: 1 }}>
-              {allUsers.map((learner) => {
+              {activeDms.map((learner) => {
                 const isBlockedByLearner = learner.blockedUserIds?.includes(String(user.id));
                 return (
                   <FormControlLabel

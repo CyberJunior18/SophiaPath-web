@@ -172,7 +172,7 @@ export const socialStore = {
     }
   },
 
-  sendGroupMessage: async (groupId, senderId, senderName, senderAvatar, text, replyToId = null, replyToMessage = null, replyToUsername = null, forwarded = false) => {
+  sendGroupMessage: async (groupId, senderId, senderName, senderAvatar, text, replyToId = null, replyToMessage = null, replyToUsername = null, forwarded = false, pollQuestion = null, pollOptions = null) => {
     try {
       const res = await fetch(`/api/groups/${groupId}/send-message`, {
         method: 'POST',
@@ -185,7 +185,9 @@ export const socialStore = {
           replyToId,
           replyToMessage,
           replyToUsername,
-          forwarded
+          forwarded,
+          pollQuestion,
+          pollOptions
         })
       });
       if (!res.ok) throw new Error('Failed to send group message');
@@ -228,11 +230,13 @@ export const socialStore = {
 
   addGroupMembers: async (groupId, memberIds) => {
     try {
+      const userId = getUserId();
       const res = await fetch(`/api/groups/${groupId}/add-members`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          memberIds: memberIds.map(Number)
+          memberIds: memberIds.map(Number),
+          userId: Number(userId)
         })
       });
       if (!res.ok) throw new Error('Failed to add group members');
@@ -425,10 +429,10 @@ export const socialStore = {
   },
   getCommunities: async () => {
     try {
-      const res = await fetch('/api/communities', { headers: getHeaders() });
+      const userId = getUserId();
+      const res = await fetch(`/api/communities?userId=${userId}`, { headers: getHeaders() });
       if (!res.ok) return [];
       const list = await res.json();
-      const userId = getUserId();
       return list.map(c => ({
         ...c,
         isJoined: c.members?.some(m => Number(m.id) === Number(userId))
@@ -461,12 +465,12 @@ export const socialStore = {
     return res.json();
   },
 
-  createCommunity: async (name, description, icon) => {
+  createCommunity: async (name, description, icon, isPrivate = false, isNSFW = false, rules = [], category = 'Software Engineering', maxMembers = 1000) => {
     const ownerId = getUserId();
     const res = await fetch('/api/communities/create', {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ name, description, icon, ownerId })
+      body: JSON.stringify({ name, description, icon, ownerId, isPrivate, isNSFW, rules, category, maxMembers })
     });
     if (!res.ok) {
       const errorData = await res.json();
@@ -513,7 +517,7 @@ export const socialStore = {
     };
   },
 
-  createQuestion: async (roomId, title, content, author) => {
+  createQuestion: async (roomId, title, content, author, pollQuestion = null, pollOptions = null) => {
     const res = await fetch(`/api/communities/rooms/${roomId}/questions/create`, {
       method: 'POST',
       headers: getHeaders(),
@@ -522,7 +526,9 @@ export const socialStore = {
         content,
         authorId: Number(author.id),
         authorName: author.name || author.fullname || author.username || 'learner',
-        authorAvatar: author.avatar || ''
+        authorAvatar: author.avatar || '',
+        pollQuestion,
+        pollOptions
       })
     });
     if (!res.ok) {
@@ -654,11 +660,11 @@ export const socialStore = {
     return res.json();
   },
 
-  updateCommunity: async (communityId, name, description, icon) => {
+  updateCommunity: async (communityId, name, description, icon, isPrivate, isNSFW, rules, category, maxMembers) => {
     const res = await fetch(`/api/communities/${communityId}/update`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ name, description, icon })
+      body: JSON.stringify({ name, description, icon, isPrivate, isNSFW, rules, category, maxMembers })
     });
     if (!res.ok) return null;
     return res.json();
@@ -674,11 +680,11 @@ export const socialStore = {
     return res.ok;
   },
 
-  updateQuestion: async (questionId, title, content) => {
+  updateQuestion: async (questionId, title, content, pollQuestion = null, pollOptions = null) => {
     const res = await fetch(`/api/communities/questions/${questionId}/update`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ title, content })
+      body: JSON.stringify({ title, content, pollQuestion, pollOptions })
     });
     if (!res.ok) return null;
     return res.json();
@@ -730,5 +736,45 @@ export const socialStore = {
       body: JSON.stringify({ userId })
     });
     return res.ok;
+  },
+
+  votePostPoll: async (postId, optionIndex) => {
+    const userId = getUserId();
+    const res = await fetch(`/api/communities/questions/${postId}/vote-poll`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId, optionIndex })
+    });
+    if (!res.ok) return null;
+    return res.json();
+  },
+
+  joinCommunityByInvite: async (communityId) => {
+    const userId = getUserId();
+    const res = await fetch(`/api/communities/${communityId}/join-invite`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId })
+    });
+    if (!res.ok) return null;
+    return res.json();
+  },
+
+  voteGroupPoll: async (messageId, optionIndex) => {
+    const userId = getUserId();
+    const res = await fetch(`/api/groups/message/${messageId}/vote-poll`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId, optionIndex })
+    });
+    if (!res.ok) return null;
+    return res.json();
+  },
+
+  getUserConversations: async () => {
+    const userId = getUserId();
+    const res = await fetch(`/api/chat/user/${userId}/conversations`, { headers: getHeaders() });
+    if (!res.ok) return [];
+    return res.json();
   }
 };

@@ -33,7 +33,8 @@ import {
   Check as CheckIcon,
   ArrowUpward as ArrowUpwardIcon,
   ArrowDownward as ArrowDownwardIcon,
-  Terminal as TerminalIcon
+  Terminal as TerminalIcon,
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -698,9 +699,14 @@ const LearningPathPage = () => {
 
         <Box className="path-header-sticky">
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-            <Typography variant="h5" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
-              Course Roadmap
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <IconButton onClick={() => navigate('/')} sx={{ color: 'var(--text-primary)', mr: 1 }}>
+                <ArrowBackIcon />
+              </IconButton>
+              <Typography variant="h5" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
+                Course Roadmap
+              </Typography>
+            </Box>
             <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
               {showCppPlayground && (
                 <Button
