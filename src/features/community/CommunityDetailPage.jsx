@@ -10,6 +10,7 @@ import {
   TextField,
   Card,
   Divider,
+  Checkbox,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -26,7 +27,8 @@ import {
   InputLabel,
   Switch,
   FormControlLabel,
-  ListItem
+  ListItem,
+  Snackbar
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -40,19 +42,39 @@ import {
   People as PeopleIcon,
   Close as CloseIcon,
   MoreVert as MoreVertIcon,
-  PhotoCamera as CameraIcon
+  PhotoCamera as CameraIcon,
+  Person as PersonIcon,
+  Fingerprint as FingerprintIcon,
+  CalendarToday as CalendarIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
+import { COMMUNITY_CATEGORIES, CATEGORY_STYLES } from './CommunityListPage';
 import './Community.css';
-
 const formatMemberCount = (count) => {
   if (!count) return '0';
   if (count >= 1000) {
     return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
   }
   return count.toString();
+};
+
+const encodeCommunityId = (id) => {
+  const salted = (Number(id) * 31415926535) + 27182818284;
+  const mainPart = salted.toString(36);
+  let hash1 = 0;
+  let hash2 = 0;
+  const str = String(id) + "SophiaSecretSaltSuperLong123!";
+  for (let i = 0; i < str.length; i++) {
+    hash1 = (hash1 << 5) - hash1 + str.charCodeAt(i);
+    hash1 |= 0;
+    hash2 = (hash2 << 7) - hash2 + str.charCodeAt(i) * 17;
+    hash2 |= 0;
+  }
+  const checksumPart1 = Math.abs(hash1).toString(36);
+  const checksumPart2 = Math.abs(hash2).toString(36);
+  return `${mainPart}-${checksumPart1}-${checksumPart2}`;
 };
 
 const CommunityDetailPage = () => {
@@ -66,13 +88,53 @@ const CommunityDetailPage = () => {
   
   // Filtering & Sorting
   const [sortBy, setSortBy] = useState('hot'); // 'new' or 'hot'
+  const [showRoomSearch, setShowRoomSearch] = useState(false);
+  const [roomSearchQuery, setRoomSearchQuery] = useState('');
+
+  // Custom Alert Modal state
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+
+  const showCustomAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertOpen(true);
+  };
+
+  // Toast Snackbar state
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
+
+  const showToast = (msg) => {
+    setSnackbarMsg(msg);
+    setSnackbarOpen(true);
+  };
+
+  // Custom Confirmation Dialog state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [onConfirmCallback, setOnConfirmCallback] = useState(null);
+
+  const showConfirmDialog = (title, message, callback) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setOnConfirmCallback(() => callback);
+    setConfirmOpen(true);
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [hidePending, setHidePending] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
   const [openMembersDialog, setOpenMembersDialog] = useState(false);
   const [communityMenuAnchor, setCommunityMenuAnchor] = useState(null);
   const [memberMenuAnchor, setMemberMenuAnchor] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
+  const [openProfileDialog, setOpenProfileDialog] = useState(false);
+  const [profileMember, setProfileMember] = useState(null);
+  const [openLeaveDialog, setOpenLeaveDialog] = useState(false);
+  const [selectedNewOwnerId, setSelectedNewOwnerId] = useState('');
   const [openSettings, setOpenSettings] = useState(false);
   const [maxMembers, setMaxMembers] = useState(1000);
   const [openEditCommunity, setOpenEditCommunity] = useState(false);
@@ -83,6 +145,7 @@ const CommunityDetailPage = () => {
   const [communityRules, setCommunityRules] = useState([]);
   const [newRuleText, setNewRuleText] = useState('');
   const [communityCategory, setCommunityCategory] = useState('Software Engineering');
+  const [communityNsfwAgeLimit, setCommunityNsfwAgeLimit] = useState(18);
 
   // Dialogs & Creators
   const [openCreateRoom, setOpenCreateRoom] = useState(false);
@@ -134,6 +197,10 @@ const CommunityDetailPage = () => {
   const loadCommunity = async () => {
     const data = await socialStore.getCommunityById(communityId);
     if (data) {
+      if (data.isPrivate && !data.isJoined) {
+        navigate('/communities');
+        return;
+      }
       setCommunity(data);
       // Track last visited
       try {
@@ -182,8 +249,20 @@ const CommunityDetailPage = () => {
   }, [questions, searchQuery]);
 
   const displayedQuestions = useMemo(() => {
-    return filteredQuestions.slice(0, visibleCount);
-  }, [filteredQuestions, visibleCount]);
+    let list = [...filteredQuestions];
+    if (hidePending) {
+      list = list.filter(q => q.approved);
+    }
+    // Sort so that pending posts (!approved) always sit at the top
+    const sorted = list.sort((a, b) => {
+      const aPend = !a.approved;
+      const bPend = !b.approved;
+      if (aPend && !bPend) return -1;
+      if (!aPend && bPend) return 1;
+      return 0;
+    });
+    return sorted.slice(0, visibleCount);
+  }, [filteredQuestions, hidePending, visibleCount]);
 
   const sortedMembers = useMemo(() => {
     if (!community?.members) return [];
@@ -293,6 +372,7 @@ const CommunityDetailPage = () => {
     setMaxMembers(community?.maxMembers || 1000);
     setCommunityPrivate(community?.isPrivate || false);
     setCommunityNSFW(community?.isNSFW || false);
+    setCommunityNsfwAgeLimit(community?.nsfwAgeLimit || 18);
     setCommunityRules(community?.rules || []);
     setCommunityCategory(community?.category || 'Software Engineering');
     setOpenSettings(true);
@@ -308,7 +388,8 @@ const CommunityDetailPage = () => {
       communityNSFW,
       communityRules,
       communityCategory,
-      maxMembers
+      maxMembers,
+      communityNsfwAgeLimit
     );
     if (updated) {
       setCommunity(prev => ({
@@ -321,12 +402,16 @@ const CommunityDetailPage = () => {
   };
 
   const handleDeleteCommunityClick = async () => {
-    if (window.confirm("Are you sure you want to delete this community? This action is permanent and will delete all rooms, posts, comments, and replies.")) {
-      const success = await socialStore.deleteCommunity(community.id);
-      if (success) {
-        navigate('/communities');
+    showConfirmDialog(
+      "Delete Community?",
+      "Are you sure you want to delete this community? This action is permanent and will delete all rooms, posts, comments, and replies.",
+      async () => {
+        const success = await socialStore.deleteCommunity(community.id);
+        if (success) {
+          navigate('/communities');
+        }
       }
-    }
+    );
   };
 
   const handleUpvote = async (e, questionId) => {
@@ -442,15 +527,42 @@ const CommunityDetailPage = () => {
           <Typography variant="body2" sx={{ opacity: 0.85, fontSize: '0.8rem', lineHeight: 1.4, mt: 1 }}>
             {community.description}
           </Typography>
+
+          <Stack direction="row" spacing={1} sx={{ mt: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
+            <Box sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', px: 1, py: 0.3, borderRadius: 1.5, fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {(CATEGORY_STYLES[community.category] || CATEGORY_STYLES['Software Engineering']).icon} {community.category || 'Software Engineering'}
+            </Box>
+            <Box sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', px: 1, py: 0.3, borderRadius: 1.5, fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {community.isPrivate ? '🔒 Private' : '🌐 Public'}
+            </Box>
+            {community.isNSFW && (
+              <Box sx={{ bgcolor: '#ef4444', color: 'white', px: 1, py: 0.3, borderRadius: 1.5, fontSize: '0.7rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                ⚠️ {community.nsfwAgeLimit || 18}+ NSFW
+              </Box>
+            )}
+          </Stack>
         </Box>
 
         <Divider />
 
         {/* Rooms Listing header */}
         <Box sx={{ px: 2.5, pt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Rooms / Channels
-          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Rooms / Channels
+            </Typography>
+            <IconButton 
+              size="small" 
+              onClick={() => {
+                setShowRoomSearch(!showRoomSearch);
+                setRoomSearchQuery('');
+              }}
+              color={showRoomSearch ? "primary" : "default"}
+              sx={{ p: 0.5 }}
+            >
+              <SearchIcon fontSize="small" />
+            </IconButton>
+          </Stack>
           {isMod && (
             <IconButton 
               size="small" 
@@ -463,9 +575,31 @@ const CommunityDetailPage = () => {
           )}
         </Box>
 
+        {showRoomSearch && (
+          <Box sx={{ px: 2.5, pt: 1, pb: 0.5 }}>
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="Search rooms..."
+              value={roomSearchQuery}
+              onChange={(e) => setRoomSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+                sx: { borderRadius: 1.5, fontSize: '0.85rem' }
+              }}
+            />
+          </Box>
+        )}
+
         {/* Scrollable list of Rooms */}
         <List className="community-rooms-list">
-          {community.rooms?.map((room) => (
+          {community.rooms
+            ?.filter((room) => (room.name || '').toLowerCase().includes(roomSearchQuery.toLowerCase()))
+            ?.map((room) => (
             <ListItemButton
               key={room.id}
               selected={room.id === activeRoomId}
@@ -529,11 +663,32 @@ const CommunityDetailPage = () => {
               <Tab label="Popular" sx={{ minHeight: 36, py: 0, textTransform: 'none' }} />
             </Tabs>
 
+            {isMod && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={hidePending}
+                    onChange={(e) => setHidePending(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label={
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                    Hide Pending
+                  </Typography>
+                }
+                sx={{ m: 0 }}
+              />
+            )}
+
             <Button
               variant="contained"
               size="small"
               startIcon={<AddIcon />}
-              onClick={() => setOpenAskQuestion(true)}
+              onClick={(e) => {
+                e.currentTarget.blur();
+                setOpenAskQuestion(true);
+              }}
               disabled={!community.isJoined}
               sx={{ borderRadius: 3, textTransform: 'none', fontWeight: 600 }}
             >
@@ -655,10 +810,14 @@ const CommunityDetailPage = () => {
                             color="error"
                             onClick={async (e) => {
                               e.stopPropagation();
-                              if (window.confirm("Are you sure you want to reject and delete this pending post?")) {
-                                await socialStore.deleteQuestion(q.id);
-                                loadQuestions();
-                              }
+                              showConfirmDialog(
+                                "Reject Post?",
+                                "Are you sure you want to reject and delete this pending post?",
+                                async () => {
+                                  await socialStore.deleteQuestion(q.id);
+                                  loadQuestions();
+                                }
+                              );
                             }}
                             sx={{ borderRadius: 1.5, textTransform: 'none', py: 0.25, px: 1.5, fontSize: '0.72rem', fontWeight: 700 }}
                           >
@@ -998,15 +1157,13 @@ const CommunityDetailPage = () => {
                     InputProps={{ sx: { borderRadius: 1.5 } }}
                     inputProps={{ maxLength: 50 }}
                   />
-                  {pollOptions.length > 2 && (
-                    <IconButton 
-                      color="error" 
-                      onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== index))}
-                      sx={{ border: '1px solid var(--divider)', borderRadius: 1.5, width: 40, height: 40 }}
-                    >
-                      ✕
-                    </IconButton>
-                  )}
+                  <IconButton 
+                    color="error" 
+                    onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== index))}
+                    sx={{ border: '1px solid var(--divider)', borderRadius: 1.5, width: 40, height: 40 }}
+                  >
+                    ✕
+                  </IconButton>
                 </Box>
               ))}
               <Button
@@ -1098,8 +1255,8 @@ const CommunityDetailPage = () => {
                     '&:hover': { bgcolor: 'action.hover' }
                   }}
                 >
-                  <Avatar sx={{ width: 32, height: 32, fontSize: '0.85rem', mr: 1.5 }}>
-                    {m.fullname?.charAt(0).toUpperCase() || m.username?.charAt(0).toUpperCase()}
+                  <Avatar src={localStorage.getItem(`avatar_${m.id}`) || m.avatar || ''} sx={{ width: 32, height: 32, fontSize: '0.85rem', mr: 1.5 }}>
+                    {!(localStorage.getItem(`avatar_${m.id}`) || m.avatar) && (m.fullname?.charAt(0).toUpperCase() || m.username?.charAt(0).toUpperCase())}
                   </Avatar>
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
@@ -1110,19 +1267,17 @@ const CommunityDetailPage = () => {
                         <span style={{ fontSize: '0.65rem', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', color: roleColor, backgroundColor: roleBg }}>
                           {roleTag}
                         </span>
-                        {isOwner && !isMOwner && (
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMemberMenuAnchor(e.currentTarget);
-                              setSelectedMember(m);
-                            }}
-                            sx={{ color: 'text.secondary', p: 0.5 }}
-                          >
-                            <MoreVertIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        )}
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMemberMenuAnchor(e.currentTarget);
+                            setSelectedMember(m);
+                          }}
+                          sx={{ color: 'text.secondary', p: 0.5 }}
+                        >
+                          <MoreVertIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
                       </Box>
                     </Box>
                   </Box>
@@ -1174,13 +1329,24 @@ const CommunityDetailPage = () => {
             Delete Community
           </MenuItem>
         )}
-        {!isOwner && (
+        {community.isJoined ? (
+          <MenuItem onClick={() => {
+            setCommunityMenuAnchor(null);
+            setOpenLeaveDialog(true);
+          }} sx={{ color: 'error.main' }}>
+            Leave Community
+          </MenuItem>
+        ) : (
           <MenuItem onClick={async () => {
             setCommunityMenuAnchor(null);
-            await socialStore.toggleJoinCommunity(community.id);
-            loadCommunity();
+            try {
+              await socialStore.toggleJoinCommunity(community.id);
+              loadCommunity();
+            } catch (err) {
+              showCustomAlert("Action Failed", err.message);
+            }
           }}>
-            {community.isJoined ? "Leave Community" : "Join Community"}
+            Join Community
           </MenuItem>
         )}
       </Menu>
@@ -1193,9 +1359,16 @@ const CommunityDetailPage = () => {
           setMemberMenuAnchor(null);
           setSelectedMember(null);
         }}
-        PaperProps={{ sx: { borderRadius: 1, minWidth: 160 } }}
+        PaperProps={{ sx: { borderRadius: 1.5, minWidth: 160 } }}
       >
-        {selectedMember && (
+        <MenuItem onClick={() => {
+          setMemberMenuAnchor(null);
+          setProfileMember(selectedMember);
+          setOpenProfileDialog(true);
+        }}>
+          View Profile
+        </MenuItem>
+        {isOwner && selectedMember && Number(selectedMember.id) !== Number(user?.id) && (
           <MenuItem onClick={async () => {
             setMemberMenuAnchor(null);
             const isMMod = community.moderatorIds?.includes(String(selectedMember.id));
@@ -1207,7 +1380,7 @@ const CommunityDetailPage = () => {
             setSelectedMember(null);
             loadCommunity();
           }}>
-            {selectedMember && community.moderatorIds?.includes(String(selectedMember.id)) ? 'Demote to Member' : 'Promote to Moderator'}
+            {community.moderatorIds?.includes(String(selectedMember.id)) ? 'Demote to Member' : 'Promote to Moderator'}
           </MenuItem>
         )}
       </Menu>
@@ -1253,16 +1426,19 @@ const CommunityDetailPage = () => {
               label="Category"
               onChange={(e) => setCommunityCategory(e.target.value)}
               sx={{ borderRadius: 1.5 }}
+              MenuProps={{
+                PaperProps: {
+                  elevation: 1,
+                  sx: {
+                    maxHeight: 300,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+                  }
+                }
+              }}
             >
-              <MenuItem value="Software Engineering">Software Engineering & Programming</MenuItem>
-              <MenuItem value="Artificial Intelligence">Artificial Intelligence & Data Science</MenuItem>
-              <MenuItem value="Cybersecurity">Cybersecurity & Networking</MenuItem>
-              <MenuItem value="Physics">Physics & Space Science</MenuItem>
-              <MenuItem value="Philosophy">Philosophy & Logic</MenuItem>
-              <MenuItem value="Economics">Economics & Finance</MenuItem>
-              <MenuItem value="Art & Design">Art, Design & Creative Writing</MenuItem>
-              <MenuItem value="Medicine">Medicine & Life Sciences</MenuItem>
-              <MenuItem value="Mathematics">Mathematics</MenuItem>
+              {COMMUNITY_CATEGORIES.map((cat) => (
+                <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -1273,8 +1449,29 @@ const CommunityDetailPage = () => {
             />
             <FormControlLabel
               control={<Switch checked={communityNSFW} onChange={(e) => setCommunityNSFW(e.target.checked)} />}
-              label="NSFW / 18+ Content Warning"
+              label="NSFW Content Warning"
             />
+            {communityNSFW && (
+              <TextField
+                label="NSFW Age Limit"
+                type="number"
+                fullWidth
+                size="small"
+                value={communityNsfwAgeLimit}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val >= 1 && val <= 100) {
+                    setCommunityNsfwAgeLimit(val);
+                  } else if (e.target.value === '') {
+                    setCommunityNsfwAgeLimit('');
+                  }
+                }}
+                inputProps={{ min: 1, max: 100 }}
+                InputProps={{ sx: { borderRadius: 1.5 } }}
+                helperText="Enter a valid age limit between 1 and 100"
+                sx={{ mt: 1 }}
+              />
+            )}
           </Stack>
 
           {communityPrivate && (
@@ -1287,15 +1484,15 @@ const CommunityDetailPage = () => {
                   size="small"
                   fullWidth
                   readOnly
-                  value={`${window.location.origin}/communities/join-invite/${communityId}`}
+                  value={`${window.location.origin}/communities/join-invite/${encodeCommunityId(communityId)}`}
                   InputProps={{ sx: { borderRadius: 1.5, fontSize: '0.8rem', bgcolor: 'rgba(0,0,0,0.01)' } }}
                 />
                 <Button
                   variant="outlined"
                   size="small"
                   onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/communities/join-invite/${communityId}`);
-                    alert("Invite link copied to clipboard!");
+                    navigator.clipboard.writeText(`${window.location.origin}/communities/join-invite/${encodeCommunityId(communityId)}`);
+                    showToast("Invite link copied to clipboard!");
                   }}
                   sx={{ textTransform: 'none', borderRadius: 1.5 }}
                 >
@@ -1419,20 +1616,20 @@ const CommunityDetailPage = () => {
 
       {/* NSFW Age Warning Block Dialog */}
       <Dialog
-        open={!!community?.isNSFW && !consentedNSFW}
+        open={!!community?.isNSFW && !community?.isJoined && !consentedNSFW}
         maxWidth="xs"
         fullWidth
         PaperProps={{ sx: { borderRadius: 2, p: 2 } }}
       >
         <DialogTitle sx={{ fontWeight: 800, textAlign: 'center', color: 'error.main' }}>
-          ⚠️ 18+ Content Warning
+          ⚠️ {community?.nsfwAgeLimit || 18}+ Content Warning
         </DialogTitle>
         <DialogContent sx={{ textAlign: 'center' }}>
           <Typography variant="body1" sx={{ fontWeight: 600, mb: 2 }}>
             This community is flagged as NSFW (Not Safe For Work).
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            You must be at least 18 years old and consent to viewing sensitive/adult content to proceed.
+            You must be at least {community?.nsfwAgeLimit || 18} years old and consent to viewing sensitive/adult content to proceed.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 2 }}>
@@ -1452,6 +1649,333 @@ const CommunityDetailPage = () => {
             Go Back
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Custom Theme Alert Dialog */}
+      <Dialog 
+        open={alertOpen} 
+        onClose={() => setAlertOpen(false)}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 360 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>{alertTitle}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+            {alertMessage}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button 
+            variant="contained" 
+            onClick={() => setAlertOpen(false)}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Okay
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Toast Notification */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        message={snackbarMsg}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
+
+      {/* Themed Confirmation Dialog */}
+      <Dialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 340 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>{confirmTitle}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+            {confirmMessage}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => setConfirmOpen(false)}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            onClick={() => {
+              if (onConfirmCallback) onConfirmCallback();
+              setConfirmOpen(false);
+            }}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Leave Community Dialog */}
+      <Dialog
+        open={openLeaveDialog}
+        onClose={() => {
+          setOpenLeaveDialog(false);
+          setSelectedNewOwnerId('');
+        }}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 360 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Leave Community</DialogTitle>
+        <DialogContent>
+          {isOwner ? (
+            (() => {
+              const mods = (community?.members || []).filter(m => 
+                community?.moderatorIds?.includes(String(m.id)) && Number(m.id) !== Number(user?.id)
+              );
+              
+              if (mods.length === 0) {
+                return (
+                  <Stack spacing={2} sx={{ mt: 1 }}>
+                    <Typography sx={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      You are the owner of this community. You cannot leave without assigning another owner, and there are currently no moderators to promote to owner.
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.875rem', color: 'primary.main', fontWeight: 600 }}>
+                      Please promote at least one member to Moderator first.
+                    </Typography>
+                  </Stack>
+                );
+              }
+              
+              return (
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                  <Typography sx={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    As the owner, you must assign another owner from one of the moderators before you can leave.
+                  </Typography>
+                  <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                    <InputLabel id="select-new-owner-label">Select New Owner</InputLabel>
+                    <Select
+                      labelId="select-new-owner-label"
+                      value={selectedNewOwnerId}
+                      label="Select New Owner"
+                      onChange={(e) => setSelectedNewOwnerId(e.target.value)}
+                      sx={{ borderRadius: 1.5 }}
+                    >
+                      {mods.map(mod => {
+                        const name = mod.fullname || mod.name || mod.username || `User #${mod.id}`;
+                        return (
+                          <MenuItem key={mod.id} value={mod.id}>
+                            {name}
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                  </FormControl>
+                </Stack>
+              );
+            })()
+          ) : (
+            <Typography sx={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Are you sure you want to leave <strong>{community?.name}</strong>?
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => {
+              setOpenLeaveDialog(false);
+              setSelectedNewOwnerId('');
+            }}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          {isOwner ? (
+            (() => {
+              const mods = (community?.members || []).filter(m => 
+                community?.moderatorIds?.includes(String(m.id)) && Number(m.id) !== Number(user?.id)
+              );
+              
+              if (mods.length === 0) {
+                return (
+                  <Button 
+                    variant="contained" 
+                    onClick={() => setOpenLeaveDialog(false)}
+                    fullWidth
+                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                  >
+                    Okay
+                  </Button>
+                );
+              }
+              
+              return (
+                <Button 
+                  variant="contained" 
+                  color="error"
+                  disabled={!selectedNewOwnerId}
+                  onClick={async () => {
+                    try {
+                      // 1. Transfer ownership
+                      const updatedComm = await socialStore.updateCommunity(
+                        community.id,
+                        community.name,
+                        community.description,
+                        community.icon,
+                        community.isPrivate,
+                        community.isNSFW,
+                        community.rules,
+                        community.category,
+                        community.maxMembers,
+                        community.nsfwAgeLimit,
+                        Number(selectedNewOwnerId)
+                      );
+                      
+                      if (updatedComm) {
+                        // 2. Leave community
+                        await socialStore.toggleJoinCommunity(community.id);
+                        setOpenLeaveDialog(false);
+                        setSelectedNewOwnerId('');
+                        navigate('/communities');
+                      } else {
+                        showCustomAlert("Error", "Failed to transfer ownership.");
+                      }
+                    } catch (err) {
+                      showCustomAlert("Error", err.message);
+                    }
+                  }}
+                  fullWidth
+                  sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Transfer & Leave
+                </Button>
+              );
+            })()
+          ) : (
+            <Button 
+              variant="contained" 
+              color="error"
+              onClick={async () => {
+                try {
+                  await socialStore.toggleJoinCommunity(community.id);
+                  setOpenLeaveDialog(false);
+                  navigate('/communities');
+                } catch (err) {
+                  showCustomAlert("Action Failed", err.message);
+                }
+              }}
+              fullWidth
+              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+            >
+              Leave
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Member Profile Dialog */}
+      <Dialog 
+        open={openProfileDialog} 
+        onClose={() => {
+          setOpenProfileDialog(false);
+          setProfileMember(null);
+        }} 
+        maxWidth="xs" 
+        fullWidth 
+        PaperProps={{ sx: { borderRadius: 2, position: 'relative' } }}
+      >
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', pt: 3, pr: 7 }}>
+          <IconButton
+            onClick={() => {
+              setOpenProfileDialog(false);
+              setProfileMember(null);
+            }}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Learner Profile
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pb: 3 }}>
+          {(() => {
+            if (!profileMember) return null;
+            const avatarUrl = localStorage.getItem(`avatar_${profileMember.id}`) || profileMember.avatar || '';
+            const initials = profileMember.fullname?.charAt(0).toUpperCase() || profileMember.username?.charAt(0).toUpperCase() || '?';
+            
+            const isMOwner = Number(community.ownerId) === Number(profileMember.id);
+            const isMMod = community.moderatorIds?.includes(String(profileMember.id));
+            let roleTag = 'Member';
+            let roleColor = 'var(--text-secondary)';
+            let roleBg = 'rgba(0,0,0,0.05)';
+            if (isMOwner) {
+              roleTag = 'Owner';
+              roleColor = '#F59E0B';
+              roleBg = 'rgba(245, 158, 11, 0.15)';
+            } else if (isMMod) {
+              roleTag = 'Moderator';
+              roleColor = '#3D5CFF';
+              roleBg = 'rgba(61, 92, 255, 0.15)';
+            }
+
+            return (
+              <>
+                <Avatar
+                  src={avatarUrl}
+                  sx={{ width: 100, height: 100, mb: 2, bgcolor: 'primary.main', fontSize: '2.5rem', fontWeight: 'bold' }}
+                >
+                  {!avatarUrl && initials}
+                </Avatar>
+                
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                  {profileMember.fullname || profileMember.username}
+                </Typography>
+                
+                <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', color: roleColor, backgroundColor: roleBg, marginBottom: '24px' }}>
+                  {roleTag}
+                </span>
+
+                <Divider sx={{ width: '100%', mb: 3 }} />
+
+                <Stack spacing={2} sx={{ width: '100%', px: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <FingerprintIcon color="action" />
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Username</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        @{profileMember.username || 'learner'}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <PersonIcon color="action" />
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Gender / Age</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {profileMember.gender || 'Rather Not Say'} • {profileMember.age || 20} years old
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <CalendarIcon color="action" />
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Joined Platform</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {profileMember.dateTime ? new Date(profileMember.dateTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Recently'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Stack>
+              </>
+            );
+          })()}
+        </DialogContent>
       </Dialog>
     </Box>
   );

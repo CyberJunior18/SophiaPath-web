@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Avatar,
   Box,
@@ -66,10 +66,10 @@ import { coursesData } from '../data/courses';
 
 const AnimatedPage = ({ children }) => (
   <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    transition={{ duration: 0.2 }}
+    initial={{ opacity: 0, y: 12 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -12 }}
+    transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
     className="nav-page-motion"
   >
     {children}
@@ -80,7 +80,13 @@ const getRouteKey = (pathname) => {
   if (!pathname) return '';
   const segments = pathname.split('/').filter(Boolean);
   if (segments.length === 0) return '/';
-  if (segments[0] === 'communities') return 'communities';
+  if (segments[0] === 'communities') {
+    if (segments.length === 1) return 'communities-list';
+    if (segments.length === 2) return `community-${segments[1]}`;
+    if (segments.length === 4 && segments[2] === 'room') return `community-${segments[1]}-room-${segments[3]}`;
+    if (segments.length === 6 && segments[4] === 'question') return `question-${segments[5]}`;
+    return 'communities';
+  }
   if (segments[0] === 'chat' || segments[0] === 'chats' || segments[0] === 'group') return 'chats';
   if (segments[0] === 'course' || segments[0] === 'learning-path' || segments[0] === 'learning') return 'learning';
   return segments[0];
@@ -97,6 +103,35 @@ const NavigationPage = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   const isStickyFooterPage = location.pathname.startsWith('/quiz/') || location.pathname.startsWith('/learning/');
+
+  // Track manual sidebarCollapsed state
+  const sidebarCollapsedRef = useRef(sidebarCollapsed);
+  useEffect(() => {
+    sidebarCollapsedRef.current = sidebarCollapsed;
+  }, [sidebarCollapsed]);
+
+  // Track if we were previously inside a community detail/room/post view
+  const wasInCommunityDetailRef = useRef(false);
+  const sidebarStateBeforeEnteringCommunityRef = useRef(false);
+
+  useEffect(() => {
+    const isCommunityDetailOnly = location.pathname.startsWith('/communities/') && !location.pathname.includes('/question/');
+    
+    if (isCommunityDetailOnly) {
+      if (!wasInCommunityDetailRef.current) {
+        // Save the manual state of the sidebar before entering the community detail view
+        sidebarStateBeforeEnteringCommunityRef.current = sidebarCollapsedRef.current;
+        setSidebarCollapsed(true);
+      }
+      wasInCommunityDetailRef.current = true;
+    } else {
+      if (wasInCommunityDetailRef.current) {
+        // Restore the sidebar collapse state to whatever the user had it set to
+        setSidebarCollapsed(sidebarStateBeforeEnteringCommunityRef.current);
+      }
+      wasInCommunityDetailRef.current = false;
+    }
+  }, [location.pathname]);
 
   const userName = user?.name || 'Learner';
 
@@ -211,7 +246,7 @@ const NavigationPage = () => {
           size="small"
           sx={{
             position: 'absolute',
-            right: sidebarCollapsed ? '1.5rem' : 0,
+            right: sidebarCollapsed ? '2.5rem' : 0,
             top: '48px',
             transform: sidebarCollapsed ? 'translate(100%, -50%)' : 'translate(50%, -50%)',
             color: 'var(--text-secondary)',
@@ -582,8 +617,64 @@ const JoinInviteHandler = () => {
   useEffect(() => {
     const join = async () => {
       try {
-        await socialStore.joinCommunityByInvite(communityId);
-        navigate(`/communities/${communityId}`);
+        let decodedId = communityId;
+        // Decode secure salted checksum hash with fallback to old XOR base36 for backward compatibility
+        if (isNaN(Number(communityId))) {
+          if (communityId.includes('-')) {
+            const parts = communityId.split('-');
+            if (parts.length >= 3) {
+              const [mainPart, checksumPart1, checksumPart2] = parts;
+              const salted = parseInt(mainPart, 36);
+              const id = Math.round((salted - 27182818284) / 31415926535);
+              
+              let hash1 = 0;
+              let hash2 = 0;
+              const str = String(id) + "SophiaSecretSaltSuperLong123!";
+              for (let i = 0; i < str.length; i++) {
+                hash1 = (hash1 << 5) - hash1 + str.charCodeAt(i);
+                hash1 |= 0;
+                hash2 = (hash2 << 7) - hash2 + str.charCodeAt(i) * 17;
+                hash2 |= 0;
+              }
+              const expectedChecksum1 = Math.abs(hash1).toString(36);
+              const expectedChecksum2 = Math.abs(hash2).toString(36);
+              
+              if (checksumPart1 === expectedChecksum1 && checksumPart2 === expectedChecksum2) {
+                decodedId = id;
+              } else {
+                console.error("Invalid invite double checksum!");
+                navigate('/communities');
+                return;
+              }
+            } else {
+              const [mainPart, checksumPart] = parts;
+              const salted = parseInt(mainPart, 36);
+              const id = Math.round((salted - 271828) / 314159);
+              
+              let hash = 0;
+              const str = String(id) + "SophiaSecretSalt123!";
+              for (let i = 0; i < str.length; i++) {
+                hash = (hash << 5) - hash + str.charCodeAt(i);
+                hash |= 0;
+              }
+              const expectedChecksum = Math.abs(hash).toString(36);
+              if (checksumPart === expectedChecksum) {
+                decodedId = id;
+              } else {
+                console.error("Invalid invite checksum!");
+                navigate('/communities');
+                return;
+              }
+            }
+          } else {
+            const xor = parseInt(communityId, 36);
+            if (!isNaN(xor)) {
+              decodedId = xor ^ 98213;
+            }
+          }
+        }
+        await socialStore.joinCommunityByInvite(decodedId);
+        navigate(`/communities/${decodedId}`);
       } catch (e) {
         console.error(e);
         navigate('/communities');

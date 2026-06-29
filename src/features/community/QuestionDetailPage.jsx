@@ -308,6 +308,7 @@ const QuestionDetailPage = () => {
   const [comments, setComments] = useState([]);
   const [visibleCommentsCount, setVisibleCommentsCount] = useState(10);
   const [community, setCommunity] = useState(null);
+  const [notFound, setNotFound] = useState(false);
 
   // Post Edit states
   const [isEditingPost, setIsEditingPost] = useState(false);
@@ -341,6 +342,19 @@ const QuestionDetailPage = () => {
 
   // Sub-thread Focus
   const [focusedReply, setFocusedReply] = useState(null);
+
+  // Custom Confirmation Dialog state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [onConfirmCallback, setOnConfirmCallback] = useState(null);
+
+  const showConfirmDialog = (title, message, callback) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setOnConfirmCallback(() => callback);
+    setConfirmOpen(true);
+  };
 
   // Collapse States
   const [collapsedCommentIds, setCollapsedCommentIds] = useState(new Set());
@@ -487,17 +501,32 @@ const QuestionDetailPage = () => {
   const displayedComments = sortedComments.slice(0, visibleCommentsCount);
 
   const loadQuestionAndComments = async () => {
-    const qData = await socialStore.getQuestionById(questionId);
-    if (qData) {
-      setQuestion(qData);
-      const cId = qData.room?.communityId || communityId;
-      if (cId) {
-        const cData = await socialStore.getCommunityById(cId);
-        if (cData) setCommunity(cData);
+    try {
+      const qData = await socialStore.getQuestionById(questionId);
+      if (qData) {
+        setQuestion(qData);
+        setNotFound(false);
+        const cId = qData.room?.communityId || communityId;
+        if (cId) {
+          const cData = await socialStore.getCommunityById(cId);
+          if (cData) setCommunity(cData);
+        }
+      } else {
+        setQuestion(null);
+        setNotFound(true);
       }
+    } catch (err) {
+      console.error('Failed to load question:', err);
+      setQuestion(null);
+      setNotFound(true);
     }
-    const cData = await socialStore.getComments(questionId);
-    setComments(cData || []);
+    try {
+      const cData = await socialStore.getComments(questionId);
+      setComments(cData || []);
+    } catch (err) {
+      console.error('Failed to load comments:', err);
+      setComments([]);
+    }
   };
 
   useEffect(() => {
@@ -701,12 +730,16 @@ const QuestionDetailPage = () => {
   };
 
   const handleDeletePost = async () => {
-    if (window.confirm("Are you sure you want to delete this post?")) {
-      const success = await socialStore.deleteQuestion(questionId);
-      if (success) {
-        navigate(`/communities/${communityId}/room/${roomId}`);
+    showConfirmDialog(
+      "Delete Post?",
+      "Are you sure you want to delete this post?",
+      async () => {
+        const success = await socialStore.deleteQuestion(questionId);
+        if (success) {
+          navigate(`/communities/${communityId}/room/${roomId}`);
+        }
       }
-    }
+    );
   };
 
   const handleSaveComment = async (commentId) => {
@@ -719,12 +752,16 @@ const QuestionDetailPage = () => {
   };
 
   const handleDeleteComment = async (commentId) => {
-    if (window.confirm("Are you sure you want to delete this comment?")) {
-      const success = await socialStore.deleteComment(commentId);
-      if (success) {
-        loadQuestionAndComments();
+    showConfirmDialog(
+      "Delete Comment?",
+      "Are you sure you want to delete this comment?",
+      async () => {
+        const success = await socialStore.deleteComment(commentId);
+        if (success) {
+          loadQuestionAndComments();
+        }
       }
-    }
+    );
   };
 
   const handleSaveReply = async (replyId) => {
@@ -737,12 +774,16 @@ const QuestionDetailPage = () => {
   };
 
   const handleDeleteReply = async (replyId) => {
-    if (window.confirm("Are you sure you want to delete this reply?")) {
-      const success = await socialStore.deleteReply(replyId);
-      if (success) {
-        loadQuestionAndComments();
+    showConfirmDialog(
+      "Delete Reply?",
+      "Are you sure you want to delete this reply?",
+      async () => {
+        const success = await socialStore.deleteReply(replyId);
+        if (success) {
+          loadQuestionAndComments();
+        }
       }
-    }
+    );
   };
 
   const highlightCode = (code) => {
@@ -915,11 +956,11 @@ const QuestionDetailPage = () => {
                 sx={{
                   position: 'relative',
                   borderRadius: 1.5,
-                  border: `1px solid ${isUserChoice ? 'var(--primary-color)' : 'var(--divider)'}`,
+                  border: `2px solid ${isUserChoice ? 'var(--primary-color)' : 'var(--divider)'}`,
                   p: 1.5,
                   cursor: 'pointer',
                   overflow: 'hidden',
-                  bgcolor: isUserChoice ? 'rgba(61,92,255,0.04)' : 'transparent',
+                  bgcolor: isUserChoice ? 'rgba(61,92,255,0.06)' : 'rgba(0,0,0,0.01)',
                   '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' },
                   transition: 'all 0.2s ease'
                 }}
@@ -931,7 +972,7 @@ const QuestionDetailPage = () => {
                     left: 0,
                     bottom: 0,
                     width: `${percent}%`,
-                    backgroundColor: isUserChoice ? 'rgba(61,92,255,0.1)' : 'rgba(0,0,0,0.04)',
+                    backgroundColor: isUserChoice ? 'rgba(61,92,255,0.22)' : 'rgba(61,92,255,0.1)',
                     zIndex: 0,
                     transition: 'width 0.4s ease-out'
                   }}
@@ -1027,6 +1068,26 @@ const QuestionDetailPage = () => {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Typography>Loading User Profile...</Typography>
+      </Box>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', p: 4, textAlign: 'center', gap: 2.5 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary' }}>
+          Post Deleted or Unavailable
+        </Typography>
+        <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 500, lineHeight: 1.6 }}>
+          We are truly sorry, but this post was probably deleted by a community moderator or owner.
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => navigate(`/communities/${communityId || 1}`)}
+          sx={{ borderRadius: 2.5, textTransform: 'none', px: 4, py: 1.25, fontWeight: 700, boxShadow: '0 4px 14px rgba(61, 92, 255, 0.2)' }}
+        >
+          Back to Community
+        </Button>
       </Box>
     );
   }
@@ -1729,6 +1790,42 @@ const QuestionDetailPage = () => {
           </Box>
         )}
       </Paper>
+
+      {/* Themed Confirmation Dialog */}
+      <Dialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 340 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>{confirmTitle}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+            {confirmMessage}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => setConfirmOpen(false)}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            onClick={() => {
+              if (onConfirmCallback) onConfirmCallback();
+              setConfirmOpen(false);
+            }}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

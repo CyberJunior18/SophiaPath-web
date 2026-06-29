@@ -23,7 +23,8 @@ import {
   Save as SaveIcon,
   Send as SendIcon,
   Close as CloseIcon,
-  RestartAlt as ResetIcon
+  RestartAlt as ResetIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
 
 const COLOR_PALETTE = [
@@ -38,9 +39,10 @@ const COLOR_PALETTE = [
   '#FFFFFF'  // White
 ];
 
-export default function ImageEditorModal({ open, onClose, imageSrc, onSave, showSendButton, onSend }) {
+export default function ImageEditorModal({ open, onClose, images = [], imageSrc, onSend }) {
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
+  const addMoreInputRef = useRef(null);
 
   // Editor states
   const [zoom, setZoom] = useState(1);
@@ -48,6 +50,18 @@ export default function ImageEditorModal({ open, onClose, imageSrc, onSave, show
   const [brushColor, setBrushColor] = useState('#FF3B30');
   const [brushSize, setBrushSize] = useState(6);
   const [history, setHistory] = useState([]); // array of ImageData for undoing actions
+
+  const [imagesList, setImagesList] = useState([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [openDiscardConfirm, setOpenDiscardConfirm] = useState(false);
+
+  const handleCloseAttempt = () => {
+    if (imagesList && imagesList.length > 0) {
+      setOpenDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  };
 
   // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
@@ -63,22 +77,124 @@ export default function ImageEditorModal({ open, onClose, imageSrc, onSave, show
 
   // Load and initialize image onto canvas
   useEffect(() => {
-    if (!open || !imageSrc) return;
+    if (!open) return;
 
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      setImgObj(img);
-      initCanvas(img);
-    };
-    img.src = imageSrc;
+    let initialList = [];
+    if (images && images.length > 0) {
+      initialList = [...images];
+    } else if (imageSrc) {
+      initialList = [imageSrc];
+    }
+
+    setImagesList(initialList);
+    setActiveIndex(0);
+
+    if (initialList.length > 0) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        setImgObj(img);
+        initCanvas(img);
+      };
+      img.src = initialList[0];
+    }
 
     // Reset editor settings on open
     setZoom(1);
     setMode('none');
     setHistory([]);
     setDragType('none');
-  }, [open, imageSrc]);
+  }, [open, images, imageSrc]);
+
+  // Switch image callback
+  const handleSwitchImage = (newIndex) => {
+    if (newIndex === activeIndex) return;
+
+    // Save current canvas to slot
+    if (canvasRef.current && imagesList.length > 0) {
+      const currentDataUrl = canvasRef.current.toDataURL('image/png');
+      const copy = [...imagesList];
+      copy[activeIndex] = currentDataUrl;
+      setImagesList(copy);
+
+      // Load new image
+      setActiveIndex(newIndex);
+      setZoom(1);
+      setMode('none');
+      setHistory([]);
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        setImgObj(img);
+        initCanvas(img);
+      };
+      img.src = copy[newIndex];
+    }
+  };
+
+  // Remove image callback
+  const handleRemoveImage = (indexToRemove, e) => {
+    e.stopPropagation();
+    if (imagesList.length <= 1) {
+      onClose();
+      return;
+    }
+
+    const updatedList = imagesList.filter((_, idx) => idx !== indexToRemove);
+    setImagesList(updatedList);
+
+    if (activeIndex === indexToRemove) {
+      const nextIndex = 0;
+      setActiveIndex(nextIndex);
+      setZoom(1);
+      setMode('none');
+      setHistory([]);
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        setImgObj(img);
+        initCanvas(img);
+      };
+      img.src = updatedList[nextIndex];
+    } else if (activeIndex > indexToRemove) {
+      setActiveIndex(prev => prev - 1);
+    }
+  };
+
+  // Add more images callback
+  const handleAddMoreImages = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const promises = files.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(promises).then(dataUrls => {
+      setImagesList(prev => [...prev, ...dataUrls]);
+    });
+    e.target.value = '';
+  };
+
+  // Send action callback
+  const handleSendAll = () => {
+    let finalImages = [...imagesList];
+    if (canvasRef.current && finalImages.length > 0) {
+      const currentDataUrl = canvasRef.current.toDataURL('image/png');
+      finalImages[activeIndex] = currentDataUrl;
+    }
+    if (onSend) {
+      onSend(finalImages);
+    }
+    setImagesList([]);
+    onClose();
+  };
 
   // Set default crop box size (80% of canvas dimensions centered) when entering crop mode
   useEffect(() => {
@@ -452,9 +568,10 @@ export default function ImageEditorModal({ open, onClose, imageSrc, onSave, show
   };
 
   return (
-    <Dialog
+    <>
+      <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleCloseAttempt}
       maxWidth="md"
       fullWidth
       PaperProps={{
@@ -469,7 +586,7 @@ export default function ImageEditorModal({ open, onClose, imageSrc, onSave, show
     >
       <DialogTitle sx={{ fontWeight: 700, pr: 7, p: 2 }}>
         <IconButton 
-          onClick={onClose} 
+          onClick={handleCloseAttempt} 
           size="small"
           sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
         >
@@ -486,11 +603,6 @@ export default function ImageEditorModal({ open, onClose, imageSrc, onSave, show
             <Tooltip title="Zoom In"><IconButton onClick={handleZoomIn} size="small"><ZoomInIcon /></IconButton></Tooltip>
             <Tooltip title="Zoom Out"><IconButton onClick={handleZoomOut} size="small"><ZoomOutIcon /></IconButton></Tooltip>
             <Tooltip title="Reset Zoom"><IconButton onClick={handleZoomReset} size="small"><ResetIcon /></IconButton></Tooltip>
-          </Stack>
-
-          <Stack direction="row" spacing={0.5} sx={{ borderRight: '1px solid divider', pr: 1.5 }}>
-            <Tooltip title="Rotate 90°"><IconButton onClick={handleRotate} size="small"><RotateRightIcon /></IconButton></Tooltip>
-            <Tooltip title="Undo"><IconButton onClick={handleUndo} disabled={history.length <= 1} size="small"><UndoIcon /></IconButton></Tooltip>
           </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center">
@@ -530,6 +642,11 @@ export default function ImageEditorModal({ open, onClose, imageSrc, onSave, show
               Confirm Crop
             </Button>
           )}
+
+          <Stack direction="row" spacing={0.5} sx={{ borderRight: '1px solid divider', pr: 1.5 }}>
+            <Tooltip title="Rotate 90°"><IconButton onClick={handleRotate} size="small"><RotateRightIcon /></IconButton></Tooltip>
+            <Tooltip title="Undo"><IconButton onClick={handleUndo} disabled={history.length <= 1} size="small"><UndoIcon /></IconButton></Tooltip>
+          </Stack>
         </Box>
 
         {/* Dynamic options based on toolbar mode selection */}
@@ -611,39 +728,133 @@ export default function ImageEditorModal({ open, onClose, imageSrc, onSave, show
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ p: 2.5, gap: 1.5 }}>
-        
-        {showSendButton && onSend ? (
-          <>
-            <Button
-              variant="outlined"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-              sx={{ textTransform: 'none', px: 3, borderRadius: 2 }}
-            >
-              Save Edit
-            </Button>
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<SendIcon />}
-              onClick={handleSend}
-              sx={{ textTransform: 'none', px: 3, borderRadius: 2 }}
-            >
-              Send to Chat
-            </Button>
-          </>
-        ) : (
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-            sx={{ textTransform: 'none', px: 4, borderRadius: 2 }}
+      {/* BOTTOM IMAGE ROW SELECTOR & ACTION BUTTONS */}
+      <Box sx={{ p: 2, borderTop: '1px solid var(--divider)', bgcolor: 'background.default' }}>
+        <Stack direction="row" spacing={1.5} sx={{ overflowX: 'auto', pb: 1, alignItems: 'center' }}>
+          {imagesList.map((imgSrc, idx) => {
+            const isActive = idx === activeIndex;
+            return (
+              <Box
+                key={idx}
+                sx={{
+                  position: 'relative',
+                  width: 60,
+                  height: 60,
+                  borderRadius: 1.5,
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  border: isActive ? '2px solid var(--primary-color)' : '1px solid var(--divider)',
+                  boxShadow: isActive ? '0 2px 8px rgba(61,92,255,0.3)' : 'none',
+                  transition: 'all 0.2s ease',
+                  '&:hover': { transform: 'scale(1.05)' }
+                }}
+              >
+                <img 
+                  src={imgSrc} 
+                  alt={`Preview ${idx + 1}`} 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  onClick={() => handleSwitchImage(idx)}
+                />
+                
+                {/* Delete button (small cross overlay) */}
+                <IconButton
+                  size="small"
+                  onClick={(e) => handleRemoveImage(idx, e)}
+                  sx={{
+                    position: 'absolute',
+                    top: 2,
+                    right: 2,
+                    width: 16,
+                    height: 16,
+                    bgcolor: 'rgba(0,0,0,0.6)',
+                    color: 'white',
+                    p: 0,
+                    fontSize: '10px',
+                    '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.9)' }
+                  }}
+                >
+                  ✕
+                </IconButton>
+              </Box>
+            );
+          })}
+          
+          {/* Add More Button */}
+          <Box
+            onClick={() => addMoreInputRef.current?.click()}
+            sx={{
+              width: 60,
+              height: 60,
+              borderRadius: 1.5,
+              border: '2px dashed var(--divider)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'text.secondary',
+              '&:hover': { borderColor: 'var(--primary-color)', color: 'var(--primary-color)' }
+            }}
           >
-            Save Changes
-          </Button>
-        )}
+            <AddIcon />
+            <input type="file" multiple ref={addMoreInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleAddMoreImages} />
+          </Box>
+        </Stack>
+      </Box>
+
+      <DialogActions sx={{ p: 2.5, gap: 1.5 }}>
+        <Button
+          variant="outlined"
+          onClick={handleCloseAttempt}
+          sx={{ textTransform: 'none', px: 3, borderRadius: 2 }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleSendAll}
+          sx={{ textTransform: 'none', px: 4, borderRadius: 2, fontWeight: 700 }}
+        >
+          Send
+        </Button>
       </DialogActions>
     </Dialog>
-  );
+
+    {/* Discard Confirmation Dialog */}
+    <Dialog
+      open={openDiscardConfirm}
+      onClose={() => setOpenDiscardConfirm(false)}
+      PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 340 } }}
+    >
+      <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Discard changes?</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+          Are you sure you want to discard your selected image/s? Any changes will be lost.
+        </Typography>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
+        <Button 
+          variant="outlined" 
+          onClick={() => setOpenDiscardConfirm(false)}
+          fullWidth
+          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+        >
+          Cancel
+        </Button>
+        <Button 
+          variant="contained" 
+          color="error"
+          onClick={() => {
+            setOpenDiscardConfirm(false);
+            onClose();
+          }}
+          fullWidth
+          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+        >
+          Discard
+        </Button>
+      </DialogActions>
+    </Dialog>
+  </>
+);
 }

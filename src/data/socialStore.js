@@ -461,7 +461,10 @@ export const socialStore = {
       headers: getHeaders(),
       body: JSON.stringify({ userId })
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || "Failed to join community.");
+    }
     return res.json();
   },
 
@@ -474,8 +477,7 @@ export const socialStore = {
     });
     if (!res.ok) {
       const errorData = await res.json();
-      alert(errorData.message || "Failed to create community.");
-      return null;
+      throw new Error(errorData.message || "Failed to create community.");
     }
     return res.json();
   },
@@ -660,11 +662,11 @@ export const socialStore = {
     return res.json();
   },
 
-  updateCommunity: async (communityId, name, description, icon, isPrivate, isNSFW, rules, category, maxMembers) => {
+  updateCommunity: async (communityId, name, description, icon, isPrivate, isNSFW, rules, category, maxMembers, nsfwAgeLimit, ownerId = undefined) => {
     const res = await fetch(`/api/communities/${communityId}/update`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ name, description, icon, isPrivate, isNSFW, rules, category, maxMembers })
+      body: JSON.stringify({ name, description, icon, isPrivate, isNSFW, rules, category, maxMembers, nsfwAgeLimit, ownerId })
     });
     if (!res.ok) return null;
     return res.json();

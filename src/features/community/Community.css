@@ -105,6 +105,7 @@
 .community-detail-container {
   display: flex;
   gap: 1.75rem;
+  align-items: flex-start;
 }
 
 @media (max-width: 960px) {
@@ -119,15 +120,14 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
   border-radius: 8px;
   border: 1px solid var(--divider);
   background: var(--background-paper);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
   overflow: hidden;
-  height: calc(100vh - 180px);
+  height: calc(100vh - 120px);
+  align-self: flex-start;
   position: sticky;
-  top: 100px;
 }
 
 @media (max-width: 960px) {

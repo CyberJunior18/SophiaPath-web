@@ -6,7 +6,11 @@ import {
   Container,
   Paper,
   Button,
-  IconButton
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { coursesData } from '../data/courses';
 import { useAuth } from '../context/AuthContext';
@@ -30,6 +34,18 @@ const CourseDetailPage = () => {
   
   const [course, setCourse] = useState(location.state?.course || null);
   const [loading, setLoading] = useState(!course);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [onConfirmCallback, setOnConfirmCallback] = useState(null);
+
+  const showConfirmDialog = (title, message, callback) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setOnConfirmCallback(() => callback);
+    setConfirmOpen(true);
+  };
 
   useEffect(() => {
     const loadCourseData = async () => {
@@ -138,9 +154,13 @@ const CourseDetailPage = () => {
   };
 
   const handleUnregister = async () => {
-    if (window.confirm(`Are you sure you want to unenroll from ${course.title}? Your progress will be reset.`)) {
-      await unregisterCourse(course.title);
-    }
+    showConfirmDialog(
+      "Unenroll Course?",
+      `Are you sure you want to unenroll from ${course.title}? Your progress will be reset.`,
+      async () => {
+        await unregisterCourse(course.title);
+      }
+    );
   };
 
   return (
@@ -315,6 +335,42 @@ const CourseDetailPage = () => {
           </div>
         </div>
       </Container>
+
+      {/* Themed Confirmation Dialog */}
+      <Dialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 340 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>{confirmTitle}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+            {confirmMessage}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => setConfirmOpen(false)}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            onClick={() => {
+              if (onConfirmCallback) onConfirmCallback();
+              setConfirmOpen(false);
+            }}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

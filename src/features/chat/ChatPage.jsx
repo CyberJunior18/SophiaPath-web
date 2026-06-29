@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -43,7 +43,8 @@ import {
   Delete as DeleteIcon,
   ContentCopy as CopyIcon,
   ForwardToInbox as ForwardIcon,
-  Star as StarIcon
+  Star as StarIcon,
+  MoreVert as MoreVertIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -88,6 +89,49 @@ const ChatPage = () => {
   // Context Menu state
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuMessage, setMenuMessage] = useState(null);
+
+  const [headerMenuAnchor, setHeaderMenuAnchor] = useState(null);
+  const [openClearConfirm, setOpenClearConfirm] = useState(false);
+  const [clearTrigger, setClearTrigger] = useState(0);
+
+  const initialMessageIds = useRef(new Set());
+
+  const displayedMessages = useMemo(() => {
+    const clearTime = localStorage.getItem(`sophiapath_clear_time_${user?.id}_${userId}`);
+    const filtered = clearTime
+      ? messages.filter(m => new Date(m.timestamp).getTime() > new Date(clearTime).getTime())
+      : messages;
+
+    if (filtered.length > 0 && initialMessageIds.current.size === 0) {
+      filtered.forEach(m => initialMessageIds.current.add(String(m.id)));
+    }
+    return filtered;
+  }, [messages, userId, user?.id, clearTrigger]);
+
+  const [sessionLastSeenId, setSessionLastSeenId] = useState(null);
+  const [sessionLastSeen, setSessionLastSeen] = useState(null);
+
+  useEffect(() => {
+    initialMessageIds.current = new Set();
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || !user?.id) return;
+    const lastId = localStorage.getItem(`sophiapath_last_seen_id_${user.id}_${userId}`);
+    const stored = localStorage.getItem(`sophiapath_last_seen_${user.id}_${userId}`);
+    setSessionLastSeenId(lastId);
+    setSessionLastSeen(stored || new Date().toISOString());
+  }, [userId, user?.id]);
+
+  useEffect(() => {
+    if (userId && user?.id && displayedMessages.length > 0) {
+      const lastMsg = displayedMessages[displayedMessages.length - 1];
+      if (lastMsg) {
+        localStorage.setItem(`sophiapath_last_seen_id_${user.id}_${userId}`, String(lastMsg.id));
+        localStorage.setItem(`sophiapath_last_seen_${user.id}_${userId}`, new Date().toISOString());
+      }
+    }
+  }, [userId, user?.id, displayedMessages]);
   
   // Dialog / Reply / Snackbar states
   const [openForwardDialog, setOpenForwardDialog] = useState(false);
@@ -96,28 +140,7 @@ const ChatPage = () => {
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
 
-  const handleImageSelect = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
-    const promises = files.map(file => {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(file);
-      });
-    });
-
-    Promise.all(promises).then(dataUrls => {
-      setPendingImagesQueue(dataUrls);
-      setEditorImageSrc(dataUrls[0]);
-      setEditorShowSend(false);
-      setEditorOpen(true);
-    });
-    e.target.value = '';
-  };
-
-  const sendEditedImage = async (editedBase64) => {
+  const sendBase64ImageMessage = async (editedBase64) => {
     try {
       const token = localStorage.getItem('token');
       const headers = { 'Content-Type': 'application/json' };
@@ -157,32 +180,35 @@ const ChatPage = () => {
         };
         setMessages(prev => [...prev, newMessage]);
         
-        setPendingImagesQueue(prevQueue => {
-          const nextQueue = prevQueue.slice(1);
-          if (nextQueue.length > 0) {
-            setEditorImageSrc(nextQueue[0]);
-            setEditorShowSend(false);
-            setEditorOpen(true);
-          } else {
-            setEditorOpen(false);
-          }
-          return nextQueue;
-        });
-        
         // Unarchive check
         const archivedList = JSON.parse(localStorage.getItem(`sophiapath_archived_chats_${user.id}`) || '[]');
         if (archivedList.includes(Number(userId)) || archivedList.includes(String(userId))) {
           const updated = archivedList.filter(id => Number(id) !== Number(userId));
           localStorage.setItem(`sophiapath_archived_chats_${user.id}`, JSON.stringify(updated));
         }
-
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 80);
       }
     } catch (err) {
-      console.error('Failed to send edited image:', err);
+      console.error('Failed to send image:', err);
     }
+  };
+
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const promises = files.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(promises).then(dataUrls => {
+      setPendingImagesQueue(dataUrls);
+      setEditorOpen(true);
+    });
+    e.target.value = '';
   };
 
   const handleEmojiClick = (emoji) => {
@@ -276,11 +302,11 @@ const ChatPage = () => {
 
   // Scroll to bottom only once on initial load
   useEffect(() => {
-    if (messages.length > 0 && !hasInitialScrolled.current) {
+    if (displayedMessages.length > 0 && !hasInitialScrolled.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
       hasInitialScrolled.current = true;
     }
-  }, [messages]);
+  }, [displayedMessages]);
 
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
@@ -357,13 +383,14 @@ const ChatPage = () => {
   const searchMessageId = queryParams.get('messageId');
 
   useEffect(() => {
-    if (messages.length > 0 && searchMessageId) {
+    if (displayedMessages.length > 0 && searchMessageId) {
       const timeout = setTimeout(() => {
         handleScrollToMessage(searchMessageId);
+        navigate(location.pathname, { replace: true });
       }, 300);
       return () => clearTimeout(timeout);
     }
-  }, [messages.length, searchMessageId]);
+  }, [displayedMessages.length, searchMessageId]);
 
   // Context Menu Actions
   const handleMessageBubbleClick = (event, msg) => {
@@ -403,7 +430,7 @@ const ChatPage = () => {
   };
 
   const handleDeleteMessage = async () => {
-    if (menuMessage && menuMessage.senderId === user.id) {
+    if (menuMessage && Number(menuMessage.senderId) === Number(user?.id)) {
       const success = await socialStore.deleteMessage(menuMessage.id, user.id);
       if (success) {
         setMessages(prev => prev.map(m => m.id === menuMessage.id ? { ...m, deleted: true, text: 'This message was deleted' } : m));
@@ -457,18 +484,48 @@ const ChatPage = () => {
       list = list.filter(m => String(m.id) !== String(menuMessage.id));
       setSnackbarMessage("Message unstarred!");
     } else {
+      const isImg = menuMessage.text?.startsWith('[IMAGE]:');
+      const textToStore = isImg ? '[IMAGE]:' : menuMessage.text;
       list.push({
         id: menuMessage.id,
         chatPartnerId: userId,
         type: 'direct',
-        text: menuMessage.text,
-        senderName: menuMessage.senderId === user.id ? 'You' : (targetUserDetails?.fullname || targetUserDetails?.name || targetUserDetails?.username || 'user'),
-        senderAvatar: menuMessage.senderId === user.id ? user.avatar : targetUserDetails?.avatar,
+        text: textToStore,
+        senderName: Number(menuMessage.senderId) === Number(user?.id) ? 'You' : (targetUserDetails?.fullname || targetUserDetails?.name || targetUserDetails?.username || 'user'),
+        senderAvatar: Number(menuMessage.senderId) === Number(user?.id) ? user.avatar : targetUserDetails?.avatar,
         timestamp: menuMessage.timestamp
       });
       setSnackbarMessage("Message starred!");
     }
-    localStorage.setItem('starred_messages_list', JSON.stringify(list));
+    
+    // Clean existing entries with heavy image strings to free up storage space
+    const cleaned = list.map(m => {
+      if (m.text && m.text.startsWith('[IMAGE]:') && m.text.length > 500) {
+        return { ...m, text: '[IMAGE]:' };
+      }
+      return m;
+    });
+
+    try {
+      localStorage.setItem('starred_messages_list', JSON.stringify(cleaned));
+    } catch (err) {
+      console.warn("Storage quota exceeded, pruning avatar cache and starred list...", err);
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('avatar_')) {
+            localStorage.removeItem(key);
+          }
+        }
+        localStorage.setItem('starred_messages_list', JSON.stringify(cleaned));
+      } catch (retryErr) {
+        try {
+          localStorage.setItem('starred_messages_list', JSON.stringify(cleaned.slice(-10)));
+        } catch (e) {
+          localStorage.removeItem('starred_messages_list');
+        }
+      }
+    }
     setOpenSnackbar(true);
     handleCloseMenu();
   };
@@ -520,6 +577,8 @@ const ChatPage = () => {
         };
 
         setMessages(prev => [...prev, newMessage]);
+        setSessionLastSeenId(null);
+        setSessionLastSeen(new Date().toISOString());
         setInputText('');
         setSelectedImage(null);
         setReplyingMessage(null);
@@ -602,10 +661,17 @@ const ChatPage = () => {
               </Typography>
             </Box>
           </Box>
+
+          <IconButton 
+            onClick={(e) => setHeaderMenuAnchor(e.currentTarget)} 
+            sx={{ color: 'var(--text-primary)', ml: 'auto' }}
+          >
+            <MoreVertIcon />
+          </IconButton>
         </Box>
 
         {/* Pinned Messages Banner */}
-        {messages.filter(m => m.pinned && !m.deleted).length > 0 && (
+        {displayedMessages.filter(m => m.pinned && !m.deleted).length > 0 && (
           <Box sx={{ 
             bgcolor: 'background.paper', 
             borderBottom: '1px solid var(--divider)', 
@@ -617,7 +683,7 @@ const ChatPage = () => {
             zIndex: 10
           }}>
             <Typography variant="body2" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              📌 Pinned Messages ({messages.filter(m => m.pinned && !m.deleted).length})
+              📌 Pinned Messages ({displayedMessages.filter(m => m.pinned && !m.deleted).length})
             </Typography>
             <Button 
               size="small" 
@@ -635,161 +701,184 @@ const ChatPage = () => {
           onScroll={handleScroll}
           sx={{ position: 'relative' }}
         >
-          {messages.map((msg) => {
-            const isImageMsg = msg.text?.startsWith('[IMAGE]:') && !msg.deleted;
-            let imageUrl = '';
-            let caption = '';
-            if (isImageMsg) {
-              const parts = msg.text.substring(8).split('|');
-              imageUrl = parts[0];
-              caption = parts[1] || '';
-            }
+          {(() => {
+            let renderedUnseenBar = false;
+            const lastSeenIndex = sessionLastSeenId
+              ? displayedMessages.findIndex(m => String(m.id) === String(sessionLastSeenId))
+              : -1;
 
-            const isMe = msg.senderId === user.id;
-            return (
-              <Box 
-                key={msg.id} 
-                id={`msg-${msg.id}`}
-                className={`message-bubble-wrapper ${isMe ? 'is-me' : 'is-other'}`}
-                sx={{ gap: 1.5, mb: 1, alignItems: 'flex-end' }}
-              >
-                {!isMe && (
-                  <Avatar 
-                    src={resolvedAvatar} 
-                    sx={{ width: 32, height: 32, fontSize: '0.8rem', bgcolor: 'primary.main', cursor: resolvedAvatar ? 'pointer' : 'default', mb: 0.5 }}
-                    onClick={() => {
-                      if (resolvedAvatar) {
-                        setLightboxUrl(resolvedAvatar);
-                        setLightboxName(displayName);
-                        setLightboxOpen(true);
-                      }
-                    }}
-                  >
-                    {!resolvedAvatar && initials}
-                  </Avatar>
-                )}
-                <Paper 
-                  className={`message-bubble ${isMe ? 'me' : 'other'} ${msg.id === highlightMessageId ? 'pulse-highlight' : ''}`}
-                  onClick={(e) => handleMessageBubbleClick(e, msg)}
-                  sx={{
-                    transition: 'all 0.5s ease',
-                    cursor: msg.deleted ? 'default' : 'pointer',
-                    position: 'relative',
-                    border: msg.id === highlightMessageId ? '1.5px solid #FFD54F' : 'none',
-                    boxShadow: msg.id === highlightMessageId ? '0 0 12px rgba(255, 213, 79, 0.6)' : undefined,
-                    backgroundColor: msg.id === highlightMessageId 
-                      ? '#FFF9C4 !important' 
-                      : undefined
-                  }}
-                >
-                  {msg.forwarded && (
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 0.5, 
-                        fontStyle: 'italic', 
-                        opacity: 0.7, 
-                        fontSize: '0.68rem', 
-                        mb: 0.5,
-                        color: msg.senderId === user.id ? 'rgba(255,255,255,0.8)' : 'text.secondary'
-                      }}
-                    >
-                      <ForwardIcon sx={{ fontSize: 12 }} /> Forwarded
-                    </Typography>
-                  )}
+            return displayedMessages.map((msg, msgIdx) => {
+              const isImageMsg = msg.text?.startsWith('[IMAGE]:') && !msg.deleted;
+              let imageUrl = '';
+              let caption = '';
+              if (isImageMsg) {
+                const parts = msg.text.substring(8).split('|');
+                imageUrl = parts[0];
+                caption = parts[1] || '';
+              }
 
-                  {msg.replyToId && (
+              const isMe = Number(msg.senderId) === Number(user.id);
+              
+              const isAfterLastSeen = lastSeenIndex !== -1
+                ? msgIdx > lastSeenIndex
+                : sessionLastSeen
+                  ? new Date(msg.timestamp).getTime() > new Date(sessionLastSeen).getTime()
+                  : false;
+
+              const isUnseen = !isMe && isAfterLastSeen && initialMessageIds.current.has(String(msg.id));
+              const showUnseenBar = isUnseen && !renderedUnseenBar;
+              if (showUnseenBar) {
+                renderedUnseenBar = true;
+              }
+
+              return (
+                <React.Fragment key={msg.id}>
+                  {showUnseenBar && (
                     <Box 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleScrollToMessage(msg.replyToId);
-                      }}
+                      className="unseen-messages-bar" 
                       sx={{ 
-                        bgcolor: msg.senderId === user.id ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.05)', 
-                        borderLeft: `3px solid ${msg.senderId === user.id ? '#fff' : 'var(--primary-color)'}`, 
-                        p: 0.75, 
-                        mb: 0.75, 
-                        borderRadius: 1, 
-                        cursor: 'pointer',
-                        opacity: 0.9,
-                        '&:hover': { opacity: 1 }
+                        width: '100%', 
+                        py: 1, 
+                        my: 2, 
+                        bgcolor: 'rgba(61,92,255,0.08)', 
+                        borderTop: '1px solid rgba(61,92,255,0.15)', 
+                        borderBottom: '1px solid rgba(61,92,255,0.15)', 
+                        color: 'var(--primary-color)',
+                        textAlign: 'center',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        letterSpacing: '0.05em',
+                        borderRadius: 1,
+                        backdropFilter: 'blur(4px)',
+                        boxShadow: '0 2px 8px rgba(61,92,255,0.03)'
                       }}
                     >
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          fontWeight: 700, 
-                          color: msg.senderId === user.id ? '#fff' : 'primary.main', 
-                          display: 'block',
-                          fontSize: '0.7rem'
-                        }}
-                      >
-                        Replying to {msg.replyToUsername || 'User'}
-                      </Typography>
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          color: msg.senderId === user.id ? 'rgba(255,255,255,0.9)' : 'text.secondary', 
-                          display: 'block', 
-                          maxWidth: '240px',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                      >
-                        {msg.replyToMessage}
-                      </Typography>
+                      Unseen Messages
                     </Box>
                   )}
-
-                  {msg.deleted ? (
-                    <Typography variant="body1" sx={{ fontStyle: 'italic', color: msg.senderId === user.id ? 'rgba(255,255,255,0.6)' : 'text.secondary' }}>
-                      This message was deleted
-                    </Typography>
-                  ) : isImageMsg ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      <img 
-                        src={imageUrl} 
-                        alt="chat attachment"
-                        style={{ maxWidth: '240px', maxHeight: '240px', borderRadius: 8, cursor: 'pointer', objectFit: 'cover' }} 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLightboxUrl(imageUrl);
-                          setLightboxIsProfile(false);
-                          setLightboxOpen(true);
+                  <Box 
+                    id={`msg-${msg.id}`}
+                    className={`message-bubble-wrapper ${isMe ? 'is-me' : 'is-other'}`}
+                    sx={{ gap: 1.5, mb: 1, alignItems: 'flex-end' }}
+                  >
+                    {!isMe && (
+                      <Avatar 
+                        src={resolvedAvatar} 
+                        sx={{ width: 32, height: 32, fontSize: '0.8rem', bgcolor: 'primary.main', cursor: resolvedAvatar ? 'pointer' : 'default', mb: 0.5 }}
+                        onClick={() => {
+                          if (resolvedAvatar) {
+                            setLightboxUrl(resolvedAvatar);
+                            setLightboxName(displayName);
+                            setLightboxOpen(true);
+                          }
                         }}
-                      />
-                      {caption && <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{caption}</Typography>}
-                    </Box>
-                  ) : (
-                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.text}</Typography>
-                  )}
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mt: 0.5, gap: 0.5 }}>
-                    {msg.pinned && (
-                      <PushPinIcon sx={{ fontSize: 11, color: msg.senderId === user.id ? 'rgba(255,255,255,0.7)' : 'text.secondary', transform: 'rotate(45deg)' }} />
+                      >
+                        {!resolvedAvatar && initials}
+                      </Avatar>
                     )}
-                    <Typography variant="caption" className="message-time" sx={{ m: 0 }}>
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Typography>
-                    {msg.senderId === user.id && !msg.deleted && (
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        {msg.read ? (
-                          <DoneAllIcon sx={{ fontSize: 13, color: '#FFD54F' }} />
-                        ) : msg.delivered ? (
-                          <DoneAllIcon sx={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }} />
-                        ) : (
-                          <DoneIcon sx={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }} />
+                    <Paper 
+                      className={`message-bubble ${isMe ? 'me' : 'other'} ${msg.id === highlightMessageId ? 'pulse-highlight' : ''}`}
+                      onClick={(e) => handleMessageBubbleClick(e, msg)}
+                      sx={{
+                        transition: 'all 0.5s ease',
+                        cursor: msg.deleted ? 'default' : 'pointer',
+                        position: 'relative',
+                        border: msg.id === highlightMessageId ? '1.5px solid #FFD54F' : 'none',
+                        boxShadow: msg.id === highlightMessageId ? '0 0 12px rgba(255, 213, 79, 0.6)' : undefined,
+                        backgroundColor: msg.id === highlightMessageId 
+                          ? '#FFF9C4 !important' 
+                          : undefined
+                      }}
+                    >
+                      {msg.forwarded && (
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 0.5, 
+                            fontStyle: 'italic', 
+                            color: isMe ? 'rgba(255,255,255,0.7)' : 'text.secondary',
+                            mb: 0.5
+                          }}
+                        >
+                          <ForwardIcon sx={{ fontSize: 12 }} /> Forwarded
+                        </Typography>
+                      )}
+
+                      {msg.replyToId && (
+                        <Box 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleScrollToMessage(msg.replyToId);
+                          }}
+                          sx={{ 
+                            borderLeft: `3px solid ${isMe ? '#fff' : 'var(--primary-color)'}`,
+                            pl: 1, 
+                            mb: 1, 
+                            cursor: 'pointer',
+                            bgcolor: isMe ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.03)',
+                            borderRadius: '0 4px 4px 0',
+                            p: 0.75
+                          }}
+                        >
+                          <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', color: isMe ? '#fff' : 'primary.main' }}>
+                            {msg.replyToUsername}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: isMe ? 'rgba(255,255,255,0.8)' : 'text.secondary', display: 'block' }} noWrap>
+                            {msg.replyToMessage}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {msg.deleted ? (
+                        <Typography variant="body1" sx={{ fontStyle: 'italic', color: isMe ? 'rgba(255,255,255,0.6)' : 'text.secondary' }}>
+                          This message was deleted
+                        </Typography>
+                      ) : isImageMsg ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          <img 
+                            src={imageUrl} 
+                            alt="chat attachment"
+                            style={{ maxWidth: '240px', maxHeight: '240px', borderRadius: 8, cursor: 'pointer', objectFit: 'cover' }} 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLightboxUrl(imageUrl);
+                              setLightboxIsProfile(false);
+                              setLightboxOpen(true);
+                            }}
+                          />
+                          {caption && <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{caption}</Typography>}
+                        </Box>
+                      ) : (
+                        <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.text}</Typography>
+                      )}
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mt: 0.5, gap: 0.5 }}>
+                        {msg.pinned && (
+                          <PushPinIcon sx={{ fontSize: 11, color: isMe ? 'rgba(255,255,255,0.7)' : 'text.secondary', transform: 'rotate(45deg)' }} />
+                        )}
+                        <Typography variant="caption" className="message-time" sx={{ m: 0 }}>
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Typography>
+                        {isMe && !msg.deleted && (
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {msg.read ? (
+                              <DoneAllIcon sx={{ fontSize: 13, color: '#FFD54F' }} />
+                            ) : msg.delivered ? (
+                              <DoneAllIcon sx={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }} />
+                            ) : (
+                              <DoneIcon sx={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }} />
+                            )}
+                          </Box>
                         )}
                       </Box>
-                    )}
+                    </Paper>
                   </Box>
-                </Paper>
-              </Box>
-            );
-          })}
+                </React.Fragment>
+              );
+            });
+          })()}
           <div ref={messagesEndRef} />
         </Box>
 
@@ -802,11 +891,9 @@ const ChatPage = () => {
               right: 24,
               backgroundColor: 'primary.main',
               color: 'white',
-              boxShadow: '0 4px 20px rgba(16, 185, 129, 0.4)',
               '&:hover': {
-                backgroundColor: '#059669',
+                backgroundColor: 'primary.main',
                 transform: 'scale(1.15)',
-                boxShadow: '0 6px 24px rgba(16, 185, 129, 0.6)'
               },
               transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
               zIndex: 10
@@ -1096,14 +1183,14 @@ const ChatPage = () => {
       <ImageEditorModal
         open={editorOpen}
         onClose={() => { setEditorOpen(false); setPendingImagesQueue([]); }}
+        images={pendingImagesQueue}
         imageSrc={editorImageSrc}
-        onSave={(editedBase64) => {
-          setSelectedImage(editedBase64);
+        onSend={(editedImages) => {
+          editedImages.forEach(img => {
+            sendBase64ImageMessage(img);
+          });
           setEditorOpen(false);
-        }}
-        showSendButton={editorShowSend}
-        onSend={(editedBase64) => {
-          sendEditedImage(editedBase64);
+          setPendingImagesQueue([]);
         }}
       />
 
@@ -1118,7 +1205,11 @@ const ChatPage = () => {
           <ReplyIcon sx={{ mr: 1, fontSize: 20 }} /> Reply
         </MenuItem>
         <MenuItem onClick={handleStarToggle}>
-          <StarIcon sx={{ mr: 1, fontSize: 20, color: '#f59e0b' }} /> Star Message
+          <StarIcon sx={{ mr: 1, fontSize: 20, color: '#f59e0b' }} /> {
+            JSON.parse(localStorage.getItem('starred_messages_list') || '[]').some(m => String(m.id) === String(menuMessage?.id)) 
+              ? "Unstar Message" 
+              : "Star Message"
+          }
         </MenuItem>
         <MenuItem onClick={handleCopyMessage}>
           <CopyIcon sx={{ mr: 1, fontSize: 20 }} /> Copy
@@ -1129,7 +1220,7 @@ const ChatPage = () => {
         <MenuItem onClick={handleForwardClick}>
           <ForwardIcon sx={{ mr: 1, fontSize: 20 }} /> Forward
         </MenuItem>
-        {menuMessage?.senderId === user.id && (
+        {Number(menuMessage?.senderId) === Number(user?.id) && (
           <MenuItem onClick={handleDeleteMessage} sx={{ color: 'error.main' }}>
             <DeleteIcon sx={{ mr: 1, fontSize: 20 }} /> Delete
           </MenuItem>
@@ -1199,7 +1290,7 @@ const ChatPage = () => {
         <DialogContent dividers sx={{ p: 0 }}>
           <List>
             {allUsers
-              .filter(u => u.id !== user.id && !user.blockedUserIds?.includes(String(u.id)) && !u.blockedUserIds?.includes(String(user.id)))
+              .filter(u => u.id !== user?.id && !user?.blockedUserIds?.includes(String(u.id)) && !u.blockedUserIds?.includes(String(user?.id)))
               .map(target => {
                 const uAvatar = localStorage.getItem(`avatar_${target.id}`) || target.avatar || '';
                 const uName = target.fullname || target.name || target.username || '?';
@@ -1234,6 +1325,58 @@ const ChatPage = () => {
         message={snackbarMessage}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
+
+      {/* Header More Options Menu */}
+      <Menu
+        anchorEl={headerMenuAnchor}
+        open={Boolean(headerMenuAnchor)}
+        onClose={() => setHeaderMenuAnchor(null)}
+        PaperProps={{ sx: { borderRadius: 1.5, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}
+      >
+        <MenuItem onClick={() => {
+          setHeaderMenuAnchor(null);
+          setOpenClearConfirm(true);
+        }} sx={{ fontSize: '0.85rem' }}>
+          Clear Chat History
+        </MenuItem>
+      </Menu>
+
+      {/* Clear Chat Confirmation Dialog */}
+      <Dialog
+        open={openClearConfirm}
+        onClose={() => setOpenClearConfirm(false)}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 340 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Clear chat history?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+            Are you sure you want to clear your chat history with this user? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => setOpenClearConfirm(false)}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            onClick={() => {
+              localStorage.setItem(`sophiapath_clear_time_${user.id}_${userId}`, new Date().toISOString());
+              setClearTrigger(prev => prev + 1);
+              setOpenClearConfirm(false);
+            }}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Clear
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

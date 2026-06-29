@@ -5,6 +5,8 @@ import {
   TextField,
   InputAdornment,
   Button,
+  Avatar,
+  Card,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -17,8 +19,58 @@ import {
   FormControlLabel,
   List,
   ListItem,
-  ListItemText
+  ListItemText,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
+
+export const COMMUNITY_CATEGORIES = [
+  'Software Engineering',
+  'Artificial Intelligence & ML',
+  'Data Science & Analytics',
+  'Cybersecurity & Networking',
+  'Mobile Development',
+  'Cloud Computing & DevOps',
+  'Web Development',
+  'UI/UX Design',
+  'Blockchain & Web3',
+  'Product Management',
+  'Mathematics & Statistics',
+  'Physics & Astronomy',
+  'Chemistry & Material Sciences',
+  'Biology & Biotechnology',
+  'Medicine & Health Sciences',
+  'Economics & Finance',
+  'History & Social Sciences',
+  'Languages & Linguistics',
+  'Art & Creative Writing',
+  'Business & Entrepreneurship'
+];
+
+export const CATEGORY_STYLES = {
+  'Software Engineering': { icon: '💻', color: '#3D5CFF', bg: 'rgba(61,92,255,0.08)' },
+  'Artificial Intelligence & ML': { icon: '🧠', color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)' },
+  'Data Science & Analytics': { icon: '📊', color: '#10B981', bg: 'rgba(16,185,129,0.08)' },
+  'Cybersecurity & Networking': { icon: '🛡️', color: '#EF4444', bg: 'rgba(239,68,68,0.08)' },
+  'Mobile Development': { icon: '📱', color: '#EC4899', bg: 'rgba(236,72,153,0.08)' },
+  'Cloud Computing & DevOps': { icon: '☁️', color: '#0EA5E9', bg: 'rgba(14,165,233,0.08)' },
+  'Web Development': { icon: '🌐', color: '#F59E0B', bg: 'rgba(245,158,11,0.08)' },
+  'UI/UX Design': { icon: '🎨', color: '#F43F5E', bg: 'rgba(244,63,94,0.08)' },
+  'Blockchain & Web3': { icon: '⛓️', color: '#6366F1', bg: 'rgba(99,102,241,0.08)' },
+  'Product Management': { icon: '🚀', color: '#14B8A6', bg: 'rgba(20,184,166,0.08)' },
+  'Mathematics & Statistics': { icon: '📐', color: '#06B6D4', bg: 'rgba(6,182,212,0.08)' },
+  'Physics & Astronomy': { icon: '🌌', color: '#3F51B5', bg: 'rgba(63,81,181,0.08)' },
+  'Chemistry & Material Sciences': { icon: '🧪', color: '#4CAF50', bg: 'rgba(76,175,80,0.08)' },
+  'Biology & Biotechnology': { icon: '🧬', color: '#009688', bg: 'rgba(0,150,136,0.08)' },
+  'Medicine & Health Sciences': { icon: '🏥', color: '#E91E63', bg: 'rgba(233,30,99,0.08)' },
+  'Economics & Finance': { icon: '📈', color: '#FF5722', bg: 'rgba(255,87,34,0.08)' },
+  'History & Social Sciences': { icon: '🏛️', color: '#795548', bg: 'rgba(121,85,72,0.08)' },
+  'Languages & Linguistics': { icon: '🗣️', color: '#9C27B0', bg: 'rgba(156,39,176,0.08)' },
+  'Art & Creative Writing': { icon: '✍️', color: '#673AB7', bg: 'rgba(103,58,183,0.08)' },
+  'Business & Entrepreneurship': { icon: '💼', color: '#607D8B', bg: 'rgba(96,125,139,0.08)' }
+};
 import {
   Search as SearchIcon,
   Add as AddIcon,
@@ -37,11 +89,11 @@ import './Community.css';
 
 const CommunityListPage = () => {
   const { user } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => localStorage.getItem('sophiapath_community_search_query') || '');
   const [communities, setCommunities] = useState([]);
   
   // Tabs & Lists
-  const [activeTab, setActiveTab] = useState(0); // 0 = My Communities, 1 = Discover, 2 = Saved Posts
+  const [activeTab, setActiveTab] = useState(() => Number(localStorage.getItem('sophiapath_community_active_tab') || '0'));
   const [savedQuestions, setSavedQuestions] = useState([]);
 
   // Rules dialog states
@@ -53,25 +105,75 @@ const CommunityListPage = () => {
   const [openAgeWarning, setOpenAgeWarning] = useState(false);
   const [nsfwCommunityToJoin, setNsfwCommunityToJoin] = useState(null);
 
+  // Leave & Ownership transfer states
+  const [openLeaveDialog, setOpenLeaveDialog] = useState(false);
+  const [selectedLeaveCommunity, setSelectedLeaveCommunity] = useState(null);
+  const [selectedNewOwnerId, setSelectedNewOwnerId] = useState('');
+
   const [openCreate, setOpenCreate] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [icon, setIcon] = useState('💻');
+  const [icon, setIcon] = useState('⭐');
+  const [category, setCategory] = useState('Software Engineering');
 
   const [openEdit, setOpenEdit] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [editIcon, setEditIcon] = useState('💻');
+  const [editIcon, setEditIcon] = useState('⭐');
+
+  // Custom Alert Modal state
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+
+  const showCustomAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertOpen(true);
+  };
+
+  // Custom Confirmation Dialog state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [onConfirmCallback, setOnConfirmCallback] = useState(null);
+
+  const showConfirmDialog = (title, message, callback) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setOnConfirmCallback(() => callback);
+    setConfirmOpen(true);
+  };
   
   const navigate = useNavigate();
 
   const loadSavedPosts = async () => {
-    const savedIds = JSON.parse(localStorage.getItem('saved_posts_list') || '[]');
-    if (savedIds.length > 0) {
-      const posts = await Promise.all(savedIds.map(id => socialStore.getQuestionById(id)));
-      setSavedQuestions(posts.filter(Boolean));
-    } else {
+    try {
+      const savedIds = JSON.parse(localStorage.getItem('saved_posts_list') || '[]');
+      if (savedIds.length > 0) {
+        const posts = await Promise.all(
+          savedIds.map(async (id) => {
+            try {
+              return await socialStore.getQuestionById(id);
+            } catch (err) {
+              return null;
+            }
+          })
+        );
+        const validPosts = posts.filter(Boolean);
+        setSavedQuestions(validPosts);
+
+        // Clean up stale IDs
+        const validIds = validPosts.map(p => p.id);
+        if (validIds.length !== savedIds.length) {
+          localStorage.setItem('saved_posts_list', JSON.stringify(validIds));
+        }
+      } else {
+        setSavedQuestions([]);
+      }
+    } catch (e) {
+      console.error(e);
       setSavedQuestions([]);
     }
   };
@@ -99,48 +201,60 @@ const CommunityListPage = () => {
   const handleToggleJoin = async (e, community) => {
     e.stopPropagation();
     
-    if (community.isJoined) {
-      // Leave immediately
-      await socialStore.toggleJoinCommunity(community.id);
-      loadCommunities();
-    } else {
-      // Join process
-      if (community.isNSFW && !user?.ageCheckedNSFW) { // simple check or prompt
-        setNsfwCommunityToJoin(community);
-        setOpenAgeWarning(true);
-        return;
-      }
-      
-      if (community.rules && community.rules.length > 0) {
-        setRulesCommunity(community);
-        setRulesAccepted(false);
-        setRulesDialogOpen(true);
+    try {
+      if (community.isJoined) {
+        setSelectedLeaveCommunity(community);
+        setSelectedNewOwnerId('');
+        setOpenLeaveDialog(true);
       } else {
-        await socialStore.toggleJoinCommunity(community.id);
-        loadCommunities();
+        if (community.isNSFW && !user?.ageCheckedNSFW) {
+          setNsfwCommunityToJoin(community);
+          setOpenAgeWarning(true);
+          return;
+        }
+        
+        if (community.rules && community.rules.length > 0) {
+          setRulesCommunity(community);
+          setRulesAccepted(false);
+          setRulesDialogOpen(true);
+        } else {
+          await socialStore.toggleJoinCommunity(community.id);
+          loadCommunities();
+        }
       }
+    } catch (err) {
+      showCustomAlert("Action Failed", err.message);
     }
   };
 
   const handleRulesJoinSubmit = async () => {
     if (!rulesCommunity || !rulesAccepted) return;
-    await socialStore.toggleJoinCommunity(rulesCommunity.id);
-    setRulesDialogOpen(false);
-    setRulesCommunity(null);
-    setRulesAccepted(false);
-    loadCommunities();
+    try {
+      await socialStore.toggleJoinCommunity(rulesCommunity.id);
+      setRulesDialogOpen(false);
+      setRulesCommunity(null);
+      setRulesAccepted(false);
+      loadCommunities();
+    } catch (err) {
+      showCustomAlert("Action Failed", err.message);
+    }
   };
 
   const handleCreateSubmit = async () => {
     if (!name.trim()) return;
-    const created = await socialStore.createCommunity(name, description, icon);
-    if (created) {
-      setName('');
-      setDescription('');
-      setIcon('💻');
-      setOpenCreate(false);
-      loadCommunities();
-      navigate(`/communities/${created.id}`);
+    try {
+      const created = await socialStore.createCommunity(name, description, icon, false, false, [], category);
+      if (created) {
+        setName('');
+        setDescription('');
+        setIcon('⭐');
+        setCategory('Software Engineering');
+        setOpenCreate(false);
+        loadCommunities();
+        navigate(`/communities/${created.id}`);
+      }
+    } catch (err) {
+      showCustomAlert("Action Failed", err.message);
     }
   };
 
@@ -164,12 +278,16 @@ const CommunityListPage = () => {
 
   const handleDeleteClick = async (e, communityId) => {
     e.stopPropagation();
-    if (window.confirm("Are you sure you want to delete this community? This action is permanent and will delete all rooms and posts.")) {
-      const deleted = await socialStore.deleteCommunity(communityId);
-      if (deleted) {
-        loadCommunities();
+    showConfirmDialog(
+      "Delete Community?",
+      "Are you sure you want to delete this community? This action is permanent and will delete all rooms and posts.",
+      async () => {
+        const deleted = await socialStore.deleteCommunity(communityId);
+        if (deleted) {
+          loadCommunities();
+        }
       }
-    }
+    );
   };
 
   const displayCommunities = useMemo(() => {
@@ -186,7 +304,11 @@ const CommunityListPage = () => {
         return joined;
       }
     } else if (activeTab === 1) {
-      return filteredCommunities.filter(c => !c.isJoined);
+      return filteredCommunities
+        .filter(c => !c.isJoined && !c.isPrivate)
+        .sort((a, b) => (b.membersCount || 0) - (a.membersCount || 0));
+    } else if (activeTab === 3) {
+      return filteredCommunities.filter(c => c.isPrivate);
     }
     return [];
   }, [filteredCommunities, activeTab]);
@@ -202,7 +324,11 @@ const CommunityListPage = () => {
             variant="outlined"
             size="small"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSearchQuery(val);
+              localStorage.setItem('sophiapath_community_search_query', val);
+            }}
             sx={{ width: { xs: '100%', sm: 300 } }}
             InputProps={{
               startAdornment: (
@@ -217,7 +343,10 @@ const CommunityListPage = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => setOpenCreate(true)}
+            onClick={(e) => {
+              e.currentTarget.blur();
+              setOpenCreate(true);
+            }}
             sx={{
               borderRadius: 4,
               textTransform: 'none',
@@ -231,7 +360,10 @@ const CommunityListPage = () => {
 
         <Tabs
           value={activeTab}
-          onChange={(e, val) => setActiveTab(val)}
+          onChange={(e, val) => {
+            setActiveTab(val);
+            localStorage.setItem('sophiapath_community_active_tab', String(val));
+          }}
           indicatorColor="primary"
           textColor="primary"
           sx={{ borderBottom: 1, borderColor: 'divider' }}
@@ -239,6 +371,7 @@ const CommunityListPage = () => {
           <Tab label="My Communities" sx={{ textTransform: 'none', fontWeight: 700 }} />
           <Tab label="Discover" sx={{ textTransform: 'none', fontWeight: 700 }} />
           <Tab label="Saved Posts" sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab label="Private (Test)" sx={{ textTransform: 'none', fontWeight: 700, color: 'orange' }} />
         </Tabs>
       </Box>
 
@@ -250,7 +383,9 @@ const CommunityListPage = () => {
               <Typography color="text.secondary">
                 {activeTab === 0 
                   ? "You haven't joined any communities yet. Switch to the Discover tab to find one!" 
-                  : "No communities found."}
+                  : activeTab === 3
+                    ? "No private communities found."
+                    : "No communities found."}
               </Typography>
             </Box>
           ) : (
@@ -261,12 +396,6 @@ const CommunityListPage = () => {
                 onClick={() => navigate(`/communities/${c.id}`)}
                 sx={{ cursor: 'pointer', borderRadius: 2, position: 'relative' }}
               >
-                {/* NSFW tag indicator */}
-                {c.isNSFW && (
-                  <Box sx={{ position: 'absolute', top: 12, left: 12, bgcolor: 'error.main', color: 'white', px: 1, py: 0.2, borderRadius: 1, fontSize: '0.65rem', fontWeight: 800, zIndex: 10 }}>
-                    18+ NSFW
-                  </Box>
-                )}
 
                 {/* Banner gradient */}
                 <Box className="community-card-banner" sx={{ background: c.bannerColor }}>
@@ -283,6 +412,61 @@ const CommunityListPage = () => {
                   <Typography variant="body2" className="community-card-desc">
                     {c.description}
                   </Typography>
+
+                  {/* Category, Privacy, NSFW tags */}
+                  <Stack direction="row" spacing={0.8} sx={{ mt: 1.5, mb: 1, flexWrap: 'wrap', gap: 0.5 }}>
+                    <Box 
+                      sx={{ 
+                        bgcolor: (CATEGORY_STYLES[c.category] || CATEGORY_STYLES['Software Engineering']).bg, 
+                        color: (CATEGORY_STYLES[c.category] || CATEGORY_STYLES['Software Engineering']).color, 
+                        px: 1, 
+                        py: 0.3, 
+                        borderRadius: 1.5, 
+                        fontSize: '0.68rem', 
+                        fontWeight: 700, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 0.5 
+                      }}
+                    >
+                      {(CATEGORY_STYLES[c.category] || CATEGORY_STYLES['Software Engineering']).icon} {c.category || 'Software Engineering'}
+                    </Box>
+                    <Box 
+                      sx={{ 
+                        bgcolor: 'action.hover', 
+                        color: 'text.secondary', 
+                        px: 1, 
+                        py: 0.3, 
+                        borderRadius: 1.5, 
+                        fontSize: '0.68rem', 
+                        fontWeight: 700, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 0.5,
+                        border: '1px solid var(--divider)'
+                      }}
+                    >
+                      {c.isPrivate ? '🔒 Private' : '🌐 Public'}
+                    </Box>
+                    {c.isNSFW && (
+                      <Box 
+                        sx={{ 
+                          bgcolor: '#ef4444', 
+                          color: 'white', 
+                          px: 1, 
+                          py: 0.3, 
+                          borderRadius: 1.5, 
+                          fontSize: '0.68rem', 
+                          fontWeight: 800, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 0.5 
+                        }}
+                      >
+                        ⚠️ {c.nsfwAgeLimit || 18}+ NSFW
+                      </Box>
+                    )}
+                  </Stack>
 
                   {/* Footer info */}
                   <Box className="community-card-footer">
@@ -337,7 +521,7 @@ const CommunityListPage = () => {
             savedQuestions.map((post) => (
               <Card
                 key={post.id}
-                onClick={() => navigate(`/communities/${post.room?.communityId || 1}/room/${post.roomId}/question/${post.id}`)}
+                onClick={() => navigate(`/communities/${post.room?.communityId || post.communityId || 1}/room/${post.roomId || 1}/question/${post.id}`)}
                 sx={{
                   p: 2.5,
                   borderRadius: 2,
@@ -459,13 +643,17 @@ const CommunityListPage = () => {
             color="error"
             onClick={async () => {
               if (nsfwCommunityToJoin) {
-                if (nsfwCommunityToJoin.rules && nsfwCommunityToJoin.rules.length > 0) {
-                  setRulesCommunity(nsfwCommunityToJoin);
-                  setRulesAccepted(false);
-                  setRulesDialogOpen(true);
-                } else {
-                  await socialStore.toggleJoinCommunity(nsfwCommunityToJoin.id);
-                  loadCommunities();
+                try {
+                  if (nsfwCommunityToJoin.rules && nsfwCommunityToJoin.rules.length > 0) {
+                    setRulesCommunity(nsfwCommunityToJoin);
+                    setRulesAccepted(false);
+                    setRulesDialogOpen(true);
+                  } else {
+                    await socialStore.toggleJoinCommunity(nsfwCommunityToJoin.id);
+                    loadCommunities();
+                  }
+                } catch (err) {
+                  showCustomAlert("Action Failed", err.message);
                 }
               }
               setOpenAgeWarning(false);
@@ -531,9 +719,32 @@ const CommunityListPage = () => {
             inputProps={{ maxLength: 300 }}
           />
 
+          <FormControl fullWidth size="small">
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={category}
+              label="Category"
+              onChange={(e) => setCategory(e.target.value)}
+              sx={{ borderRadius: 1.5 }}
+              MenuProps={{
+                PaperProps: {
+                  elevation: 1,
+                  sx: {
+                    maxHeight: 300,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+                  }
+                }
+              }}
+            >
+              {COMMUNITY_CATEGORIES.map((cat) => (
+                <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="subtitle2">Select Community Icon:</Typography>
-            {['💻', '🛡️', '🏛️', '🧪', '🧠', '⚙️'].map((emoji) => (
+            {['⭐', '🌟', '🏫', '📚', '🎯', '🔥'].map((emoji) => (
               <Button
                 key={emoji}
                 variant={icon === emoji ? "contained" : "outlined"}
@@ -609,7 +820,7 @@ const CommunityListPage = () => {
 
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="subtitle2">Select Community Icon:</Typography>
-            {['💻', '🛡️', '🏛️', '🧪', '🧠', '⚙️'].map((emoji) => (
+            {['⭐', '🌟', '🏫', '📚', '🎯', '🔥'].map((emoji) => (
               <Button
                 key={emoji}
                 variant={editIcon === emoji ? "contained" : "outlined"}
@@ -637,6 +848,231 @@ const CommunityListPage = () => {
           >
             Save Changes
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Custom Theme Alert Dialog */}
+      <Dialog 
+        open={alertOpen} 
+        onClose={() => setAlertOpen(false)}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 360 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>{alertTitle}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+            {alertMessage}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button 
+            variant="contained" 
+            onClick={() => setAlertOpen(false)}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Okay
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Themed Confirmation Dialog */}
+      <Dialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 340 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>{confirmTitle}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            {confirmMessage}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => setConfirmOpen(false)}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            onClick={() => {
+              if (onConfirmCallback) onConfirmCallback();
+              setConfirmOpen(false);
+            }}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Leave Community Dialog */}
+      <Dialog
+        open={openLeaveDialog}
+        onClose={() => {
+          setOpenLeaveDialog(false);
+          setSelectedLeaveCommunity(null);
+          setSelectedNewOwnerId('');
+        }}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 360 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Leave Community</DialogTitle>
+        <DialogContent>
+          {selectedLeaveCommunity && Number(selectedLeaveCommunity.ownerId) === Number(user?.id) ? (
+            (() => {
+              const mods = (selectedLeaveCommunity.members || []).filter(m => 
+                selectedLeaveCommunity.moderatorIds?.includes(String(m.id)) && Number(m.id) !== Number(user?.id)
+              );
+              
+              if (mods.length === 0) {
+                return (
+                  <Stack spacing={2} sx={{ mt: 1 }}>
+                    <Typography sx={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      You are the owner of this community. You cannot leave without assigning another owner, and there are currently no moderators to promote to owner.
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.875rem', color: 'primary.main', fontWeight: 600 }}>
+                      Please promote at least one member to Moderator inside the community first.
+                    </Typography>
+                  </Stack>
+                );
+              }
+              
+              return (
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                  <Typography sx={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    As the owner, you must assign another owner from one of the moderators before you can leave.
+                  </Typography>
+                  <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                    <InputLabel id="select-new-owner-label">Select New Owner</InputLabel>
+                    <Select
+                      labelId="select-new-owner-label"
+                      value={selectedNewOwnerId}
+                      label="Select New Owner"
+                      onChange={(e) => setSelectedNewOwnerId(e.target.value)}
+                      sx={{ borderRadius: 1.5 }}
+                    >
+                      {mods.map(mod => {
+                        const name = mod.fullname || mod.name || mod.username || `User #${mod.id}`;
+                        return (
+                          <MenuItem key={mod.id} value={mod.id}>
+                            {name}
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                  </FormControl>
+                </Stack>
+              );
+            })()
+          ) : (
+            <Typography sx={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Are you sure you want to leave <strong>{selectedLeaveCommunity?.name}</strong>?
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => {
+              setOpenLeaveDialog(false);
+              setSelectedLeaveCommunity(null);
+              setSelectedNewOwnerId('');
+            }}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          {selectedLeaveCommunity && Number(selectedLeaveCommunity.ownerId) === Number(user?.id) ? (
+            (() => {
+              const mods = (selectedLeaveCommunity.members || []).filter(m => 
+                selectedLeaveCommunity.moderatorIds?.includes(String(m.id)) && Number(m.id) !== Number(user?.id)
+              );
+              
+              if (mods.length === 0) {
+                return (
+                  <Button 
+                    variant="contained" 
+                    onClick={() => {
+                      setOpenLeaveDialog(false);
+                      setSelectedLeaveCommunity(null);
+                    }}
+                    fullWidth
+                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                  >
+                    Okay
+                  </Button>
+                );
+              }
+              
+              return (
+                <Button 
+                  variant="contained" 
+                  color="error"
+                  disabled={!selectedNewOwnerId}
+                  onClick={async () => {
+                    try {
+                      // 1. Transfer ownership
+                      const updatedComm = await socialStore.updateCommunity(
+                        selectedLeaveCommunity.id,
+                        selectedLeaveCommunity.name,
+                        selectedLeaveCommunity.description,
+                        selectedLeaveCommunity.icon,
+                        selectedLeaveCommunity.isPrivate,
+                        selectedLeaveCommunity.isNSFW,
+                        selectedLeaveCommunity.rules,
+                        selectedLeaveCommunity.category,
+                        selectedLeaveCommunity.maxMembers,
+                        selectedLeaveCommunity.nsfwAgeLimit,
+                        Number(selectedNewOwnerId)
+                      );
+                      
+                      if (updatedComm) {
+                        // 2. Leave community
+                        await socialStore.toggleJoinCommunity(selectedLeaveCommunity.id);
+                        setOpenLeaveDialog(false);
+                        setSelectedLeaveCommunity(null);
+                        setSelectedNewOwnerId('');
+                        loadCommunities();
+                      } else {
+                        showCustomAlert("Error", "Failed to transfer ownership.");
+                      }
+                    } catch (err) {
+                      showCustomAlert("Error", err.message);
+                    }
+                  }}
+                  fullWidth
+                  sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Transfer & Leave
+                </Button>
+              );
+            })()
+          ) : (
+            <Button 
+              variant="contained" 
+              color="error"
+              onClick={async () => {
+                try {
+                  await socialStore.toggleJoinCommunity(selectedLeaveCommunity.id);
+                  setOpenLeaveDialog(false);
+                  setSelectedLeaveCommunity(null);
+                  loadCommunities();
+                } catch (err) {
+                  showCustomAlert("Action Failed", err.message);
+                }
+              }}
+              fullWidth
+              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+            >
+              Leave
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

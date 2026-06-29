@@ -50,7 +50,8 @@ import {
   ForwardToInbox as ForwardIcon,
   Delete as DeleteIcon,
   Star as StarIcon,
-  Poll as PollIcon
+  Poll as PollIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -83,6 +84,50 @@ const GroupChatPage = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [selectedNewMembers, setSelectedNewMembers] = useState([]);
 
+  const [headerMenuAnchor, setHeaderMenuAnchor] = useState(null);
+  const [openClearConfirm, setOpenClearConfirm] = useState(false);
+  const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
+  const [clearTrigger, setClearTrigger] = useState(0);
+
+  const initialMessageIds = useRef(new Set());
+
+  const displayedMessages = useMemo(() => {
+    const clearTime = localStorage.getItem(`sophiapath_clear_time_${user?.id}_${groupId}`);
+    const filtered = clearTime
+      ? messages.filter(m => new Date(m.timestamp).getTime() > new Date(clearTime).getTime())
+      : messages;
+
+    if (filtered.length > 0 && initialMessageIds.current.size === 0) {
+      filtered.forEach(m => initialMessageIds.current.add(String(m.id)));
+    }
+    return filtered;
+  }, [messages, groupId, user?.id, clearTrigger]);
+
+  const [sessionLastSeenId, setSessionLastSeenId] = useState(null);
+  const [sessionLastSeen, setSessionLastSeen] = useState(null);
+
+  useEffect(() => {
+    initialMessageIds.current = new Set();
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!groupId || !user?.id) return;
+    const lastId = localStorage.getItem(`sophiapath_last_seen_id_${user.id}_${groupId}`);
+    const stored = localStorage.getItem(`sophiapath_last_seen_${user.id}_${groupId}`);
+    setSessionLastSeenId(lastId);
+    setSessionLastSeen(stored || new Date().toISOString());
+  }, [groupId, user?.id]);
+
+  useEffect(() => {
+    if (groupId && user?.id && displayedMessages.length > 0) {
+      const lastMsg = displayedMessages[displayedMessages.length - 1];
+      if (lastMsg) {
+        localStorage.setItem(`sophiapath_last_seen_id_${user.id}_${groupId}`, String(lastMsg.id));
+        localStorage.setItem(`sophiapath_last_seen_${user.id}_${groupId}`, new Date().toISOString());
+      }
+    }
+  }, [groupId, user?.id, displayedMessages]);
+
   // Lightbox / Detail view states for group members
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState('');
@@ -105,6 +150,7 @@ const GroupChatPage = () => {
   const [editOnlyAdminsCanEdit, setEditOnlyAdminsCanEdit] = useState(false);
   const [editOnlyAdminsCanSendMessages, setEditOnlyAdminsCanSendMessages] = useState(false);
   const [editOnlyAdminsCanAddMembers, setEditOnlyAdminsCanAddMembers] = useState(false);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
 
   const groupAvatarInputRef = useRef(null);
   const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
@@ -204,6 +250,25 @@ const GroupChatPage = () => {
   const [editorShowSend, setEditorShowSend] = useState(false);
   const [pendingImagesQueue, setPendingImagesQueue] = useState([]);
 
+  const sendBase64ImageMessage = async (editedBase64) => {
+    try {
+      const finalMsg = `[IMAGE]:${editedBase64}`;
+      const msg = await socialStore.sendGroupMessage(
+        groupId,
+        user.id,
+        user.username || 'learner',
+        user.avatar || '',
+        finalMsg
+      );
+
+      if (msg) {
+        setMessages(prev => [...prev, msg]);
+      }
+    } catch (err) {
+      console.error('Failed to send group image:', err);
+    }
+  };
+
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
@@ -218,45 +283,9 @@ const GroupChatPage = () => {
 
     Promise.all(promises).then(dataUrls => {
       setPendingImagesQueue(dataUrls);
-      setEditorImageSrc(dataUrls[0]);
-      setEditorShowSend(false);
       setEditorOpen(true);
     });
     e.target.value = '';
-  };
-
-  const sendEditedImage = async (editedBase64) => {
-    try {
-      const finalMsg = `[IMAGE]:${editedBase64}`;
-      const msg = await socialStore.sendGroupMessage(
-        groupId,
-        user.id,
-        user.username || 'learner',
-        user.avatar || '',
-        finalMsg
-      );
-
-      if (msg) {
-        setMessages(prev => [...prev, msg]);
-        
-        setPendingImagesQueue(prevQueue => {
-          const nextQueue = prevQueue.slice(1);
-          if (nextQueue.length > 0) {
-            setEditorImageSrc(nextQueue[0]);
-            setEditorShowSend(false);
-            setEditorOpen(true);
-          } else {
-            setEditorOpen(false);
-          }
-          return nextQueue;
-        });
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 80);
-      }
-    } catch (err) {
-      console.error('Failed to send edited group image:', err);
-    }
   };
 
   const handleEmojiClick = (emoji) => {
@@ -279,7 +308,21 @@ const GroupChatPage = () => {
         setSearchMessageId(null);
       }
     }
-  }, [searchMessageId, messages]);
+  }, [searchMessageId, displayedMessages]);
+
+  // Auto scroll to message from query parameter on load
+  const queryParams = new URLSearchParams(location.search);
+  const qMessageId = queryParams.get('messageId');
+
+  useEffect(() => {
+    if (displayedMessages.length > 0 && qMessageId) {
+      const timeout = setTimeout(() => {
+        handleScrollToMessage(qMessageId);
+        navigate(location.pathname, { replace: true });
+      }, 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [displayedMessages.length, qMessageId]);
 
   const handleMessageBubbleClick = (event, msg) => {
     if (msg.deleted) return;
@@ -372,18 +415,48 @@ const GroupChatPage = () => {
       list = list.filter(m => String(m.id) !== String(menuMessage.id));
       setSnackbarMessage("Message unstarred!");
     } else {
+      const isImg = menuMessage.text?.startsWith('[IMAGE]:');
+      const textToStore = isImg ? '[IMAGE]:' : menuMessage.text;
       list.push({
         id: menuMessage.id,
         groupId: groupId,
         type: 'group',
-        text: menuMessage.text,
-        senderName: menuMessage.senderId === user.id ? 'You' : (menuMessage.senderName || 'user'),
+        text: textToStore,
+        senderName: Number(menuMessage.senderId) === Number(user?.id) ? 'You' : (menuMessage.senderName || 'user'),
         senderAvatar: menuMessage.senderAvatar,
         timestamp: menuMessage.timestamp
       });
       setSnackbarMessage("Message starred!");
     }
-    localStorage.setItem('starred_messages_list', JSON.stringify(list));
+    
+    // Clean existing entries with heavy image strings to free up storage space
+    const cleaned = list.map(m => {
+      if (m.text && m.text.startsWith('[IMAGE]:') && m.text.length > 500) {
+        return { ...m, text: '[IMAGE]:' };
+      }
+      return m;
+    });
+
+    try {
+      localStorage.setItem('starred_messages_list', JSON.stringify(cleaned));
+    } catch (err) {
+      console.warn("Storage quota exceeded, pruning avatar cache and starred list...", err);
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('avatar_')) {
+            localStorage.removeItem(key);
+          }
+        }
+        localStorage.setItem('starred_messages_list', JSON.stringify(cleaned));
+      } catch (retryErr) {
+        try {
+          localStorage.setItem('starred_messages_list', JSON.stringify(cleaned.slice(-10)));
+        } catch (e) {
+          localStorage.removeItem('starred_messages_list');
+        }
+      }
+    }
     setOpenSnackbar(true);
     handleCloseMenu();
   };
@@ -472,7 +545,7 @@ const GroupChatPage = () => {
       const bName = (b.fullname || b.name || b.username || '').toLowerCase();
       return aName.localeCompare(bName);
     });
-  }, [group?.members, group?.adminIds, group?.createdBy, user.id]);
+  }, [group?.members, group?.adminIds, group?.createdBy, user?.id]);
 
   const handleRemoveMember = async () => {
     if (!menuTargetMember || !group) return;
@@ -525,14 +598,31 @@ const GroupChatPage = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const activePartners = await socialStore.getActiveChats(user.id);
-        const list = activePartners || [];
-        // Exclude current members
+        const token = localStorage.getItem('token');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        
+        // 1. Fetch all users
+        const usersRes = await fetch('/users', { headers });
+        if (!usersRes.ok) return;
+        const allUsersList = await usersRes.json();
+
+        // 2. Fetch conversations
+        const conversations = await socialStore.getUserConversations();
+        
+        // 3. Extract active partner IDs
+        const partnerIds = conversations.map(c => {
+          return Number(c.userId1) === Number(user.id) ? Number(c.userId2) : Number(c.userId1);
+        });
+
+        // 4. Filter allUsersList to only include active partners
+        const activeContacts = allUsersList.filter(u => partnerIds.includes(Number(u.id)));
+
+        // 5. Exclude current members of this group
         if (group) {
-          const filtered = list.filter(u => !group.members.some(m => Number(m.id) === Number(u.id)));
+          const filtered = activeContacts.filter(u => !group.members.some(m => Number(m.id) === Number(u.id)));
           setAllUsers(filtered);
         } else {
-          setAllUsers(list.filter(u => u.id !== user.id));
+          setAllUsers(activeContacts.filter(u => Number(u.id) !== Number(user.id)));
         }
       } catch (err) {
         console.error('Failed to fetch active contacts:', err);
@@ -546,7 +636,7 @@ const GroupChatPage = () => {
   // Scroll to bottom when messages list size changes
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-  }, [messages.length]);
+  }, [displayedMessages.length]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -578,6 +668,8 @@ const GroupChatPage = () => {
 
     if (msg) {
       setMessages(prev => [...prev, msg]);
+      setSessionLastSeenId(null);
+      setSessionLastSeen(new Date().toISOString());
       setInputText('');
       setSelectedImage(null);
       setReplyingMessage(null);
@@ -585,6 +677,17 @@ const GroupChatPage = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 50);
     }
+  };
+
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const isScrolledUp = scrollHeight - scrollTop - clientHeight > 150;
+    setShowScrollBottomBtn(isScrolledUp);
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleAddMembersSubmit = async () => {
@@ -659,9 +762,13 @@ const GroupChatPage = () => {
           <IconButton onClick={() => setOpenInfo(true)} sx={{ color: 'var(--text-primary)' }}>
             <InfoIcon />
           </IconButton>
+
+          <IconButton onClick={(e) => setHeaderMenuAnchor(e.currentTarget)} sx={{ color: 'var(--text-primary)' }}>
+            <MoreVertIcon />
+          </IconButton>
         </Box>
 
-        {messages.filter(m => m.pinned && !m.deleted).length > 0 && (
+        {displayedMessages.filter(m => m.pinned && !m.deleted).length > 0 && (
           <Box sx={{ 
             bgcolor: 'background.paper', 
             borderBottom: '1px solid var(--divider)', 
@@ -673,7 +780,7 @@ const GroupChatPage = () => {
             zIndex: 10
           }}>
             <Typography variant="body2" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              📌 Pinned Messages ({messages.filter(m => m.pinned && !m.deleted).length})
+              📌 Pinned Messages ({displayedMessages.filter(m => m.pinned && !m.deleted).length})
             </Typography>
             <Button 
               size="small" 
@@ -689,252 +796,319 @@ const GroupChatPage = () => {
         <Box 
           className="chat-messages"
           ref={scrollContainerRef}
+          onScroll={handleScroll}
           sx={{ position: 'relative', px: 3, py: 2 }}
         >
-          {messages.map((msg) => {
-            const isMe = Number(msg.senderId) === Number(user.id);
-            const senderInitials = msg.senderName.charAt(0).toUpperCase();
-            
-            return (
-              <Box 
-                key={msg.id} 
-                className={`message-bubble-wrapper ${isMe ? 'is-me' : 'is-other'}`}
-                sx={{ mb: 2 }}
-              >
-                {!isMe && (
-                  <Avatar 
-                    src={msg.senderAvatar} 
-                    sx={{ width: 32, height: 32, fontSize: '0.8rem', bgcolor: 'primary.main', cursor: msg.senderAvatar ? 'pointer' : 'default' }}
-                    onClick={() => {
-                      if (msg.senderAvatar) {
-                        setLightboxUrl(msg.senderAvatar);
-                        setLightboxName(msg.senderName);
-                        setLightboxOpen(true);
-                      }
-                    }}
-                  >
-                    {!msg.senderAvatar && senderInitials}
-                  </Avatar>
-                )}
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
-                  {!isMe && (
-                    <Typography variant="caption" sx={{ color: 'var(--text-secondary)', mb: 0.25, ml: 1, fontSize: '0.75rem' }}>
-                      {msg.senderName}
-                    </Typography>
+          {(() => {
+            let renderedUnseenBar = false;
+            const lastSeenIndex = sessionLastSeenId
+              ? displayedMessages.findIndex(m => String(m.id) === String(sessionLastSeenId))
+              : -1;
+
+            return displayedMessages.map((msg, msgIdx) => {
+              const isMe = Number(msg.senderId) === Number(user.id);
+              const senderInitials = msg.senderName.charAt(0).toUpperCase();
+
+              const isAfterLastSeen = lastSeenIndex !== -1
+                ? msgIdx > lastSeenIndex
+                : sessionLastSeen
+                  ? new Date(msg.timestamp).getTime() > new Date(sessionLastSeen).getTime()
+                  : false;
+
+              const isUnseen = !isMe && isAfterLastSeen && initialMessageIds.current.has(String(msg.id));
+              const showUnseenBar = isUnseen && !renderedUnseenBar;
+              if (showUnseenBar) {
+                renderedUnseenBar = true;
+              }
+
+              return (
+                <React.Fragment key={msg.id}>
+                  {showUnseenBar && (
+                    <Box 
+                      className="unseen-messages-bar" 
+                      sx={{ 
+                        width: '100%', 
+                        py: 1, 
+                        my: 2, 
+                        bgcolor: 'rgba(61,92,255,0.08)', 
+                        borderTop: '1px solid rgba(61,92,255,0.15)', 
+                        borderBottom: '1px solid rgba(61,92,255,0.15)', 
+                        color: 'var(--primary-color)',
+                        textAlign: 'center',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        letterSpacing: '0.05em',
+                        borderRadius: 1,
+                        backdropFilter: 'blur(4px)',
+                        boxShadow: '0 2px 8px rgba(61,92,255,0.03)'
+                      }}
+                    >
+                      Unseen Messages
+                    </Box>
                   )}
-                  <Paper 
-                    id={`msg-${msg.id}`}
-                    onClick={(e) => handleMessageBubbleClick(e, msg)}
-                    className={`message-bubble ${isMe ? 'me' : 'other'} ${highlightedMessageId === msg.id ? 'highlighted-msg' : ''}`} 
-                    sx={{ 
-                      mt: 0, 
-                      maxWidth: '100% !important', 
-                      width: 'fit-content', 
-                      wordBreak: 'break-word',
-                      cursor: 'pointer',
-                      position: 'relative',
-                      transition: 'background-color 0.5s ease',
-                      ...(highlightedMessageId === msg.id ? {
-                        bgcolor: isMe ? '#2563eb' : 'rgba(61, 92, 255, 0.25)',
-                      } : {})
-                    }}
+                  <Box 
+                    className={`message-bubble-wrapper ${isMe ? 'is-me' : 'is-other'}`}
+                    sx={{ mb: 2 }}
                   >
-                    {msg.forwarded && (
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: 0.5, 
-                          fontStyle: 'italic', 
-                          opacity: 0.7, 
-                          fontSize: '0.68rem', 
-                          mb: 0.5,
-                          color: isMe ? 'rgba(255,255,255,0.8)' : 'text.secondary'
+                    {!isMe && (
+                      <Avatar 
+                        src={msg.senderAvatar} 
+                        sx={{ width: 32, height: 32, fontSize: '0.8rem', bgcolor: 'primary.main', cursor: msg.senderAvatar ? 'pointer' : 'default' }}
+                        onClick={() => {
+                          if (msg.senderAvatar) {
+                            setLightboxUrl(msg.senderAvatar);
+                            setLightboxName(msg.senderName);
+                            setLightboxOpen(true);
+                          }
                         }}
                       >
-                        <ForwardIcon sx={{ fontSize: 12 }} /> Forwarded
-                      </Typography>
+                        {!msg.senderAvatar && senderInitials}
+                      </Avatar>
                     )}
-
-                    {msg.replyToId && (
-                      <Box 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleScrollToMessage(msg.replyToId);
-                        }}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
+                      {!isMe && (
+                        <Typography variant="caption" sx={{ color: 'var(--text-secondary)', mb: 0.25, ml: 1, fontSize: '0.75rem' }}>
+                          {msg.senderName}
+                        </Typography>
+                      )}
+                      <Paper 
+                        id={`msg-${msg.id}`}
+                        onClick={(e) => handleMessageBubbleClick(e, msg)}
+                        className={`message-bubble ${isMe ? 'me' : 'other'} ${highlightedMessageId === msg.id ? 'pulse-highlight' : ''}`} 
                         sx={{ 
-                          bgcolor: isMe ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.05)', 
-                          borderLeft: `3px solid ${isMe ? '#fff' : 'var(--primary-color)'}`, 
-                          p: 0.75, 
-                          mb: 0.75, 
-                          borderRadius: 1, 
+                          mt: 0, 
+                          maxWidth: '100% !important', 
+                          width: 'fit-content', 
+                          wordBreak: 'break-word',
                           cursor: 'pointer',
-                          opacity: 0.9,
-                          '&:hover': { opacity: 1 }
+                          position: 'relative',
+                          transition: 'all 0.5s ease',
+                          border: highlightedMessageId === msg.id ? '1.5px solid #FFD54F' : 'none',
+                          boxShadow: highlightedMessageId === msg.id ? '0 0 12px rgba(255, 213, 79, 0.6)' : undefined,
+                          backgroundColor: highlightedMessageId === msg.id 
+                            ? '#FFF9C4 !important' 
+                            : undefined
                         }}
                       >
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            fontWeight: 700, 
-                            color: isMe ? '#fff' : 'primary.main', 
-                            display: 'block',
-                            fontSize: '0.7rem'
-                          }}
-                        >
-                          Replying to {msg.replyToUsername || 'User'}
-                        </Typography>
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            color: isMe ? 'rgba(255,255,255,0.9)' : 'text.secondary', 
-                            display: 'block', 
-                            maxWidth: '240px',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
-                        >
-                          {msg.replyToMessage}
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {msg.deleted ? (
-                      <Typography variant="body1" sx={{ fontStyle: 'italic', color: isMe ? 'rgba(255,255,255,0.6)' : 'text.secondary' }}>
-                        This message was deleted
-                      </Typography>
-                    ) : msg.pollQuestion ? (() => {
-                      let opts = [];
-                      try {
-                        opts = typeof msg.pollOptions === 'string' ? JSON.parse(msg.pollOptions) : msg.pollOptions;
-                      } catch (e) {
-                        opts = msg.pollOptions || [];
-                      }
-
-                      let votes = {};
-                      try {
-                        votes = typeof msg.pollVotes === 'string' ? JSON.parse(msg.pollVotes) : msg.pollVotes || {};
-                      } catch (e) {
-                        votes = {};
-                      }
-
-                      const totalVotes = Object.keys(votes || {}).length;
-                      const userVoteVal = votes[user?.id] !== undefined ? votes[user?.id] : votes[String(user?.id)];
-                      const hasVoted = userVoteVal !== undefined;
-
-                      const handleVote = async (optionIndex) => {
-                        await socialStore.voteGroupPoll(msg.id, optionIndex);
-                        loadGroupDetails();
-                      };
-
-                      return (
-                        <Box sx={{ minWidth: 200, mt: 1 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: isMe ? '#fff' : 'text.primary' }}>
-                            📊 {msg.pollQuestion}
+                        {msg.forwarded && (
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: 0.5, 
+                              fontStyle: 'italic', 
+                              opacity: 0.7, 
+                              fontSize: '0.68rem', 
+                              mb: 0.5,
+                              color: isMe ? 'rgba(255,255,255,0.8)' : 'text.secondary'
+                            }}
+                          >
+                            <ForwardIcon sx={{ fontSize: 12 }} /> Forwarded
                           </Typography>
-                          <Stack spacing={1}>
-                            {opts.map((opt, oIdx) => {
-                              const optVotes = Object.values(votes || {}).filter(v => Number(v) === oIdx).length;
-                              const pct = totalVotes > 0 ? Math.round((optVotes / totalVotes) * 100) : 0;
-                              const isUserChoice = hasVoted && Number(userVoteVal) === oIdx;
-                              return (
-                                <Box
-                                  key={oIdx}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleVote(oIdx);
-                                  }}
-                                  sx={{
-                                    p: 1,
-                                    borderRadius: 1.5,
-                                    bgcolor: isUserChoice 
-                                      ? (isMe ? 'rgba(255,255,255,0.2)' : 'rgba(61,92,255,0.06)') 
-                                      : (isMe ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.03)'),
-                                    border: `1px solid ${isUserChoice 
-                                      ? (isMe ? '#fff' : 'var(--primary-color)') 
-                                      : (isMe ? 'rgba(255,255,255,0.2)' : 'var(--divider)')}`,
-                                    cursor: 'pointer',
-                                    position: 'relative',
-                                    overflow: 'hidden',
-                                    '&:hover': { bgcolor: isMe ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }
-                                  }}
-                                >
-                                  {/* Progress bar fill */}
-                                  <Box sx={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    bottom: 0,
-                                    width: `${pct}%`,
-                                    bgcolor: isMe ? 'rgba(255,255,255,0.15)' : 'rgba(61,92,255,0.08)',
-                                    zIndex: 0,
-                                    transition: 'width 0.3s ease'
-                                  }} />
-                                  
-                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
-                                    <Typography variant="body2" sx={{ fontWeight: 600, color: isMe ? '#fff' : 'text.primary' }}>
-                                      {opt}
-                                    </Typography>
-                                    <Typography variant="caption" sx={{ fontWeight: 700, color: isMe ? 'rgba(255,255,255,0.9)' : 'text.secondary' }}>
-                                      {optVotes} ({pct}%)
-                                    </Typography>
-                                  </Box>
-                                </Box>
-                              );
-                            })}
-                          </Stack>
-                          <Typography variant="caption" sx={{ mt: 1, display: 'block', opacity: 0.8, color: isMe ? 'rgba(255,255,255,0.9)' : 'text.secondary' }}>
-                            Total votes: {totalVotes}
-                          </Typography>
-                        </Box>
-                      );
-                    })() : msg.text?.startsWith('[IMAGE]:') ? (() => {
-                      const parts = msg.text.substring(8).split('|');
-                      const imageUrl = parts[0];
-                      const caption = parts[1] || '';
-                      return (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          <img 
-                            src={imageUrl} 
-                            alt="group attachment"
-                            style={{ maxWidth: '240px', maxHeight: '240px', borderRadius: 8, cursor: 'pointer', objectFit: 'cover' }} 
+                        )}
+
+                        {msg.replyToId && (
+                          <Box 
                             onClick={(e) => {
                               e.stopPropagation();
-                              setLightboxUrl(imageUrl);
-                              setLightboxName(msg.senderName);
-                              setLightboxIsProfile(false);
-                              setLightboxOpen(true);
+                              handleScrollToMessage(msg.replyToId);
                             }}
-                          />
-                          {caption && (
-                            <Typography variant="body1" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                              {caption}
+                            sx={{ 
+                              bgcolor: isMe ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.05)', 
+                              borderLeft: `3px solid ${isMe ? '#fff' : 'var(--primary-color)'}`, 
+                              p: 0.75, 
+                              mb: 0.75, 
+                              borderRadius: 1, 
+                              cursor: 'pointer',
+                              opacity: 0.9,
+                              '&:hover': { opacity: 1 }
+                            }}
+                          >
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                fontWeight: 700, 
+                                color: isMe ? '#fff' : 'primary.main', 
+                                display: 'block',
+                                fontSize: '0.7rem'
+                              }}
+                            >
+                              Replying to {msg.replyToUsername || 'User'}
                             </Typography>
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                color: isMe ? 'rgba(255,255,255,0.9)' : 'text.secondary', 
+                                display: 'block', 
+                                maxWidth: '240px',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                            >
+                              {msg.replyToMessage}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {msg.deleted ? (
+                          <Typography variant="body1" sx={{ fontStyle: 'italic', color: isMe ? 'rgba(255,255,255,0.6)' : 'text.secondary' }}>
+                            This message was deleted
+                          </Typography>
+                        ) : msg.pollQuestion ? (() => {
+                          let opts = [];
+                          try {
+                            opts = typeof msg.pollOptions === 'string' ? JSON.parse(msg.pollOptions) : msg.pollOptions;
+                          } catch (e) {
+                            opts = msg.pollOptions || [];
+                          }
+
+                          let votes = {};
+                          try {
+                            votes = typeof msg.pollVotes === 'string' ? JSON.parse(msg.pollVotes) : msg.pollVotes || {};
+                          } catch (e) {
+                            votes = {};
+                          }
+
+                          const totalVotes = Object.keys(votes || {}).length;
+                          const userVoteVal = votes[user?.id] !== undefined ? votes[user?.id] : votes[String(user?.id)];
+                          const hasVoted = userVoteVal !== undefined;
+
+                          const handleVote = async (optionIndex) => {
+                            await socialStore.voteGroupPoll(msg.id, optionIndex);
+                            loadGroupDetails();
+                          };
+
+                          return (
+                            <Box sx={{ minWidth: 200, mt: 1 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: isMe ? '#fff' : 'text.primary' }}>
+                                📊 {msg.pollQuestion}
+                              </Typography>
+                              <Stack spacing={1}>
+                                {opts.map((opt, oIdx) => {
+                                  const optVotes = Object.values(votes || {}).filter(v => Number(v) === oIdx).length;
+                                  const pct = totalVotes > 0 ? Math.round((optVotes / totalVotes) * 100) : 0;
+                                  const isUserChoice = hasVoted && Number(userVoteVal) === oIdx;
+                                  return (
+                                    <Box
+                                      key={oIdx}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleVote(oIdx);
+                                      }}
+                                      sx={{
+                                        p: 1,
+                                        borderRadius: 1.5,
+                                        bgcolor: isUserChoice 
+                                          ? (isMe ? 'rgba(255,255,255,0.2)' : 'rgba(61,92,255,0.06)') 
+                                          : (isMe ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.03)'),
+                                        border: `1px solid ${isUserChoice 
+                                          ? (isMe ? '#fff' : 'var(--primary-color)') 
+                                          : (isMe ? 'rgba(255,255,255,0.2)' : 'var(--divider)')}`,
+                                        cursor: 'pointer',
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        '&:hover': { bgcolor: isMe ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }
+                                      }}
+                                    >
+                                      {/* Progress bar fill */}
+                                      <Box sx={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        bottom: 0,
+                                        width: `${pct}%`,
+                                        bgcolor: isMe ? 'rgba(255,255,255,0.15)' : 'rgba(61,92,255,0.08)',
+                                        zIndex: 0,
+                                        transition: 'width 0.3s ease'
+                                      }} />
+                                      
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
+                                        <Typography variant="body2" sx={{ fontWeight: 600, color: isMe ? '#fff' : 'text.primary' }}>
+                                          {opt}
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: isMe ? 'rgba(255,255,255,0.9)' : 'text.secondary' }}>
+                                          {optVotes} ({pct}%)
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+                                  );
+                                })}
+                              </Stack>
+                              <Typography variant="caption" sx={{ mt: 1, display: 'block', opacity: 0.8, color: isMe ? 'rgba(255,255,255,0.9)' : 'text.secondary' }}>
+                                Total votes: {totalVotes}
+                              </Typography>
+                            </Box>
+                          );
+                        })() : msg.text?.startsWith('[IMAGE]:') ? (() => {
+                          const parts = msg.text.substring(8).split('|');
+                          const imageUrl = parts[0];
+                          const caption = parts[1] || '';
+                          return (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                              <img 
+                                src={imageUrl} 
+                                alt="group attachment"
+                                style={{ maxWidth: '240px', maxHeight: '240px', borderRadius: 8, cursor: 'pointer', objectFit: 'cover' }} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLightboxUrl(imageUrl);
+                                  setLightboxName(msg.senderName);
+                                  setLightboxIsProfile(false);
+                                  setLightboxOpen(true);
+                                }}
+                              />
+                              {caption && (
+                                <Typography variant="body1" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                                  {caption}
+                                </Typography>
+                              )}
+                            </Box>
+                          );
+                        })() : (
+                          <Typography variant="body1" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                            {msg.text}
+                          </Typography>
+                        )}
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mt: 0.5, gap: 0.5 }}>
+                          {msg.pinned && (
+                            <PushPinIcon sx={{ fontSize: 11, color: isMe ? 'rgba(255,255,255,0.7)' : 'text.secondary', transform: 'rotate(45deg)' }} />
                           )}
+                          <Typography variant="caption" className="message-time" sx={{ m: 0 }}>
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </Typography>
                         </Box>
-                      );
-                    })() : (
-                      <Typography variant="body1" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                        {msg.text}
-                      </Typography>
-                    )}
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mt: 0.5, gap: 0.5 }}>
-                      {msg.pinned && (
-                        <PushPinIcon sx={{ fontSize: 11, color: isMe ? 'rgba(255,255,255,0.7)' : 'text.secondary', transform: 'rotate(45deg)' }} />
-                      )}
-                      <Typography variant="caption" className="message-time" sx={{ m: 0 }}>
-                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </Typography>
+                      </Paper>
                     </Box>
-                  </Paper>
-                </Box>
-              </Box>
-            );
-          })}
+                  </Box>
+                </React.Fragment>
+              );
+            });
+          })()}
           <div ref={messagesEndRef} />
         </Box>
+
+        {showScrollBottomBtn && (
+          <IconButton
+            onClick={scrollToBottom}
+            sx={{
+              position: 'absolute',
+              bottom: 85,
+              right: 24,
+              backgroundColor: 'primary.main',
+              color: 'white',
+              '&:hover': {
+                backgroundColor: 'primary.main',
+                transform: 'scale(1.15)',
+              },
+              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+              zIndex: 10
+            }}
+          >
+            <KeyboardArrowDownIcon />
+          </IconButton>
+        )}
 
         <Divider />
 
@@ -1614,14 +1788,14 @@ const GroupChatPage = () => {
       <ImageEditorModal
         open={editorOpen}
         onClose={() => { setEditorOpen(false); setPendingImagesQueue([]); }}
+        images={pendingImagesQueue}
         imageSrc={editorImageSrc}
-        onSave={(editedBase64) => {
-          setSelectedImage(editedBase64);
+        onSend={(editedImages) => {
+          editedImages.forEach(img => {
+            sendBase64ImageMessage(img);
+          });
           setEditorOpen(false);
-        }}
-        showSendButton={editorShowSend}
-        onSend={(editedBase64) => {
-          sendEditedImage(editedBase64);
+          setPendingImagesQueue([]);
         }}
       />
 
@@ -1636,7 +1810,11 @@ const GroupChatPage = () => {
           <ReplyIcon sx={{ mr: 1, fontSize: 20 }} /> Reply
         </MenuItem>
         <MenuItem onClick={handleStarToggle}>
-          <StarIcon sx={{ mr: 1, fontSize: 20, color: '#f59e0b' }} /> Star Message
+          <StarIcon sx={{ mr: 1, fontSize: 20, color: '#f59e0b' }} /> {
+            JSON.parse(localStorage.getItem('starred_messages_list') || '[]').some(m => String(m.id) === String(menuMessage?.id)) 
+              ? "Unstar Message" 
+              : "Star Message"
+          }
         </MenuItem>
         <MenuItem onClick={handleCopyMessage}>
           <CopyIcon sx={{ mr: 1, fontSize: 20 }} /> Copy
@@ -1647,7 +1825,7 @@ const GroupChatPage = () => {
         <MenuItem onClick={handleForwardClick}>
           <ForwardIcon sx={{ mr: 1, fontSize: 20 }} /> Forward
         </MenuItem>
-        {menuMessage?.senderId === user.id && (
+        {Number(menuMessage?.senderId) === Number(user?.id) && (
           <MenuItem onClick={handleDeleteMessage} sx={{ color: 'error.main' }}>
             <DeleteIcon sx={{ mr: 1, fontSize: 20 }} /> Delete
           </MenuItem>
@@ -1717,7 +1895,7 @@ const GroupChatPage = () => {
         <DialogContent dividers sx={{ p: 0 }}>
           <List>
             {allUsers
-              .filter(u => u.id !== user.id && !user.blockedUserIds?.includes(String(u.id)) && !u.blockedUserIds?.includes(String(user.id)))
+              .filter(u => u.id !== user?.id && !user?.blockedUserIds?.includes(String(u.id)) && !u.blockedUserIds?.includes(String(user?.id)))
               .map(target => {
                 const uAvatar = localStorage.getItem(`avatar_${target.id}`) || target.avatar || '';
                 const uName = target.fullname || target.name || target.username || '?';
@@ -1788,15 +1966,13 @@ const GroupChatPage = () => {
                 InputProps={{ sx: { borderRadius: 1.5 } }}
                 inputProps={{ maxLength: 50 }}
               />
-              {groupPollOptions.length > 2 && (
-                <IconButton 
-                  color="error" 
-                  onClick={() => setGroupPollOptions(groupPollOptions.filter((_, idx) => idx !== index))}
-                  sx={{ border: '1px solid var(--divider)', borderRadius: 1.5, width: 40, height: 40 }}
-                >
-                  ✕
-                </IconButton>
-              )}
+              <IconButton 
+                color="error" 
+                onClick={() => setGroupPollOptions(groupPollOptions.filter((_, idx) => idx !== index))}
+                sx={{ border: '1px solid var(--divider)', borderRadius: 1.5, width: 40, height: 40 }}
+              >
+                ✕
+              </IconButton>
             </Box>
           ))}
           <Button
@@ -1822,6 +1998,117 @@ const GroupChatPage = () => {
             sx={{ textTransform: 'none', borderRadius: 2 }}
           >
             Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Header More Options Menu */}
+      <Menu
+        anchorEl={headerMenuAnchor}
+        open={Boolean(headerMenuAnchor)}
+        onClose={() => setHeaderMenuAnchor(null)}
+        PaperProps={{ sx: { borderRadius: 1.5, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}
+      >
+        <MenuItem onClick={() => {
+          setHeaderMenuAnchor(null);
+          setOpenClearConfirm(true);
+        }} sx={{ fontSize: '0.85rem' }}>
+          Clear Chat History
+        </MenuItem>
+        <MenuItem onClick={() => {
+          setHeaderMenuAnchor(null);
+          setOpenDeleteConfirm(true);
+        }} sx={{ color: 'error.main', fontSize: '0.85rem' }}>
+          {isCreator ? "Delete Group" : "Leave Group"}
+        </MenuItem>
+      </Menu>
+
+      {/* Clear Chat Confirmation Dialog */}
+      <Dialog
+        open={openClearConfirm}
+        onClose={() => setOpenClearConfirm(false)}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 340 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Clear chat history?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+            Are you sure you want to clear this group's chat history? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => setOpenClearConfirm(false)}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            onClick={() => {
+              localStorage.setItem(`sophiapath_clear_time_${user.id}_${groupId}`, new Date().toISOString());
+              setClearTrigger(prev => prev + 1);
+              setOpenClearConfirm(false);
+            }}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Clear
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Leave/Delete Group Confirmation Dialog */}
+      <Dialog
+        open={openDeleteConfirm}
+        onClose={() => setOpenDeleteConfirm(false)}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1, maxWidth: 340 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+          {isCreator ? "Delete Group?" : "Leave Group?"}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+            {isCreator 
+              ? "Are you sure you want to delete this group for you? This will hide the group from your list."
+              : "Are you sure you want to leave this group chat?"}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => setOpenDeleteConfirm(false)}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            onClick={async () => {
+              if (isCreator) {
+                // Delete for user locally
+                const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_groups_${user.id}`) || '{}');
+                deletedObj[groupId] = new Date().toISOString();
+                localStorage.setItem(`sophiapath_deleted_groups_${user.id}`, JSON.stringify(deletedObj));
+              } else {
+                // Leave group on the backend/locally
+                await socialStore.removeGroupMember(groupId, user.id);
+                // Also hide group
+                const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_groups_${user.id}`) || '{}');
+                deletedObj[groupId] = new Date().toISOString();
+                localStorage.setItem(`sophiapath_deleted_groups_${user.id}`, JSON.stringify(deletedObj));
+              }
+              setOpenDeleteConfirm(false);
+              navigate('/chats?tab=groups');
+            }}
+            fullWidth
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            {isCreator ? "Delete" : "Leave"}
           </Button>
         </DialogActions>
       </Dialog>

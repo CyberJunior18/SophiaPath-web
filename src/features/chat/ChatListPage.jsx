@@ -72,11 +72,14 @@ const ChatListPage = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [lastMessages, setLastMessages] = useState({});
   const [lastMessageTimes, setLastMessageTimes] = useState({});
+  const [dmUnseenCounts, setDmUnseenCounts] = useState({});
   const [loading, setLoading] = useState(true);
   
   // Direct Chat Menu & Archive states
   const [chatMenuAnchor, setChatMenuAnchor] = useState(null);
   const [chatMenuTargetUserId, setChatMenuTargetUserId] = useState(null);
+  const [groupMenuAnchor, setGroupMenuAnchor] = useState(null);
+  const [groupMenuTargetId, setGroupMenuTargetId] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
   const [settingsTrigger, setSettingsTrigger] = useState(0);
 
@@ -157,6 +160,42 @@ const ChatListPage = () => {
             : cleanText;
         }
       });
+
+      const dmUnseenCountsObj = {};
+      await Promise.all(conversations.map(async (c) => {
+        const otherId = c.userId1 === user.id ? c.userId2 : c.userId1;
+        try {
+          const res = await fetch(`/api/chat/conversation/${user.id}/${otherId}`, { headers });
+          if (res.ok) {
+            const msgs = await res.json();
+            let lastSeenId = localStorage.getItem(`sophiapath_last_seen_id_${user.id}_${otherId}`);
+            let lastSeen = localStorage.getItem(`sophiapath_last_seen_${user.id}_${otherId}`);
+            
+            if (!lastSeen) {
+              const nowStr = new Date().toISOString();
+              localStorage.setItem(`sophiapath_last_seen_${user.id}_${otherId}`, nowStr);
+              lastSeen = nowStr;
+              if (msgs.length > 0) {
+                const lastMsgId = String(msgs[msgs.length - 1].id);
+                localStorage.setItem(`sophiapath_last_seen_id_${user.id}_${otherId}`, lastMsgId);
+                lastSeenId = lastMsgId;
+              }
+            }
+
+            const lastSeenIdx = lastSeenId ? msgs.findIndex(m => String(m.id) === String(lastSeenId)) : -1;
+            const unseenCount = lastSeenIdx !== -1
+              ? msgs.slice(lastSeenIdx + 1).filter(m => Number(m.senderId) !== Number(user.id)).length
+              : msgs.filter(m => 
+                  Number(m.senderId) !== Number(user.id) && 
+                  new Date(m.timestamp).getTime() > new Date(lastSeen).getTime()
+                ).length;
+            dmUnseenCountsObj[otherId] = unseenCount;
+          }
+        } catch (e) {
+          console.error("Failed to fetch conversation history for", otherId, e);
+        }
+      }));
+      setDmUnseenCounts(dmUnseenCountsObj);
 
       // Exclude current user
       const filteredUsers = usersList.filter(u => u.id !== user.id);
@@ -266,11 +305,23 @@ const ChatListPage = () => {
   }, [allUsers, searchQuery, activeDms, lastMessageTimes]);
 
   const filteredGroupsList = useMemo(() => {
+    const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_groups_${user?.id}`) || '{}');
     return groups.filter(g => {
+      const deleteTime = deletedObj[g.id];
+      if (deleteTime) {
+        const sortedMsgs = g.messages && g.messages.length > 0
+          ? [...g.messages].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+          : [];
+        const lastMessage = sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null;
+        const lastMsgTime = lastMessage ? lastMessage.timestamp : g.createdAt || new Date(0).toISOString();
+        if (new Date(lastMsgTime).getTime() <= new Date(deleteTime).getTime()) {
+          return false;
+        }
+      }
       const name = (g.name || '').toLowerCase();
       return name.includes(searchQuery.toLowerCase());
     });
-  }, [groups, searchQuery]);
+  }, [groups, searchQuery, user?.id, settingsTrigger]);
 
   const handleUserClick = (targetUser) => {
     const normalizedTarget = {
@@ -327,6 +378,27 @@ const ChatListPage = () => {
     localStorage.setItem(`sophiapath_deleted_chats_${user.id}`, JSON.stringify(deletedObj));
     setSettingsTrigger(prev => prev + 1);
     handleCloseChatMenu();
+  };
+
+  const handleOpenGroupMenu = (e, groupId) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setGroupMenuAnchor(e.currentTarget);
+    setGroupMenuTargetId(groupId);
+  };
+
+  const handleCloseGroupMenu = () => {
+    setGroupMenuAnchor(null);
+    setGroupMenuTargetId(null);
+  };
+
+  const handleDeleteGroup = () => {
+    if (!groupMenuTargetId) return;
+    const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_groups_${user.id}`) || '{}');
+    deletedObj[groupMenuTargetId] = new Date().toISOString();
+    localStorage.setItem(`sophiapath_deleted_groups_${user.id}`, JSON.stringify(deletedObj));
+    setSettingsTrigger(prev => prev + 1);
+    handleCloseGroupMenu();
   };
 
   const handleCreateGroupSubmit = async () => {
@@ -426,9 +498,9 @@ const ChatListPage = () => {
                   onClick={() => {
                     handleCloseStarredMenu();
                     if (msg.type === 'group') {
-                      navigate(`/group/${msg.groupId}`);
+                      navigate(`/group/${msg.groupId}?messageId=${msg.id}`);
                     } else {
-                      navigate(`/chat/${msg.chatPartnerId}`);
+                      navigate(`/chat/${msg.chatPartnerId}?messageId=${msg.id}`);
                     }
                   }}
                   sx={{
@@ -561,13 +633,41 @@ const ChatListPage = () => {
                           } 
                           secondary={
                             isBlockedByMe ? "You blocked this user." :
-                            isBlockedByTarget ? "You cannot message this user." :
-                            getLastMessage(otherUser.id)
+                            isBlockedByTarget ? "You cannot message this user." : (
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1, pr: 1, fontSize: 'inherit', color: 'inherit' }}>
+                                  {getLastMessage(otherUser.id)}
+                                </Typography>
+                                {dmUnseenCounts[otherUser.id] > 0 && (
+                                  <Box 
+                                    className="unseen-messages-badge"
+                                    sx={{ 
+                                      minWidth: 20, 
+                                      height: 20, 
+                                      borderRadius: '10px', 
+                                      bgcolor: 'primary.main', 
+                                      color: 'white', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      justifyContent: 'center', 
+                                      fontSize: '0.7rem', 
+                                      fontWeight: 800, 
+                                      px: 0.6,
+                                      boxShadow: '0 2px 8px rgba(61, 92, 255, 0.35)',
+                                      flexShrink: 0
+                                    }}
+                                  >
+                                    {dmUnseenCounts[otherUser.id]}
+                                  </Box>
+                                )}
+                              </Box>
+                            )
                           } 
                           primaryTypographyProps={{ component: 'div' }}
                           secondaryTypographyProps={{ 
                             className: 'chat-item-preview',
-                            noWrap: true 
+                            noWrap: true,
+                            component: 'div'
                           }}
                         />
                       </ListItemButton>
@@ -711,49 +811,117 @@ const ChatListPage = () => {
               filteredGroupsList.map((group) => {
                 const displayName = group.name || '?';
                 const initials = displayName.substring(0, 2).toUpperCase();
-                const lastMessage = group.messages && group.messages.length > 0 
-                  ? group.messages[group.messages.length - 1] 
-                  : null;
+                const sortedMsgs = group.messages && group.messages.length > 0
+                  ? [...group.messages].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                  : [];
+                const lastMessage = sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null;
                 const isImg = lastMessage?.text?.startsWith('[IMAGE]:');
                 const cleanText = isImg ? '📷 Photo' : (lastMessage?.text || '');
                 const lastMsgText = lastMessage 
                   ? `${lastMessage.senderId === user.id ? 'You: ' : `${lastMessage.senderUsername || 'Member'}: `}${cleanText}`
                   : "No messages yet...";
 
+                let lastSeenId = localStorage.getItem(`sophiapath_last_seen_id_${user.id}_${group.id}`);
+                let lastSeen = localStorage.getItem(`sophiapath_last_seen_${user.id}_${group.id}`);
+                
+                if (!lastSeen) {
+                  const nowStr = new Date().toISOString();
+                  localStorage.setItem(`sophiapath_last_seen_${user.id}_${group.id}`, nowStr);
+                  lastSeen = nowStr;
+                  const groupMsgs = group.messages || [];
+                  if (sortedMsgs.length > 0) {
+                    const lastMsgId = String(sortedMsgs[sortedMsgs.length - 1].id);
+                    localStorage.setItem(`sophiapath_last_seen_id_${user.id}_${group.id}`, lastMsgId);
+                    lastSeenId = lastMsgId;
+                  }
+                }
+
+                const lastSeenIdx = lastSeenId ? sortedMsgs.findIndex(m => String(m.id) === String(lastSeenId)) : -1;
+                const groupUnseenCount = lastSeenIdx !== -1
+                  ? sortedMsgs.slice(lastSeenIdx + 1).filter(m => Number(m.senderId) !== Number(user.id)).length
+                  : sortedMsgs.filter(m => 
+                      Number(m.senderId) !== Number(user.id) && 
+                      new Date(m.timestamp).getTime() > new Date(lastSeen).getTime()
+                    ).length;
+
                 return (
-                  <ListItemButton 
-                    key={group.id} 
-                    onClick={() => handleGroupClick(group)}
-                    className="chat-list-item-new"
-                  >
-                    <ListItemAvatar>
-                      <Avatar 
-                        src={group.avatar} 
-                        className="chat-avatar"
-                        sx={{ bgcolor: 'primary.light', color: 'white', fontWeight: 'bold', borderRadius: 4 }}
+                  <ListItem
+                    key={group.id}
+                    disablePadding
+                    secondaryAction={
+                      <IconButton 
+                        edge="end" 
+                        size="small" 
+                        onClick={(e) => handleOpenGroupMenu(e, group.id)}
+                        sx={{ color: 'var(--text-secondary)', mr: 1 }}
                       >
-                        {!group.avatar && initials}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText 
-                      primary={
-                        <Box className="chat-item-header">
-                          <Typography className="chat-item-name">
-                            {displayName}
-                          </Typography>
-                          <Typography variant="caption" className="chat-item-time" sx={{ bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 2, fontSize: '0.7rem' }}>
-                            {group.members.length} members
-                          </Typography>
-                        </Box>
-                      } 
-                      secondary={lastMsgText} 
-                      primaryTypographyProps={{ component: 'div' }}
-                      secondaryTypographyProps={{ 
-                        className: 'chat-item-preview',
-                        noWrap: true 
-                      }}
-                    />
-                  </ListItemButton>
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
+                    }
+                  >
+                    <ListItemButton 
+                      onClick={() => handleGroupClick(group)}
+                      className="chat-list-item-new"
+                      sx={{ width: '100%' }}
+                    >
+                      <ListItemAvatar>
+                        <Avatar 
+                          src={group.avatar} 
+                          className="chat-avatar"
+                          sx={{ bgcolor: 'primary.light', color: 'white', fontWeight: 'bold', borderRadius: 4 }}
+                        >
+                          {!group.avatar && initials}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText 
+                        primary={
+                          <Box className="chat-item-header">
+                            <Typography className="chat-item-name">
+                              {displayName}
+                            </Typography>
+                            <Typography variant="caption" className="chat-item-time" sx={{ bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 2, fontSize: '0.7rem' }}>
+                              {group.members.length} members
+                            </Typography>
+                          </Box>
+                        } 
+                        secondary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                            <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1, pr: 1, fontSize: 'inherit', color: 'inherit' }}>
+                              {lastMsgText}
+                            </Typography>
+                            {groupUnseenCount > 0 && (
+                              <Box 
+                                className="unseen-messages-badge"
+                                sx={{ 
+                                  minWidth: 20, 
+                                  height: 20, 
+                                  borderRadius: '10px', 
+                                  bgcolor: 'primary.main', 
+                                  color: 'white', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center', 
+                                  fontSize: '0.7rem', 
+                                  fontWeight: 800, 
+                                  px: 0.6,
+                                  boxShadow: '0 2px 8px rgba(61, 92, 255, 0.35)',
+                                  flexShrink: 0
+                                }}
+                              >
+                                {groupUnseenCount}
+                              </Box>
+                            )}
+                          </Box>
+                        } 
+                        primaryTypographyProps={{ component: 'div' }}
+                        secondaryTypographyProps={{ 
+                          className: 'chat-item-preview',
+                          noWrap: true,
+                          component: 'div'
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
                 );
               })
             ) : (
@@ -871,6 +1039,19 @@ const ChatListPage = () => {
         </MenuItem>
         <MenuItem onClick={handleDeleteChat} sx={{ color: 'error.main', fontSize: '0.85rem' }}>
           Delete Chat (For You)
+        </MenuItem>
+      </Menu>
+
+      <Menu
+        anchorEl={groupMenuAnchor}
+        open={Boolean(groupMenuAnchor)}
+        onClose={handleCloseGroupMenu}
+        PaperProps={{
+          sx: { borderRadius: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }
+        }}
+      >
+        <MenuItem onClick={handleDeleteGroup} sx={{ color: 'error.main', fontSize: '0.85rem' }}>
+          Delete Group (For You)
         </MenuItem>
       </Menu>
     </Box>
