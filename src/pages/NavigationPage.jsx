@@ -49,6 +49,7 @@ import ChatPage from '../features/chat/ChatPage';
 import CodeEditorPage from '../features/editor/CodeEditorPage';
 import CyberLabPage from './CyberLabPage';
 import GroupChatPage from '../features/chat/GroupChatPage';
+import GroupJoinLinkHandler from '../features/chat/GroupJoinLinkHandler';
 import CommunityListPage from '../features/community/CommunityListPage';
 import CommunityDetailPage from '../features/community/CommunityDetailPage';
 import QuestionDetailPage from '../features/community/QuestionDetailPage';
@@ -601,6 +602,7 @@ const NavigationPage = () => {
               <Route path="/philosophy-lab" element={<AnimatedPage><PhilosophyLabPage /></AnimatedPage>} />
               <Route path="/cyber-lab" element={<AnimatedPage><CyberLabPage /></AnimatedPage>} />
               <Route path="/communities/join-invite/:communityId" element={<AnimatedPage><JoinInviteHandler /></AnimatedPage>} />
+              <Route path="/group/join/:token" element={<AnimatedPage><GroupJoinLinkHandler /></AnimatedPage>} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </AnimatePresence>

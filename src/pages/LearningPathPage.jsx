@@ -173,28 +173,7 @@ const LearningPathPage = () => {
 
       const isComplete = uniqueLessons.length > 0 && completedLessons.length === uniqueLessons.length;
 
-      let isUnlocked = sIndex === 0;
-      if (sIndex > 0) {
-        const prevSection = course.sections[sIndex - 1];
-        const prevLessons = backendLessons[prevSection.id] || prevSection.lessons || [];
-
-        const uniquePrevLessons = [];
-        const seenPrevTitles = new Set();
-        prevLessons.forEach(pl => {
-          const norm = (pl.title || '').trim().toLowerCase();
-          if (norm && !seenPrevTitles.has(norm)) {
-            seenPrevTitles.add(norm);
-            uniquePrevLessons.push(pl);
-          }
-        });
-
-        const prevSectionCompleted = uniquePrevLessons.filter(pl => {
-          const duplicates = prevLessons.filter(dl => (dl.title || '').trim().toLowerCase() === (pl.title || '').trim().toLowerCase());
-          return duplicates.some(dl => (scores[dl.id] || 0) >= 70);
-        });
-
-        isUnlocked = uniquePrevLessons.length > 0 && prevSectionCompleted.length === uniquePrevLessons.length;
-      }
+      let isUnlocked = true;
 
       return {
         ...section,
@@ -559,7 +538,6 @@ const LearningPathPage = () => {
               backgroundColor: isCompleted ? '#58CC02' : '#1CB0F6',
               display: 'grid',
               placeItems: 'center',
-              boxShadow: '0 8px 16px rgba(0,0,0,0.15)',
               flexShrink: 0
             }}
           >
@@ -617,7 +595,6 @@ const LearningPathPage = () => {
             fontSize: '0.9rem',
             backgroundColor: accentColor,
             color: '#fff',
-            boxShadow: `0 8px 20px ${isCompleted ? 'rgba(88,204,2,0.25)' : 'rgba(var(--primary-main-rgb), 0.25)'}`,
             transition: 'transform 0.2s ease, box-shadow 0.2s ease',
             fontFamily: '"Outfit", sans-serif',
             textTransform: 'none'
@@ -666,7 +643,6 @@ const LearningPathPage = () => {
       return {
         background: 'var(--success-main)',
         color: 'white',
-        boxShadow: '0 4px 14px rgba(61, 220, 151, 0.35)'
       };
     }
 
@@ -674,19 +650,16 @@ const LearningPathPage = () => {
       return {
         background: 'var(--success-main)',
         color: 'white',
-        boxShadow: '0 4px 14px rgba(61, 220, 151, 0.35)'
       };
     } else if (node.score >= 50) {
       return {
         background: 'var(--yellow-500)',
         color: 'white',
-        boxShadow: '0 4px 14px rgba(255, 181, 71, 0.35)'
       };
     } else {
       return {
         background: 'var(--danger-main)',
         color: 'white',
-        boxShadow: '0 4px 14px rgba(255, 100, 124, 0.35)'
       };
     }
   };
@@ -721,7 +694,6 @@ const LearningPathPage = () => {
                     textTransform: 'none',
                     background: 'var(--hero-gradient)',
                     color: '#fff',
-                    boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.25)',
                     fontFamily: '"Outfit", sans-serif'
                   }}
                 >
@@ -741,7 +713,6 @@ const LearningPathPage = () => {
                     textTransform: 'none',
                     background: 'var(--primary-main)',
                     color: '#fff',
-                    boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.25)',
                     fontFamily: '"Outfit", sans-serif'
                   }}
                 >
@@ -763,7 +734,6 @@ const LearningPathPage = () => {
                     textTransform: 'none',
                     borderColor: 'var(--primary-main)',
                     color: 'var(--primary-main)',
-                    boxShadow: '0 4px 10px rgba(var(--primary-main-rgb), 0.1)',
                     fontFamily: '"Outfit", sans-serif'
                   }}
                 >
@@ -783,7 +753,6 @@ const LearningPathPage = () => {
                     textTransform: 'none',
                     background: '#FF6B6B',
                     color: '#fff',
-                    boxShadow: '0 6px 15px rgba(255, 107, 107, 0.25)',
                     fontFamily: '"Outfit", sans-serif'
                   }}
                 >
@@ -803,7 +772,6 @@ const LearningPathPage = () => {
                     textTransform: 'none',
                     background: '#10b981',
                     color: '#fff',
-                    boxShadow: '0 6px 15px rgba(16, 185, 129, 0.25)',
                     fontFamily: '"Outfit", sans-serif'
                   }}
                 >
@@ -904,7 +872,6 @@ const LearningPathPage = () => {
                         border: '1px solid var(--divider)',
                         backdropFilter: 'blur(12px)',
                         fontFamily: '"Outfit", sans-serif',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
                         textAlign: 'center',
                         textTransform: 'uppercase',
                         letterSpacing: '1.5px',
@@ -953,7 +920,6 @@ const LearningPathPage = () => {
                           border: '2.5px solid #29c57b',
                           display: 'grid',
                           placeItems: 'center',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                           zIndex: 10
                         }}
                       >
@@ -973,7 +939,6 @@ const LearningPathPage = () => {
                           borderRadius: '10px',
                           backgroundColor: node.score < 50 ? '#ff4d4d' : node.score < 80 ? '#ff9900' : '#29c57b',
                           border: '1.5px solid #fff',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                           zIndex: 10
                         }}
                       >
@@ -1061,7 +1026,6 @@ const LearningPathPage = () => {
               background: selectedNode?.status === 'completed'
                 ? (theme.palette.mode === 'dark' ? 'rgba(31, 45, 31, 0.96)' : 'rgba(242, 251, 240, 0.96)')
                 : 'var(--surface-glass)',
-              boxShadow: 'var(--shadow-soft)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
             }

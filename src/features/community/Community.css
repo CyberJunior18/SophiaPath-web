@@ -28,14 +28,13 @@
   height: 100%;
   border-radius: 8px;
   overflow: hidden;
-  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s ease, border-color 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), border-color 0.3s ease;
   border: 1px solid var(--divider);
   background: var(--background-paper);
 }
 
 .community-card:hover {
   transform: translateY(-8px);
-  box-shadow: 0 16px 36px rgba(61, 92, 255, 0.1);
   border-color: rgba(61, 92, 255, 0.35);
 }
 
@@ -58,7 +57,6 @@
   align-items: center;
   justify-content: center;
   font-size: 30px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -123,7 +121,6 @@
   border-radius: 8px;
   border: 1px solid var(--divider);
   background: var(--background-paper);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
   overflow: hidden;
   height: calc(100vh - 120px);
   align-self: flex-start;
@@ -175,7 +172,6 @@
   background: rgba(61, 92, 255, 0.08) !important;
   color: var(--primary-main) !important;
   font-weight: 700 !important;
-  box-shadow: inset 3px 0 0 var(--primary-main);
   border-radius: 6px !important;
 }
 
@@ -206,7 +202,6 @@
   border-radius: 8px;
   border: 1px solid var(--divider);
   background: var(--background-paper);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
 }
 
 .community-feed-posts {
@@ -230,15 +225,13 @@
   border-radius: 8px !important;
   border: 1px solid var(--divider) !important;
   background: var(--background-paper) !important;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
   overflow: hidden;
-  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), border-color 0.3s, box-shadow 0.4s;
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), border-color 0.3s;
 }
 
 .post-card:hover {
   transform: translateY(-3px);
   border-color: rgba(61, 92, 255, 0.35) !important;
-  box-shadow: 0 10px 28px rgba(61, 92, 255, 0.08);
 }
 
 .post-votes-sidebar {
@@ -347,7 +340,6 @@
   border-radius: 10px !important;
   border: 1px solid var(--divider) !important;
   background: var(--background-paper) !important;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.03);
   overflow: hidden;
 }
 
@@ -370,7 +362,6 @@
   border: 1px solid var(--divider) !important;
   background: var(--background-paper) !important;
   padding: 2.25rem;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.02);
 }
 
 .comment-input-wrapper {
@@ -441,7 +432,6 @@
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
   margin-top: 0.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.01);
 }
 
 .reply-input-box {

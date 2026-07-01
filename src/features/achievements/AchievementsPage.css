@@ -75,13 +75,11 @@
   background: var(--surface-glass) !important;
   backdrop-filter: blur(20px);
   border: 1px solid var(--divider) !important;
-  box-shadow: var(--shadow-card) !important;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.3s ease;
 }
 
 .overall-stats-panel:hover {
   transform: translateY(-2px);
-  box-shadow: 0 35px 85px rgba(20, 31, 87, 0.16) !important;
 }
 
 .stats-header {
@@ -104,13 +102,11 @@
   border-radius: 50%;
   background: var(--background-paper);
   border: 4px solid var(--primary-main);
-  box-shadow: 0 0 30px rgba(var(--primary-main-rgb), 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   position: relative;
-  animation: glowCircle 3s infinite alternate;
 }
 
 .circular-progress-text {
@@ -168,7 +164,6 @@
 .stats-progress-bar .MuiLinearProgress-bar {
   border-radius: 5px !important;
   background: var(--primary-main) !important;
-  box-shadow: 0 0 10px rgba(var(--primary-main-rgb), 0.4);
 }
 
 .progress-bar-labels {
@@ -212,7 +207,6 @@
   background: var(--surface-glass) !important;
   backdrop-filter: blur(20px);
   border: 1px solid var(--divider) !important;
-  box-shadow: var(--shadow-soft) !important;
   position: relative;
   overflow: hidden;
   height: 100%;
@@ -225,7 +219,6 @@
 
 .premium-achievement-card:hover {
   transform: translateY(-8px) scale(1.02);
-  box-shadow: var(--shadow-card) !important;
   border-color: rgba(var(--primary-main-rgb), 0.3) !important;
   background: var(--surface-glass-strong) !important;
 }
@@ -247,11 +240,6 @@
 
 .premium-achievement-card:hover::before {
   opacity: 0.12;
-}
-
-/* Unlocked items hover effects */
-.premium-achievement-card.completed:hover {
-  box-shadow: 0 30px 70px rgba(var(--primary-main-rgb), 0.12), 0 0 25px rgba(var(--primary-main-rgb), 0.08) !important;
 }
 
 /* Locked items visual overlay style */
@@ -289,7 +277,6 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 1.5rem;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.04);
   transition: transform 0.3s ease;
 }
 
@@ -297,9 +284,6 @@
   transform: scale(1.1);
 }
 
-.card-icon-wrapper.completed {
-  box-shadow: 0 10px 24px rgba(var(--primary-main-rgb), 0.15);
-}
 
 .card-icon-wrapper.in_progress {
   background-color: var(--background-paper-alt);
@@ -409,10 +393,6 @@
   100% { transform: translateY(0px) rotate(0deg); }
 }
 
-@keyframes glowCircle {
-  from { box-shadow: 0 0 15px rgba(var(--primary-main-rgb), 0.15); }
-  to { box-shadow: 0 0 35px rgba(var(--primary-main-rgb), 0.35); }
-}
 
 @keyframes pulseSparkle {
   0% { transform: scale(1) rotate(0deg); opacity: 0.8; }

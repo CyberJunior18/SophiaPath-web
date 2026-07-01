@@ -85,6 +85,7 @@ const ChatListPage = () => {
 
   // Group state
   const [groups, setGroups] = useState([]);
+  const [activeTypingStates, setActiveTypingStates] = useState({ directTyping: {}, groupTyping: {} });
   const [openCreateGroup, setOpenCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
@@ -139,6 +140,11 @@ const ChatListPage = () => {
       const usersRes = await fetch('/users', { headers });
       if (!usersRes.ok) throw new Error('Failed to fetch users');
       const usersList = await usersRes.json();
+
+      const typingStates = await socialStore.getActiveTypingStates(user.id);
+      if (typingStates) {
+        setActiveTypingStates(typingStates);
+      }
 
       // 2. Fetch all active conversations for the current user (for DM last messages)
       const convRes = await fetch(`/api/chat/user/${user.id}/conversations`, { headers });
@@ -636,7 +642,18 @@ const ChatListPage = () => {
                             isBlockedByTarget ? "You cannot message this user." : (
                               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                                 <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1, pr: 1, fontSize: 'inherit', color: 'inherit' }}>
-                                  {getLastMessage(otherUser.id)}
+                                  {activeTypingStates.directTyping[otherUser.id] ? (
+                                    <span style={{ color: '#2e7d32', fontWeight: 600 }}>Typing...</span>
+                                  ) : localStorage.getItem(`sophiapath_draft_chat_${user.id}_${otherUser.id}`) ? (
+                                    <span>
+                                      <span style={{ color: '#2e7d32', fontWeight: 600 }}>Draft: </span>
+                                      <span style={{ color: 'var(--text-secondary)' }}>
+                                        {localStorage.getItem(`sophiapath_draft_chat_${user.id}_${otherUser.id}`)}
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    getLastMessage(otherUser.id)
+                                  )}
                                 </Typography>
                                 {dmUnseenCounts[otherUser.id] > 0 && (
                                   <Box 
@@ -887,7 +904,20 @@ const ChatListPage = () => {
                         secondary={
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                             <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1, pr: 1, fontSize: 'inherit', color: 'inherit' }}>
-                              {lastMsgText}
+                              {activeTypingStates.groupTyping[group.id] && activeTypingStates.groupTyping[group.id].length > 0 ? (
+                                <span style={{ color: '#2e7d32', fontWeight: 600 }}>
+                                  {activeTypingStates.groupTyping[group.id].map(u => u.username).join(', ')} {activeTypingStates.groupTyping[group.id].length === 1 ? 'is' : 'are'} typing...
+                                </span>
+                              ) : localStorage.getItem(`sophiapath_draft_group_${user.id}_${group.id}`) ? (
+                                <span>
+                                  <span style={{ color: '#2e7d32', fontWeight: 600 }}>Draft: </span>
+                                  <span style={{ color: 'var(--text-secondary)' }}>
+                                    {localStorage.getItem(`sophiapath_draft_group_${user.id}_${group.id}`)}
+                                  </span>
+                                </span>
+                              ) : (
+                                lastMsgText
+                              )}
                             </Typography>
                             {groupUnseenCount > 0 && (
                               <Box 

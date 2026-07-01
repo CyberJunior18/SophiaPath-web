@@ -54,7 +54,6 @@
   color: white;
   padding: 0.6rem 1.25rem;
   border-radius: 99px;
-  box-shadow: 0 4px 15px rgba(var(--primary-main-rgb), 0.25);
 }
 
 .quiz-progress-bar {

@@ -86,7 +86,6 @@
 .learning-slide-paper {
   padding: 2.5rem;
   border-radius: 32px;
-  box-shadow: var(--shadow-card);
 }
 
 .slide-page-title {
@@ -159,7 +158,6 @@
   height: 0.5rem;
   border-radius: 99px;
   background: var(--primary-main);
-  box-shadow: 0 0 8px var(--primary-main);
 }
 
 .slide-bullet-bold {
@@ -344,7 +342,6 @@
 
 .footer-nav-btn.primary {
   background: var(--hero-gradient) !important;
-  box-shadow: var(--shadow-glow);
 }
 
 
@@ -390,13 +387,11 @@
   transform: translateY(-4px);
   background: rgba(255, 255, 255, 0.06);
   border-color: var(--primary-main);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
 }
 
 .system-column-card.active {
   border: 1.5px solid var(--primary-main);
   background: rgba(28, 176, 246, 0.08);
-  box-shadow: 0 0 25px rgba(28, 176, 246, 0.2);
 }
 
 .system-item-list {
@@ -473,7 +468,6 @@
 .chevron-flow-step.active {
   border-color: var(--primary-main);
   background: rgba(28, 176, 246, 0.08);
-  box-shadow: 0 4px 15px rgba(28, 176, 246, 0.12);
 }
 
 .step-number {
@@ -571,13 +565,11 @@
   transform: translateY(-4px);
   background: rgba(255, 255, 255, 0.06);
   border-color: var(--primary-main);
-  box-shadow: 0 8px 24px rgba(28, 176, 246, 0.25);
 }
 
 .lan-node.active {
   border-color: var(--success-main);
   background: rgba(76, 175, 80, 0.12);
-  box-shadow: 0 0 25px rgba(76, 175, 80, 0.25);
 }
 
 .lan-node-icon-wrapper {
@@ -773,6 +765,5 @@
 .visual-tab-btn.active {
   background: var(--background-paper);
   color: var(--primary-main);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 

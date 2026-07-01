@@ -556,7 +556,6 @@ const ProfilePage = () => {
                 sx={{ 
                   p: 4,
                   borderRadius: 4,
-                  boxShadow: 'var(--shadow-card)',
                   border: '1px solid var(--divider)',
                   bgcolor: 'var(--surface-glass)',
                   backdropFilter: 'blur(16px)'
@@ -652,7 +651,6 @@ const ProfilePage = () => {
                 sx={{ 
                   p: 4,
                   borderRadius: 4,
-                  boxShadow: 'var(--shadow-card)',
                   border: '1px solid var(--divider)',
                   bgcolor: 'var(--surface-glass)',
                   backdropFilter: 'blur(16px)'

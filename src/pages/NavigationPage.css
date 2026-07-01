@@ -44,7 +44,6 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--divider);
-  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -54,7 +53,6 @@
               padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
               border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
               background 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
-              box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-shell-sidebar.is-collapsed {
@@ -85,7 +83,6 @@
   border-radius: 12px;
   background: var(--primary-main);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(var(--primary-main-rgb), 0.2);
 }
 
 .nav-brand-title {
@@ -164,7 +161,6 @@
   height: 60%;
   border-radius: 0 6px 6px 0;
   background: var(--primary-main);
-  box-shadow: 0 0 18px rgba(var(--primary-main-rgb), 0.6);
 }
 
 .nav-menu-item.is-active .nav-menu-icon {
@@ -258,7 +254,6 @@
   height: 0.65rem;
   border-radius: 999px;
   background: var(--primary-main);
-  box-shadow: 0 0 18px rgba(var(--primary-main-rgb), 0.65);
 }
 
 .nav-content {

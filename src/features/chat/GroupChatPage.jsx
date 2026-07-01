@@ -27,7 +27,9 @@ import {
   InputAdornment,
   Switch,
   Alert,
-  Snackbar
+  Snackbar,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -51,7 +53,12 @@ import {
   Delete as DeleteIcon,
   Star as StarIcon,
   Poll as PollIcon,
-  KeyboardArrowDown as KeyboardArrowDownIcon
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  CheckCircle as CheckCircleIcon,
+  Search as SearchIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  Link as LinkIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -83,6 +90,32 @@ const GroupChatPage = () => {
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [selectedNewMembers, setSelectedNewMembers] = useState([]);
+
+  // Advanced features states
+  const [groupTypingUsers, setGroupTypingUsers] = useState([]);
+  const [newMessagesCount, setNewMessagesCount] = useState(0);
+  const prevMessagesLengthRef = useRef(0);
+  const firstUnseenMsgId = useRef(null);
+  const [emojiUsage, setEmojiUsage] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('sophiapath_emoji_usage') || '{}');
+    } catch (e) {
+      return {};
+    }
+  });
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchMatches, setSearchMatches] = useState([]);
+  const [searchMatchIndex, setSearchMatchIndex] = useState(0);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState(new Set());
+  const [profileTab, setProfileTab] = useState(0);
+  const [mentionSearchQuery, setMentionSearchQuery] = useState('');
+  const [showMentionsList, setShowMentionsList] = useState(false);
+  const [openLeaveConfirm, setOpenLeaveConfirm] = useState(false);
+  const [openAssignAdminDialog, setOpenAssignAdminDialog] = useState(false);
+  const [selectedAdminToAssign, setSelectedAdminToAssign] = useState('');
 
   const [headerMenuAnchor, setHeaderMenuAnchor] = useState(null);
   const [openClearConfirm, setOpenClearConfirm] = useState(false);
@@ -286,10 +319,6 @@ const GroupChatPage = () => {
       setEditorOpen(true);
     });
     e.target.value = '';
-  };
-
-  const handleEmojiClick = (emoji) => {
-    setInputText(prev => prev + emoji);
   };
 
   const handleScrollToMessage = (msgId) => {
@@ -575,24 +604,29 @@ const GroupChatPage = () => {
 
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
+  const hasInitialScrolled = useRef(false);
 
   // Load group details and users
   const loadGroupDetails = async () => {
-    const data = await socialStore.getGroupById(groupId);
+    const data = await socialStore.getGroupById(groupId, user?.id);
     if (data) {
       setGroup(data);
       setMessages(data.messages || []);
+    }
+    const typing = await socialStore.getGroupTypingStatus(groupId);
+    if (typing) {
+      const typingOthers = typing.filter(t => Number(t.userId) !== Number(user?.id));
+      setGroupTypingUsers(typingOthers);
     }
   };
 
   useEffect(() => {
     if (groupId) {
       loadGroupDetails();
-      // Setup polling interval to emulate real-time updates
       const interval = setInterval(loadGroupDetails, 3000);
       return () => clearInterval(interval);
     }
-  }, [groupId]);
+  }, [groupId, user?.id]);
 
   // Load all users to be able to add members
   useEffect(() => {
@@ -638,9 +672,118 @@ const GroupChatPage = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [displayedMessages.length]);
 
+  // Load draft and reset state on group change
+  useEffect(() => {
+    if (user?.id && groupId) {
+      const draft = localStorage.getItem(`sophiapath_draft_group_${user.id}_${groupId}`) || '';
+      setInputText(draft);
+      prevMessagesLengthRef.current = 0;
+      setNewMessagesCount(0);
+      firstUnseenMsgId.current = null;
+      hasInitialScrolled.current = false;
+      setShowMentionsList(false);
+    }
+  }, [groupId, user?.id]);
+
+  // Smart scrolling on messages load
+  useEffect(() => {
+    if (displayedMessages.length > 0) {
+      const prevLength = prevMessagesLengthRef.current;
+      const newMsgs = displayedMessages.slice(prevLength);
+
+      if (prevLength === 0) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        hasInitialScrolled.current = true;
+      } else if (newMsgs.length > 0) {
+        const lastMsg = newMsgs[newMsgs.length - 1];
+        const isSentByMe = Number(lastMsg.senderId) === Number(user?.id);
+        const isNearBottom = scrollContainerRef.current
+          ? (scrollContainerRef.current.scrollHeight - scrollContainerRef.current.scrollTop - scrollContainerRef.current.clientHeight < 200)
+          : true;
+
+        if (isSentByMe || isNearBottom) {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 80);
+          setNewMessagesCount(0);
+          firstUnseenMsgId.current = null;
+        } else {
+          const unseen = newMsgs.filter(m => Number(m.senderId) !== Number(user?.id)).length;
+          if (unseen > 0) {
+            setNewMessagesCount(prev => prev + unseen);
+            if (!firstUnseenMsgId.current) {
+              const firstUnseen = newMsgs.find(m => Number(m.senderId) !== Number(user?.id));
+              if (firstUnseen) {
+                firstUnseenMsgId.current = firstUnseen.id;
+              }
+            }
+          }
+        }
+      }
+      prevMessagesLengthRef.current = displayedMessages.length;
+    }
+  }, [displayedMessages, user?.id]);
+
+  const lastTypingStatusRef = useRef(false);
+  const typingTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, []);
+
+  const sendGroupTypingStatus = async (typing) => {
+    if (!user?.id || !groupId) return;
+    if (lastTypingStatusRef.current === typing) return;
+    lastTypingStatusRef.current = typing;
+    await socialStore.setGroupTypingStatus(groupId, user.id, user.username || 'learner', typing);
+  };
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputText(val);
+    if (user?.id && groupId) {
+      localStorage.setItem(`sophiapath_draft_group_${user.id}_${groupId}`, val);
+    }
+
+    const mentionMatch = val.match(/@(\w*)$/);
+    if (mentionMatch) {
+      setMentionSearchQuery(mentionMatch[1]);
+      setShowMentionsList(true);
+    } else {
+      setShowMentionsList(false);
+    }
+
+    sendGroupTypingStatus(true);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      sendGroupTypingStatus(false);
+    }, 3000);
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if ((!inputText.trim() && !selectedImage) || !group) return;
+
+    if (editingMessage) {
+      try {
+        const updated = await socialStore.editGroupMessage(editingMessage.id, inputText.trim(), user.id);
+        if (updated) {
+          setMessages(prev => prev.map(m => m.id === editingMessage.id ? { ...m, text: updated.message, edited: true } : m));
+          setEditingMessage(null);
+          setInputText('');
+          if (user?.id && groupId) {
+            localStorage.removeItem(`sophiapath_draft_group_${user.id}_${groupId}`);
+          }
+          setSnackbarMessage("Message updated!");
+          setOpenSnackbar(true);
+        }
+      } catch (err) {
+        console.error('Failed to edit group message:', err);
+      }
+      return;
+    }
 
     const senderName = user.fullname || user.name || user.username || "You";
     const senderAvatar = user.avatar || "";
@@ -671,8 +814,17 @@ const GroupChatPage = () => {
       setSessionLastSeenId(null);
       setSessionLastSeen(new Date().toISOString());
       setInputText('');
+      if (user?.id && groupId) {
+        localStorage.removeItem(`sophiapath_draft_group_${user.id}_${groupId}`);
+      }
       setSelectedImage(null);
       setReplyingMessage(null);
+      firstUnseenMsgId.current = null;
+      
+      // Stop typing status
+      sendGroupTypingStatus(false);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 50);
@@ -684,10 +836,245 @@ const GroupChatPage = () => {
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
     const isScrolledUp = scrollHeight - scrollTop - clientHeight > 150;
     setShowScrollBottomBtn(isScrolledUp);
+    if (!isScrolledUp) {
+      setNewMessagesCount(0);
+    }
   };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setNewMessagesCount(0);
+  };
+
+  const handleScrollBottomClick = () => {
+    if (newMessagesCount > 0 && firstUnseenMsgId.current) {
+      const el = document.getElementById(`msg-${firstUnseenMsgId.current}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      setNewMessagesCount(0);
+    } else {
+      scrollToBottom();
+    }
+  };
+
+  const handleEmojiClick = (emoji) => {
+    const newVal = inputText + emoji;
+    setInputText(newVal);
+    if (user?.id && groupId) {
+      localStorage.setItem(`sophiapath_draft_group_${user.id}_${groupId}`, newVal);
+    }
+    const updated = { ...emojiUsage, [emoji]: (emojiUsage[emoji] || 0) + 1 };
+    setEmojiUsage(updated);
+    localStorage.setItem('sophiapath_emoji_usage', JSON.stringify(updated));
+  };
+
+  const frequentlyUsedEmojis = useMemo(() => {
+    return Object.entries(emojiUsage)
+      .sort((a, b) => b[1] - a[1])
+      .map(entry => entry[0])
+      .slice(0, 12);
+  }, [emojiUsage]);
+
+  const handleFindSearch = (query) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchMatches([]);
+      setSearchMatchIndex(0);
+      return;
+    }
+    const matches = displayedMessages
+      .filter(m => !m.deleted && m.text && m.text.toLowerCase().includes(query.toLowerCase()))
+      .map(m => m.id);
+    setSearchMatches(matches);
+    setSearchMatchIndex(0);
+    if (matches.length > 0) {
+      const el = document.getElementById(`msg-${matches[0]}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  };
+
+  const handleNextSearchMatch = () => {
+    if (searchMatches.length === 0) return;
+    const nextIdx = (searchMatchIndex + 1) % searchMatches.length;
+    setSearchMatchIndex(nextIdx);
+    const el = document.getElementById(`msg-${searchMatches[nextIdx]}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handlePrevSearchMatch = () => {
+    if (searchMatches.length === 0) return;
+    const prevIdx = (searchMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+    setSearchMatchIndex(prevIdx);
+    const el = document.getElementById(`msg-${searchMatches[prevIdx]}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const toggleSelectMessage = (msgId) => {
+    setSelectedMessageIds(prev => {
+      const next = new Set(prev);
+      if (next.has(msgId)) {
+        next.delete(msgId);
+      } else {
+        next.add(msgId);
+      }
+      return next;
+    });
+  };
+
+  const handleMultiDelete = async () => {
+    let successCount = 0;
+    const idsToDelete = Array.from(selectedMessageIds).filter(id => {
+      const msg = messages.find(m => String(m.id) === String(id));
+      return msg && Number(msg.senderId) === Number(user?.id);
+    });
+
+    if (idsToDelete.length === 0) {
+      setSnackbarMessage("No messages sent by you are selected.");
+      setOpenSnackbar(true);
+      return;
+    }
+
+    for (const id of idsToDelete) {
+      const res = await socialStore.deleteGroupMessage(id, user.id);
+      if (res) {
+        setMessages(prev => prev.map(m => String(m.id) === String(id) ? { ...m, deleted: true, text: 'This message was deleted' } : m));
+        successCount++;
+      }
+    }
+
+    setSnackbarMessage(`Deleted ${successCount} messages.`);
+    setOpenSnackbar(true);
+    setSelectedMessageIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const handleMultiStar = () => {
+    let list = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
+    let count = 0;
+    
+    selectedMessageIds.forEach(id => {
+      const msg = messages.find(m => String(m.id) === String(id));
+      if (msg && !msg.deleted) {
+        const isStarred = list.some(m => String(m.id) === String(msg.id));
+        if (!isStarred) {
+          const isImg = msg.text?.startsWith('[IMAGE]:');
+          const textToStore = isImg ? '[IMAGE]:' : msg.text;
+          list.push({
+            id: msg.id,
+            groupId: groupId,
+            type: 'group',
+            text: textToStore,
+            senderName: msg.senderName,
+            senderAvatar: msg.senderAvatar,
+            timestamp: msg.timestamp
+          });
+          count++;
+        }
+      }
+    });
+
+    localStorage.setItem('starred_messages_list', JSON.stringify(list));
+    setSnackbarMessage(`Starred ${count} messages.`);
+    setOpenSnackbar(true);
+    setSelectedMessageIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const handleMultiForward = () => {
+    setOpenForwardDialog(true);
+  };
+
+  const handleMultiForwardSubmit = async (recipient) => {
+    let count = 0;
+    const senderName = user.fullname || user.name || user.username || "You";
+
+    for (const id of Array.from(selectedMessageIds)) {
+      const msg = messages.find(m => String(m.id) === String(id));
+      if (msg && !msg.deleted) {
+        await socialStore.sendDirectMessage(
+          user.id,
+          recipient.id,
+          msg.text,
+          senderName,
+          user.avatar || '',
+          null,
+          null,
+          null,
+          true
+        );
+        count++;
+      }
+    }
+
+    setSnackbarMessage(`Forwarded ${count} messages to ${recipient.fullname || recipient.username}`);
+    setOpenSnackbar(true);
+    setOpenForwardDialog(false);
+    setSelectedMessageIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const handleLeaveGroupValidation = () => {
+    if (!group || !user) return;
+    
+    const creatorId = Number(group.createdBy);
+    const adminIdsList = group.adminIds || [];
+    const isUserAdmin = Number(user.id) === creatorId || adminIdsList.includes(String(user.id));
+    
+    if (isUserAdmin) {
+      const currentAdmins = group.members.filter(m => 
+        Number(m.id) === creatorId || adminIdsList.includes(String(m.id))
+      );
+      
+      if (currentAdmins.length === 1 && String(currentAdmins[0].id) === String(user.id)) {
+        const otherMembers = group.members.filter(m => String(m.id) !== String(user.id));
+        if (otherMembers.length > 0) {
+          setSelectedAdminToAssign(otherMembers[0].id);
+          setOpenAssignAdminDialog(true);
+          return;
+        }
+      }
+    }
+    
+    setOpenLeaveConfirm(true);
+  };
+
+  const handleAssignAdminAndLeave = async () => {
+    if (!selectedAdminToAssign) return;
+    try {
+      await socialStore.makeGroupAdmin(groupId, selectedAdminToAssign);
+      const success = await socialStore.removeGroupMember(groupId, user.id);
+      if (success) {
+        setOpenAssignAdminDialog(false);
+        navigate('/chats?tab=groups');
+      } else {
+        setSnackbarMessage("Failed to leave group.");
+        setOpenSnackbar(true);
+      }
+    } catch (err) {
+      console.error("Failed to assign admin and leave:", err);
+    }
+  };
+
+  const handleNormalLeaveGroup = async () => {
+    try {
+      const success = await socialStore.removeGroupMember(groupId, user.id);
+      if (success) {
+        setOpenLeaveConfirm(false);
+        navigate('/chats?tab=groups');
+      } else {
+        setSnackbarMessage("Failed to leave group.");
+        setOpenSnackbar(true);
+      }
+    } catch (err) {
+      console.error("Failed to leave group:", err);
+    }
   };
 
   const handleAddMembersSubmit = async () => {
@@ -735,38 +1122,101 @@ const GroupChatPage = () => {
       <Paper className="chat-window glass-panel-strong" sx={{ position: 'relative' }}>
         
         {/* Header */}
-        <Box className="chat-header">
-          <IconButton onClick={() => navigate('/chats?tab=groups')} className="chat-back-btn">
-            <ArrowBackIcon />
-          </IconButton>
-          
-          <Box 
-            sx={{ display: 'flex', alignItems: 'center', gap: 2, cursor: 'pointer', flexGrow: 1 }}
-            onClick={() => setOpenInfo(true)}
-          >
-            <Avatar 
-              src={group.avatar} 
-              className="chat-header-avatar"
-              sx={{ bgcolor: 'primary.light', color: 'white', fontWeight: 'bold', borderRadius: 4 }}
-            >
-              {!group.avatar && initials}
-            </Avatar>
-            <Box>
-              <Typography variant="h6" className="chat-header-name">{group.name}</Typography>
-              <Typography variant="caption" className="chat-header-status">
-                {group.members.length} members • View Info
-              </Typography>
-            </Box>
+        {selectionMode ? (
+          <Box className="chat-header" sx={{ bgcolor: 'primary.dark', color: 'white' }}>
+            <IconButton onClick={() => { setSelectionMode(false); setSelectedMessageIds(new Set()); }} sx={{ color: 'white' }}>
+              <CloseIcon />
+            </IconButton>
+            <Typography variant="h6" sx={{ flexGrow: 1, ml: 2, color: 'white', fontWeight: 600 }}>
+              Selected: {selectedMessageIds.size} message(s)
+            </Typography>
+            <IconButton onClick={handleMultiStar} sx={{ color: 'white', mr: 1 }}>
+              <StarIcon />
+            </IconButton>
+            <IconButton onClick={handleMultiForward} sx={{ color: 'white', mr: 1 }}>
+              <ForwardIcon />
+            </IconButton>
+            <IconButton onClick={handleMultiDelete} sx={{ color: '#ff5252', mr: 1 }}>
+              <DeleteIcon />
+            </IconButton>
           </Box>
+        ) : (
+          <Box className="chat-header">
+            <IconButton onClick={() => navigate('/chats?tab=groups')} className="chat-back-btn">
+              <ArrowBackIcon />
+            </IconButton>
+            
+            <Box 
+              sx={{ display: 'flex', alignItems: 'center', gap: 2, cursor: 'pointer', flexGrow: 1 }}
+              onClick={() => setOpenInfo(true)}
+            >
+              <Avatar 
+                src={group.avatar} 
+                className="chat-header-avatar"
+                sx={{ bgcolor: 'primary.light', color: 'white', fontWeight: 'bold', borderRadius: 4 }}
+              >
+                {!group.avatar && initials}
+              </Avatar>
+              <Box>
+                <Typography variant="h6" className="chat-header-name">{group.name}</Typography>
+                <Typography variant="caption" className="chat-header-status">
+                  {group.members.length} members • View Info
+                </Typography>
+              </Box>
+            </Box>
 
-          <IconButton onClick={() => setOpenInfo(true)} sx={{ color: 'var(--text-primary)' }}>
-            <InfoIcon />
-          </IconButton>
+            <IconButton 
+              onClick={() => {
+                setSearchOpen(prev => {
+                  if (prev) {
+                    setSearchQuery('');
+                    setSearchMatches([]);
+                  }
+                  return !prev;
+                });
+              }} 
+              sx={{ color: 'var(--text-primary)' }}
+            >
+              <SearchIcon />
+            </IconButton>
 
-          <IconButton onClick={(e) => setHeaderMenuAnchor(e.currentTarget)} sx={{ color: 'var(--text-primary)' }}>
-            <MoreVertIcon />
-          </IconButton>
-        </Box>
+            <IconButton onClick={() => setOpenInfo(true)} sx={{ color: 'var(--text-primary)' }}>
+              <InfoIcon />
+            </IconButton>
+
+            <IconButton onClick={(e) => setHeaderMenuAnchor(e.currentTarget)} sx={{ color: 'var(--text-primary)' }}>
+              <MoreVertIcon />
+            </IconButton>
+          </Box>
+        )}
+
+        {/* Find in Group Chat Search Bar */}
+        {searchOpen && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, bgcolor: 'background.paper', borderBottom: '1px solid var(--divider)', zIndex: 10 }}>
+            <TextField
+              size="small"
+              placeholder="Search in group chat..."
+              value={searchQuery}
+              onChange={(e) => handleFindSearch(e.target.value)}
+              sx={{ flexGrow: 1 }}
+              autoFocus
+            />
+            {searchMatches.length > 0 && (
+              <Typography variant="caption" sx={{ minWidth: '60px', textAlign: 'center', fontWeight: 600 }}>
+                {searchMatchIndex + 1} of {searchMatches.length}
+              </Typography>
+            )}
+            <IconButton size="small" onClick={handlePrevSearchMatch} disabled={searchMatches.length === 0}>
+              <ArrowUpwardIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={handleNextSearchMatch} disabled={searchMatches.length === 0}>
+              <ArrowDownwardIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchMatches([]); }}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
 
         {displayedMessages.filter(m => m.pinned && !m.deleted).length > 0 && (
           <Box sx={{ 
@@ -806,6 +1256,41 @@ const GroupChatPage = () => {
               : -1;
 
             return displayedMessages.map((msg, msgIdx) => {
+              const isSystem = Number(msg.senderId) === 0 || msg.senderName === 'System';
+              if (isSystem) {
+                return (
+                  <React.Fragment key={msg.id}>
+                    <Box
+                      id={`msg-${msg.id}`}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        width: '100%',
+                        my: 1.5
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          bgcolor: 'action.hover',
+                          color: 'text.secondary',
+                          px: 2,
+                          py: 0.5,
+                          borderRadius: 4,
+                          fontSize: '0.8rem',
+                          fontWeight: 500,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          textAlign: 'center',
+                          maxWidth: '80%'
+                        }}
+                      >
+                        {msg.text}
+                      </Box>
+                    </Box>
+                  </React.Fragment>
+                );
+              }
+
               const isMe = Number(msg.senderId) === Number(user.id);
               const senderInitials = msg.senderName.charAt(0).toUpperCase();
 
@@ -816,7 +1301,7 @@ const GroupChatPage = () => {
                   : false;
 
               const isUnseen = !isMe && isAfterLastSeen && initialMessageIds.current.has(String(msg.id));
-              const showUnseenBar = isUnseen && !renderedUnseenBar;
+              const showUnseenBar = (isUnseen || String(msg.id) === String(firstUnseenMsgId.current)) && !renderedUnseenBar;
               if (showUnseenBar) {
                 renderedUnseenBar = true;
               }
@@ -847,9 +1332,17 @@ const GroupChatPage = () => {
                     </Box>
                   )}
                   <Box 
+                    id={`msg-${msg.id}`}
                     className={`message-bubble-wrapper ${isMe ? 'is-me' : 'is-other'}`}
-                    sx={{ mb: 2 }}
+                    sx={{ mb: 2, display: 'flex', alignItems: 'flex-end', gap: 1 }}
                   >
+                    {selectionMode && (
+                      <Checkbox
+                        checked={selectedMessageIds.has(msg.id)}
+                        onChange={() => toggleSelectMessage(msg.id)}
+                        sx={{ color: 'primary.main', '&.Mui-checked': { color: 'primary.main' } }}
+                      />
+                    )}
                     {!isMe && (
                       <Avatar 
                         src={msg.senderAvatar} 
@@ -865,7 +1358,7 @@ const GroupChatPage = () => {
                         {!msg.senderAvatar && senderInitials}
                       </Avatar>
                     )}
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
+<Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
                       {!isMe && (
                         <Typography variant="caption" sx={{ color: 'var(--text-secondary)', mb: 0.25, ml: 1, fontSize: '0.75rem' }}>
                           {msg.senderName}
@@ -873,7 +1366,13 @@ const GroupChatPage = () => {
                       )}
                       <Paper 
                         id={`msg-${msg.id}`}
-                        onClick={(e) => handleMessageBubbleClick(e, msg)}
+                        onClick={(e) => {
+                          if (selectionMode) {
+                            toggleSelectMessage(msg.id);
+                          } else {
+                            handleMessageBubbleClick(e, msg);
+                          }
+                        }}
                         className={`message-bubble ${isMe ? 'me' : 'other'} ${highlightedMessageId === msg.id ? 'pulse-highlight' : ''}`} 
                         sx={{ 
                           mt: 0, 
@@ -982,7 +1481,7 @@ const GroupChatPage = () => {
 
                           return (
                             <Box sx={{ minWidth: 200, mt: 1 }}>
-                              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: isMe ? '#fff' : 'text.primary' }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700, mb: 1.5, color: isMe ? '#fff' : 'text.primary' }}>
                                 📊 {msg.pollQuestion}
                               </Typography>
                               <Stack spacing={1}>
@@ -995,21 +1494,21 @@ const GroupChatPage = () => {
                                       key={oIdx}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleVote(oIdx);
+                                        if (!hasVoted) handleVote(oIdx);
                                       }}
                                       sx={{
-                                        p: 1,
-                                        borderRadius: 1.5,
-                                        bgcolor: isUserChoice 
-                                          ? (isMe ? 'rgba(255,255,255,0.2)' : 'rgba(61,92,255,0.06)') 
-                                          : (isMe ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.03)'),
-                                        border: `1px solid ${isUserChoice 
-                                          ? (isMe ? '#fff' : 'var(--primary-color)') 
-                                          : (isMe ? 'rgba(255,255,255,0.2)' : 'var(--divider)')}`,
-                                        cursor: 'pointer',
                                         position: 'relative',
+                                        p: 1.25,
+                                        borderRadius: 2,
+                                        border: '1.5px solid',
+                                        borderColor: isUserChoice 
+                                          ? (isMe ? '#fff' : 'primary.main') 
+                                          : 'divider',
+                                        cursor: hasVoted ? 'default' : 'pointer',
                                         overflow: 'hidden',
-                                        '&:hover': { bgcolor: isMe ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }
+                                        '&:hover': {
+                                          bgcolor: hasVoted ? 'transparent' : 'action.hover'
+                                        }
                                       }}
                                     >
                                       {/* Progress bar fill */}
@@ -1068,7 +1567,15 @@ const GroupChatPage = () => {
                           );
                         })() : (
                           <Typography variant="body1" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                            {msg.text}
+                            {searchOpen && searchQuery.trim() ? (() => {
+                              const q = searchQuery.trim();
+                              const parts = msg.text.split(new RegExp(`(${q.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')})`, 'gi'));
+                              return parts.map((part, i) => 
+                                part.toLowerCase() === q.toLowerCase() 
+                                  ? <mark key={i} style={{ backgroundColor: '#FFF59D', color: '#000000', padding: '2px 4px', borderRadius: '2px' }}>{part}</mark> 
+                                  : part
+                              );
+                            })() : msg.text}
                           </Typography>
                         )}
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mt: 0.5, gap: 0.5 }}>
@@ -1076,6 +1583,7 @@ const GroupChatPage = () => {
                             <PushPinIcon sx={{ fontSize: 11, color: isMe ? 'rgba(255,255,255,0.7)' : 'text.secondary', transform: 'rotate(45deg)' }} />
                           )}
                           <Typography variant="caption" className="message-time" sx={{ m: 0 }}>
+                            {msg.edited && <span style={{ marginRight: 4, fontStyle: 'italic', opacity: 0.8 }}>(edited)</span>}
                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </Typography>
                         </Box>
@@ -1090,24 +1598,46 @@ const GroupChatPage = () => {
         </Box>
 
         {showScrollBottomBtn && (
-          <IconButton
-            onClick={scrollToBottom}
-            sx={{
-              position: 'absolute',
-              bottom: 85,
-              right: 24,
-              backgroundColor: 'primary.main',
-              color: 'white',
-              '&:hover': {
+          <Box sx={{ position: 'absolute', bottom: 85, right: 24, zIndex: 10 }}>
+            <IconButton
+              onClick={handleScrollBottomClick}
+              sx={{
                 backgroundColor: 'primary.main',
-                transform: 'scale(1.15)',
-              },
-              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-              zIndex: 10
-            }}
-          >
-            <KeyboardArrowDownIcon />
-          </IconButton>
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'primary.main',
+                  transform: 'scale(1.15)',
+                },
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              <KeyboardArrowDownIcon />
+            </IconButton>
+            {newMessagesCount > 0 && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: -8,
+                  right: -8,
+                  bgcolor: '#2e7d32',
+                  color: 'white',
+                  borderRadius: '50%',
+                  minWidth: 20,
+                  height: 20,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  px: 0.5,
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                  border: '1.5px solid white'
+                }}
+              >
+                {newMessagesCount}
+              </Box>
+            )}
+          </Box>
         )}
 
         <Divider />
@@ -1160,6 +1690,84 @@ const GroupChatPage = () => {
           </Box>
         )}
 
+        {editingMessage && (
+          <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'action.hover', borderTop: '1px solid var(--divider)', borderBottom: '1px solid var(--divider)' }}>
+            <Box sx={{ borderLeft: '3px solid #f59e0b', pl: 1, flexGrow: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: '#f59e0b', display: 'block' }}>
+                Editing Message
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', maxWidth: '300px' }}>
+                {editingMessage.text}
+              </Typography>
+            </Box>
+            <IconButton size="small" onClick={() => { setEditingMessage(null); setInputText(''); if (user?.id && groupId) { localStorage.removeItem(`sophiapath_draft_group_${user.id}_${groupId}`); } }}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
+
+        {showMentionsList && group && (
+          <Paper sx={{ maxHeight: 200, overflowY: 'auto', borderTop: '1px solid var(--divider)', borderBottom: '1px solid var(--divider)', zIndex: 10 }}>
+            <List size="small" sx={{ p: 0 }}>
+              {group.members
+                .filter(m => {
+                  const nameStr = (m.fullname || m.name || m.username || '').toLowerCase();
+                  return nameStr.includes(mentionSearchQuery.toLowerCase());
+                })
+                .map(member => (
+                  <ListItemButton
+                    key={member.id}
+                    onClick={() => {
+                      const lastIndex = inputText.lastIndexOf('@');
+                      const newText = inputText.substring(0, lastIndex) + `@${member.username} `;
+                      setInputText(newText);
+                      setShowMentionsList(false);
+                    }}
+                    sx={{ py: 1 }}
+                  >
+                    <ListItemAvatar>
+                      <Avatar src={localStorage.getItem(`avatar_${member.id}`) || member.avatar || ''} sx={{ width: 28, height: 28, fontSize: '0.75rem' }}>
+                        {(member.fullname || member.name || member.username || 'U').charAt(0).toUpperCase()}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText primary={`@${member.username}`} secondary={member.fullname || member.name} primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} secondaryTypographyProps={{ variant: 'caption' }} />
+                  </ListItemButton>
+                ))}
+            </List>
+          </Paper>
+        )}
+
+        {groupTypingUsers.length > 0 && (
+          <Box sx={{ px: 2.5, py: 0.75, display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'background.paper', borderTop: '1px solid var(--divider)' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {groupTypingUsers.map((u, index) => (
+                <Avatar 
+                  key={u.userId} 
+                  src={localStorage.getItem(`avatar_${u.userId}`) || u.avatar || ''} 
+                  sx={{ 
+                    width: 24, 
+                    height: 24, 
+                    fontSize: '0.65rem', 
+                    border: '1.5px solid white', 
+                    marginLeft: index > 0 ? -1 : 0,
+                    zIndex: groupTypingUsers.length - index 
+                  }}
+                >
+                  {u.username.charAt(0).toUpperCase()}
+                </Avatar>
+              ))}
+            </Box>
+            <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
+              {groupTypingUsers.map(u => u.username).join(', ')} {groupTypingUsers.length === 1 ? 'is' : 'are'} typing
+            </Typography>
+            <Box className="typing-dots" sx={{ display: 'flex', gap: 0.35 }}>
+              <span className="dot" style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--text-secondary)', display: 'inline-block' }}></span>
+              <span className="dot" style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--text-secondary)', display: 'inline-block' }}></span>
+              <span className="dot" style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--text-secondary)', display: 'inline-block' }}></span>
+            </Box>
+          </Box>
+        )}
+
         {!canSendMessage ? (
           <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: 'action.disabledBackground', borderTop: '1px solid divider' }}>
             <Typography variant="body2" sx={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>
@@ -1172,7 +1780,7 @@ const GroupChatPage = () => {
               fullWidth
               placeholder={selectedImage ? "Add a caption..." : "Message group..."}
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={handleInputChange}
               variant="outlined"
               multiline
               maxRows={4}
@@ -1230,8 +1838,31 @@ const GroupChatPage = () => {
             vertical: 'bottom',
             horizontal: 'left',
           }}
-          PaperProps={{ sx: { p: 1, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' } }}
+          PaperProps={{ sx: { p: 1.5, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', maxWidth: 280 } }}
         >
+          {frequentlyUsedEmojis.length > 0 && (
+            <Box sx={{ mb: 1.5 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', px: 0.5, display: 'block', mb: 0.5 }}>
+                Frequently Used
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 0.5 }}>
+                {frequentlyUsedEmojis.map(emoji => (
+                  <IconButton 
+                    key={`freq-${emoji}`} 
+                    size="small" 
+                    onClick={() => handleEmojiClick(emoji)}
+                    sx={{ fontSize: '1.25rem' }}
+                  >
+                    {emoji}
+                  </IconButton>
+                ))}
+              </Box>
+              <Divider sx={{ my: 1 }} />
+            </Box>
+          )}
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', px: 0.5, display: 'block', mb: 0.5 }}>
+            All Emojis
+          </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 0.5, p: 0.5 }}>
             {['😀', '😂', '😍', '😎', '😭', '😡', '👍', '👎', '❤️', '🎉', '🔥', '🚀', '🤔', '👏', '🌟', '🙏', '💯', '✨'].map(emoji => (
               <IconButton 
@@ -1412,86 +2043,187 @@ const GroupChatPage = () => {
           </>
         ) : (
           <>
-            <DialogContent dividers>
-              <Stack spacing={2} sx={{ py: 1 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                  <Avatar 
-                    src={group.avatar} 
-                    sx={{ width: 72, height: 72, fontSize: '2rem', bgcolor: 'primary.light', borderRadius: 4, cursor: group.avatar ? 'pointer' : 'default' }}
-                    onClick={() => {
-                      if (group.avatar) {
-                        setLightboxUrl(group.avatar);
-                        setLightboxName(group.name);
-                        setLightboxIsProfile(true);
-                        setLightboxOpen(true);
-                      }
-                    }}
-                  >
-                    {initials}
-                  </Avatar>
-                  <Typography variant="h5" sx={{ fontWeight: 700 }}>{group.name}</Typography>
-                  <Typography variant="body2" color="text.secondary" align="center">
-                    {group.description || "No description provided."}
-                  </Typography>
-                </Box>
+            <DialogContent sx={{ display: 'flex', flexDirection: 'column', pb: 3 }}>
+              <Tabs value={profileTab} onChange={(e, val) => setProfileTab(val)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
+                <Tab label="Info" sx={{ textTransform: 'none', fontWeight: 600 }} />
+                <Tab label="Media" sx={{ textTransform: 'none', fontWeight: 600 }} />
+                <Tab label="Invite" sx={{ textTransform: 'none', fontWeight: 600 }} />
+              </Tabs>
 
-                <Divider />
-
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  Group Members ({group.members.length})
-                </Typography>
-
-                <List sx={{ maxHeight: 250, overflowY: 'auto' }}>
-                  {sortedMembers.map((member) => {
-                    const memberId = Number(member.id);
-                    const isUserMe = memberId === Number(user.id);
-                    const memberAvatar = localStorage.getItem(`avatar_${memberId}`) || member.avatar || '';
-                    const memberName = member.fullname || member.name || member.username || `User #${memberId}`;
-                    const isCreator = Number(group.createdBy) === memberId;
-                    const isTargetAdmin = group.adminIds?.includes(String(memberId)) || isCreator;
-                    const roleLabel = isCreator ? "Group Creator" : (isTargetAdmin ? "Admin" : "Member");
-                    
-                    return (
-                      <ListItem 
-                        key={memberId} 
-                        sx={{ px: 0, py: 0.5 }}
-                        secondaryAction={
-                          <IconButton 
-                            size="small" 
-                            onClick={(e) => handleOpenMemberMenu(e, member)}
-                            sx={{ color: 'var(--text-secondary)' }}
-                          >
-                            <MoreVertIcon fontSize="small" />
-                          </IconButton>
+              {profileTab === 0 ? (
+                <Stack spacing={2} sx={{ py: 1 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <Avatar 
+                      src={group.avatar} 
+                      sx={{ width: 72, height: 72, fontSize: '2rem', bgcolor: 'primary.light', borderRadius: 4, cursor: group.avatar ? 'pointer' : 'default' }}
+                      onClick={() => {
+                        if (group.avatar) {
+                          setLightboxUrl(group.avatar);
+                          setLightboxName(group.name);
+                          setLightboxIsProfile(true);
+                          setLightboxOpen(true);
                         }
-                      >
-                        <ListItemAvatar>
-                          <Avatar 
-                            src={memberAvatar} 
-                            sx={{ width: 32, height: 32, fontSize: '0.85rem', cursor: memberAvatar ? 'pointer' : 'default' }}
-                            onClick={() => {
-                              if (memberAvatar) {
-                                setLightboxUrl(memberAvatar);
-                                setLightboxName(memberName);
-                                setLightboxIsProfile(true);
-                                setLightboxOpen(true);
-                              }
-                            }}
-                          >
-                            {!memberAvatar && memberName.charAt(0).toUpperCase()}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText 
-                          primary={isUserMe ? `${memberName} (You)` : memberName} 
-                          secondary={roleLabel}
-                          primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
-                          secondaryTypographyProps={{ variant: 'caption' }}
-                        />
-                      </ListItem>
+                      }}
+                    >
+                      {initials}
+                    </Avatar>
+                    <Typography variant="h5" sx={{ fontWeight: 700 }}>{group.name}</Typography>
+                    <Typography variant="body2" color="text.secondary" align="center">
+                      {group.description || "No description provided."}
+                    </Typography>
+                  </Box>
+
+                  <Divider />
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    Group Members ({group.members.length})
+                  </Typography>
+
+                  <List sx={{ maxHeight: 250, overflowY: 'auto' }}>
+                    {sortedMembers.map((member) => {
+                      const memberId = Number(member.id);
+                      const isUserMe = memberId === Number(user.id);
+                      const memberAvatar = localStorage.getItem(`avatar_${memberId}`) || member.avatar || '';
+                      const memberName = member.fullname || member.name || member.username || `User #${memberId}`;
+                      const isCreator = Number(group.createdBy) === memberId;
+                      const isTargetAdmin = group.adminIds?.includes(String(memberId)) || isCreator;
+                      const roleLabel = isCreator ? "Group Creator" : (isTargetAdmin ? "Admin" : "Member");
+                      
+                      return (
+                        <ListItem 
+                          key={memberId} 
+                          sx={{ px: 0, py: 0.5 }}
+                          secondaryAction={
+                            <IconButton 
+                              size="small" 
+                              onClick={(e) => handleOpenMemberMenu(e, member)}
+                              sx={{ color: 'var(--text-secondary)' }}
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
+                          }
+                        >
+                          <ListItemAvatar>
+                            <Avatar 
+                              src={memberAvatar} 
+                              sx={{ width: 32, height: 32, fontSize: '0.85rem', cursor: memberAvatar ? 'pointer' : 'default' }}
+                              onClick={() => {
+                                if (memberAvatar) {
+                                  setLightboxUrl(memberAvatar);
+                                  setLightboxName(memberName);
+                                  setLightboxIsProfile(true);
+                                  setLightboxOpen(true);
+                                }
+                              }}
+                            >
+                              {!memberAvatar && memberName.charAt(0).toUpperCase()}
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText 
+                            primary={isUserMe ? `${memberName} (You)` : memberName} 
+                            secondary={roleLabel}
+                            primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
+                            secondaryTypographyProps={{ variant: 'caption' }}
+                          />
+                        </ListItem>
+                      );
+                    })}
+                  </List>
+                  
+                  <Divider />
+
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    fullWidth
+                    onClick={handleLeaveGroupValidation}
+                    sx={{ mt: 2, borderRadius: 3, textTransform: 'none' }}
+                  >
+                    Leave Group
+                  </Button>
+                </Stack>
+              ) : profileTab === 1 ? (
+                <Box sx={{ width: '100%', py: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Media</Typography>
+                  {(() => {
+                    const imageMsgs = displayedMessages.filter(m => !m.deleted && m.text && m.text.startsWith('[IMAGE]:'));
+                    if (imageMsgs.length === 0) {
+                      return <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>No shared media</Typography>;
+                    }
+                    return (
+                      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, mb: 3 }}>
+                        {imageMsgs.map(m => {
+                          const url = m.text.substring(8).split('|')[0];
+                          return (
+                            <Box key={m.id} sx={{ aspectRatio: '1/1', overflow: 'hidden', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                              <img 
+                                src={url} 
+                                alt="shared" 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                                onClick={() => {
+                                  setLightboxUrl(url);
+                                  setLightboxIsProfile(false);
+                                  setLightboxOpen(true);
+                                }}
+                              />
+                            </Box>
+                          );
+                        })}
+                      </Box>
                     );
-                  })}
-                </List>
-              </Stack>
+                  })()}
+
+                  <Divider sx={{ my: 2 }} />
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Links</Typography>
+                  {(() => {
+                    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+                    const linkMsgs = displayedMessages.filter(m => !m.deleted && m.text && urlRegex.test(m.text));
+                    if (linkMsgs.length === 0) {
+                      return <Typography variant="body2" color="text.secondary">No shared links</Typography>;
+                    }
+                    return (
+                      <Stack spacing={1}>
+                        {linkMsgs.map(m => {
+                          const matches = m.text.match(urlRegex);
+                          return matches.map((url, idx) => (
+                            <Box key={`${m.id}-${idx}`} sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color)', fontSize: '0.85rem', textDecoration: 'none', wordBreak: 'break-all' }}>
+                                {url}
+                              </a>
+                            </Box>
+                          ));
+                        })}
+                      </Stack>
+                    );
+                  })()}
+                </Box>
+              ) : (
+                <Box sx={{ width: '100%', py: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, alignSelf: 'flex-start' }}>Group Invite Link</Typography>
+                  <Typography variant="body2" color="text.secondary" align="center">
+                    Share this link to invite others to join your group path.
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1, p: 1, bgcolor: 'action.hover', border: '1px dashed', borderColor: 'primary.main', borderRadius: 2 }}>
+                    <LinkIcon color="primary" />
+                    <Typography variant="caption" sx={{ flexGrow: 1, wordBreak: 'break-all', fontWeight: 600 }}>
+                      {`${window.location.origin}/group/join/${group.inviteToken || 'no-token'}`}
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/group/join/${group.inviteToken || ''}`);
+                      setSnackbarMessage("Invite link copied to clipboard!");
+                      setOpenSnackbar(true);
+                    }}
+                    sx={{ textTransform: 'none', borderRadius: 3 }}
+                  >
+                    Copy Link
+                  </Button>
+                </Box>
+              )}
             </DialogContent>
           </>
         )}
@@ -1825,6 +2557,14 @@ const GroupChatPage = () => {
         <MenuItem onClick={handleForwardClick}>
           <ForwardIcon sx={{ mr: 1, fontSize: 20 }} /> Forward
         </MenuItem>
+        {Number(menuMessage?.senderId) === Number(user?.id) && !menuMessage?.text?.startsWith('[IMAGE]:') && (
+          <MenuItem onClick={() => { setEditingMessage(menuMessage); setInputText(menuMessage.text); handleCloseMenu(); }}>
+            <EditIcon sx={{ mr: 1, fontSize: 20 }} /> Edit
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => { setSelectionMode(true); setSelectedMessageIds(new Set([menuMessage.id])); handleCloseMenu(); }}>
+          <CheckCircleIcon sx={{ mr: 1, fontSize: 20 }} /> Select Messages
+        </MenuItem>
         {Number(menuMessage?.senderId) === Number(user?.id) && (
           <MenuItem onClick={handleDeleteMessage} sx={{ color: 'error.main' }}>
             <DeleteIcon sx={{ mr: 1, fontSize: 20 }} /> Delete
@@ -1902,7 +2642,13 @@ const GroupChatPage = () => {
                 return (
                   <ListItemButton 
                     key={target.id}
-                    onClick={() => handleForwardMessage(target)}
+                    onClick={() => {
+                      if (selectionMode) {
+                        handleMultiForwardSubmit(target);
+                      } else {
+                        handleForwardMessage(target);
+                      }
+                    }}
                   >
                     <ListItemAvatar>
                       <Avatar src={uAvatar} sx={{ width: 36, height: 36 }}>
@@ -2109,6 +2855,61 @@ const GroupChatPage = () => {
             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
           >
             {isCreator ? "Delete" : "Leave"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Leave Group Confirm Dialog */}
+      <Dialog open={openLeaveConfirm} onClose={() => setOpenLeaveConfirm(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Leave Group?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Are you sure you want to leave this group?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outlined" onClick={() => setOpenLeaveConfirm(false)} sx={{ textTransform: 'none', borderRadius: 2 }}>
+            Cancel
+          </Button>
+          <Button variant="contained" color="error" onClick={handleNormalLeaveGroup} sx={{ textTransform: 'none', borderRadius: 2 }}>
+            Leave
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Assign Admin Dialog */}
+      <Dialog open={openAssignAdminDialog} onClose={() => setOpenAssignAdminDialog(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Assign Admin Required</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            You are the only admin in this group. Before leaving, you must assign another group member to be the admin.
+          </Typography>
+          {group && (
+            <TextField
+              select
+              label="Select New Admin"
+              fullWidth
+              value={selectedAdminToAssign}
+              onChange={(e) => setSelectedAdminToAssign(e.target.value)}
+              SelectProps={{ native: true }}
+              InputProps={{ sx: { borderRadius: 2 } }}
+            >
+              {group.members
+                .filter(m => String(m.id) !== String(user?.id))
+                .map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.fullname || m.name || m.username}
+                  </option>
+                ))}
+            </TextField>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outlined" onClick={() => setOpenAssignAdminDialog(false)} sx={{ textTransform: 'none', borderRadius: 2 }}>
+            Cancel
+          </Button>
+          <Button variant="contained" color="primary" onClick={handleAssignAdminAndLeave} disabled={!selectedAdminToAssign} sx={{ textTransform: 'none', borderRadius: 2 }}>
+            Assign & Leave
           </Button>
         </DialogActions>
       </Dialog>

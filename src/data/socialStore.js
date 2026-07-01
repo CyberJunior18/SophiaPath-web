@@ -140,9 +140,10 @@ export const socialStore = {
     }
   },
 
-  getGroupById: async (groupId) => {
+  getGroupById: async (groupId, userId) => {
     try {
-      const res = await fetch(`/api/groups/${groupId}`, { headers: getHeaders() });
+      const url = userId ? `/api/groups/${groupId}?userId=${userId}` : `/api/groups/${groupId}`;
+      const res = await fetch(url, { headers: getHeaders() });
       if (!res.ok) throw new Error('Failed to load group details');
       return await res.json();
     } catch (e) {
@@ -225,6 +226,88 @@ export const socialStore = {
     } catch (e) {
       console.error(e);
       return null;
+    }
+  },
+
+  editGroupMessage: async (messageId, text, userId) => {
+    try {
+      const res = await fetch(`/api/groups/message/${messageId}/edit`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ text, userId: Number(userId) })
+      });
+      if (!res.ok) throw new Error('Failed to edit group message');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  editDirectMessage: async (messageId, text, userId) => {
+    try {
+      const res = await fetch(`/api/chat/message/${messageId}/edit`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ text, userId: Number(userId) })
+      });
+      if (!res.ok) throw new Error('Failed to edit direct message');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  setGroupTypingStatus: async (groupId, userId, username, typing) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}/typing`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ userId: Number(userId), username, typing })
+      });
+      if (!res.ok) throw new Error('Failed to set group typing status');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  getGroupTypingStatus: async (groupId) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}/typing`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to get group typing status');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
+  joinGroupByLink: async (token, userId) => {
+    try {
+      const res = await fetch(`/api/groups/join-by-link/${token}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ userId: Number(userId) })
+      });
+      if (!res.ok) throw new Error('Failed to join group via invite link');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  getActiveTypingStates: async (userId) => {
+    try {
+      const res = await fetch(`/api/chat/users/${userId}/active-typing-states`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch active typing states');
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return { directTyping: {}, groupTyping: {} };
     }
   },
 
