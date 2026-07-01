@@ -66,7 +66,8 @@ const RenderReplyNode = ({
   isMod,
   isJoinedMember,
   collapsedReplyIds,
-  toggleReplyCollapse
+  toggleReplyCollapse,
+  canDeleteContent
 }) => {
   if (!reply) return null;
   const isReplyAuthor = Number(reply.authorId) === Number(user?.id);
@@ -122,7 +123,7 @@ const RenderReplyNode = ({
                   <EditIcon sx={{ fontSize: 14 }} />
                 </IconButton>
               )}
-              {(isReplyAuthor || isMod) && (
+              {canDeleteContent && canDeleteContent(reply.authorId) && (
                 <IconButton 
                   size="small" 
                   onClick={() => handleDeleteReply(reply.id)}
@@ -252,6 +253,7 @@ const RenderReplyNode = ({
                     isJoinedMember={isJoinedMember}
                     collapsedReplyIds={collapsedReplyIds}
                     toggleReplyCollapse={toggleReplyCollapse}
+                    canDeleteContent={canDeleteContent}
                   />
                 ))
               )}
@@ -392,6 +394,30 @@ const QuestionDetailPage = () => {
   const isOwner = community && Number(community.ownerId) === Number(user?.id);
   const isMod = community && (community.moderatorIds?.includes(String(user?.id)) || isOwner);
   const isJoinedMember = community && (community.isJoined || isOwner);
+
+  const canDeleteContent = (authorId) => {
+    if (!community || !user) return false;
+    const authorIdStr = String(authorId);
+    const userIdStr = String(user.id);
+    
+    const isCurrentUserOwner = Number(community.ownerId) === Number(user.id);
+    const isCurrentUserMod = community.moderatorIds?.includes(userIdStr);
+    
+    // 1. Owner can delete anything
+    if (isCurrentUserOwner) return true;
+    
+    // 2. Mod can delete normal members' data and oneself
+    if (isCurrentUserMod) {
+      const isAuthorOwner = Number(community.ownerId) === Number(authorId);
+      const isAuthorMod = community.moderatorIds?.includes(authorIdStr);
+      if (authorIdStr === userIdStr) return true;
+      if (!isAuthorOwner && !isAuthorMod) return true;
+      return false;
+    }
+    
+    // 3. Normal member can only delete their own data
+    return authorIdStr === userIdStr;
+  };
 
   const getAuthorRoleTag = (authorId) => {
     if (!community) return null;
@@ -1148,7 +1174,7 @@ const QuestionDetailPage = () => {
                   <EditIcon fontSize="small" />
                 </IconButton>
               )}
-              {(Number(question.authorId) === Number(user?.id) || isMod) && (
+              {canDeleteContent(question.authorId) && (
                 <IconButton size="small" onClick={handleDeletePost} color="error" sx={{ border: '1px solid var(--divider)', borderRadius: 2 }}>
                   <DeleteIcon fontSize="small" />
                 </IconButton>
@@ -1565,6 +1591,7 @@ const QuestionDetailPage = () => {
                     isJoinedMember={isJoinedMember}
                     collapsedReplyIds={collapsedReplyIds}
                     toggleReplyCollapse={toggleReplyCollapse}
+                    canDeleteContent={canDeleteContent}
                   />
                 ))}
               </Box>
@@ -1626,7 +1653,7 @@ const QuestionDetailPage = () => {
                               <EditIcon sx={{ fontSize: 14 }} />
                             </IconButton>
                           )}
-                          {(isCommentAuthor || isMod) && (
+                          {canDeleteContent(comment.authorId) && (
                             <IconButton 
                               size="small" 
                               onClick={() => handleDeleteComment(comment.id)}
@@ -1766,6 +1793,7 @@ const QuestionDetailPage = () => {
                               isJoinedMember={isJoinedMember}
                               collapsedReplyIds={collapsedReplyIds}
                               toggleReplyCollapse={toggleReplyCollapse}
+                              canDeleteContent={canDeleteContent}
                             />
                           ))}
                         </Box>

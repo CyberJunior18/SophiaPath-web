@@ -1216,6 +1216,7 @@ const ChatPage = () => {
                             onClick={(e) => {
                               e.stopPropagation();
                               setLightboxUrl(imageUrl);
+                              setLightboxName(Number(msg.senderId) === Number(user?.id) ? 'You' : displayName);
                               setLightboxIsProfile(false);
                               setLightboxOpen(true);
                             }}
@@ -1598,6 +1599,7 @@ const ChatPage = () => {
                             style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
                             onClick={() => {
                               setLightboxUrl(url);
+                              setLightboxName(Number(m.senderId) === Number(user?.id) ? 'You' : displayName);
                               setLightboxIsProfile(false);
                               setLightboxOpen(true);
                             }}
@@ -1649,7 +1651,7 @@ const ChatPage = () => {
         }}
       >
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-          {displayName}'s Avatar
+          {displayName}
         </Typography>
         {lightboxUrl ? (
           <img 

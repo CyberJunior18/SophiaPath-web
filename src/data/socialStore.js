@@ -776,9 +776,11 @@ export const socialStore = {
   },
 
   deleteQuestion: async (questionId) => {
+    const userId = getUserId();
     const res = await fetch(`/api/communities/questions/${questionId}/delete`, {
       method: 'POST',
-      headers: getHeaders()
+      headers: getHeaders(),
+      body: JSON.stringify({ userId })
     });
     return res.ok;
   },

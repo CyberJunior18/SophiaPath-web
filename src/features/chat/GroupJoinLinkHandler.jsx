@@ -19,6 +19,7 @@ const GroupJoinLinkHandler = () => {
       try {
         const group = await socialStore.joinGroupByLink(token, user.id);
         if (group) {
+          localStorage.setItem(`sophiapath_clear_time_${user.id}_${group.id}`, new Date().toISOString());
           navigate(`/group/${group.id}`);
         } else {
           setError('Failed to join group. The invite link may be invalid or expired.');

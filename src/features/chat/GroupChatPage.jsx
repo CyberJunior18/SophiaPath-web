@@ -610,8 +610,44 @@ const GroupChatPage = () => {
   const loadGroupDetails = async () => {
     const data = await socialStore.getGroupById(groupId, user?.id);
     if (data) {
+      if (user?.id) {
+        const isMember = data.members?.some(m => Number(m.id) === Number(user?.id));
+        if (!isMember) {
+          navigate('/chats?tab=groups');
+          return;
+        }
+
+        // Initialize or update local clear chat time to their join timestamp
+        const clearKey = `sophiapath_clear_time_${user.id}_${groupId}`;
+        const storedClearTime = localStorage.getItem(clearKey);
+        try {
+          const joinTimes = data.memberJoinTimes ? JSON.parse(data.memberJoinTimes) : {};
+          const userJoinTime = joinTimes[user.id];
+          if (userJoinTime) {
+            if (!storedClearTime || new Date(storedClearTime).getTime() < new Date(userJoinTime).getTime()) {
+              localStorage.setItem(clearKey, userJoinTime);
+              setClearTrigger(prev => prev + 1);
+            }
+          } else {
+            if (!storedClearTime) {
+              localStorage.setItem(clearKey, new Date().toISOString());
+              setClearTrigger(prev => prev + 1);
+            }
+          }
+        } catch (e) {
+          if (!storedClearTime) {
+            localStorage.setItem(clearKey, new Date().toISOString());
+            setClearTrigger(prev => prev + 1);
+          }
+        }
+      }
       setGroup(data);
       setMessages(data.messages || []);
+    } else {
+      if (user?.id) {
+        navigate('/chats?tab=groups');
+        return;
+      }
     }
     const typing = await socialStore.getGroupTypingStatus(groupId);
     if (typing) {
@@ -667,10 +703,7 @@ const GroupChatPage = () => {
     }
   }, [openAddMembers, openInfo, group]);
 
-  // Scroll to bottom when messages list size changes
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-  }, [displayedMessages.length]);
+
 
   // Load draft and reset state on group change
   useEffect(() => {
@@ -1110,8 +1143,8 @@ const GroupChatPage = () => {
     );
   }
 
-  const isCreator = group && Number(group.createdBy) === Number(user?.id);
-  const isAdmin = group && (group.adminIds?.includes(String(user?.id)) || isCreator);
+  const isCreator = group && Number(group.createdBy) === Number(user?.id) && group.adminIds?.includes(String(user?.id));
+  const isAdmin = group && group.adminIds?.includes(String(user?.id));
   const canEditGroupDetails = group && (!group.onlyAdminsCanEdit || isAdmin);
   const canSendMessage = group && (!group.onlyAdminsCanSendMessages || isAdmin);
   const canAddMembers = group && (!group.onlyAdminsCanAddMembers || isAdmin);
@@ -1553,7 +1586,7 @@ const GroupChatPage = () => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setLightboxUrl(imageUrl);
-                                  setLightboxName(msg.senderName);
+                                  setLightboxName(Number(msg.senderId) === Number(user?.id) ? 'You' : msg.senderName);
                                   setLightboxIsProfile(false);
                                   setLightboxOpen(true);
                                 }}
@@ -2085,9 +2118,8 @@ const GroupChatPage = () => {
                       const isUserMe = memberId === Number(user.id);
                       const memberAvatar = localStorage.getItem(`avatar_${memberId}`) || member.avatar || '';
                       const memberName = member.fullname || member.name || member.username || `User #${memberId}`;
-                      const isCreator = Number(group.createdBy) === memberId;
-                      const isTargetAdmin = group.adminIds?.includes(String(memberId)) || isCreator;
-                      const roleLabel = isCreator ? "Group Creator" : (isTargetAdmin ? "Admin" : "Member");
+                      const isTargetAdmin = group.adminIds?.includes(String(memberId));
+                      const roleLabel = isTargetAdmin ? "Admin" : "Member";
                       
                       return (
                         <ListItem 
@@ -2162,6 +2194,7 @@ const GroupChatPage = () => {
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
                                 onClick={() => {
                                   setLightboxUrl(url);
+                                  setLightboxName(Number(m.senderId) === Number(user?.id) ? 'You' : m.senderName);
                                   setLightboxIsProfile(false);
                                   setLightboxOpen(true);
                                 }}
@@ -2317,8 +2350,7 @@ const GroupChatPage = () => {
           onClick={handleToggleAdmin}
           disabled={
             !group || 
-            !(group.adminIds?.includes(String(user.id)) || Number(group.createdBy) === Number(user.id)) ||
-            (menuTargetMember && Number(group.createdBy) === Number(menuTargetMember.id)) ||
+            !group.adminIds?.includes(String(user.id)) ||
             (menuTargetMember && Number(menuTargetMember.id) === Number(user.id))
           }
           sx={{ fontSize: '0.9rem' }}
@@ -2330,8 +2362,7 @@ const GroupChatPage = () => {
           onClick={handleRemoveMember}
           disabled={
             !group || 
-            !(group.adminIds?.includes(String(user.id)) || Number(group.createdBy) === Number(user.id)) ||
-            (menuTargetMember && Number(group.createdBy) === Number(menuTargetMember.id)) ||
+            !group.adminIds?.includes(String(user.id)) ||
             (menuTargetMember && Number(menuTargetMember.id) === Number(user.id))
           }
           sx={{ fontSize: '0.9rem', color: 'error.main' }}
@@ -2477,7 +2508,7 @@ const GroupChatPage = () => {
         }}
       >
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-          {lightboxName}'s Avatar
+          {lightboxName}
         </Typography>
         {lightboxUrl ? (
           <img 
