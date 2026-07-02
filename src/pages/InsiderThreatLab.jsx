@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './InsiderThreatLab.css';
 
-export default function InsiderThreatLab() {
+export default function InsiderThreatLab({ startMitigated = false }) {
   // --- Layout Constants ---
   const dbCenter = { x: 80, y: 150 };
   const empCenter = { x: 300, y: 150 };
@@ -10,8 +10,8 @@ export default function InsiderThreatLab() {
   // --- Simulation State ---
   const [phase, setPhase] = useState('idle'); 
   const [attackType, setAttackType] = useState('usb'); // 'usb' or 'cloud'
-  const [uebaEnabled, setUebaEnabled] = useState(false);
-  const [dlpEnabled, setDlpEnabled] = useState(false);
+  const [uebaEnabled, setUebaEnabled] = useState(startMitigated);
+  const [dlpEnabled, setDlpEnabled] = useState(startMitigated);
   
   const [animProgress, setAnimProgress] = useState(0);
 

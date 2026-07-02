@@ -57,6 +57,7 @@ import QuestionDetailPage from '../features/community/QuestionDetailPage';
 
 import { useNavigate, Routes, Route, useLocation, Navigate, useParams } from 'react-router-dom';
 import { socialStore } from '../data/socialStore';
+import logoImg from '../assets/sp-logo.png';
 import './NavigationPage.css';
 import { useTheme as useAppTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -98,6 +99,16 @@ const NavigationPage = () => {
   const { toggleTheme, isDarkMode } = useAppTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [logoStyle, setLogoStyle] = useState(() => localStorage.getItem('sophiapath_logo_style') || 'split');
+
+  useEffect(() => {
+    const handleStyleChange = () => {
+      setLogoStyle(localStorage.getItem('sophiapath_logo_style') || 'split');
+    };
+    window.addEventListener('logo_style_changed', handleStyleChange);
+    return () => window.removeEventListener('logo_style_changed', handleStyleChange);
+  }, []);
+
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
@@ -286,8 +297,21 @@ const NavigationPage = () => {
             padding: '0.75rem 1rem'
           }}
         >
-          <div className="nav-brand-mark">
-            <AutoAwesomeIcon fontSize="small" />
+          <div 
+            className={`nav-brand-logo-container ${logoStyle === 'gradient' ? 'sp-logo-gradient' : ''}`}
+            style={{
+              WebkitMaskImage: `url(${logoImg})`,
+              maskImage: `url(${logoImg})`,
+              WebkitMaskRepeat: 'no-repeat',
+              maskRepeat: 'no-repeat',
+              WebkitMaskPosition: 'center',
+              maskPosition: 'center',
+              WebkitMaskSize: 'contain',
+              maskSize: 'contain'
+            }}
+          >
+            <div className="nav-logo-left-half" />
+            <div className="nav-logo-right-half" />
           </div>
           {!sidebarCollapsed && (
             <div>

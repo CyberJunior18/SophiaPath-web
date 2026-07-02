@@ -20,7 +20,8 @@ import {
   Delete as DeleteIcon,
   ChevronRight as ChevronRightIcon,
   VpnKey as VpnKeyIcon,
-  Email as EmailIcon
+  Email as EmailIcon,
+  Brush as BrushIcon
 } from '@mui/icons-material';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -32,6 +33,16 @@ const SettingsPage = () => {
   const { user, deleteAccount } = useAuth();
   const [notifications, setNotifications] = useState(true);
   const [emailUpdates, setEmailUpdates] = useState(false);
+  const [logoGradient, setLogoGradient] = useState(() => {
+    return localStorage.getItem('sophiapath_logo_style') === 'gradient';
+  });
+
+  const handleLogoStyleChange = (e) => {
+    const isGradient = e.target.checked;
+    setLogoGradient(isGradient);
+    localStorage.setItem('sophiapath_logo_style', isGradient ? 'gradient' : 'split');
+    window.dispatchEvent(new Event('logo_style_changed'));
+  };
 
   const themes = [
     { id: 'light', name: 'Default Light', bg: '#FCFDFF', border: '#E9EDF5', text: '#2D2D4D', dot: '#3D5CFF' },
@@ -325,6 +336,17 @@ const SettingsPage = () => {
                       </Box>
                     </Box>
                   )}
+                </ListItem>
+                <Divider />
+                <ListItem className="settings-row">
+                  <ListItemIcon className="settings-row-icon">
+                    <BrushIcon className="settings-primary-icon" />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary={<Typography className="settings-row-title">Logo Smooth Gradient</Typography>}
+                    secondary="Use a mixed blend gradient instead of a hard split-hue color logo"
+                  />
+                  <Switch checked={logoGradient} onChange={handleLogoStyleChange} color="primary" />
                 </ListItem>
                 <Divider />
                 <ListItem className="settings-row">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './SocialEngineeringLab.css';
 
-export default function SocialEngineeringLab() {
+export default function SocialEngineeringLab({ startMitigated = false }) {
   // --- Layout Constants ---
   const hackerCenter = { x: 80, y: 180 };
   const empCenter = { x: 300, y: 180 };
@@ -11,8 +11,8 @@ export default function SocialEngineeringLab() {
   // phases: 'idle', 'lure', 'stealing', 'attacking_vault', 'mfa_prompt', 'breached', 'blocked_training', 'blocked_mfa'
   const [phase, setPhase] = useState('idle'); 
   const [attackType, setAttackType] = useState('phishing'); // 'phishing' or 'vishing'
-  const [trainingEnabled, setTrainingEnabled] = useState(false);
-  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [trainingEnabled, setTrainingEnabled] = useState(startMitigated);
+  const [mfaEnabled, setMfaEnabled] = useState(startMitigated);
   
   // Animation progress from 0 to 100
   const [animProgress, setAnimProgress] = useState(0);

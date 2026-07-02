@@ -56,6 +56,12 @@ import {
   PlatosCaveWidget
 } from './PhilosophyLabPage';
 
+import DenialOfServiceLab from './DenialOfServiceLab';
+import DistributedDenialOfServiceLab from './DistributedDenialOfServiceLab';
+import RansomwareLab from './RansomwareLab';
+import SocialEngineeringLab from './SocialEngineeringLab';
+import InsiderThreatLab from './InsiderThreatLab';
+
 const parseFormattedText = (text, allowNewlines = false) => {
   if (!text) return '';
   if (typeof text !== 'string') return text;
@@ -1956,6 +1962,89 @@ const LearningContentPage = () => {
 
   const renderBlock = (block, idx) => {
     switch (block.type) {
+      case 'Cyber': {
+        const value = block.value || '';
+        const isMitigated = value.endsWith('-patch');
+        const labType = isMitigated ? value.slice(0, -6) : value;
+
+        let labComponent = null;
+        let labTitle = '';
+
+        switch (labType) {
+          case 'DOS':
+            labComponent = <DenialOfServiceLab startMitigated={isMitigated} />;
+            labTitle = isMitigated ? 'Denial of Service (DoS) Mitigation Lab' : 'Denial of Service (DoS) Attack Lab';
+            break;
+          case 'DDOS':
+            labComponent = <DistributedDenialOfServiceLab startMitigated={isMitigated} />;
+            labTitle = isMitigated ? 'Distributed Denial of Service (DDoS) Mitigation Lab' : 'Distributed Denial of Service (DDoS) Attack Lab';
+            break;
+          case 'RANSOMWARE':
+            labComponent = <RansomwareLab startMitigated={isMitigated} />;
+            labTitle = isMitigated ? 'Ransomware Protection (EDR) Lab' : 'Ransomware Infiltration Lab';
+            break;
+          case 'SOCIAL':
+            labComponent = <SocialEngineeringLab startMitigated={isMitigated} />;
+            labTitle = isMitigated ? 'Social Engineering Defense Lab' : 'Social Engineering Attack Simulator';
+            break;
+          case 'INSIDER':
+            labComponent = <InsiderThreatLab startMitigated={isMitigated} />;
+            labTitle = isMitigated ? 'Insider Threat Detection (UEBA/DLP) Lab' : 'Insider Threat Exfiltration Simulator';
+            break;
+          default:
+            return null;
+        }
+
+        return (
+          <Box
+            key={idx}
+            className="cyber-lab-block-inline glass-panel"
+            sx={{
+              p: 3,
+              my: 4,
+              border: '1.5px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '24px',
+              background: 'rgba(255, 255, 255, 0.02)',
+              boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+              backdropFilter: 'blur(4px)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+          >
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 800,
+                color: 'var(--primary-main)',
+                mb: 3,
+                textAlign: 'center',
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
+              }}
+            >
+              {labTitle}
+            </Typography>
+            <Box
+              sx={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'center',
+                overflowX: 'auto',
+                '& > *': {
+                  transform: 'scale(0.9)',
+                  transformOrigin: 'top center',
+                  my: -2,
+                }
+              }}
+            >
+              {labComponent}
+            </Box>
+          </Box>
+        );
+      }
+
       case 'socratic_dialogue':
         return <SocraticDialogueWidget key={idx} isDarkMode={isDarkMode} />;
       case 'logic_truth_table':

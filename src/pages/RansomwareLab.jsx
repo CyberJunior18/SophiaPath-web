@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './RansomwareLab.css';
 
-export default function RansomwareLab() {
+export default function RansomwareLab({ startMitigated = false }) {
   // --- Layout Constants ---
   const pcCenter = { x: 435, y: 175 };
   const hackerCenter = { x: 95, y: 175 };
@@ -12,7 +12,7 @@ export default function RansomwareLab() {
   );
   // phases: 'idle', 'sending', 'encrypting', 'ransomed', 'blocked', 'restoring'
   const [attackPhase, setAttackPhase] = useState('idle'); 
-  const [edrEnabled, setEdrEnabled] = useState(false);
+  const [edrEnabled, setEdrEnabled] = useState(startMitigated);
   const [payloadPos, setPayloadPos] = useState(0);
 
   // --- Attack Logic ---

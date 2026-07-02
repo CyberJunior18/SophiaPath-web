@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './DenialOfServiceLab.css';
 
-export default function DenialOfServiceLab() {
+export default function DenialOfServiceLab({ startMitigated = false }) {
   // --- Simulation State ---
   const [requestLevel, setRequestLevel] = useState(20);
-  const [firewallEnabled, setFirewallEnabled] = useState(false);
+  const [firewallEnabled, setFirewallEnabled] = useState(startMitigated);
   const [requests, setRequests] = useState([]);
   
   const reqIdCounter = useRef(0);

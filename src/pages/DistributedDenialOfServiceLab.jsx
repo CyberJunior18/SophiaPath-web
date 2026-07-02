@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import './DistributedDenialOfServiceLab.css';
 
-export default function DistributedDenialOfServiceLab() {
+export default function DistributedDenialOfServiceLab({ startMitigated = false }) {
   // --- Simulation State ---
   const [requestLevel, setRequestLevel] = useState(20);
-  const [firewallEnabled, setFirewallEnabled] = useState(false);
+  const [firewallEnabled, setFirewallEnabled] = useState(startMitigated);
   const [externalRequests, setExternalRequests] = useState([]);
   const [internalRequests, setInternalRequests] = useState([]);
   
