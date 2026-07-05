@@ -836,11 +836,18 @@ app.get('/api/doc/:id', (req, res) => {
   );
 }
 
+import { useSearchParams } from 'react-router-dom';
+
 // Main App Component
 export default function CyberLabPage() {
-  const [activeTab, setActiveTab] = useState('xss');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'xss');
   const [isSecure, setIsSecure] = useState(false);
   const [alertConfig, setAlertConfig] = useState({ show: false, message: '', type: 'info' });
+
+  useEffect(() => {
+    setSearchParams({ tab: activeTab }, { replace: true });
+  }, [activeTab, setSearchParams]);
 
   const showAlert = (message, type = 'danger') => {
     setAlertConfig({ show: true, message, type });

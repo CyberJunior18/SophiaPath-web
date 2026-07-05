@@ -451,8 +451,36 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshUser = async () => {
+    const savedToken = localStorage.getItem('token');
+    if (!savedToken) return;
+    try {
+      const res = await fetch('/users/me', {
+        headers: {
+          'Authorization': `Bearer ${savedToken}`
+        }
+      });
+      if (res.ok) {
+        const userData = await res.json();
+        setUser(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            xp: userData.xp ?? 0,
+            name: userData.fullname || prev.name,
+            tag: userData.tag || prev.tag,
+            gender: userData.gender || prev.gender,
+            age: userData.age || prev.age
+          };
+        });
+      }
+    } catch (err) {
+      console.error('refreshUser error:', err);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, deleteAccount, updateQuizScore, registerCourse, unregisterCourse, updateProfile, blockUser, unblockUser, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, deleteAccount, updateQuizScore, registerCourse, unregisterCourse, updateProfile, blockUser, unblockUser, refreshUser, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

@@ -144,6 +144,7 @@ const RegisterPage = () => {
     });
     
     if (result.success) {
+      localStorage.setItem('show_onboarding_tutorial', 'true');
       navigate('/');
     } else {
       setError(result.message);

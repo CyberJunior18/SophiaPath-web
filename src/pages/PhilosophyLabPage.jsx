@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -11,7 +11,10 @@ import {
   Avatar,
   Grid,
   Divider,
-  LinearProgress
+  LinearProgress,
+  TextField,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -22,221 +25,77 @@ import {
   PlayArrow as PlayIcon,
   AutoAwesome as AutoAwesomeIcon,
   Explore as ExploreIcon,
-  Psychology as PsychologyIcon
+  Psychology as PsychologyIcon,
+  VolumeUp as VolumeUpIcon,
+  VolumeOff as VolumeOffIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import './LearningContentPage.css'; // Reuses existing glassmorphic page styles
 
-// 1. Upgraded Socratic Dialogue Widget (Multi-Topic)
+// 1. Upgraded Socratic Dialogue Widget (AI Chat Only)
 export const SocraticDialogueWidget = () => {
-  const [topic, setTopic] = useState('justice');
-  const [step, setStep] = useState('start');
-  const [messages, setMessages] = useState([
-    {
-      sender: 'socrates',
-      text: 'Greetings, seeker of truth. I am Socrates. Men call me wise, but I know only that I know nothing. Let us seek truth together. Select a topic to investigate.'
+  const [messages, setMessages] = useState([]);
+  const [customInput, setCustomInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const audioRef = useRef(null);
+
+  const handleSendCustomMessage = async (e) => {
+    if (e) e.preventDefault();
+    if (!customInput.trim() || aiLoading) return;
+
+    const userText = customInput.trim();
+    setCustomInput('');
+    setMessages(prev => [...prev, { sender: 'user', text: userText }]);
+    setAiLoading(true);
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
     }
-  ]);
 
-  const dialogTrees = {
-    justice: {
-      start: {
-        socrates: 'Let us examine: What is justice?',
-        options: [
-          { text: "Justice is speaking the truth and paying one's debts.", next: 'pay_debts' },
-          { text: 'Justice is doing good to friends and harm to enemies.', next: 'help_friends' },
-          { text: 'Justice is the advantage of the stronger—what the rulers decree.', next: 'stronger_adv' }
-        ]
-      },
-      pay_debts: {
-        socrates: 'But tell me: if a friend, when in his right mind, deposits weapons with you, and then asks for them back when he has gone mad, is it just to return them?',
-        options: [
-          { text: 'Yes, a debt is a debt. We must return what we promised.', next: 'pay_debts_return' },
-          { text: 'No, that would be harmful. We must modify our definition.', next: 'pay_debts_modify' }
-        ]
-      },
-      pay_debts_return: {
-        socrates: 'But returning weapons to a madman will surely lead to harm, and justice is not harmful. Therefore, justice cannot simply be paying debts. Let us try again.',
-        options: [
-          { text: 'Let me try another definition.', next: 'start' }
-        ]
-      },
-      pay_debts_modify: {
-        socrates: 'Excellent! You see that paying back is only just when it does no harm. So we should do good to our friends and avoid harming them. Is justice doing good to friends and harm to enemies?',
-        options: [
-          { text: 'Yes, that sounds like a proper definition.', next: 'help_friends' },
-          { text: 'No, let us think of something else.', next: 'start' }
-        ]
-      },
-      help_friends: {
-        socrates: 'Let us examine this. If we harm a horse, do we make it better or worse in its horse-like qualities? Worse. And if we harm a human, do we make them better or worse in their human virtues?',
-        options: [
-          { text: 'We make them worse in human virtue (less just).', next: 'help_friends_unjust' },
-          { text: 'Some wicked people deserve harm to keep others safe.', next: 'help_friends_deserve' }
-        ]
-      },
-      help_friends_unjust: {
-        socrates: 'Precisely! Harming a human makes them less just. But can a musician, by his music, make men unmusical? Or can a horse-trainer make men bad riders? No. Then can a just man, by his justice, make men unjust?',
-        options: [
-          { text: 'No, that is impossible. Justice cannot produce injustice.', next: 'help_friends_concede' }
-        ]
-      },
-      help_friends_deserve: {
-        socrates: 'punishing is not the same as harming in virtue. If we make a criminal worse, we commit injustice. Justice cannot work to produce injustice, just as heat cannot produce cold. Therefore, the just man must never harm anyone.',
-        options: [
-          { text: 'I agree, harming anyone cannot be part of justice.', next: 'help_friends_concede' }
-        ]
-      },
-      help_friends_concede: {
-        socrates: 'Then our definition fails again. Let us look at the other proposal: is justice the advantage of the stronger?',
-        options: [
-          { text: "Let's examine the advantage of the stronger.", next: 'stronger_adv' },
-          { text: "Let's start over.", next: 'start' }
-        ]
-      },
-      stronger_adv: {
-        socrates: "Do rulers of states never make mistakes, or are they liable to make laws that are bad for themselves?",
-        options: [
-          { text: 'Rulers are human; they can make mistakes.', next: 'stronger_mistakes' },
-          { text: 'A true ruler in the strict sense never errs.', next: 'stronger_infallible' }
-        ]
-      },
-      stronger_mistakes: {
-        socrates: 'If they make mistakes, they may command laws that are to their own disadvantage. In obeying these mistaken laws, are the subjects not doing what is to the *disadvantage* of the stronger?',
-        options: [
-          { text: 'Yes, that is a logical contradiction. I concede.', next: 'stronger_concede' }
-        ]
-      },
-      stronger_infallible: {
-        socrates: 'Does a physician, in the strict sense, practice medicine for his own advantage, or for the advantage of the patient? Does a captain govern for his own benefit, or for the crew?',
-        options: [
-          { text: 'For the advantage of the patient and the crew.', next: 'stronger_patient' }
-        ]
-      },
-      stronger_patient: {
-        socrates: 'Then every art governs and acts for the advantage of the weaker subject, not the stronger master. Thus, a true ruler rules for the advantage of the citizens, not himself!',
-        options: [
-          { text: 'That is correct. The argument holds.', next: 'stronger_concede' }
-        ]
-      },
-      stronger_concede: {
-        socrates: 'Then justice is not the advantage of the stronger. We have refuted these definitions, yet we still do not know what justice itself is.',
-        options: [
-          { text: 'We are in complete puzzlement (Aporia).', next: 'aporia' }
-        ]
-      },
-      aporia: {
-        socrates: 'Indeed! We have reached an aporia. But do not despair. Admitting your ignorance is the first step toward true wisdom.',
-        options: [
-          { text: 'Restart the dialogue.', next: 'start' }
-        ]
-      }
-    },
-    knowledge: {
-      start: {
-        socrates: 'Let us examine: What is knowledge?',
-        options: [
-          { text: 'Knowledge is simple perception (what we see and feel).', next: 'perception' },
-          { text: 'Knowledge is True Belief.', next: 'true_belief' },
-          { text: 'Knowledge is Justified True Belief (JTB).', next: 'jtb' }
-        ]
-      },
-      perception: {
-        socrates: 'If knowledge is perception, then does a dog see things and know them as well as a man? If a cold wind feels warm to you but cold to me, is the wind both warm and cold? If perception is truth, how can anyone ever be wrong?',
-        options: [
-          { text: 'Ah, truth must be more objective. Perception is not enough.', next: 'start' }
-        ]
-      },
-      true_belief: {
-        socrates: 'But imagine a clever lawyer who convinces a jury of a crime they did not witness. The jury believes it, and it happens to be true. Did they have knowledge, or were they just persuaded without eyewitness proof?',
-        options: [
-          { text: 'They only had belief, not true knowledge. We need justification.', next: 'start_jtb' }
-        ]
-      },
-      start_jtb: {
-        socrates: 'Exactly. So we must add justification! This brings us to the famous definition: Knowledge is Justified True Belief (JTB). Do you agree?',
-        options: [
-          { text: 'Yes, JTB is the perfect definition of knowledge.', next: 'jtb' }
-        ]
-      },
-      jtb: {
-        socrates: 'A solid account! But consider this (Gettier Case): A man believes there is a sheep in a field because he sees a dog that looks exactly like a sheep. Unbeknownst to him, there *is* a sheep hidden behind a hedge. He has belief, it is true, and he has justification (sensory image), yet is it truly knowledge, or merely epistemic luck?',
-        options: [
-          { text: 'That is epistemic luck. JTB is incomplete.', next: 'jtb_fail' }
-        ]
-      },
-      jtb_fail: {
-        socrates: 'Precisely! Justification can sometimes be based on false premises, leading to true beliefs by accident. We have reached another aporia. True knowledge remains elusive!',
-        options: [
-          { text: 'Restart the dialogue.', next: 'start' }
-        ]
-      }
-    },
-    virtue: {
-      start: {
-        socrates: 'Let us examine: What is virtue?',
-        options: [
-          { text: 'Virtue is the desire for honorable things and the power to attain them.', next: 'desire_power' },
-          { text: 'Virtue is knowledge (and therefore, it can be taught).', next: 'virtue_knowledge' }
-        ]
-      },
-      desire_power: {
-        socrates: 'But do not all men desire what they think is good? If someone desires bad things thinking they are good, do they still desire good? And if one attains honorable things through theft or injustice, is that still virtue?',
-        options: [
-          { text: 'No. Attaining things must be done justly. So virtue is doing things justly.', next: 'justly' }
-        ]
-      },
-      justly: {
-        socrates: 'But is justice not a part of virtue? If you define virtue by saying it is doing things justly, are you not defining virtue by using a part of virtue itself? That is circular reasoning!',
-        options: [
-          { text: 'Indeed, that is circular. Let us try the other definition.', next: 'virtue_knowledge' }
-        ]
-      },
-      virtue_knowledge: {
-        socrates: 'If virtue is knowledge, then it must be teachable. But if it is teachable, where are its teachers? Have you ever seen a master of virtue who successfully taught his sons to be virtuous? Did Pericles make his sons virtuous?',
-        options: [
-          { text: 'No, they often failed. So virtue cannot be taught.', next: 'not_teachable' }
-        ]
-      },
-      not_teachable: {
-        socrates: 'If it cannot be taught, and it is not innate, then how do men become virtuous? Perhaps it is a divine gift, or we have yet to define what virtue itself is. We are in aporia!',
-        options: [
-          { text: 'Restart the dialogue.', next: 'start' }
-        ]
-      }
-    }
-  };
+    try {
+      const res = await fetch('/ai/socrates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          message: userText,
+          generateVoice: audioEnabled
+        }),
+      });
 
-  const handleTopicChange = (newTopic) => {
-    setTopic(newTopic);
-    setStep('start');
-    setMessages([
-      {
-        sender: 'socrates',
-        text: newTopic === 'justice' 
-          ? 'Let us examine: What is justice?'
-          : newTopic === 'knowledge'
-          ? 'Let us examine: What is knowledge?'
-          : 'Let us examine: What is virtue?'
-      }
-    ]);
-  };
-
-  const handleOptionClick = (option) => {
-    const newUserMsg = { sender: 'user', text: option.text };
-    const nextStep = option.next;
-    const nextNode = dialogTrees[topic][nextStep];
-    
-    setMessages(prev => [...prev, newUserMsg]);
-    
-    setTimeout(() => {
-      const socratesText = nextStep === 'start' 
-        ? (topic === 'justice' ? 'What is justice?' : topic === 'knowledge' ? 'What is knowledge?' : 'What is virtue?')
-        : nextNode.socrates;
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(prev => [...prev, { sender: 'socrates', text: data.reply }]);
         
-      setMessages(prev => [...prev, { sender: 'socrates', text: socratesText }]);
-      setStep(nextStep);
-    }, 600);
+        if (data.audio) {
+          const audioObj = new Audio(data.audio);
+          audioRef.current = audioObj;
+          audioObj.play().catch(err => console.error('Audio play failed:', err));
+        } else if (data.audioError) {
+          console.warn('Socratic Voice Error:', data.audioError);
+          setMessages(prev => [
+            ...prev,
+            { sender: 'system-error', text: `Voice failed: ${data.audioError}` }
+          ]);
+        }
+      } else {
+        setMessages(prev => [
+          ...prev,
+          { sender: 'socrates', text: 'Alas, my thoughts are clouded by a network disturbance. Please try asking again.' }
+        ]);
+      }
+    } catch (err) {
+      console.error('AI Socrates error:', err);
+      setMessages(prev => [
+        ...prev,
+        { sender: 'socrates', text: 'It seems the digital medium fails us. Let us attempt to speak again shortly.' }
+      ]);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   return (
@@ -250,355 +109,132 @@ export const SocraticDialogueWidget = () => {
           </Box>
         </Box>
 
-        <Box style={{ display: 'flex', gap: '8px' }}>
-          {['justice', 'knowledge', 'virtue'].map(t => (
-            <Button
-              key={t}
-              size="small"
-              variant={topic === t ? 'contained' : 'outlined'}
-              onClick={() => handleTopicChange(t)}
-              style={{
-                textTransform: 'none',
-                borderRadius: '8px',
-                fontWeight: 800,
-                fontSize: '0.75rem',
-                borderColor: topic === t ? 'none' : 'rgba(255,255,255,0.15)',
-                backgroundColor: topic === t ? 'var(--primary-main)' : 'transparent',
-                color: topic === t ? '#fff' : 'var(--text-primary)'
+        <FormControlLabel
+          control={
+            <Switch
+              checked={audioEnabled}
+              onChange={(e) => {
+                setAudioEnabled(e.target.checked);
+                if (!e.target.checked && audioRef.current) {
+                  audioRef.current.pause();
+                  audioRef.current = null;
+                }
               }}
-            >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </Button>
-          ))}
-        </Box>
+              color="primary"
+              sx={{
+                '& .MuiSwitch-switchBase.Mui-checked': {
+                  color: 'var(--primary-main)',
+                },
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                  backgroundColor: 'var(--primary-main)',
+                }
+              }}
+            />
+          }
+          label={
+            <Box style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
+              {audioEnabled ? <VolumeUpIcon sx={{ fontSize: 18, color: 'var(--primary-main)' }} /> : <VolumeOffIcon sx={{ fontSize: 18, color: 'var(--text-secondary)' }} />}
+              <Typography variant="caption" style={{ fontWeight: 800, fontSize: '0.75rem' }}>
+                {audioEnabled ? 'Voice Enabled' : 'Voice Disabled'}
+              </Typography>
+            </Box>
+          }
+        />
       </Box>
 
       {/* Chat logs */}
       <Box style={{ minHeight: '220px', maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', padding: '12px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', marginBottom: '16px' }}>
-        {messages.map((msg, i) => (
-          <Box key={i} style={{ display: 'flex', justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
+        {messages.length === 0 ? (
+          <Box style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.9rem' }}>
+            The Socratic dialogue is quiet. Propose a definition to begin...
+          </Box>
+        ) : (
+          messages.map((msg, i) => {
+            const isSystemError = msg.sender === 'system-error';
+            return (
+              <Box key={i} style={{ display: 'flex', justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
+                <Box style={{
+                  maxWidth: '85%',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  fontSize: '0.86rem',
+                  lineHeight: 1.4,
+                  backgroundColor: isSystemError ? 'rgba(244, 67, 54, 0.08)' : (msg.sender === 'user' ? 'rgba(28, 176, 246, 0.15)' : 'rgba(255, 255, 255, 0.04)'),
+                  border: isSystemError ? '1px solid rgba(244, 67, 54, 0.3)' : (msg.sender === 'user' ? '1px solid rgba(28, 176, 246, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)'),
+                  color: isSystemError ? '#f44336' : 'var(--text-primary)'
+                }}>
+                  <Typography variant="caption" style={{ display: 'block', fontWeight: 800, color: isSystemError ? '#f44336' : (msg.sender === 'user' ? '#1CB0F6' : 'var(--primary-main)'), marginBottom: '2px', textTransform: 'uppercase', fontSize: '0.62rem', letterSpacing: '0.05em' }}>
+                    {isSystemError ? 'System Notice' : (msg.sender === 'user' ? 'You' : 'Socrates')}
+                  </Typography>
+                  {msg.text}
+                </Box>
+              </Box>
+            );
+          })
+        )}
+        {aiLoading && (
+          <Box style={{ display: 'flex', justifyContent: 'flex-start' }}>
             <Box style={{
               maxWidth: '85%',
               padding: '10px 14px',
               borderRadius: '12px',
               fontSize: '0.86rem',
               lineHeight: 1.4,
-              backgroundColor: msg.sender === 'user' ? 'rgba(28, 176, 246, 0.15)' : 'rgba(255, 255, 255, 0.04)',
-              border: msg.sender === 'user' ? '1px solid rgba(28, 176, 246, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)',
-              color: 'var(--text-primary)'
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              color: 'var(--text-secondary)',
+              fontStyle: 'italic'
             }}>
-              <Typography variant="caption" style={{ display: 'block', fontWeight: 800, color: msg.sender === 'user' ? '#1CB0F6' : 'var(--primary-main)', marginBottom: '2px', textTransform: 'uppercase', fontSize: '0.62rem', letterSpacing: '0.05em' }}>
-                {msg.sender === 'user' ? 'You' : 'Socrates'}
-              </Typography>
-              {msg.text}
+              Socrates is contemplating...
             </Box>
           </Box>
-        ))}
-      </Box>
-
-      {/* User Options */}
-      <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 700, marginBottom: '2px' }}>Choose your response:</Typography>
-        {dialogTrees[topic][step]?.options.map((opt, i) => (
-          <Button
-            key={i}
-            variant="outlined"
-            onClick={() => handleOptionClick(opt)}
-            style={{
-              textTransform: 'none',
-              textAlign: 'left',
-              justifyContent: 'flex-start',
-              borderRadius: '10px',
-              padding: '10px 14px',
-              fontSize: '0.82rem',
-              borderColor: 'rgba(255,255,255,0.12)',
-              color: 'var(--text-primary)',
-              background: 'rgba(255,255,255,0.01)',
-              transition: 'all 0.15s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(28, 176, 246, 0.08)';
-              e.currentTarget.style.borderColor = 'var(--primary-main)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.01)';
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
-            }}
-          >
-            {opt.text}
-          </Button>
-        ))}
-      </Box>
-    </Paper>
-  );
-};
-
-// 2. Upgraded Truth Table Widget (Dynamic propositional logic evaluator)
-export const TruthTableWidget = () => {
-  const formulas = [
-    {
-      id: 'implies',
-      label: 'P → Q (Implication)',
-      cols: ['P', 'Q', 'P → Q'],
-      rows: [
-        { p: 'T', q: 'T', correct: 'T', val: '?' },
-        { p: 'T', q: 'F', correct: 'F', val: '?' },
-        { p: 'F', q: 'T', correct: 'T', val: '?' },
-        { p: 'F', q: 'F', correct: 'T', val: '?' }
-      ],
-      question: 'Under what condition is an implication false?',
-      questionOptions: [
-        { text: 'When both P and Q are False', isCorrect: false },
-        { text: 'When the antecedent P is True and consequent Q is False', isCorrect: true },
-        { text: 'When P is False and Q is True', isCorrect: false }
-      ]
-    },
-    {
-      id: 'conjunction',
-      label: 'P ∧ ¬Q (Conjunction with Negation)',
-      cols: ['P', 'Q', '¬Q', 'P ∧ ¬Q'],
-      rows: [
-        { p: 'T', q: 'T', notq: 'F', correct: 'F', val: '?' },
-        { p: 'T', q: 'F', notq: 'T', correct: 'T', val: '?' },
-        { p: 'F', q: 'T', notq: 'F', correct: 'F', val: '?' },
-        { p: 'F', q: 'F', notq: 'T', correct: 'F', val: '?' }
-      ],
-      question: 'When is a conjunction P ∧ ¬Q true?',
-      questionOptions: [
-        { text: 'Only when P is True and Q is False', isCorrect: true },
-        { text: 'Only when P is False and Q is True', isCorrect: false },
-        { text: 'When either P is True or Q is False', isCorrect: false }
-      ]
-    },
-    {
-      id: 'modus_tollens',
-      label: '(P → Q) ∧ ¬Q (Modus Tollens Premise)',
-      cols: ['P', 'Q', 'P → Q', '¬Q', '(P → Q) ∧ ¬Q'],
-      rows: [
-        { p: 'T', q: 'T', implies: 'T', notq: 'F', correct: 'F', val: '?' },
-        { p: 'T', q: 'F', implies: 'F', notq: 'T', correct: 'F', val: '?' },
-        { p: 'F', q: 'T', implies: 'T', notq: 'F', correct: 'F', val: '?' },
-        { p: 'F', q: 'F', implies: 'T', notq: 'T', correct: 'T', val: '?' }
-      ],
-      question: 'Modus Tollens says: If (P → Q) and ¬Q are true, then ¬P is true. Is it valid?',
-      questionOptions: [
-        { text: 'Yes, because in the only row where the premises are True, P is False (so ¬P is True)', isCorrect: true },
-        { text: 'No, because there are rows where P is False but premises are False', isCorrect: false }
-      ]
-    }
-  ];
-
-  const [activeFormulaIdx, setActiveFormulaIdx] = useState(0);
-  const formula = formulas[activeFormulaIdx];
-
-  const [rows, setRows] = useState(formula.rows);
-  const [selectedOptionIdx, setSelectedOptionIdx] = useState(null);
-  const [checked, setChecked] = useState(false);
-  const [score, setScore] = useState(0);
-  const [showFeedback, setShowFeedback] = useState(false);
-
-  const handleFormulaChange = (idx) => {
-    setActiveFormulaIdx(idx);
-    setRows(formulas[idx].rows);
-    setSelectedOptionIdx(null);
-    setChecked(false);
-    setShowFeedback(false);
-  };
-
-  const toggleCell = (rowIdx) => {
-    if (checked) return;
-    setRows(prev => prev.map((row, idx) => {
-      if (idx !== rowIdx) return row;
-      const current = row.val;
-      let next = 'T';
-      if (current === 'T') next = 'F';
-      else if (current === 'F') next = '?';
-      return { ...row, val: next };
-    }));
-  };
-
-  const handleVerify = () => {
-    let cellScore = 0;
-    rows.forEach(r => {
-      if (r.val === r.correct) cellScore++;
-    });
-
-    const isQuestionCorrect = formula.questionOptions[selectedOptionIdx]?.isCorrect === true;
-    const totalCorrect = cellScore + (isQuestionCorrect ? 1 : 0);
-    
-    setScore(totalCorrect);
-    setChecked(true);
-    setShowFeedback(true);
-  };
-
-  const handleReset = () => {
-    setRows(formula.rows.map(r => ({ ...r, val: '?' })));
-    setSelectedOptionIdx(null);
-    setChecked(false);
-    setShowFeedback(false);
-  };
-
-  return (
-    <Paper className="glass-panel" style={{ padding: '24px', margin: '20px 0', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <Box style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '14px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '14px' }}>
-        <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Formal Logic Truth Table Builder
-        </Typography>
-
-        <Box style={{ display: 'flex', gap: '8px' }}>
-          {formulas.map((f, idx) => (
-            <Button
-              key={f.id}
-              size="small"
-              variant={activeFormulaIdx === idx ? 'contained' : 'outlined'}
-              onClick={() => handleFormulaChange(idx)}
-              style={{
-                textTransform: 'none',
-                borderRadius: '8px',
-                fontWeight: 800,
-                fontSize: '0.72rem',
-                borderColor: activeFormulaIdx === idx ? 'none' : 'rgba(255,255,255,0.15)',
-                backgroundColor: activeFormulaIdx === idx ? 'var(--primary-main)' : 'transparent',
-                color: activeFormulaIdx === idx ? '#fff' : 'var(--text-primary)'
-              }}
-            >
-              {f.label.split(' ')[0]}
-            </Button>
-          ))}
-        </Box>
-      </Box>
-
-      <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-        Configure the truth value of the formula by clicking the yellow <b>?</b> cells in the final column.
-      </Typography>
-
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '0.82rem', textAlign: 'center' }}>
-        <thead>
-          <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.1)' }}>
-            {formula.cols.map((col, i) => (
-              <th key={i} style={{ padding: '8px', color: i === formula.cols.length - 1 ? 'var(--primary-main)' : 'var(--text-secondary)', fontWeight: 800 }}>
-                {col}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, idx) => {
-            const isCorrect = checked && row.val === row.correct;
-            return (
-              <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255,255,255,0.01)' }}>
-                <td style={{ padding: '8px', fontWeight: 'bold' }}>{row.p}</td>
-                <td style={{ padding: '8px', fontWeight: 'bold' }}>{row.q}</td>
-                {/* Implies support columns */}
-                {row.notq !== undefined && <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{row.notq}</td>}
-                {row.implies !== undefined && <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{row.implies}</td>}
-                {/* Result column to build */}
-                <td
-                  onClick={() => toggleCell(idx)}
-                  style={{
-                    padding: '8px',
-                    cursor: checked ? 'default' : 'pointer',
-                    fontWeight: 'bold',
-                    color: row.val === 'T' ? '#4CAF50' : row.val === 'F' ? '#FF5252' : '#FFC107',
-                    backgroundColor: checked ? (isCorrect ? 'rgba(76, 175, 80, 0.08)' : 'rgba(255, 82, 82, 0.08)') : 'rgba(255,255,255,0.02)',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  {row.val}
-                  {checked && (
-                    <span style={{ fontSize: '0.68rem', display: 'block', color: isCorrect ? '#4CAF50' : '#FF5252' }}>
-                      {isCorrect ? '✓ Ok' : `Expected: ${row.correct}`}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-
-      {/* Conceptual Question */}
-      <Box style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <Typography variant="body2" style={{ fontWeight: 700, marginBottom: '10px' }}>
-          {formula.question}
-        </Typography>
-
-        <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {formula.questionOptions.map((opt, i) => (
-            <Button
-              key={i}
-              variant={selectedOptionIdx === i ? 'contained' : 'outlined'}
-              disabled={checked}
-              onClick={() => setSelectedOptionIdx(i)}
-              style={{
-                textTransform: 'none',
-                justifyContent: 'flex-start',
-                borderRadius: '8px',
-                borderColor: selectedOptionIdx === i ? 'none' : 'rgba(255,255,255,0.12)',
-                backgroundColor: selectedOptionIdx === i ? 'var(--primary-main)' : 'transparent',
-                color: selectedOptionIdx === i ? '#fff' : 'var(--text-primary)',
-                fontSize: '0.8rem',
-                textAlign: 'left'
-              }}
-            >
-              {opt.text}
-            </Button>
-          ))}
-        </Box>
-
-        {checked && (
-          <Box style={{ marginTop: '12px', color: formula.questionOptions[selectedOptionIdx]?.isCorrect ? '#4CAF50' : '#FF5252', fontSize: '0.82rem', fontWeight: 700 }}>
-            {formula.questionOptions[selectedOptionIdx]?.isCorrect 
-              ? '✓ Correct reasoning!' 
-              : `✗ Incorrect. The correct answer was: "${formula.questionOptions.find(o => o.isCorrect).text}"`}
-          </Box>
         )}
       </Box>
 
-      {/* Controls */}
-      <Box style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-        {!checked ? (
-          <Button
-            variant="contained"
-            onClick={handleVerify}
-            disabled={rows.some(r => r.val === '?') || selectedOptionIdx === null}
-            style={{
-              background: 'var(--hero-gradient)',
-              color: '#fff',
-              fontWeight: 800,
+      {/* User Input Form */}
+      <form onSubmit={handleSendCustomMessage} style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+        <TextField
+          fullWidth
+          size="small"
+          value={customInput}
+          onChange={(e) => setCustomInput(e.target.value)}
+          placeholder="Propose a definition or ask Socrates a question..."
+          disabled={aiLoading}
+          variant="outlined"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              color: 'var(--text-primary)',
               borderRadius: '10px',
-              textTransform: 'none'
-            }}
-          >
-            Verify Answers
-          </Button>
-        ) : (
-          <Button
-            variant="outlined"
-            onClick={handleReset}
-            style={{
               borderColor: 'rgba(255,255,255,0.15)',
-              color: 'var(--text-primary)',
-              fontWeight: 800,
-              borderRadius: '10px',
-              textTransform: 'none'
-            }}
-          >
-            Reset Exercise
-          </Button>
-        )}
-      </Box>
-
-      {showFeedback && (
-        <Box style={{ marginTop: '16px', padding: '14px', borderRadius: '10px', border: '1.5px solid', borderColor: score === 5 ? '#4CAF50' : 'rgba(255,255,255,0.08)', backgroundColor: score === 5 ? 'rgba(76,175,80,0.05)' : 'rgba(255,255,255,0.02)' }}>
-          <Typography variant="subtitle2" style={{ fontWeight: 800, color: score === 5 ? '#4CAF50' : 'var(--primary-main)', marginBottom: '4px' }}>
-            Score Card: {score}/5
-          </Typography>
-          <Typography variant="body2" style={{ color: 'var(--text-secondary)', lineHeight: 1.4, fontSize: '0.8rem' }}>
-            Completing truth tables allows us to evaluate arguments formally. A valid deductive argument is one where it is impossible for the premises to be true while the conclusion is false.
-          </Typography>
-        </Box>
-      )}
+              backgroundColor: 'rgba(255,255,255,0.01)',
+              '& fieldset': {
+                borderColor: 'rgba(255,255,255,0.12)',
+              },
+              '&:hover fieldset': {
+                borderColor: 'rgba(255,255,255,0.25)',
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: 'var(--primary-main)',
+              },
+            }
+          }}
+        />
+        <Button
+          type="submit"
+          disabled={aiLoading || !customInput.trim()}
+          variant="contained"
+          style={{
+            borderRadius: '10px',
+            textTransform: 'none',
+            fontWeight: 800,
+            padding: '0 20px',
+            background: 'var(--hero-gradient)',
+            color: '#fff'
+          }}
+        >
+          Ask
+        </Button>
+      </form>
     </Paper>
   );
 };
@@ -2195,8 +1831,16 @@ export const PoliticalCompassWidget = () => {
 
 // Main Philosophy Lab Page
 const PhilosophyLabPage = () => {
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get('tab');
+    return tabParam ? Number(tabParam) : 0;
+  });
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setSearchParams({ tab: activeTab }, { replace: true });
+  }, [activeTab, setSearchParams]);
 
   const handleBack = () => {
     navigate(-1);
@@ -2204,7 +1848,6 @@ const PhilosophyLabPage = () => {
 
   const tabsData = [
     { label: 'Socratic Dialogue', icon: <SchoolIcon sx={{ fontSize: 18 }} />, component: <SocraticDialogueWidget /> },
-    { label: 'Truth Table Builder', icon: <TimelineIcon sx={{ fontSize: 18 }} />, component: <TruthTableWidget /> },
     { label: 'Fallacy Matcher', icon: <HelpOutlineIcon sx={{ fontSize: 18 }} />, component: <FallacySorterWidget /> },
     { label: 'Ship of Theseus', icon: <BookIcon sx={{ fontSize: 18 }} />, component: <ShipOfTheseusWidget /> },
     { label: 'Trolley Problem', icon: <PlayIcon sx={{ fontSize: 18 }} />, component: <TrolleyProblemWidget /> },

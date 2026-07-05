@@ -14,6 +14,7 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
+  Stack,
 } from '@mui/material';
 import {
   AutoAwesome as AutoAwesomeIcon,
@@ -30,11 +31,14 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Groups as GroupsIcon,
+  School as SchoolIcon,
+  Science as ScienceIcon,
 } from '@mui/icons-material';
 
 
 import { AnimatePresence, motion } from 'framer-motion';
 import LearningPage from '../pages/LearningPage';
+import AdminDashboardPage from '../pages/AdminDashboardPage';
 import ProfilePage from '../features/profile/ProfilePage';
 import AchievementsPage from '../features/achievements/AchievementsPage';
 import SettingsPage from '../features/settings/SettingsPage';
@@ -53,6 +57,7 @@ import GroupJoinLinkHandler from '../features/chat/GroupJoinLinkHandler';
 import CommunityListPage from '../features/community/CommunityListPage';
 import CommunityDetailPage from '../features/community/CommunityDetailPage';
 import QuestionDetailPage from '../features/community/QuestionDetailPage';
+import LabsPage from './LabsPage';
 
 
 import { useNavigate, Routes, Route, useLocation, Navigate, useParams } from 'react-router-dom';
@@ -94,12 +99,926 @@ const getRouteKey = (pathname) => {
   return segments[0];
 };
 
+const TUTORIAL_STEPS = [
+  {
+    target: '.nav-topbar',
+    title: 'Topbar Header',
+    description: 'This is the top bar showing your current workspace title. It holds quick actions like theme toggling.',
+    placement: 'bottom'
+  },
+  {
+    target: '.nav-topbar-button',
+    title: 'Theme Customization',
+    description: 'Click here to toggle the interface theme between dark mode and light mode.',
+    placement: 'bottom'
+  },
+  {
+    target: '.nav-logout-btn',
+    title: 'Safe Exit',
+    description: 'Click this button to safely sign out of your SophiaPath account.',
+    placement: 'bottom'
+  },
+  {
+    target: '.nav-sidebar-toggle-btn',
+    title: 'Sidebar Collapse Toggle',
+    description: 'Minimize the sidebar to free up workspace reading area.',
+    placement: 'right'
+  },
+  {
+    target: '.nav-menu-list',
+    title: 'Sidebar Items',
+    description: 'Navigate easily to milestones achievements, playgrounds, chat rooms, and communities.',
+    placement: 'right'
+  },
+  {
+    target: '.nav-profile-card',
+    title: 'Profile Summary',
+    description: 'View your level, avatar, username, and overall accumulated progress XP.',
+    placement: 'right'
+  },
+  {
+    target: '.learning-search-field input',
+    title: 'Course Catalog Search',
+    description: 'Type a keyword here to find any course or topic you want to start learning.',
+    placement: 'bottom'
+  },
+  {
+    target: '.learning-category-chip:first-of-type',
+    title: 'Category Filter Tabs',
+    description: 'Click these chips to filter the course directory by study domains.',
+    placement: 'bottom'
+  },
+  {
+    target: '.learning-course-card:first-of-type',
+    title: 'Start Learning Syllabus',
+    description: 'Click this card to view the lessons syllabus roadmap and enroll in the course.',
+    placement: 'top'
+  }
+];
+
 const NavigationPage = () => {
   const { user, logout } = useAuth();
   const { toggleTheme, isDarkMode } = useAppTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [logoStyle, setLogoStyle] = useState(() => localStorage.getItem('sophiapath_logo_style') || 'split');
+
+  const [activeTour, setActiveTour] = useState(null); // 'onboarding' | 'page' | null
+  const [activeStepIndex, setActiveStepIndex] = useState(null);
+  const [spotlightRect, setSpotlightRect] = useState(null);
+  const [pageSteps, setPageSteps] = useState([]);
+  const [currentPageKey, setCurrentPageKey] = useState('');
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // 1. Tour Orchestrator Effect
+  useEffect(() => {
+    // If onboarding is active, do not interrupt with page tutorials
+    const showOnboarding = localStorage.getItem('show_onboarding_tutorial');
+    if (showOnboarding === 'true') {
+      if (activeTour !== 'onboarding') {
+        setSidebarCollapsed(false); // Make sure sidebar is visible
+        setActiveTour('onboarding');
+        setActiveStepIndex(0);
+      }
+      return;
+    }
+
+    // Check for page-specific tutorials
+    const path = location.pathname;
+    let targetKey = '';
+    let steps = [];
+
+    if (path === '/' || path === '') {
+      targetKey = 'learning';
+      steps = [
+        {
+          target: '.learning-search-field input',
+          title: 'Course Search Input',
+          description: 'Type a keyword here to find any course or topic you want to start learning.',
+          placement: 'bottom'
+        },
+        {
+          target: '.learning-category-chip:first-of-type',
+          title: 'Category Filter Tab',
+          description: 'Click these chips to filter the course directory by study domains.',
+          placement: 'bottom'
+        }
+      ];
+    } else if (path.startsWith('/course/')) {
+      targetKey = 'course_detail';
+      steps = [
+        {
+          target: '.course-enroll-button',
+          title: 'Enroll or Resume',
+          description: 'Click this button to enroll in the course or pick up right where you left off.',
+          placement: 'bottom'
+        },
+        {
+          target: '.course-detail-back-button',
+          title: 'Back to Catalog',
+          description: 'Click here to return to your personalized learning dashboard.',
+          placement: 'bottom'
+        }
+      ];
+    } else if (path.startsWith('/learning-path/')) {
+      targetKey = 'learning_path';
+      steps = [
+        {
+          target: '.path-node-shell:first-of-type',
+          title: 'Learning Nodes',
+          description: 'These circular buttons represent lessons, exercises, and labs. Click on the first active node to open your lesson!',
+          placement: 'right'
+        },
+        {
+          target: '.path-header-sticky button:first-of-type',
+          title: 'Back to Catalog',
+          description: 'Click here to head back to the course details overview.',
+          placement: 'bottom'
+        }
+      ];
+    } else if (path.startsWith('/learning/')) {
+      targetKey = 'lesson';
+      steps = [
+        {
+          target: '.learning-content-header button:first-of-type',
+          title: 'Exit Lesson',
+          description: 'Click this button to safely leave the lesson and return to your roadmap.',
+          placement: 'bottom'
+        },
+        {
+          target: '.learning-content-footer button.footer-nav-btn:last-of-type',
+          title: 'Navigate Slides',
+          description: 'Click this button to flip to the next slide once you finish reading and answer any exercises.',
+          placement: 'top'
+        }
+      ];
+    } else if (path.startsWith('/quiz/')) {
+      targetKey = 'quiz';
+      steps = [
+        {
+          target: '.quiz-content-footer button.quiz-next-btn',
+          title: 'Submit Answer',
+          description: 'Click this button to submit your answers and check if they are correct.',
+          placement: 'top'
+        },
+        {
+          target: '.quiz-back-btn',
+          title: 'Exit Quiz',
+          description: 'Click this button if you need to pause or exit the quiz back to your roadmap.',
+          placement: 'bottom'
+        }
+      ];
+    } else if (path === '/challenge') {
+      targetKey = 'hack_challenge';
+      steps = [
+        {
+          target: '.challenge-left-col button:nth-of-type(2)',
+          title: 'Execute Script',
+          description: 'Click here to run your custom JavaScript payload and test if it triggers a pop-up alert.',
+          placement: 'bottom'
+        },
+        {
+          target: '.hint-button:first-of-type',
+          title: 'Reveal Hints',
+          description: 'Stuck on a challenge? Click here to unlock helpful hints step-by-step.',
+          placement: 'top'
+        },
+        {
+          target: '.solution-icon-btn:first-of-type',
+          title: 'Video Walkthrough',
+          description: 'Click this play icon to watch a video walk-through demonstrating the solution.',
+          placement: 'top'
+        }
+      ];
+    } else if (path === '/philosophy-lab') {
+      targetKey = 'philosophy_lab';
+      steps = [
+        {
+          target: '.glass-panel button:first-of-type',
+          title: 'Make Your Choice',
+          description: 'Click these choice buttons to select your moral options for each philosophical scenario.',
+          placement: 'bottom'
+        }
+      ];
+    } else if (path === '/cyber-lab') {
+      const queryParams = new URLSearchParams(location.search);
+      const tab = queryParams.get('tab') || 'xss';
+      
+      if (tab === 'xss') {
+        targetKey = 'cyber_lab_xss';
+        steps = [
+          {
+            target: '.xss-tab-btn:first-of-type',
+            title: 'Stored XSS Lab',
+            description: 'This switches the view to the Stored XSS sandbox.',
+            placement: 'bottom'
+          },
+          {
+            target: '.xss-panel button',
+            title: 'Submit Payload',
+            description: 'Click this button to submit comments containing custom JavaScript payloads.',
+            placement: 'bottom'
+          }
+        ];
+      } else if (tab === 'ransomware') {
+        targetKey = 'cyber_lab_ransomware';
+        steps = [
+          {
+            target: '.ransomware-attack-btn',
+            title: 'Trigger Ransomware',
+            description: 'Launches the ransomware simulation, demonstrating how user files get encrypted.',
+            placement: 'bottom'
+          },
+          {
+            target: '.ransomware-toggle-btn',
+            title: 'Toggle EDR Agent',
+            description: 'Enable endpoint detection and response monitoring to block the payload.',
+            placement: 'bottom'
+          },
+          {
+            target: '.ransomware-restore-btn',
+            title: 'Restore Backup',
+            description: 'Restores the original clean backups after a ransomware attack.',
+            placement: 'top'
+          },
+          {
+            target: '.ransomware-pay-btn',
+            title: 'Pay Ransom',
+            description: 'Simulates paying the attackers (and explains why this does not guarantee data return).',
+            placement: 'top'
+          }
+        ];
+      } else if (tab === 'dos') {
+        targetKey = 'cyber_lab_dos';
+        steps = [
+          {
+            target: '.dos-slider',
+            title: 'Request Volume',
+            description: 'Drag this slider to scale the traffic flood. High volumes crash the server.',
+            placement: 'bottom'
+          },
+          {
+            target: '.dos-toggle-btn',
+            title: 'Firewall Filter',
+            description: 'Turn on the firewall to drop packet lists from the attacker while keeping legitimate user access active.',
+            placement: 'bottom'
+          }
+        ];
+      } else if (tab === 'ddos') {
+        targetKey = 'cyber_lab_ddos';
+        steps = [
+          {
+            target: '.dos-slider',
+            title: 'Botnet Request Volume',
+            description: 'Scale the volume of botnet nodes and request frequency.',
+            placement: 'bottom'
+          },
+          {
+            target: '.dos-toggle-btn',
+            title: 'Mitigation Shield',
+            description: 'Toggle the CDN scrubber shield to scrub out botnet flood traffic.',
+            placement: 'bottom'
+          }
+        ];
+      } else if (tab === 'social') {
+        targetKey = 'cyber_lab_social';
+        steps = [
+          {
+            target: '.social-attack-btn.phishing',
+            title: 'Phishing Attack',
+            description: 'Send a malicious landing link lure to the target employees.',
+            placement: 'bottom'
+          },
+          {
+            target: '.social-attack-btn.vishing',
+            title: 'CEO Vishing Call',
+            description: 'Make a fake CEO phone request to compromise corporate resources.',
+            placement: 'bottom'
+          },
+          {
+            target: '.social-toggle-btn:first-of-type',
+            title: 'Security Training',
+            description: 'Deploy security awareness training to decrease the click rate.',
+            placement: 'bottom'
+          },
+          {
+            target: '.social-toggle-btn:nth-of-type(2)',
+            title: 'MFA Enforcement',
+            description: 'Toggle Multi-Factor Authentication to secure login verification.',
+            placement: 'bottom'
+          },
+          {
+            target: '.social-reset-btn',
+            title: 'Reset Scenario',
+            description: 'Restore the social engineering simulation stats to default.',
+            placement: 'top'
+          }
+        ];
+      } else if (tab === 'insider') {
+        targetKey = 'cyber_lab_insider';
+        steps = [
+          {
+            target: '.insider-attack-btn.usb',
+            title: 'USB Exfiltration',
+            description: 'Simulate a rogue employee copying confidential data to a USB flash drive.',
+            placement: 'bottom'
+          },
+          {
+            target: '.insider-attack-btn.cloud',
+            title: 'Cloud Data Upload',
+            description: 'Exfiltrate internal database tables to public cloud file sync networks.',
+            placement: 'bottom'
+          },
+          {
+            target: '.insider-toggle-btn:first-of-type',
+            title: 'UEBA Monitoring',
+            description: 'Deploy User and Entity Behavior Analytics to flag anomalous document downloads.',
+            placement: 'bottom'
+          },
+          {
+            target: '.insider-toggle-btn:nth-of-type(2)',
+            title: 'DLP Block Policies',
+            description: 'Activate Data Loss Prevention rules to drop file copies to unapproved hosts.',
+            placement: 'bottom'
+          },
+          {
+            target: '.insider-reset-btn',
+            title: 'Reset Scenario',
+            description: 'Restore the insider threat simulation parameters to default.',
+            placement: 'top'
+          }
+        ];
+      } else if (tab === 'caesar') {
+        targetKey = 'cyber_lab_caesar';
+        steps = [
+          {
+            target: '.caesar-textarea:first-of-type',
+            title: 'Plaintext Message',
+            description: 'Type the message you want to encrypt using the Caesar shift.',
+            placement: 'bottom'
+          },
+          {
+            target: '.caesar-slider',
+            title: 'Rotation Shift Slider',
+            description: 'Drag this slider to select the key offset (0-25). Watch the alphabet wheels spin.',
+            placement: 'bottom'
+          },
+          {
+            target: '.caesar-reset',
+            title: 'Reset Visualizer',
+            description: 'Click to clear input text and restore the shift index to default.',
+            placement: 'top'
+          }
+        ];
+      } else if (tab === 'vigenere') {
+        targetKey = 'cyber_lab_vigenere';
+        steps = [
+          {
+            target: '.vigenere-textarea',
+            title: 'Plaintext Message',
+            description: 'Type the message you want to encrypt with the Vigenère cipher.',
+            placement: 'bottom'
+          },
+          {
+            target: '.vigenere-input-key',
+            title: 'Repeating Keyword',
+            description: 'Type the key string that determines the shift sequence of the message.',
+            placement: 'bottom'
+          },
+          {
+            target: '.vigenere-tab-btn:first-of-type',
+            title: 'Tabula Recta Grid',
+            description: 'Toggles the grid visualizer showing full row and column intersections.',
+            placement: 'bottom'
+          },
+          {
+            target: '.vigenere-tab-btn:nth-of-type(2)',
+            title: 'Caesar Ruler Slider',
+            description: 'Toggles the sliding ruler view illustrating per-letter Caesar offsets.',
+            placement: 'bottom'
+          },
+          {
+            target: '.vigenere-reset-btn',
+            title: 'Reset Cipher',
+            description: 'Restores the inputs and visualizations back to default values.',
+            placement: 'top'
+          }
+        ];
+      } else if (tab === 'enigma') {
+        targetKey = 'cyber_lab_enigma';
+        steps = [
+          {
+            target: '.enigma-select:first-of-type',
+            title: 'Rotor Slot Selection',
+            description: 'Choose which historical Enigma rotor wiring model (I-V) is active in this slot.',
+            placement: 'bottom'
+          },
+          {
+            target: '.enigma-pos-input:first-of-type',
+            title: 'Rotor Initial Offset',
+            description: 'Enter the initial alphabet character position (A-Z) of the rotor.',
+            placement: 'bottom'
+          },
+          {
+            target: '.enigma-input-wide',
+            title: 'Plugboard wiring pairs',
+            description: 'Type space-separated letter swap pairs to configure your plugboard leads.',
+            placement: 'bottom'
+          },
+          {
+            target: '.enigma-textarea',
+            title: 'Input Plaintext',
+            description: 'Compose your message. Every keystroke is dynamically encoded through the rotors.',
+            placement: 'bottom'
+          }
+        ];
+      } else if (tab === 'rsa') {
+        targetKey = 'cyber_lab_rsa';
+        steps = [
+          {
+            target: '.rsa-select:first-of-type',
+            title: 'Prime P Choice',
+            description: 'Choose the first prime number parameter (P) to drive the key generation formula.',
+            placement: 'bottom'
+          },
+          {
+            target: '.rsa-select:nth-of-type(2)',
+            title: 'Prime Q Choice',
+            description: 'Choose the second prime number parameter (Q) - must be different from P.',
+            placement: 'bottom'
+          },
+          {
+            target: '.rsa-pub-exp-select',
+            title: 'Public Exponent Selection',
+            description: 'Select a valid public exponent (E) that is coprime with Euler\'s totient.',
+            placement: 'bottom'
+          },
+          {
+            target: '.rsa-text-input',
+            title: 'Message Plaintext',
+            description: 'Type a message (up to 12 letters) to encrypt using asymmetric key math.',
+            placement: 'bottom'
+          }
+        ];
+      } else if (tab === 'base64') {
+        targetKey = 'cyber_lab_base64';
+        steps = [
+          {
+            target: '.b64-mode-btn:first-of-type',
+            title: 'Encoding Tab',
+            description: 'Set the visualizer to Encode mode, translating ASCII characters into Base64 indices.',
+            placement: 'bottom'
+          },
+          {
+            target: '.b64-mode-btn:nth-of-type(2)',
+            title: 'Decoding Tab',
+            description: 'Set the visualizer to Decode mode, transforming Base64 indices back to ASCII.',
+            placement: 'bottom'
+          },
+          {
+            target: '.b64-input',
+            title: 'Base64 Text Area',
+            description: 'Write your message. Look at the step-by-step bitwise shifts below.',
+            placement: 'bottom'
+          }
+        ];
+      } else if (tab === 'xor') {
+        targetKey = 'cyber_lab_xor';
+        steps = [
+          {
+            target: '.xor-input:first-of-type',
+            title: 'Plaintext Binary',
+            description: 'Type the first byte array message to XOR-encrypt.',
+            placement: 'bottom'
+          },
+          {
+            target: '.xor-input:nth-of-type(2)',
+            title: 'Secret Key Binary',
+            description: 'Type the binary key. The logic XORs them column by column.',
+            placement: 'bottom'
+          }
+        ];
+      }
+    } else if (path === '/communities') {
+      targetKey = 'community';
+      steps = [
+        {
+          target: '.community-list-header input',
+          title: 'Search Communities',
+          description: 'Type keywords here to filter active learning communities.',
+          placement: 'bottom'
+        },
+        {
+          target: '.community-list-header button:last-of-type',
+          title: 'Create a Community',
+          description: 'Start your own private or public study community.',
+          placement: 'bottom'
+        }
+      ];
+    } else if (path.startsWith('/communities/') && path.includes('/room/') && path.includes('/question/')) {
+      targetKey = 'question_thread';
+      steps = [
+        {
+          target: '.question-comment-input textarea',
+          title: 'Write a comment',
+          description: 'Type your reply or answer to the community question here.',
+          placement: 'top'
+        },
+        {
+          target: '.question-send-btn',
+          title: 'Post comment',
+          description: 'Submits your comment to the thread. Cooldown starts immediately.',
+          placement: 'top'
+        }
+      ];
+    } else if (path.startsWith('/communities/')) {
+      targetKey = 'community_detail';
+      steps = [
+        {
+          target: '.community-ask-btn',
+          title: 'Ask a Question',
+          description: 'Click this button to open the question submission form.',
+          placement: 'bottom'
+        }
+      ];
+    } else if (path === '/chats') {
+      targetKey = 'chats';
+      steps = [
+        {
+          target: '.chat-search-field input',
+          title: 'Search Conversations',
+          description: 'Type a friend\'s username here to filter your active chat list.',
+          placement: 'bottom'
+        },
+        {
+          target: '.chat-list-card button',
+          title: 'New Group Chat',
+          description: 'Click here to create a new group chat room and select friends to add.',
+          placement: 'bottom'
+        }
+      ];
+    } else if (path.startsWith('/chat/')) {
+      targetKey = 'chat_room';
+      steps = [
+        {
+          target: '.chat-text-field textarea',
+          title: 'Type Message',
+          description: 'Type your chat messages here. You can attach images or add emojis using the composer buttons.',
+          placement: 'top'
+        },
+        {
+          target: '.chat-send-btn',
+          title: 'Send Message',
+          description: 'Click this button to send your message instantly to your friend.',
+          placement: 'top'
+        }
+      ];
+    } else if (path.startsWith('/group/')) {
+      targetKey = 'group_chat_room';
+      steps = [
+        {
+          target: '.chat-input-field textarea',
+          title: 'Type Message to Group',
+          description: 'Type your message for the entire group here. Mention members using @.',
+          placement: 'top'
+        },
+        {
+          target: '.chat-send-btn',
+          title: 'Send Message to Group',
+          description: 'Click this button to post your message instantly to the group.',
+          placement: 'top'
+        }
+      ];
+    } else if (path === '/achievements') {
+      targetKey = 'achievements';
+      steps = [
+        {
+          target: '.achievements-filter-btn:first-of-type',
+          title: 'Filter Badges',
+          description: 'Toggle this filter button to view unlocked, locked, or all achievements milestones.',
+          placement: 'bottom'
+        },
+        {
+          target: '.achievement-card:first-of-type',
+          title: 'Milestone Details',
+          description: 'Hover or click these milestone cards to view descriptions, requirements, and completion metrics.',
+          placement: 'bottom'
+        }
+      ];
+    } else if (path === '/profile') {
+      targetKey = 'profile';
+      steps = [
+        {
+          target: '.profile-card button:first-of-type',
+          title: 'Edit Profile Details',
+          description: 'Click here to customize your name, bio, social links, or change your avatar.',
+          placement: 'bottom'
+        }
+      ];
+    } else if (path === '/settings') {
+      targetKey = 'settings';
+      steps = [
+        {
+          target: '.settings-row input[type="checkbox"]',
+          title: 'Logo Customization Toggle',
+          description: 'Toggle this switch to customize the brand logo style between gradient and split color presets.',
+          placement: 'bottom'
+        }
+      ];
+    }
+
+    if (targetKey) {
+      const alreadyVisited = localStorage.getItem(`visited_page_${targetKey}`);
+      if (!alreadyVisited && user) {
+        setPageSteps(steps);
+        setCurrentPageKey(targetKey);
+        setActiveTour('page');
+        setActiveStepIndex(0);
+      } else {
+        if (activeTour === 'page' && currentPageKey !== targetKey) {
+          setActiveTour(null);
+          setActiveStepIndex(null);
+        }
+      }
+    } else {
+      if (activeTour === 'page') {
+        setActiveTour(null);
+        setActiveStepIndex(null);
+      }
+    }
+  }, [location.pathname, user, activeTour]);
+
+  // 2. Spotlight Rectangle Calculator Effect with auto-scrolling
+  useEffect(() => {
+    if (activeStepIndex === null || activeTour === null) {
+      setSpotlightRect(null);
+      return;
+    }
+    
+    const steps = activeTour === 'onboarding' ? TUTORIAL_STEPS : pageSteps;
+    if (!steps || steps.length === 0 || !steps[activeStepIndex]) return;
+    
+    const step = steps[activeStepIndex];
+    let attempts = 0;
+    
+    const scrollAndMeasure = () => {
+      const element = document.querySelector(step.target);
+      if (element) {
+        // Automatically scroll the target element into view smoothly and center it ONCE
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Wait for smooth scroll to finish settling before getting the bounding rect
+        setTimeout(measureOnly, 300);
+      } else if (attempts < 15) {
+        attempts++;
+        setTimeout(scrollAndMeasure, 200); // Poll every 200ms up to 3 seconds
+      } else {
+        setSpotlightRect(null);
+      }
+    };
+    
+    const measureOnly = () => {
+      const element = document.querySelector(step.target);
+      if (element) {
+        const rect = element.getBoundingClientRect();
+        setSpotlightRect({
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+          right: rect.right,
+          bottom: rect.bottom
+        });
+      }
+    };
+    
+    // Trigger scroll and measurement chain
+    scrollAndMeasure();
+    
+    // Event listeners only measure (no scroll recursion!)
+    window.addEventListener('resize', measureOnly);
+    window.addEventListener('scroll', measureOnly);
+    return () => {
+      window.removeEventListener('resize', measureOnly);
+      window.removeEventListener('scroll', measureOnly);
+    };
+  }, [activeStepIndex, activeTour, pageSteps]);
+
+  // 3. Disable body scroll during active tutorial
+  useEffect(() => {
+    if (activeTour !== null) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [activeTour]);
+
+  const handleSkipTutorial = () => {
+    if (activeTour === 'onboarding') {
+      localStorage.removeItem('show_onboarding_tutorial');
+    } else if (activeTour === 'page' && currentPageKey) {
+      localStorage.setItem(`visited_page_${currentPageKey}`, 'true');
+    }
+    setActiveTour(null);
+    setActiveStepIndex(null);
+  };
+
+  const handleNextStep = () => {
+    const steps = activeTour === 'onboarding' ? TUTORIAL_STEPS : pageSteps;
+    if (activeStepIndex < steps.length - 1) {
+      const currentStep = steps[activeStepIndex];
+      // Trigger programmatic navigation before moving to the next step
+      if (activeTour === 'onboarding' && currentStep.action) {
+        navigate(currentStep.action);
+      }
+      setActiveStepIndex(prev => prev + 1);
+    } else {
+      if (activeTour === 'onboarding') {
+        localStorage.removeItem('show_onboarding_tutorial');
+      } else if (activeTour === 'page' && currentPageKey) {
+        localStorage.setItem(`visited_page_${currentPageKey}`, 'true');
+      }
+      setActiveTour(null);
+      setActiveStepIndex(null);
+    }
+  };
+
+  const handlePrevStep = () => {
+    const steps = activeTour === 'onboarding' ? TUTORIAL_STEPS : pageSteps;
+    if (activeStepIndex > 0) {
+      const currentStep = steps[activeStepIndex];
+      // Trigger programmatic back navigation if backAction is defined
+      if (activeTour === 'onboarding' && currentStep.backAction) {
+        navigate(currentStep.backAction);
+      }
+      setActiveStepIndex(prev => prev - 1);
+    }
+  };
+
+  const renderTutorialOverlay = () => {
+    if (activeTour === null || activeStepIndex === null) return null;
+    return (
+      <Box 
+        className="sp-tutorial-overlay-blocker"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 999980,
+          backgroundColor: 'transparent',
+          pointerEvents: 'auto',
+        }}
+      />
+    );
+  };
+
+  const renderTutorialSpotlight = () => {
+    if (activeTour === null || activeStepIndex === null || !spotlightRect) return null;
+    
+    return (
+      <div 
+        className="sp-tutorial-spotlight"
+        style={{
+          position: 'fixed',
+          left: `${spotlightRect.left - 8}px`,
+          top: `${spotlightRect.top - 8}px`,
+          width: `${spotlightRect.width + 16}px`,
+          height: `${spotlightRect.height + 16}px`,
+          boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
+          borderRadius: '8px',
+          border: '2px solid var(--primary-main)',
+          pointerEvents: 'none',
+          zIndex: 999990,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      />
+    );
+  };
+
+  const renderTutorialTooltip = () => {
+    if (activeTour === null || activeStepIndex === null) return null;
+    const steps = activeTour === 'onboarding' ? TUTORIAL_STEPS : pageSteps;
+    if (!steps || steps.length === 0 || !steps[activeStepIndex]) return null;
+    
+    const step = steps[activeStepIndex];
+    
+    let style = {
+      position: 'fixed',
+      zIndex: 999995,
+      width: '320px',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    };
+    
+    if (spotlightRect) {
+      let placement = step.placement;
+      
+      // Auto-correct placement to prevent overlapping off-screen or target component
+      if (placement === 'right' && spotlightRect.right + 336 > window.innerWidth) {
+        placement = spotlightRect.left - 336 > 16 ? 'left' : 'bottom';
+      }
+      
+      if (placement === 'bottom' && spotlightRect.bottom + 220 > window.innerHeight) {
+        placement = spotlightRect.top - 220 > 16 ? 'top' : 'right';
+      }
+      
+      // Calculate coordinates
+      if (placement === 'right') {
+        style.left = `${spotlightRect.right + 16}px`;
+        style.top = `${spotlightRect.top + (spotlightRect.height / 2) - 100}px`;
+      } else if (placement === 'left') {
+        style.left = `${spotlightRect.left - 336}px`;
+        style.top = `${spotlightRect.top + (spotlightRect.height / 2) - 100}px`;
+      } else if (placement === 'top') {
+        style.left = `${spotlightRect.left + (spotlightRect.width / 2) - 160}px`;
+        style.top = `${spotlightRect.top - 220}px`;
+      } else if (placement === 'bottom-left') {
+        style.left = `${spotlightRect.left}px`;
+        style.top = `${spotlightRect.bottom + 16}px`;
+      } else {
+        style.left = `${spotlightRect.left + (spotlightRect.width / 2) - 160}px`;
+        style.top = `${spotlightRect.bottom + 16}px`;
+      }
+      
+      // Prevent off-screen margins
+      if (parseFloat(style.left) < 16) style.left = '16px';
+      if (parseFloat(style.left) + 320 > window.innerWidth - 16) {
+        style.left = `${window.innerWidth - 336}px`;
+      }
+      if (parseFloat(style.top) < 16) style.top = '16px';
+      if (parseFloat(style.top) + 200 > window.innerHeight - 16) {
+        style.top = `${window.innerHeight - 216}px`;
+      }
+    } else {
+      style.left = '50%';
+      style.top = '50%';
+      style.transform = 'translate(-50%, -50%)';
+    }
+    
+    return (
+      <Paper 
+        className="glass-panel-strong sp-tutorial-tooltip" 
+        style={style}
+        sx={{
+          p: 2.5,
+          borderRadius: 3,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          background: 'var(--background-paper) !important',
+        }}
+      >
+        <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, color: 'var(--primary-main)' }}>
+          {step.title}
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mb: 2, lineHeight: 1.5 }}>
+          {step.description}
+        </Typography>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
+          <Typography variant="caption" sx={{ color: 'var(--text-disabled)', fontWeight: 600 }}>
+            Step {activeStepIndex + 1} of {steps.length}
+          </Typography>
+          
+          <Stack direction="row" spacing={1}>
+            <Button 
+              size="small"
+              onClick={handleSkipTutorial}
+              sx={{ textTransform: 'none', color: 'var(--text-secondary)' }}
+            >
+              Skip
+            </Button>
+            {activeStepIndex > 0 && (
+              <Button 
+                size="small" 
+                variant="outlined"
+                onClick={handlePrevStep}
+                sx={{ textTransform: 'none', borderRadius: 1.5 }}
+              >
+                Back
+              </Button>
+            )}
+            <Button 
+              size="small" 
+              variant="contained"
+              onClick={handleNextStep}
+              sx={{ textTransform: 'none', borderRadius: 1.5 }}
+            >
+              {activeStepIndex === steps.length - 1 ? 'Finish' : 'Next'}
+            </Button>
+          </Stack>
+        </Box>
+      </Paper>
+    );
+  };
 
   useEffect(() => {
     const handleStyleChange = () => {
@@ -111,8 +1030,6 @@ const NavigationPage = () => {
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const navigate = useNavigate();
-  const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   const isStickyFooterPage = location.pathname.startsWith('/quiz/') || location.pathname.startsWith('/learning/');
 
@@ -148,20 +1065,26 @@ const NavigationPage = () => {
   const userName = user?.name || 'Learner';
 
 
-  const navigationItems = [
-    { label: 'Dashboard', path: '/', icon: <DashboardRoundedIcon /> },
-    { label: 'Achievements', path: '/achievements', icon: <EmojiEventsIcon /> },
-    { label: 'HTML Editor', path: '/editor', icon: <CodeIcon /> },
-    { label: 'Chats', path: '/chats', icon: <ChatIcon /> },
-    { label: 'Communities', path: '/communities', icon: <GroupsIcon /> },
-    { label: 'Profile', path: '/profile', icon: <PersonIcon /> },
-    { label: 'Settings', path: '/settings', icon: <SettingsIcon /> },
-  ];
-
-
+  const navigationItems = React.useMemo(() => {
+    const items = [];
+    if (user?.roleID === 2 || true) { // Temporarily bypassed for testing
+      items.push({ label: 'Dashboard', path: '/', icon: <DashboardRoundedIcon /> });
+    }
+    items.push({ label: 'Courses', path: '/courses', icon: <SchoolIcon /> });
+    items.push({ label: 'Labs', path: '/labs', icon: <ScienceIcon /> });
+    items.push({ label: 'Achievements', path: '/achievements', icon: <EmojiEventsIcon /> });
+    items.push({ label: 'HTML Editor', path: '/editor', icon: <CodeIcon /> });
+    items.push({ label: 'Chats', path: '/chats', icon: <ChatIcon /> });
+    items.push({ label: 'Communities', path: '/communities', icon: <GroupsIcon /> });
+    items.push({ label: 'Profile', path: '/profile', icon: <PersonIcon /> });
+    items.push({ label: 'Settings', path: '/settings', icon: <SettingsIcon /> });
+    return items;
+  }, [user]);
 
   const pageTitles = {
-    '/': 'Learning Dashboard',
+    '/': 'Admin Dashboard',
+    '/courses': 'Your Courses',
+    '/labs': 'Interactive Labs',
     '/learning-path': 'Your Roadmap',
     '/challenge': 'Chapter Challenge',
     '/achievements': 'Your Achievements',
@@ -172,10 +1095,10 @@ const NavigationPage = () => {
     '/settings': 'Settings',
   };
 
-
-
   const pageDescriptions = {
-    '/': 'Explore courses, track progress, and launch your next module.',
+    '/': 'Manage system configurations, courses, users, and audit logs.',
+    '/courses': 'Explore courses, track progress, and launch your next module.',
+    '/labs': 'Hands-on practice labs for Cybersecurity, Cryptography, and Philosophy.',
     '/learning-path': 'See the full roadmap and unlock your next milestone.',
     '/challenge': 'Test your skills in interactive hacking and coding exercises.',
     '/achievements': 'Monitor trophies, streaks, and progression signals.',
@@ -251,31 +1174,6 @@ const NavigationPage = () => {
       className={`nav-shell-sidebar ${sidebarCollapsed ? 'is-collapsed' : ''}`}
       variants={containerVariants}
     >
-      {!isMobile && (
-        <IconButton 
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)} 
-          className="nav-sidebar-toggle-btn"
-          size="small"
-          sx={{
-            position: 'absolute',
-            right: sidebarCollapsed ? '2.5rem' : 0,
-            top: '48px',
-            transform: sidebarCollapsed ? 'translate(100%, -50%)' : 'translate(50%, -50%)',
-            color: 'var(--text-secondary)',
-            border: '1px solid var(--divider)',
-            background: 'var(--background-paper) !important',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            zIndex: 9999,
-            transition: 'background 0.2s, color 0.2s, transform 0.4s ease, right 0.4s ease',
-            '&:hover': {
-              background: 'var(--primary-main) !important',
-              color: '#fff !important'
-            }
-          }}
-        >
-          {sidebarCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-        </IconButton>
-      )}
       <motion.div
         style={{
           display: 'flex',
@@ -297,22 +1195,8 @@ const NavigationPage = () => {
             padding: '0.75rem 1rem'
           }}
         >
-          <div 
-            className={`nav-brand-logo-container ${logoStyle === 'gradient' ? 'sp-logo-gradient' : ''}`}
-            style={{
-              WebkitMaskImage: `url(${logoImg})`,
-              maskImage: `url(${logoImg})`,
-              WebkitMaskRepeat: 'no-repeat',
-              maskRepeat: 'no-repeat',
-              WebkitMaskPosition: 'center',
-              maskPosition: 'center',
-              WebkitMaskSize: 'contain',
-              maskSize: 'contain'
-            }}
-          >
-            <div className="nav-logo-left-half" />
-            <div className="nav-logo-right-half" />
-          </div>
+          {/* Empty placeholder reserving space for the floating animated logo */}
+          <div style={{ width: '40px', height: '40px', flexShrink: 0 }} />
           {!sidebarCollapsed && (
             <div>
               <Typography className="nav-brand-title">SophiaPath</Typography>
@@ -328,6 +1212,9 @@ const NavigationPage = () => {
             />
             <div className="nav-profile-copy">
               <Typography className="nav-profile-name">{userName}</Typography>
+              <Typography className="nav-profile-role">
+                Level {Math.floor((user?.xp || 0) / 100) + 1} • {user?.xp || 0} XP
+              </Typography>
             </div>
           </motion.div>
         ) : (
@@ -513,10 +1400,10 @@ const NavigationPage = () => {
   const { title: currentTitle, description: currentDescription } = getHeaderDetails();
 
   const hideTopbar = 
-    location.pathname.startsWith('/course') ||
+    location.pathname.startsWith('/course/') ||
     location.pathname.startsWith('/learning-path') ||
-    location.pathname.startsWith('/learning') ||
-    location.pathname.startsWith('/quiz') ||
+    location.pathname.startsWith('/learning/') ||
+    location.pathname.startsWith('/quiz/') ||
     location.pathname.startsWith('/chat/') ||
     location.pathname.startsWith('/group/') ||
     location.pathname.startsWith('/communities/') ||
@@ -543,6 +1430,80 @@ const NavigationPage = () => {
 
   return (
     <Box className={`nav-shell ${isStickyFooterPage ? 'has-sticky-footer' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      {/* Floating Animated Brand Logo */}
+      {!isMobile && (
+        <motion.div
+          animate={{
+            left: sidebarCollapsed ? '1.9rem' : '3.5rem',
+            top: sidebarCollapsed ? '2.4rem' : '3.25rem',
+            width: sidebarCollapsed ? '2.2rem' : '2.5rem',
+            height: sidebarCollapsed ? '2.2rem' : '2.5rem'
+          }}
+          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+          className={`nav-brand-logo-container absolute-corner-logo ${logoStyle === 'gradient' ? 'sp-logo-gradient' : ''}`}
+          style={{
+            position: 'fixed',
+            zIndex: 9999, // Render on top of everything!
+            cursor: sidebarCollapsed ? 'pointer' : 'default',
+            WebkitMaskImage: `url(${logoImg})`,
+            maskImage: `url(${logoImg})`,
+            WebkitMaskRepeat: 'no-repeat',
+            maskRepeat: 'no-repeat',
+            WebkitMaskPosition: 'center',
+            maskPosition: 'center',
+            WebkitMaskSize: 'contain',
+            maskSize: 'contain',
+          }}
+          onClick={() => {
+            if (sidebarCollapsed) {
+              setSidebarCollapsed(false);
+            }
+          }}
+          title={sidebarCollapsed ? "Open Navigation" : undefined}
+        >
+          <div className="nav-logo-left-half" />
+          <div className="nav-logo-right-half" />
+        </motion.div>
+      )}
+
+      {/* Floating Toggle Button (Visible only when sidebar is open) */}
+      {!isMobile && !sidebarCollapsed && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.25 }}
+          style={{
+            position: 'fixed',
+            left: '17rem',
+            top: '56px',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 99999,
+          }}
+        >
+          <IconButton 
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)} 
+            className="nav-sidebar-toggle-btn"
+            size="small"
+            sx={{
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--divider)',
+              background: 'var(--background-paper) !important',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              width: '24px',
+              height: '24px',
+              transition: 'background 0.2s, color 0.2s',
+              '&:hover': {
+                background: 'var(--primary-main) !important',
+                color: '#fff !important'
+              }
+            }}
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+        </motion.div>
+      )}
+
       {!isMobile && (
         <motion.aside
           animate={sidebarCollapsed ? "collapsed" : "expanded"}
@@ -566,17 +1527,17 @@ const NavigationPage = () => {
       <main className="nav-main">
         {!hideTopbar && (
           <header className="nav-topbar glass-panel">
-          <div className="nav-topbar-copy">
-            {isMobile && (
-              <IconButton onClick={() => setDrawerOpen(true)} className="nav-menu-trigger">
-                <MenuIcon />
-              </IconButton>
-            )}
-            <div>
-              <Typography variant="h3" className="nav-topbar-title">{currentTitle}</Typography>
-              <Typography variant="body1" className="nav-topbar-description">{currentDescription}</Typography>
+            <div className="nav-topbar-copy">
+              {isMobile && (
+                <IconButton onClick={() => setDrawerOpen(true)} className="nav-menu-trigger">
+                  <MenuIcon />
+                </IconButton>
+              )}
+              <div>
+                <Typography variant="h3" className="nav-topbar-title">{currentTitle}</Typography>
+                <Typography variant="body1" className="nav-topbar-description">{currentDescription}</Typography>
+              </div>
             </div>
-          </div>
 
           <div className="nav-topbar-actions">
             <Button
@@ -603,7 +1564,15 @@ const NavigationPage = () => {
         <section className="nav-content">
           <AnimatePresence mode="wait">
             <Routes location={location} key={getRouteKey(location.pathname)}>
-              <Route path="/" element={<AnimatedPage><LearningPage /></AnimatedPage>} />
+              <Route path="/" element={
+                (user?.roleID === 2 || true) ? ( // Temporarily bypassed for testing
+                  <AnimatedPage><AdminDashboardPage /></AnimatedPage>
+                ) : (
+                  <Navigate to="/courses" replace />
+                )
+              } />
+              <Route path="/courses" element={<AnimatedPage><LearningPage /></AnimatedPage>} />
+              <Route path="/labs" element={<AnimatedPage><LabsPage /></AnimatedPage>} />
               <Route path="/challenge" element={<AnimatedPage><ChallengePage /></AnimatedPage>} />
               <Route path="/profile" element={<AnimatedPage><ProfilePage /></AnimatedPage>} />
               <Route path="/achievements" element={<AnimatedPage><AchievementsPage /></AnimatedPage>} />
@@ -632,6 +1601,11 @@ const NavigationPage = () => {
           </AnimatePresence>
         </section>
       </main>
+
+      {/* Onboarding Tutorial Spotlight and Tooltips */}
+      {renderTutorialOverlay()}
+      {renderTutorialSpotlight()}
+      {renderTutorialTooltip()}
     </Box>
   );
 };

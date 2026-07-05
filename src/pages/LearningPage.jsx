@@ -20,14 +20,11 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import PaletteIcon from '@mui/icons-material/Palette';
 import BusinessIcon from '@mui/icons-material/Business';
 import SchoolIcon from '@mui/icons-material/School';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import BoltIcon from '@mui/icons-material/Bolt';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { ArrowOutward as ArrowOutwardIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { coursesData } from '../data/courses';
 import './LearningPage.css';
-
 
 const getCourseDomain = (title) => {
   const t = title.toLowerCase();
@@ -207,10 +204,6 @@ const LearningPage = () => {
     }
   };
 
-
-
-
-
   return (
     <Box className="learning-page">
       <section className="learning-intro glass-panel-strong">
@@ -352,20 +345,21 @@ const LearningPage = () => {
 
         <Box style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '12px', maxWidth: '800px' }}>
           {comingSoon.map((title) => (
-            <Chip
-              key={title}
-              icon={getCourseIcon(title)}
-              label={title}
-              style={{
-                background: 'var(--surface-glass)',
-                border: '1px solid var(--divider)',
-                padding: '8px 12px',
-                height: 'auto',
-                fontWeight: 700,
-                color: 'var(--text-secondary)',
-                fontSize: '0.85rem'
-              }}
-            />
+            <Box key={title} style={{ display: 'flex' }}>
+              <Chip
+                icon={getCourseIcon(title)}
+                label={title}
+                style={{
+                  background: 'var(--surface-glass)',
+                  border: '1px solid var(--divider)',
+                  padding: '8px 12px',
+                  height: 'auto',
+                  fontWeight: 700,
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.85rem'
+                }}
+              />
+            </Box>
           ))}
         </Box>
       </section>

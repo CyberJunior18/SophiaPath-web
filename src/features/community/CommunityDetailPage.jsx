@@ -45,7 +45,8 @@ import {
   PhotoCamera as CameraIcon,
   Person as PersonIcon,
   Fingerprint as FingerprintIcon,
-  CalendarToday as CalendarIcon
+  CalendarToday as CalendarIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -158,8 +159,7 @@ const CommunityDetailPage = () => {
   const [postCode, setPostCode] = useState('');
   const [postLanguage, setPostLanguage] = useState('javascript');
   const [postImages, setPostImages] = useState([]);
-  const [postLink, setPostLink] = useState('');
-  const [postLinkLabel, setPostLinkLabel] = useState('');
+  const [postLinks, setPostLinks] = useState([{ url: '', label: '' }]);
 
   // Poll states inside post creator
   const [showPollField, setShowPollField] = useState(false);
@@ -340,9 +340,18 @@ const CommunityDetailPage = () => {
         if (img) fullContent += `\n\n![Image Attachment](${img})`;
       });
     }
-    if (showLinkField && postLink.trim()) {
-      const label = postLinkLabel.trim() || 'Link';
-      fullContent += `\n\n[${label}](${postLink.trim()})`;
+    if (showLinkField) {
+      const hasInvalidLink = postLinks.some(link => link.url.trim() !== '' && !link.url.trim().startsWith('https://'));
+      if (hasInvalidLink) {
+        alert("All external links must start with 'https://'!");
+        return;
+      }
+      postLinks.forEach(link => {
+        if (link.url.trim()) {
+          const label = link.label.trim() || 'Link';
+          fullContent += `\n\n[${label}](${link.url.trim()})`;
+        }
+      });
     }
 
     const qPoll = showPollField && pollQuestion.trim() ? pollQuestion.trim() : null;
@@ -356,8 +365,7 @@ const CommunityDetailPage = () => {
     setPostCode('');
     setPostLanguage('javascript');
     setPostImages([]);
-    setPostLink('');
-    setPostLinkLabel('');
+    setPostLinks([{ url: '', label: '' }]);
     setShowCodeField(false);
     setShowImageField(false);
     setShowLinkField(false);
@@ -682,6 +690,7 @@ const CommunityDetailPage = () => {
             )}
 
             <Button
+              className="community-ask-btn"
               variant="contained"
               size="small"
               startIcon={<AddIcon />}
@@ -1096,30 +1105,66 @@ const CommunityDetailPage = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, border: '1px solid var(--divider)', p: 2, borderRadius: 1.5, position: 'relative', mt: 1 }}>
               <IconButton 
                 size="small" 
-                onClick={() => { setShowLinkField(false); setPostLink(''); setPostLinkLabel(''); }}
+                onClick={() => { setShowLinkField(false); setPostLinks([{ url: '', label: '' }]); }}
                 sx={{ position: 'absolute', top: 4, right: 4 }}
               >
                 ✕
               </IconButton>
-              <Typography variant="caption" sx={{ fontWeight: 600, mt: 2 }}>External Link</Typography>
-              <TextField
-                label="Link URL"
-                placeholder="https://example.com"
-                fullWidth
-                value={postLink}
-                onChange={(e) => setPostLink(e.target.value)}
-                InputProps={{ sx: { borderRadius: 1.5 } }}
-                inputProps={{ maxLength: 500 }}
-              />
-              <TextField
-                label="Link Label"
-                placeholder="Visit Website"
-                fullWidth
-                value={postLinkLabel}
-                onChange={(e) => setPostLinkLabel(e.target.value)}
-                InputProps={{ sx: { borderRadius: 1.5 } }}
-                inputProps={{ maxLength: 100 }}
-              />
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>External Links</Typography>
+              
+              {postLinks.map((link, idx) => {
+                const urlInvalid = link.url.trim() !== '' && !link.url.trim().startsWith('https://');
+                return (
+                  <Box key={idx} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, p: 1.5, border: '1px dashed var(--divider)', borderRadius: 1.5, position: 'relative' }}>
+                    {postLinks.length > 1 && (
+                      <IconButton 
+                        size="small"
+                        onClick={() => setPostLinks(prev => prev.filter((_, i) => i !== idx))}
+                        sx={{ position: 'absolute', top: 4, right: 4, color: 'text.secondary' }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                    <TextField
+                      label={`Link #${idx + 1} URL`}
+                      placeholder="https://example.com"
+                      fullWidth
+                      size="small"
+                      value={link.url}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPostLinks(prev => prev.map((item, i) => i === idx ? { ...item, url: val } : item));
+                      }}
+                      error={urlInvalid}
+                      helperText={urlInvalid ? "Link must start with 'https://'" : ""}
+                      InputProps={{ sx: { borderRadius: 1.5 } }}
+                      inputProps={{ maxLength: 500 }}
+                    />
+                    <TextField
+                      label={`Link #${idx + 1} Label`}
+                      placeholder="Visit Website"
+                      fullWidth
+                      size="small"
+                      value={link.label}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPostLinks(prev => prev.map((item, i) => i === idx ? { ...item, label: val } : item));
+                      }}
+                      InputProps={{ sx: { borderRadius: 1.5 } }}
+                      inputProps={{ maxLength: 100 }}
+                    />
+                  </Box>
+                );
+              })}
+              
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setPostLinks(prev => [...prev, { url: '', label: '' }])}
+                sx={{ alignSelf: 'flex-start', borderRadius: 1.5, textTransform: 'none' }}
+              >
+                + Add Another Link
+              </Button>
             </Box>
           )}
 

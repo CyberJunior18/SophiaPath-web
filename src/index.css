@@ -729,7 +729,7 @@ button,
   /* - Change '1.7s' to increase/decrease the typing reveal duration.          */
   /* - Change '0.6s' to adjust the initial delay before typing starts.          */
   /* ========================================================================= */
-  animation: spReveal 1.7s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.6s;
+  animation: spReveal 0.85s linear forwards 0.6s;
 }
 
 @keyframes spReveal {

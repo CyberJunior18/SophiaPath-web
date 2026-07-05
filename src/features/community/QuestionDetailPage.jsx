@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -24,7 +24,8 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
-  ListItemButton
+  ListItemButton,
+  CircularProgress
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -41,10 +42,44 @@ import {
   BookmarkBorder as BookmarkBorderIcon,
   Share as ShareIcon
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
 import './Community.css';
+
+const countReplies = (node) => {
+  if (!node) return 0;
+  let count = 0;
+  if (node.children) {
+    count += node.children.length;
+    node.children.forEach(child => {
+      count += countReplies(child);
+    });
+  }
+  return count;
+};
+
+const findReplyInTree = (nodes, id) => {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.children) {
+      const found = findReplyInTree(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
+const findReplyInComments = (commentsList, replyId) => {
+  const idNum = Number(replyId);
+  for (const comment of commentsList) {
+    if (comment.replyTree) {
+      const found = findReplyInTree(comment.replyTree, idNum);
+      if (found) return found;
+    }
+  }
+  return null;
+};
 
 const RenderReplyNode = ({ 
   reply, 
@@ -67,7 +102,8 @@ const RenderReplyNode = ({
   isJoinedMember,
   collapsedReplyIds,
   toggleReplyCollapse,
-  canDeleteContent
+  canDeleteContent,
+  cooldownMs
 }) => {
   if (!reply) return null;
   const isReplyAuthor = Number(reply.authorId) === Number(user?.id);
@@ -208,10 +244,18 @@ const RenderReplyNode = ({
                   onClick={(e) => handlePostReplySubmit(e, reply.commentId, reply.id)}
                   variant="contained" 
                   size="small"
-                  disabled={!replyText.trim()}
+                  disabled={!replyText.trim() || cooldownMs > 0}
                   sx={{ borderRadius: 2, textTransform: 'none' }}
+                  startIcon={cooldownMs > 0 ? (
+                    <CircularProgress 
+                      size={12} 
+                      variant="determinate" 
+                      value={(cooldownMs / 5000) * 100} 
+                      sx={{ color: 'inherit' }} 
+                    />
+                  ) : null}
                 >
-                  Reply
+                  {cooldownMs > 0 ? `${Math.ceil(cooldownMs / 1000)}s` : 'Reply'}
                 </Button>
               </Stack>
             </Box>
@@ -227,7 +271,7 @@ const RenderReplyNode = ({
                   onClick={() => onFocusSubthread(reply)}
                   sx={{ textTransform: 'none', borderRadius: 2, fontSize: '0.7rem', py: 0.25 }}
                 >
-                  View nested thread ({reply.children.length} replies)
+                  View nested thread ({countReplies(reply)} replies)
                 </Button>
               ) : (
                 reply.children.map(child => (
@@ -254,6 +298,7 @@ const RenderReplyNode = ({
                     collapsedReplyIds={collapsedReplyIds}
                     toggleReplyCollapse={toggleReplyCollapse}
                     canDeleteContent={canDeleteContent}
+                    cooldownMs={cooldownMs}
                   />
                 ))
               )}
@@ -289,22 +334,28 @@ const parseMarkdownContent = (content) => {
   }
   text = text.replace(/!\[Image Attachment\]\(([^)]*)\)/g, '');
 
-  // 3. Extract link attachment
-  const linkMatch = text.match(/(?!^!)\[([^\]]*)\]\(([^)]*)\)/);
-  if (linkMatch) {
-    linkLabel = linkMatch[1] || '';
-    link = linkMatch[2] || '';
-    text = text.replace(/\[([^\]]*)\]\(([^)]*)\)/g, '');
+  // 3. Extract link attachments
+  const links = [];
+  const linkRegex = /(?!^!)\[([^\]]*)\]\(([^)]*)\)/g;
+  let linkMatch;
+  while ((linkMatch = linkRegex.exec(text)) !== null) {
+    links.push({
+      label: linkMatch[1] || '',
+      url: linkMatch[2] || ''
+    });
   }
+  text = text.replace(/(?!^!)\[([^\]]*)\]\(([^)]*)\)/g, '');
 
   text = text.trim();
-  return { text, code, lang, images, link, linkLabel };
+  return { text, code, lang, images, links };
 };
 
 const QuestionDetailPage = () => {
   const { communityId, roomId, questionId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryReplyId = searchParams.get('replyId');
 
   const [question, setQuestion] = useState(null);
   const [comments, setComments] = useState([]);
@@ -319,8 +370,7 @@ const QuestionDetailPage = () => {
   const [editPostCode, setEditPostCode] = useState('');
   const [editPostLanguage, setEditPostLanguage] = useState('javascript');
   const [editPostImages, setEditPostImages] = useState([]);
-  const [editPostLink, setEditPostLink] = useState('');
-  const [editPostLinkLabel, setEditPostLinkLabel] = useState('');
+  const [editPostLinks, setEditPostLinks] = useState([{ url: '', label: '' }]);
   const [showEditCode, setShowEditCode] = useState(false);
   const [showEditImages, setShowEditImages] = useState(false);
   const [showEditLink, setShowEditLink] = useState(false);
@@ -342,8 +392,7 @@ const QuestionDetailPage = () => {
   const [commentsSortBy, setCommentsSortBy] = useState('top'); // 'top' or 'newest'
   const [hideOwnComments, setHideOwnComments] = useState(false);
 
-  // Sub-thread Focus
-  const [focusedReply, setFocusedReply] = useState(null);
+  // Sub-thread Focus state removed in favor of URL-param memoized selector
 
   // Custom Confirmation Dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -390,6 +439,36 @@ const QuestionDetailPage = () => {
   const [newCommentText, setNewCommentText] = useState('');
   const [activeReplyId, setActiveReplyId] = useState(null); // id of comment we are replying to
   const [replyText, setReplyText] = useState('');
+  
+  const [cooldownMs, setCooldownMs] = useState(0);
+  const cooldownTimerRef = useRef(null);
+
+  const startCooldown = () => {
+    const duration = 5000;
+    const endTime = Date.now() + duration;
+    setCooldownMs(duration);
+
+    if (cooldownTimerRef.current) {
+      clearInterval(cooldownTimerRef.current);
+    }
+
+    cooldownTimerRef.current = setInterval(() => {
+      const remaining = Math.max(0, endTime - Date.now());
+      setCooldownMs(remaining);
+      if (remaining <= 0) {
+        clearInterval(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+      }
+    }, 50);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) {
+        clearInterval(cooldownTimerRef.current);
+      }
+    };
+  }, []);
 
   const isOwner = community && Number(community.ownerId) === Number(user?.id);
   const isMod = community && (community.moderatorIds?.includes(String(user?.id)) || isOwner);
@@ -526,6 +605,12 @@ const QuestionDetailPage = () => {
 
   const displayedComments = sortedComments.slice(0, visibleCommentsCount);
 
+  // Sub-thread Focus (Memoized selector from the URL query param single-source-of-truth)
+  const focusedReply = useMemo(() => {
+    if (!queryReplyId) return null;
+    return findReplyInComments(commentsWithReplyTrees, queryReplyId);
+  }, [queryReplyId, commentsWithReplyTrees]);
+
   const loadQuestionAndComments = async () => {
     try {
       const qData = await socialStore.getQuestionById(questionId);
@@ -563,6 +648,8 @@ const QuestionDetailPage = () => {
       setIsSaved(saved);
     }
   }, [questionId]);
+
+
 
   const handleToggleSavePost = () => {
     let list = JSON.parse(localStorage.getItem('saved_posts_list') || '[]');
@@ -685,6 +772,7 @@ const QuestionDetailPage = () => {
 
     await socialStore.addComment(questionId, newCommentText, user);
     setNewCommentText('');
+    startCooldown();
     loadQuestionAndComments();
   };
 
@@ -695,6 +783,7 @@ const QuestionDetailPage = () => {
     await socialStore.addReply(questionId, commentId, replyText, user, parentReplyId);
     setReplyText('');
     setActiveReplyId(null);
+    startCooldown();
     loadQuestionAndComments();
   };
 
@@ -716,11 +805,10 @@ const QuestionDetailPage = () => {
     setEditPostCode(parsed.code);
     setEditPostLanguage(parsed.lang);
     setEditPostImages(parsed.images || []);
-    setEditPostLink(parsed.link);
-    setEditPostLinkLabel(parsed.linkLabel);
+    setEditPostLinks(parsed.links && parsed.links.length > 0 ? parsed.links : [{ url: '', label: '' }]);
     setShowEditCode(!!parsed.code);
     setShowEditImages((parsed.images || []).length > 0);
-    setShowEditLink(!!parsed.link);
+    setShowEditLink((parsed.links || []).length > 0);
     setIsEditingPost(true);
   };
 
@@ -736,9 +824,18 @@ const QuestionDetailPage = () => {
         if (img) fullContent += `\n\n![Image Attachment](${img})`;
       });
     }
-    if (showEditLink && editPostLink.trim()) {
-      const label = editPostLinkLabel.trim() || 'Link';
-      fullContent += `\n\n[${label}](${editPostLink.trim()})`;
+    if (showEditLink) {
+      const hasInvalidLink = editPostLinks.some(link => link.url.trim() !== '' && !(link.url.trim().startsWith('https://') || link.url.trim().startsWith('http://')));
+      if (hasInvalidLink) {
+        alert("All external links must start with 'https://' or 'http://'!");
+        return;
+      }
+      editPostLinks.forEach(link => {
+        if (link.url.trim()) {
+          const label = link.label.trim() || 'Link';
+          fullContent += `\n\n[${label}](${link.url.trim()})`;
+        }
+      });
     }
 
     const updated = await socialStore.updateQuestion(
@@ -1142,7 +1239,7 @@ const QuestionDetailPage = () => {
 
       {/* QUESTION DETAIL HEADER */}
       <Card className="question-detail-card">
-        <Box className="question-detail-header-block" sx={{ pb: 0 }}>
+        <Box className="question-detail-header-block" sx={{ pb: 0 , pt: 0}}>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2, width: '100%' }}>
             <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
               {question.authorName?.charAt(0)?.toUpperCase() || '?'}
@@ -1308,24 +1405,61 @@ const QuestionDetailPage = () => {
             />
             {showEditLink && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, border: '1px solid var(--divider)', p: 2, borderRadius: 1.5 }}>
-                <TextField
-                  label="Link URL"
-                  placeholder="https://example.com"
-                  fullWidth
-                  value={editPostLink}
-                  onChange={(e) => setEditPostLink(e.target.value)}
-                  InputProps={{ sx: { borderRadius: 1.5 } }}
-                  inputProps={{ maxLength: 500 }}
-                />
-                <TextField
-                  label="Link Label"
-                  placeholder="Visit Website"
-                  fullWidth
-                  value={editPostLinkLabel}
-                  onChange={(e) => setEditPostLinkLabel(e.target.value)}
-                  InputProps={{ sx: { borderRadius: 1.5 } }}
-                  inputProps={{ maxLength: 100 }}
-                />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>External Links</Typography>
+                
+                {editPostLinks.map((link, idx) => {
+                  const urlInvalid = link.url.trim() !== '' && !(link.url.trim().startsWith('https://') || link.url.trim().startsWith('http://'));
+                  return (
+                    <Box key={idx} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, p: 2.5, border: '1px dashed var(--divider)', borderRadius: 1.5, position: 'relative' }}>
+                      {editPostLinks.length > 1 && (
+                        <IconButton 
+                          size="small"
+                          onClick={() => setEditPostLinks(prev => prev.filter((_, i) => i !== idx))}
+                          sx={{ position: 'absolute', top: 0, right: 0, color: 'text.secondary' }}
+                        >
+                          <DeleteIcon fontSize="small"/>
+                        </IconButton>
+                      )}
+                      <TextField
+                        label={`Link #${idx + 1} URL`}
+                        placeholder="https://example.com"
+                        fullWidth
+                        size="small"
+                        value={link.url}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditPostLinks(prev => prev.map((item, i) => i === idx ? { ...item, url: val } : item));
+                        }}
+                        error={urlInvalid}
+                        helperText={urlInvalid ? "Link must start with 'https://' or 'http://'" : ""}
+                        InputProps={{ sx: { borderRadius: 1.5 } }}
+                        inputProps={{ maxLength: 500 }}
+                      />
+                      <TextField
+                        label={`Link #${idx + 1} Label`}
+                        placeholder="Visit Website"
+                        fullWidth
+                        size="small"
+                        value={link.label}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditPostLinks(prev => prev.map((item, i) => i === idx ? { ...item, label: val } : item));
+                        }}
+                        InputProps={{ sx: { borderRadius: 1.5 } }}
+                        inputProps={{ maxLength: 100 }}
+                      />
+                    </Box>
+                  );
+                })}
+                
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setEditPostLinks(prev => [...prev, { url: '', label: '' }])}
+                  sx={{ alignSelf: 'flex-start', borderRadius: 1.5, textTransform: 'none' }}
+                >
+                  + Add Another Link
+                </Button>
               </Box>
             )}
 
@@ -1403,6 +1537,7 @@ const QuestionDetailPage = () => {
         {isJoinedMember ? (
           <Box className="comment-input-wrapper">
             <TextField
+              className="question-comment-input"
               placeholder="What are your thoughts on this?"
               multiline
               rows={2}
@@ -1415,12 +1550,21 @@ const QuestionDetailPage = () => {
               inputProps={{ maxLength: 1000 }}
             />
             <Button
+              className="question-send-btn"
               onClick={handlePostCommentSubmit}
               variant="contained"
-              disabled={!newCommentText.trim()}
+              disabled={!newCommentText.trim() || cooldownMs > 0}
               sx={{ alignSelf: 'flex-end', textTransform: 'none', borderRadius: 2 }}
+              startIcon={cooldownMs > 0 ? (
+                <CircularProgress 
+                  size={16} 
+                  variant="determinate" 
+                  value={(cooldownMs / 5000) * 100} 
+                  sx={{ color: 'inherit' }} 
+                />
+              ) : null}
             >
-              Comment
+              {cooldownMs > 0 ? `Wait ${Math.ceil(cooldownMs / 1000)}s` : 'Comment'}
             </Button>
           </Box>
         ) : (
@@ -1485,7 +1629,13 @@ const QuestionDetailPage = () => {
                 </Typography>
                 <Button 
                   size="small" 
-                  onClick={() => setFocusedReply(null)}
+                  onClick={() => {
+                    setSearchParams(prev => {
+                      const next = new URLSearchParams(prev);
+                      next.delete('replyId');
+                      return next;
+                    });
+                  }}
                   sx={{ textTransform: 'none', ml: 'auto', fontWeight: 600 }}
                 >
                   View Full Discussion
@@ -1556,10 +1706,18 @@ const QuestionDetailPage = () => {
                             onClick={(e) => handlePostReplySubmit(e, focusedReply.commentId, focusedReply.id)}
                             variant="contained" 
                             size="small"
-                            disabled={!replyText.trim()}
+                            disabled={!replyText.trim() || cooldownMs > 0}
                             sx={{ borderRadius: 2, textTransform: 'none' }}
+                            startIcon={cooldownMs > 0 ? (
+                              <CircularProgress 
+                                size={12} 
+                                variant="determinate" 
+                                value={(cooldownMs / 5000) * 100} 
+                                sx={{ color: 'inherit' }} 
+                              />
+                            ) : null}
                           >
-                            Reply
+                            {cooldownMs > 0 ? `${Math.ceil(cooldownMs / 1000)}s` : 'Reply'}
                           </Button>
                         </Stack>
                       </Box>
@@ -1586,12 +1744,19 @@ const QuestionDetailPage = () => {
                     setEditingReplyText={setEditingReplyText}
                     handleSaveReply={handleSaveReply}
                     handleDeleteReply={handleDeleteReply}
-                    onFocusSubthread={(node) => setFocusedReply(node)}
+                    onFocusSubthread={(node) => {
+                      setSearchParams(prev => {
+                        const next = new URLSearchParams(prev);
+                        next.set('replyId', node.id);
+                        return next;
+                      });
+                    }}
                     isMod={isMod}
                     isJoinedMember={isJoinedMember}
                     collapsedReplyIds={collapsedReplyIds}
                     toggleReplyCollapse={toggleReplyCollapse}
                     canDeleteContent={canDeleteContent}
+                    cooldownMs={cooldownMs}
                   />
                 ))}
               </Box>
@@ -1758,10 +1923,18 @@ const QuestionDetailPage = () => {
                               onClick={(e) => handlePostReplySubmit(e, comment.id)}
                               variant="contained" 
                               size="small"
-                              disabled={!replyText.trim()}
+                              disabled={!replyText.trim() || cooldownMs > 0}
                               sx={{ borderRadius: 2, textTransform: 'none' }}
+                              startIcon={cooldownMs > 0 ? (
+                                <CircularProgress 
+                                  size={12} 
+                                  variant="determinate" 
+                                  value={(cooldownMs / 5000) * 100} 
+                                  sx={{ color: 'inherit' }} 
+                                />
+                              ) : null}
                             >
-                              Reply
+                              {cooldownMs > 0 ? `${Math.ceil(cooldownMs / 1000)}s` : 'Reply'}
                             </Button>
                           </Stack>
                         </Box>
@@ -1788,12 +1961,19 @@ const QuestionDetailPage = () => {
                               setEditingReplyText={setEditingReplyText}
                               handleSaveReply={handleSaveReply}
                               handleDeleteReply={handleDeleteReply}
-                              onFocusSubthread={(node) => setFocusedReply(node)}
+                              onFocusSubthread={(node) => {
+                                setSearchParams(prev => {
+                                  const next = new URLSearchParams(prev);
+                                  next.set('replyId', node.id);
+                                  return next;
+                                });
+                              }}
                               isMod={isMod}
                               isJoinedMember={isJoinedMember}
                               collapsedReplyIds={collapsedReplyIds}
                               toggleReplyCollapse={toggleReplyCollapse}
                               canDeleteContent={canDeleteContent}
+                              cooldownMs={cooldownMs}
                             />
                           ))}
                         </Box>

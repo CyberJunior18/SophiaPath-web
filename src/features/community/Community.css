@@ -345,6 +345,7 @@
 
 .question-detail-header-block {
   padding: 2.25rem;
+  margin-top: 2.25rem;
   border-bottom: 1px solid var(--divider);
 }
 

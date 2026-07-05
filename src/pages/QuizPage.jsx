@@ -577,7 +577,7 @@ const QuizPage = () => {
   const { lessonId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, updateQuizScore } = useAuth();
+  const { user, updateQuizScore, refreshUser } = useAuth();
 
   const [course, setCourse] = useState(location.state?.course || null);
   const [courseLoading, setCourseLoading] = useState(!course);
@@ -1136,13 +1136,15 @@ const QuizPage = () => {
 
           if (percentage >= 70) {
             await fetch(`/courses/me/lessons/${lid}/done`, {
-              method: 'POST',
+              method: 'PATCH',
               headers: {
                 'Authorization': `Bearer ${token}`
               }
             });
           }
-        })).catch(err => console.error('Failed to report dynamic duplicate scores to backend:', err));
+        })).then(() => {
+          refreshUser();
+        }).catch(err => console.error('Failed to report dynamic duplicate scores to backend:', err));
       }
       
       idsToUpdate.forEach(lid => {

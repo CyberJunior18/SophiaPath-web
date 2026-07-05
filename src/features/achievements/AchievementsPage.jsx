@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
   Container,
   Grid,
   Paper,
-  LinearProgress
+  LinearProgress,
+  Button
 } from '@mui/material';
 import { 
   Trophy, 
@@ -35,6 +36,7 @@ const iconMap = {
 
 const AchievementsPage = () => {
   const { user } = useAuth();
+  const [activeFilter, setActiveFilter] = useState('all');
 
   const calculateAchievementProgress = (ach) => {
     if (!user) return ach.progress;
@@ -102,6 +104,12 @@ const AchievementsPage = () => {
   const unlockedCount = achievements.filter(a => a.status === 'completed').length;
   const overallPercentage = Math.round((unlockedCount / achievements.length) * 100);
 
+  const filteredAchievements = achievements.filter(a => {
+    if (activeFilter === 'completed') return a.status === 'completed';
+    if (activeFilter === 'locked') return a.status === 'locked';
+    return true;
+  });
+
   return (
     <Box className="achievements-container">
       <Container maxWidth="lg">
@@ -153,15 +161,46 @@ const AchievementsPage = () => {
           </Paper>
         </Box>
 
-        {/* Grid Title */}
-        <Box className="grid-section-header">
-          <Sparkles className="sparkle-icon" />
-          <Typography variant="h5" className="grid-title">Milestones & Badge Collection</Typography>
+        {/* Grid Title & Filter Controls */}
+        <Box className="grid-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sparkles className="sparkle-icon" />
+            <Typography variant="h5" className="grid-title">Milestones & Badge Collection</Typography>
+          </Box>
+          <Box style={{ display: 'flex', gap: '8px' }}>
+            <Button
+              className="achievements-filter-btn"
+              variant={activeFilter === 'all' ? 'contained' : 'outlined'}
+              onClick={() => setActiveFilter('all')}
+              size="small"
+              style={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800 }}
+            >
+              All
+            </Button>
+            <Button
+              className="achievements-filter-btn"
+              variant={activeFilter === 'completed' ? 'contained' : 'outlined'}
+              onClick={() => setActiveFilter('completed')}
+              size="small"
+              style={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800 }}
+            >
+              Unlocked
+            </Button>
+            <Button
+              className="achievements-filter-btn"
+              variant={activeFilter === 'locked' ? 'contained' : 'outlined'}
+              onClick={() => setActiveFilter('locked')}
+              size="small"
+              style={{ borderRadius: '8px', textTransform: 'none', fontWeight: 800 }}
+            >
+              Locked
+            </Button>
+          </Box>
         </Box>
 
         {/* Achievements Grid - Centered & Professional */}
         <Grid container spacing={3} className="achievements-grid-mui">
-          {achievements.map((item) => (
+          {filteredAchievements.map((item) => (
             <Grid item xs={12} sm={6} md={4} key={item.id}>
               <Paper 
                 className={`premium-achievement-card ${item.status}`}

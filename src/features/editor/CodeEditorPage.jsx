@@ -55,6 +55,265 @@ const INITIAL_FILES = [
 const CodeEditorPage = () => {
   const { isDarkMode } = useAppTheme();
   
+  // 1. Onboarding first-time tour state
+  const [activeStepIndex, setActiveStepIndex] = useState(null);
+  const [spotlightRect, setSpotlightRect] = useState(null);
+  const [activeTour, setActiveTour] = useState(null);
+
+  const EDITOR_STEPS = [
+    {
+      target: '.vscode-sidebar-header button:first-of-type',
+      title: 'New File Creation',
+      description: 'Click here to create a blank new file in your current workspace directory.',
+      placement: 'right'
+    },
+    {
+      target: '.vscode-sidebar-header button:nth-of-type(2)',
+      title: 'New Folder Creation',
+      description: 'Click here to create a new subfolder to organize your workspace files.',
+      placement: 'right'
+    },
+    {
+      target: '.vscode-export-btn',
+      title: 'Export Workspace',
+      description: 'Click this button to download your entire project files compiled as a ZIP archive.',
+      placement: 'bottom'
+    }
+  ];
+
+  useEffect(() => {
+    const visited = localStorage.getItem('visited_page_editor');
+    if (!visited) {
+      setActiveTour('page');
+      setActiveStepIndex(0);
+    }
+  }, []);
+
+  // 2. Scroll and measure target elements
+  useEffect(() => {
+    if (activeStepIndex === null || activeTour === null) {
+      setSpotlightRect(null);
+      return;
+    }
+    const step = EDITOR_STEPS[activeStepIndex];
+    let attempts = 0;
+    
+    const scrollAndMeasure = () => {
+      const element = document.querySelector(step.target);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(measureOnly, 300);
+      } else if (attempts < 15) {
+        attempts++;
+        setTimeout(scrollAndMeasure, 200);
+      } else {
+        setSpotlightRect(null);
+      }
+    };
+    
+    const measureOnly = () => {
+      const element = document.querySelector(step.target);
+      if (element) {
+        const rect = element.getBoundingClientRect();
+        setSpotlightRect({
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+          right: rect.right,
+          bottom: rect.bottom
+        });
+      }
+    };
+    
+    scrollAndMeasure();
+    window.addEventListener('resize', measureOnly);
+    window.addEventListener('scroll', measureOnly);
+    return () => {
+      window.removeEventListener('resize', measureOnly);
+      window.removeEventListener('scroll', measureOnly);
+    };
+  }, [activeStepIndex, activeTour]);
+
+  // 3. Lock scroll during active tour
+  useEffect(() => {
+    if (activeTour !== null) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [activeTour]);
+
+  const handleSkipTutorial = () => {
+    localStorage.setItem('visited_page_editor', 'true');
+    setActiveTour(null);
+    setActiveStepIndex(null);
+  };
+
+  const handleNextStep = () => {
+    if (activeStepIndex < EDITOR_STEPS.length - 1) {
+      setActiveStepIndex(prev => prev + 1);
+    } else {
+      localStorage.setItem('visited_page_editor', 'true');
+      setActiveTour(null);
+      setActiveStepIndex(null);
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (activeStepIndex > 0) {
+      setActiveStepIndex(prev => prev - 1);
+    }
+  };
+
+  const renderTutorialOverlay = () => {
+    if (activeTour === null || activeStepIndex === null) return null;
+    return (
+      <Box 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 999980,
+          backgroundColor: 'transparent',
+          pointerEvents: 'auto',
+        }}
+      />
+    );
+  };
+
+  const renderTutorialSpotlight = () => {
+    if (activeTour === null || activeStepIndex === null || !spotlightRect) return null;
+    return (
+      <div 
+        style={{
+          position: 'fixed',
+          left: `${spotlightRect.left - 8}px`,
+          top: `${spotlightRect.top - 8}px`,
+          width: `${spotlightRect.width + 16}px`,
+          height: `${spotlightRect.height + 16}px`,
+          boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
+          borderRadius: '8px',
+          border: '2px solid var(--primary-main)',
+          pointerEvents: 'none',
+          zIndex: 999990,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      />
+    );
+  };
+
+  const renderTutorialTooltip = () => {
+    if (activeTour === null || activeStepIndex === null) return null;
+    const step = EDITOR_STEPS[activeStepIndex];
+    
+    let style = {
+      position: 'fixed',
+      zIndex: 999995,
+      width: '320px',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    };
+    
+    if (spotlightRect) {
+      let placement = step.placement;
+      if (placement === 'right' && spotlightRect.right + 336 > window.innerWidth) {
+        placement = spotlightRect.left - 336 > 16 ? 'left' : 'bottom';
+      }
+      if (placement === 'bottom' && spotlightRect.bottom + 220 > window.innerHeight) {
+        placement = spotlightRect.top - 220 > 16 ? 'top' : 'right';
+      }
+      
+      if (placement === 'right') {
+        style.left = `${spotlightRect.right + 16}px`;
+        style.top = `${spotlightRect.top + (spotlightRect.height / 2) - 100}px`;
+      } else if (placement === 'left') {
+        style.left = `${spotlightRect.left - 336}px`;
+        style.top = `${spotlightRect.top + (spotlightRect.height / 2) - 100}px`;
+      } else if (placement === 'top') {
+        style.left = `${spotlightRect.left + (spotlightRect.width / 2) - 160}px`;
+        style.top = `${spotlightRect.top - 220}px`;
+      } else {
+        style.left = `${spotlightRect.left + (spotlightRect.width / 2) - 160}px`;
+        style.top = `${spotlightRect.bottom + 16}px`;
+      }
+      
+      if (parseFloat(style.left) < 16) style.left = '16px';
+      if (parseFloat(style.left) + 320 > window.innerWidth - 16) {
+        style.left = `${window.innerWidth - 336}px`;
+      }
+      if (parseFloat(style.top) < 16) style.top = '16px';
+      if (parseFloat(style.top) + 200 > window.innerHeight - 16) {
+        style.top = `${window.innerHeight - 216}px`;
+      }
+    } else {
+      style.left = '50%';
+      style.top = '50%';
+      style.transform = 'translate(-50%, -50%)';
+    }
+    
+    return (
+      <Paper 
+        style={style}
+        sx={{
+          p: 2.5,
+          borderRadius: 3,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          background: 'var(--background-paper) !important',
+        }}
+      >
+        <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, color: 'var(--primary-main)' }}>
+          {step.title}
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mb: 2, lineHeight: 1.5 }}>
+          {step.description}
+        </Typography>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
+          <Typography variant="caption" sx={{ color: 'var(--text-disabled)', fontWeight: 600 }}>
+            Step {activeStepIndex + 1} of {EDITOR_STEPS.length}
+          </Typography>
+          
+          <Box style={{ display: 'flex', gap: '8px' }}>
+            <Button 
+              size="small"
+              onClick={handleSkipTutorial}
+              sx={{ textTransform: 'none', color: 'var(--text-secondary)' }}
+            >
+              Skip
+            </Button>
+            {activeStepIndex > 0 && (
+              <Button 
+                size="small" 
+                variant="outlined"
+                onClick={handlePrevStep}
+                sx={{ textTransform: 'none', borderRadius: 1.5 }}
+              >
+                Back
+              </Button>
+            )}
+            <Button 
+              size="small" 
+              variant="contained"
+              onClick={handleNextStep}
+              sx={{ textTransform: 'none', borderRadius: 1.5 }}
+            >
+              {activeStepIndex === EDITOR_STEPS.length - 1 ? 'Finish' : 'Next'}
+            </Button>
+          </Box>
+        </Box>
+      </Paper>
+    );
+  };
+
   // State Initialization
   const [files, setFiles] = useState(() => {
     const saved = localStorage.getItem(STORAGE_FILES);
@@ -332,6 +591,10 @@ const CodeEditorPage = () => {
       <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
         <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
       </Snackbar>
+
+      {renderTutorialOverlay()}
+      {renderTutorialSpotlight()}
+      {renderTutorialTooltip()}
     </Box>
   );
 };

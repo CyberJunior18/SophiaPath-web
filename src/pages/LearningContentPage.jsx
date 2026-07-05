@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { CppPlaygroundDialog } from '../components/CppPlaygroundDialog';
@@ -47,9 +48,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { coursesData } from '../data/courses';
 import './LearningContentPage.css';
+import logoImg from '../assets/sp-logo.png';
 import {
   SocraticDialogueWidget,
-  TruthTableWidget,
   FallacySorterWidget,
   ShipOfTheseusWidget,
   TrolleyProblemWidget,
@@ -1621,11 +1622,34 @@ const ChallengePlaygroundDialog = ({
   );
 };
 
+const LEARNING_QUOTES = [
+  "The capacity to learn is a gift; the ability to learn is a skill; the willingness to learn is a choice. — Brian Herbert",
+  "Live as if you were to die tomorrow. Learn as if you were to live forever. — Mahatma Gandhi",
+  "Intellectual growth should commence at birth and cease only at death. — Albert Einstein",
+  "The beautiful thing about learning is that nobody can take it away from you. — B.B. King",
+  "Do not fear failure. Fear being in the exact same place next year as you are today.",
+  "Wisdom is not a product of schooling but of the lifelong attempt to acquire it. — Albert Einstein",
+  "Continuous improvement is better than delayed perfection. — Mark Twain",
+  "The only true wisdom is in knowing you know nothing. — Socrates",
+  "Be not afraid of going slowly, be afraid only of standing still. — Chinese Proverb",
+  "Education is the passport to the future, for tomorrow belongs to those who prepare for it today. — Malcolm X",
+  "Success is not final, failure is not fatal: it is the courage to continue that counts. — Winston Churchill",
+  "The mind is not a vessel to be filled, but a fire to be kindled. — Plutarch",
+  "Learning is the only thing the mind never exhausts, never fears, and never regrets. — Leonardo da Vinci",
+  "Develop a passion for learning. If you do, you will never cease to grow. — Anthony J. D'Angelo",
+  "All life is an experiment. The more experiments you make the better. — Ralph Waldo Emerson",
+  "Growth begins at the end of your comfort zone. Stretch your boundaries.",
+  "The more that you read, the more things you will know. The more that you learn, the more places you'll go. — Dr. Seuss",
+  "Every master was once a beginner. Keep pushing forward.",
+  "In a world of constant change, the learners inherit the earth.",
+  "Small daily improvements over time lead to stunning results. Focus on 1% better every day."
+];
+
 const LearningContentPage = () => {
   const { courseId, sectionId, lessonId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, updateQuizScore } = useAuth();
+  const { user, updateQuizScore, refreshUser } = useAuth();
 
   const isComputerScience = courseId?.toLowerCase()?.includes('computer-science') || String(courseId) === '2';
 
@@ -1634,6 +1658,12 @@ const LearningContentPage = () => {
 
   const [lesson, setLesson] = useState(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [portalElement, setPortalElement] = useState(null);
+
+  useEffect(() => {
+    const target = document.querySelector('.nav-content');
+    if (target) setPortalElement(target);
+  }, []);
 
   // Reset scroll position to top when switching slides
   useEffect(() => {
@@ -1641,6 +1671,10 @@ const LearningContentPage = () => {
   }, [currentPageIndex]);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [activeQuote] = useState(() => {
+    const randomIndex = Math.floor(Math.random() * LEARNING_QUOTES.length);
+    return LEARNING_QUOTES[randomIndex];
+  });
   const [completionSaved, setCompletionSaved] = useState(false);
 
   // Premium Interactive Illustration States
@@ -1687,6 +1721,7 @@ const LearningContentPage = () => {
 
   useEffect(() => {
     const loadLessonContent = async () => {
+      const startTime = Date.now();
       setIsLoading(true);
       try {
         let dbId = courseId;
@@ -1766,7 +1801,15 @@ const LearningContentPage = () => {
           });
         }
       } finally {
-        setIsLoading(false);
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = 5000 - elapsedTime;
+        if (remainingTime > 0) {
+          setTimeout(() => {
+            setIsLoading(false);
+          }, remainingTime);
+        } else {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -1940,12 +1983,13 @@ const LearningContentPage = () => {
           });
           
           await fetch(`/courses/me/lessons/${lid}/done`, {
-            method: 'POST',
+            method: 'PATCH',
             headers: {
               'Authorization': `Bearer ${token}`
             }
           });
         }));
+        await refreshUser();
       } catch (err) {
         console.error('Failed to report dynamic duplicate completions to backend:', err);
       }
@@ -2048,7 +2092,13 @@ const LearningContentPage = () => {
       case 'socratic_dialogue':
         return <SocraticDialogueWidget key={idx} isDarkMode={isDarkMode} />;
       case 'logic_truth_table':
-        return <TruthTableWidget key={idx} />;
+        return (
+          <Paper className="glass-panel" key={idx} style={{ padding: '20px', textAlign: 'center', borderRadius: '12px' }}>
+            <Typography variant="body2" style={{ color: 'var(--text-secondary)' }}>
+              Logic Truth Table Exercise is no longer available.
+            </Typography>
+          </Paper>
+        );
       case 'fallacies_sorter':
         return <FallacySorterWidget key={idx} />;
       case 'thought_experiment_ship':
@@ -3089,10 +3139,33 @@ const LearningContentPage = () => {
   };
 
   if (isLoading) {
+    const logoStyle = localStorage.getItem('sophiapath_logo_style') || 'split';
     return (
       <Box className="learning-content-loader">
-        <Typography variant="h5" gutterBottom>Loading Lesson...</Typography>
-        <LinearProgress className="loader-progress" />
+        <div 
+          className={`sp-loader-logo-container ${logoStyle === 'gradient' ? 'sp-logo-gradient' : ''}`}
+          style={{
+            WebkitMaskImage: `url(${logoImg})`,
+            maskImage: `url(${logoImg})`,
+            WebkitMaskRepeat: 'no-repeat',
+            maskRepeat: 'no-repeat',
+            WebkitMaskPosition: 'center',
+            maskPosition: 'center',
+            WebkitMaskSize: 'contain',
+            maskSize: 'contain'
+          }}
+        >
+          <div className="sp-splash-logo-left" />
+          <div className="sp-splash-logo-right" />
+        </div>
+        <Typography className="sp-loader-quote">
+          {activeQuote}
+        </Typography>
+        <div className="sp-loading-dots">
+          <div className="dot" />
+          <div className="dot" />
+          <div className="dot" />
+        </div>
       </Box>
     );
   }
@@ -3183,28 +3256,54 @@ const LearningContentPage = () => {
         </AnimatePresence>
       </Container>
 
-      <footer className="learning-content-footer glass-panel">
-        <Container maxWidth="md" className="learning-footer-content">
-          <Button
-            variant="outlined"
-            onClick={handlePrevious}
-            disabled={currentPageIndex === 0}
-            startIcon={<LeftIcon />}
-            className="footer-nav-btn"
-          >
-            Previous
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleNext}
-            disabled={!isPageCompleted(currentPageIndex)}
-            endIcon={<RightIcon />}
-            className="footer-nav-btn primary"
-          >
-            {currentPageIndex === pages.length - 1 ? 'Finish Lesson' : 'Next'}
-          </Button>
-        </Container>
-      </footer>
+      {portalElement ? createPortal(
+        <footer className="learning-content-footer glass-panel">
+          <Container maxWidth="md" className="learning-footer-content">
+            <Button
+              variant="outlined"
+              onClick={handlePrevious}
+              disabled={currentPageIndex === 0}
+              startIcon={<LeftIcon />}
+              className="footer-nav-btn"
+            >
+              Previous
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              disabled={!isPageCompleted(currentPageIndex)}
+              endIcon={<RightIcon />}
+              className="footer-nav-btn primary"
+            >
+              {currentPageIndex === pages.length - 1 ? 'Finish Lesson' : 'Next'}
+            </Button>
+          </Container>
+        </footer>,
+        portalElement
+      ) : (
+        <footer className="learning-content-footer glass-panel">
+          <Container maxWidth="md" className="learning-footer-content">
+            <Button
+              variant="outlined"
+              onClick={handlePrevious}
+              disabled={currentPageIndex === 0}
+              startIcon={<LeftIcon />}
+              className="footer-nav-btn"
+            >
+              Previous
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              disabled={!isPageCompleted(currentPageIndex)}
+              endIcon={<RightIcon />}
+              className="footer-nav-btn primary"
+            >
+              {currentPageIndex === pages.length - 1 ? 'Finish Lesson' : 'Next'}
+            </Button>
+          </Container>
+        </footer>
+      )}
 
       <CppPlaygroundDialog
         open={isCompilerOpen}

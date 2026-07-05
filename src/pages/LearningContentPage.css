@@ -3,6 +3,7 @@
   flex-direction: column;
   min-height: auto;
   background-color: var(--background-default);
+  padding-bottom: 90px;
 }
 
 /* Header */
@@ -28,9 +29,36 @@
 }
 
 .learning-lesson-title {
-  font-weight: 800 !important;
-  font-size: 1.15rem !important;
-  color: var(--text-primary);
+  font-weight: 700;
+}
+
+/* Footer Actions */
+.learning-content-footer {
+  position: fixed;
+  bottom: 0;
+  left: 20rem;
+  right: 0;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  z-index: 100;
+  border-radius: 20px 20px 0 0;
+  border-bottom: none;
+  background: var(--surface-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--divider);
+  transition: left 0.25s ease-in-out;
+}
+
+.sidebar-collapsed .learning-content-footer {
+  left: 5.5rem;
+}
+
+@media (max-width: 960px) {
+  .learning-content-footer {
+    left: 0 !important;
+  }
 }
 
 .learning-progress-text {
@@ -51,7 +79,88 @@
 }
 
 /* Loader */
-.learning-content-loader,
+.learning-content-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  gap: 1.5rem;
+  padding: 3rem 2rem;
+  text-align: center;
+  box-sizing: border-box;
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--divider);
+  border-radius: 24px;
+  margin: 1.5rem 0;
+  box-shadow: var(--shadow-soft);
+}
+
+.sp-loader-logo-container {
+  width: 6rem;
+  height: 6rem;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  animation: spLogoBreathe 2.5s ease-in-out infinite;
+}
+
+.sp-loader-quote {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  max-width: 550px;
+  line-height: 1.6;
+  margin: 1rem 0 !important;
+  font-style: italic;
+}
+
+.sp-loading-dots {
+  display: flex;
+  gap: 8px;
+  margin-top: 0.5rem;
+}
+
+.sp-loading-dots .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--primary-main);
+  opacity: 0.3;
+  animation: spDotBounce 1.4s infinite ease-in-out both;
+}
+
+.sp-loading-dots .dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.sp-loading-dots .dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes spLogoBreathe {
+  0%, 100% {
+    transform: scale(0.94);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes spDotBounce {
+  0%, 80%, 100% { 
+    transform: scale(0);
+    opacity: 0.3;
+  } 
+  40% { 
+    transform: scale(1.0);
+    opacity: 1;
+  }
+}
+
 .learning-content-empty {
   display: flex;
   flex-direction: column;
@@ -61,12 +170,6 @@
   gap: 1.5rem;
   padding: 2rem;
   text-align: center;
-}
-
-.loader-progress {
-  width: 200px;
-  height: 6px !important;
-  border-radius: 99px;
 }
 
 /* Slide Deck Area */
