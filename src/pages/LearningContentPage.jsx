@@ -57,11 +57,11 @@ import {
   PlatosCaveWidget
 } from './PhilosophyLabPage';
 
-import DenialOfServiceLab from './DenialOfServiceLab';
-import DistributedDenialOfServiceLab from './DistributedDenialOfServiceLab';
-import RansomwareLab from './RansomwareLab';
-import SocialEngineeringLab from './SocialEngineeringLab';
-import InsiderThreatLab from './InsiderThreatLab';
+import DenialOfServiceLab from './labs/DenialOfServiceLab';
+import DistributedDenialOfServiceLab from './labs/DistributedDenialOfServiceLab';
+import RansomwareLab from './labs/RansomwareLab';
+import SocialEngineeringLab from './labs/SocialEngineeringLab';
+import InsiderThreatLab from './labs/InsiderThreatLab';
 
 const parseFormattedText = (text, allowNewlines = false) => {
   if (!text) return '';

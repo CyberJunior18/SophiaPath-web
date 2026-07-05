@@ -46,7 +46,7 @@ import CourseDetailPage from './CourseDetailPage';
 import LearningPathPage from './LearningPathPage';
 import QuizPage from './QuizPage';
 import LearningContentPage from './LearningContentPage';
-import ChallengePage from './ChallengePage';
+import ChallengePage from './labs/ChallengePage';
 import PhilosophyLabPage from './PhilosophyLabPage';
 import ChatListPage from '../features/chat/ChatListPage';
 import ChatPage from '../features/chat/ChatPage';
@@ -1196,10 +1196,13 @@ const NavigationPage = () => {
           }}
         >
           {/* Empty placeholder reserving space for the floating animated logo */}
-          <div style={{ width: '40px', height: '40px', flexShrink: 0 }} />
+          <div style={{ width: '40px', height: '40px', flexShrink: 0}} />
           {!sidebarCollapsed && (
             <div>
-              <Typography className="nav-brand-title">SophiaPath</Typography>
+              <Typography className="nav-brand-title">
+                <span style={{ color: 'var(--primary-main)' }}>Sophia</span>
+                <span style={{ color: 'var(--primary-dark)' }}>Path</span>
+              </Typography>
             </div>
           )}
         </motion.div>

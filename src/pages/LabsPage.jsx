@@ -75,7 +75,7 @@ const collectionsData = [
     description: "Engage with Socrates AI dialogue systems, investigate fallacy matchers, and resolve classical paradoxes.",
     category: "Humanities",
     iconKey: "philosophy",
-    labsCount: 6,
+    labsCount: 7,
     labs: []
   }
 ];
@@ -251,6 +251,15 @@ const SEARCHABLE_LABS = [
     title: 'Geopolitical Compass',
     description: 'Map socio-economic ideological axes and explore political theory on a formal two-dimensional grid.',
     path: '/philosophy-lab?tab=5',
+    iconName: 'compass',
+    collectionTitle: 'Philosophy',
+    category: 'Humanities'
+  },
+  {
+    id: 'religions',
+    title: 'Religion Tree Map',
+    description: 'Explore the historical relationships, lineages, and core beliefs of major faith traditions in an interactive tree.',
+    path: '/philosophy-lab?tab=6',
     iconName: 'compass',
     collectionTitle: 'Philosophy',
     category: 'Humanities'

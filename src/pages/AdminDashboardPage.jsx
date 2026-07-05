@@ -760,9 +760,9 @@ const AdminDashboardPage = () => {
               <ArrowBackIcon />
             </IconButton>
             <Box>
-              <Typography variant="h5" style={{ fontWeight: 900, color: '#fff', fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {editingLesson.isNew ? 'Create New Lesson' : 'Edit Lesson: ' + editingLesson.title}
-                <Chip label="WYSIWYG STUDIO" size="small" style={{ background: 'var(--hero-gradient)', color: '#fff', fontWeight: 900, fontSize: '0.62rem', border: 'none' }} />
+                <Chip label="WYSIWYG STUDIO" size="small" style={{ background: 'var(--hero-gradient)', color: 'var(--text-primary)', fontWeight: 900, fontSize: '0.62rem', border: 'none' }} />
               </Typography>
               <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 650 }}>
                 Interactive split-screen designer with live visual mockup rendering
@@ -784,7 +784,7 @@ const AdminDashboardPage = () => {
             <Button
               variant="contained"
               onClick={handleSaveLesson}
-              style={{ background: 'var(--hero-gradient)', textTransform: 'none', fontWeight: 800, borderRadius: '10px', color: '#fff', padding: '8px 24px', boxShadow: '0 8px 20px rgba(28, 176, 246, 0.3)' }}
+              style={{ background: 'var(--hero-gradient)', textTransform: 'none', fontWeight: 800, borderRadius: '10px', color: 'var(--text-primary)', padding: '8px 24px', boxShadow: '0 8px 20px rgba(28, 176, 246, 0.3)' }}
             >
               Save Lesson Deck
             </Button>
@@ -800,7 +800,7 @@ const AdminDashboardPage = () => {
             size="small"
             style={{ flex: 2, minWidth: '220px' }}
             InputLabelProps={{ style: { color: 'rgba(255,255,255,0.5)', fontWeight: 700 } }}
-            InputProps={{ style: { color: '#fff', fontWeight: 800 } }}
+            InputProps={{ style: { color: 'var(--text-primary)', fontWeight: 800 } }}
             sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' } }}
           />
           <TextField
@@ -810,7 +810,7 @@ const AdminDashboardPage = () => {
             size="small"
             style={{ flex: 1, minWidth: '130px' }}
             InputLabelProps={{ style: { color: 'rgba(255,255,255,0.5)', fontWeight: 700 } }}
-            InputProps={{ style: { color: '#fff', fontWeight: 800 } }}
+            InputProps={{ style: { color: 'var(--text-primary)', fontWeight: 800 } }}
             sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' } }}
           />
           <Select
@@ -818,7 +818,7 @@ const AdminDashboardPage = () => {
             onChange={(e) => setEditingLesson(prev => ({ ...prev, category: e.target.value }))}
             size="small"
             style={{ minWidth: '150px' }}
-            sx={{ color: '#fff', fontWeight: 800, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' } }}
+            sx={{ color: 'var(--text-primary)', fontWeight: 800, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' } }}
           >
             <MenuItem value="learning">Category: Learning</MenuItem>
             <MenuItem value="exercise">Category: Exercise</MenuItem>
@@ -831,7 +831,7 @@ const AdminDashboardPage = () => {
             size="small"
             style={{ width: '80px' }}
             InputLabelProps={{ style: { color: 'rgba(255,255,255,0.5)' } }}
-            InputProps={{ style: { color: '#fff', fontWeight: 800 } }}
+            InputProps={{ style: { color: 'var(--text-primary)', fontWeight: 800 } }}
             sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' } }}
           />
         </Paper>
@@ -870,7 +870,7 @@ const AdminDashboardPage = () => {
                     <Typography style={{ color: 'var(--primary-main)', fontWeight: 900, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
                       {editingLesson.chapterName} • Slide {activeSlideIndex + 1} of {editingLesson.pages.length}
                     </Typography>
-                    <Typography variant="h4" style={{ fontWeight: 900, color: '#fff', fontFamily: '"Outfit", sans-serif', marginTop: '4px' }}>
+                    <Typography variant="h4" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif', marginTop: '4px' }}>
                       {activeSlide.pageTitle || 'Untitled Slide'}
                     </Typography>
                   </Box>
@@ -900,7 +900,7 @@ const AdminDashboardPage = () => {
                             <Box key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%' }}>
                               <Typography 
                                 style={{ 
-                                  color: '#fff', 
+                                  color: 'var(--text-primary)', 
                                   fontWeight: 900, 
                                   fontSize, 
                                   fontFamily: '"Outfit", sans-serif'
@@ -992,7 +992,7 @@ const AdminDashboardPage = () => {
                                         const cellText = typeof cell === 'object' ? (cell.text || cell.bold || '') : cell;
                                         const isBold = typeof cell === 'object' && cell.bold !== undefined;
                                         return (
-                                          <TableCell key={cellIdx} style={{ color: '#fff', fontSize: '0.82rem', borderBottom: '1px solid rgba(255,255,255,0.03)', fontWeight: isBold ? 800 : 400, textAlign: 'center' }}>
+                                          <TableCell key={cellIdx} style={{ color: 'var(--text-primary)', fontSize: '0.82rem', borderBottom: '1px solid rgba(255,255,255,0.03)', fontWeight: isBold ? 800 : 400, textAlign: 'center' }}>
                                             {cellText}
                                           </TableCell>
                                         );
@@ -1007,7 +1007,7 @@ const AdminDashboardPage = () => {
                         case 'mcq':
                           return (
                             <Paper key={idx} style={{ padding: '24px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', width: '100%', textAlign: 'center' }}>
-                              <Typography style={{ color: '#fff', fontWeight: 900, fontSize: '1.05rem', marginBottom: '16px', fontFamily: '"Outfit", sans-serif' }}>
+                              <Typography style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '1.05rem', marginBottom: '16px', fontFamily: '"Outfit", sans-serif' }}>
                                 Q: {block.question || 'Multiple Choice Question'}
                               </Typography>
                               <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1048,7 +1048,7 @@ const AdminDashboardPage = () => {
                               <Box style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '0.88rem' }}>
                                 {(block.codeLines || []).map((line, lIdx) => {
                                   if (line.type === 'code') {
-                                    return <span key={lIdx} style={{ color: '#fff', whiteSpace: 'pre' }}>{line.content}</span>;
+                                    return <span key={lIdx} style={{ color: 'var(--text-primary)', whiteSpace: 'pre' }}>{line.content}</span>;
                                   } else {
                                     return (
                                       <span 
@@ -1126,7 +1126,7 @@ const AdminDashboardPage = () => {
                                 <LockIcon style={{ fontSize: '1.8rem' }} />
                               </Avatar>
                               <Box style={{ textAlign: 'left' }}>
-                                <Typography style={{ color: '#fff', fontWeight: 900, fontSize: '1.05rem', fontFamily: '"Outfit", sans-serif' }}>
+                                <Typography style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '1.05rem', fontFamily: '"Outfit", sans-serif' }}>
                                   {(CYBER_LABS.find(l => l.value === block.value) || { label: 'Interactive Security Lab' }).label}
                                 </Typography>
                                 <Typography style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginTop: '2px', fontWeight: 700 }}>
@@ -1136,7 +1136,7 @@ const AdminDashboardPage = () => {
                               <Chip 
                                 label="ACTIVE LAB" 
                                 size="small" 
-                                style={{ background: '#4caf50', color: '#fff', fontWeight: 900, fontSize: '0.6rem', marginLeft: 'auto' }} 
+                                style={{ background: '#4caf50', color: 'var(--text-primary)', fontWeight: 900, fontSize: '0.6rem', marginLeft: 'auto' }} 
                               />
                             </Paper>
                           );
@@ -1178,7 +1178,7 @@ const AdminDashboardPage = () => {
           <Grid item xs={12} lg={5} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* Outline horizontal scroll navigator with switchable items and delete icons */}
             <Paper className="glass-panel" style={{ padding: '16px', border: '1px solid rgba(255,255,255,0.06)', background: 'var(--surface-glass)', borderRadius: '16px' }}>
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: '#fff', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Slides Deck Outline</Typography>
+              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Slides Deck Outline</Typography>
               <Box style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
                 {editingLesson.pages.map((slide, idx) => {
                   const isBeingDragged = draggedSlideIdx === idx;
@@ -1273,7 +1273,7 @@ const AdminDashboardPage = () => {
                       </IconButton>
 
                       <Typography style={{ color: isActive ? 'var(--primary-main)' : 'rgba(255,255,255,0.4)', fontWeight: 900, fontSize: '0.62rem' }}>SLIDE {idx+1}</Typography>
-                      <Typography noWrap style={{ color: '#fff', fontSize: '0.75rem', fontWeight: 800, maxWidth: '80%' }}>{slide.pageTitle || slide.title || 'Untitled'}</Typography>
+                      <Typography noWrap style={{ color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 800, maxWidth: '80%' }}>{slide.pageTitle || slide.title || 'Untitled'}</Typography>
                       
                       <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.58rem', fontWeight: 700 }}>{(slide.blocks || []).length} blocks</Typography>
@@ -1405,7 +1405,7 @@ const AdminDashboardPage = () => {
                             size="small"
                             style={{
                               background: 'rgba(255,255,255,0.05)',
-                              color: '#fff',
+                              color: 'var(--text-primary)',
                               fontWeight: 900,
                               fontSize: '0.62rem',
                               border: '1px solid rgba(255,255,255,0.1)'
@@ -1428,7 +1428,7 @@ const AdminDashboardPage = () => {
                             value={block.text || ''}
                             onChange={(e) => handleUpdateBlock(blockIdx, { text: e.target.value })}
                             InputLabelProps={{ style: { color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' } }}
-                            InputProps={{ style: { color: '#fff', fontSize: '0.88rem' } }}
+                            InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.88rem' } }}
                             sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                           />
                         )}
@@ -1441,14 +1441,14 @@ const AdminDashboardPage = () => {
                               value={block.text || ''}
                               onChange={(e) => handleUpdateBlock(blockIdx, { text: e.target.value })}
                               InputLabelProps={{ style: { color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' } }}
-                              InputProps={{ style: { color: '#fff', fontSize: '0.88rem' } }}
+                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.88rem' } }}
                               sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             />
                             <Select
                               value={block.level || 1}
                               onChange={(e) => handleUpdateBlock(blockIdx, { level: Number(e.target.value) })}
                               size="small"
-                              sx={{ color: '#fff', fontWeight: 800, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
+                              sx={{ color: 'var(--text-primary)', fontWeight: 800, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             >
                               <MenuItem value={1}>H1</MenuItem>
                               <MenuItem value={2}>H2</MenuItem>
@@ -1495,7 +1495,7 @@ const AdminDashboardPage = () => {
                                       }
                                       handleUpdateBlock(blockIdx, { items: newItems });
                                     }}
-                                    InputProps={{ style: { color: '#fff', fontSize: '0.8rem' } }}
+                                    InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.8rem' } }}
                                     sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                                   />
                                   <IconButton size="small" onClick={() => {
@@ -1515,7 +1515,7 @@ const AdminDashboardPage = () => {
                                 const newItems = [...(block.items || []), { bold: '', text: 'New list item' }];
                                 handleUpdateBlock(blockIdx, { items: newItems });
                               }}
-                              style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.75rem', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}
+                              style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.75rem', borderColor: 'var(--divider)', color: 'rgba(255,255,255,0.5)' }}
                             >
                               Add Bullet item
                             </Button>
@@ -1528,7 +1528,7 @@ const AdminDashboardPage = () => {
                               size="small"
                               value={block.variant || 'info'}
                               onChange={(e) => handleUpdateBlock(blockIdx, { variant: e.target.value })}
-                              sx={{ width: '130px', color: '#fff', fontWeight: 800, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
+                              sx={{ width: '130px', color: 'var(--text-primary)', fontWeight: 800, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             >
                               <MenuItem value="info">Info</MenuItem>
                               <MenuItem value="warning">Warning</MenuItem>
@@ -1542,7 +1542,7 @@ const AdminDashboardPage = () => {
                               placeholder="Callout text details..."
                               value={block.text || ''}
                               onChange={(e) => handleUpdateBlock(blockIdx, { text: e.target.value })}
-                              InputProps={{ style: { color: '#fff', fontSize: '0.85rem' } }}
+                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.85rem' } }}
                               sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             />
                           </Box>
@@ -1559,7 +1559,7 @@ const AdminDashboardPage = () => {
                                 const newHeaders = e.target.value.split(',').map(s => s.trim());
                                 handleUpdateBlock(blockIdx, { headers: newHeaders });
                               }}
-                              InputProps={{ style: { color: '#fff', fontSize: '0.8rem' } }}
+                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.8rem' } }}
                               sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             />
                             <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 800 }}>Table Rows Grid Data</Typography>
@@ -1580,7 +1580,7 @@ const AdminDashboardPage = () => {
                                         newRows[rIdx] = newRow;
                                         handleUpdateBlock(blockIdx, { rows: newRows });
                                       }}
-                                      InputProps={{ style: { color: '#fff', fontSize: '0.78rem' } }}
+                                      InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.78rem' } }}
                                       sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.05)' } }}
                                     />
                                   );
@@ -1602,7 +1602,7 @@ const AdminDashboardPage = () => {
                                 const newRows = [...(block.rows || []), newRow];
                                 handleUpdateBlock(blockIdx, { rows: newRows });
                               }}
-                              style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.75rem', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}
+                              style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.75rem', borderColor: 'var(--divider)', color: 'rgba(255,255,255,0.5)' }}
                             >
                               + Add Row
                             </Button>
@@ -1617,7 +1617,7 @@ const AdminDashboardPage = () => {
                               label="MCQ Question / Prompt"
                               value={block.question || ''}
                               onChange={(e) => handleUpdateBlock(blockIdx, { question: e.target.value })}
-                              InputProps={{ style: { color: '#fff', fontSize: '0.82rem' } }}
+                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.82rem' } }}
                               sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             />
                             <RadioGroup
@@ -1637,7 +1637,7 @@ const AdminDashboardPage = () => {
                                       newOptions[optIdx] = e.target.value;
                                       handleUpdateBlock(blockIdx, { options: newOptions });
                                     }}
-                                    InputProps={{ style: { color: '#fff', fontSize: '0.8rem' } }}
+                                    InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.8rem' } }}
                                     sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                                   />
                                 </Box>
@@ -1653,7 +1653,7 @@ const AdminDashboardPage = () => {
                                 size="small"
                                 value={block.type}
                                 onChange={(e) => handleUpdateBlock(blockIdx, { type: e.target.value })}
-                                sx={{ color: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
+                                sx={{ color: 'var(--text-primary)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                               >
                                 <MenuItem value="fill_code">Fill the Code</MenuItem>
                                 <MenuItem value="write_line">Write the Line</MenuItem>
@@ -1682,7 +1682,7 @@ const AdminDashboardPage = () => {
                                       };
                                       handleUpdateBlock(blockIdx, { codeLines: newLines });
                                     }}
-                                    sx={{ minWidth: '90px', color: '#fff', fontSize: '0.78rem' }}
+                                    sx={{ minWidth: '90px', color: 'var(--text-primary)', fontSize: '0.78rem' }}
                                   >
                                     <MenuItem value="code">Code</MenuItem>
                                     <MenuItem value="input">Blank</MenuItem>
@@ -1699,7 +1699,7 @@ const AdminDashboardPage = () => {
                                         newLines[lineIdx] = { ...newLines[lineIdx], content: e.target.value };
                                         handleUpdateBlock(blockIdx, { codeLines: newLines });
                                       }}
-                                      InputProps={{ style: { color: '#fff', fontFamily: 'monospace', fontSize: '0.78rem' } }}
+                                      InputProps={{ style: { color: 'var(--text-primary)', fontFamily: 'monospace', fontSize: '0.78rem' } }}
                                       sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.05)' } }}
                                     />
                                   ) : (
@@ -1733,7 +1733,7 @@ const AdminDashboardPage = () => {
                                   const newLines = [...(block.codeLines || []), { type: 'code', content: '' }];
                                   handleUpdateBlock(blockIdx, { codeLines: newLines });
                                 }}
-                                style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.7rem', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }}
+                                style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.7rem', borderColor: 'var(--divider)', color: 'rgba(255,255,255,0.4)' }}
                               >
                                 + Add Line
                               </Button>
@@ -1769,7 +1769,7 @@ const AdminDashboardPage = () => {
                                 size="small"
                                 value={block.expectedFix || ''}
                                 onChange={(e) => handleUpdateBlock(blockIdx, { expectedFix: e.target.value })}
-                                InputProps={{ style: { color: '#fff', fontFamily: 'monospace', fontSize: '0.8rem' } }}
+                                InputProps={{ style: { color: 'var(--text-primary)', fontFamily: 'monospace', fontSize: '0.8rem' } }}
                               />
                             </Box>
                           </Box>
@@ -1784,7 +1784,7 @@ const AdminDashboardPage = () => {
                               label="Problem Statement"
                               value={block.problemDescription || ''}
                               onChange={(e) => handleUpdateBlock(blockIdx, { problemDescription: e.target.value })}
-                              InputProps={{ style: { color: '#fff', fontSize: '0.82rem' } }}
+                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.82rem' } }}
                             />
                             <TextField
                               fullWidth
@@ -1807,7 +1807,7 @@ const AdminDashboardPage = () => {
                                       newTcs[tcIdx].input = e.target.value;
                                       handleUpdateBlock(blockIdx, { testcases: newTcs });
                                     }}
-                                    InputProps={{ style: { color: '#fff', fontSize: '0.78rem' } }}
+                                    InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.78rem' } }}
                                   />
                                   <TextField
                                     fullWidth
@@ -1819,7 +1819,7 @@ const AdminDashboardPage = () => {
                                       newTcs[tcIdx].expectedOutput = e.target.value;
                                       handleUpdateBlock(blockIdx, { testcases: newTcs });
                                     }}
-                                    InputProps={{ style: { color: '#fff', fontSize: '0.78rem' } }}
+                                    InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.78rem' } }}
                                   />
                                   <IconButton size="small" onClick={() => {
                                     const newTcs = block.testcases.filter((_, idx) => idx !== tcIdx);
@@ -1836,7 +1836,7 @@ const AdminDashboardPage = () => {
                                   const newTcs = [...(block.testcases || []), { input: '', expectedOutput: '' }];
                                   handleUpdateBlock(blockIdx, { testcases: newTcs });
                                 }}
-                                style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.7rem', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }}
+                                style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.7rem', borderColor: 'var(--divider)', color: 'rgba(255,255,255,0.4)' }}
                               >
                                 + Add Testcase
                               </Button>
@@ -1851,7 +1851,7 @@ const AdminDashboardPage = () => {
                               fullWidth
                               value={block.value}
                               onChange={(e) => handleUpdateBlock(blockIdx, { value: e.target.value })}
-                              sx={{ color: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
+                              sx={{ color: 'var(--text-primary)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             >
                               {CYBER_LABS.map(lab => (
                                 <MenuItem key={lab.value} value={lab.value}>{lab.label}</MenuItem>
@@ -1894,8 +1894,8 @@ const AdminDashboardPage = () => {
                       style={{
                         textTransform: 'none',
                         borderRadius: '8px',
-                        color: '#fff',
-                        borderColor: 'rgba(255,255,255,0.08)',
+                        color: 'var(--text-primary)',
+                        borderColor: 'var(--divider)',
                         background: 'rgba(255,255,255,0.01)',
                         fontWeight: 750,
                         fontSize: '0.75rem',
@@ -2068,11 +2068,12 @@ const AdminDashboardPage = () => {
           onClose={() => setSectionDialogOpen(false)}
           PaperProps={{
             style: {
-              background: '#18181f',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '16px',
+              background: 'var(--background-paper)',
+              border: '1px solid var(--divider)',
+              borderRadius: '24px',
               color: 'var(--text-primary)',
-              padding: '12px'
+              padding: '16px',
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)'
             }
           }}
         >
@@ -2123,18 +2124,21 @@ const AdminDashboardPage = () => {
           onClose={() => setCourseDialogOpen(false)}
           PaperProps={{
             style: {
-              background: '#18181f',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '16px',
+              background: 'var(--background-paper)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid var(--divider)',
+              borderRadius: '24px',
               color: 'var(--text-primary)',
-              padding: '12px'
+              padding: '16px',
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)'
             }
           }}
         >
-          <DialogTitle style={{ fontWeight: 800, paddingBottom: '4px' }}>
-            Edit Course Metadata
+          <DialogTitle style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-primary)', fontSize: '1.25rem', paddingBottom: '8px' }}>
+            <SettingsIcon style={{ color: 'var(--primary-main)' }} />
+            Edit Course Settings
           </DialogTitle>
-          <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: '18px', paddingTop: '16px', minWidth: '400px' }}>
+          <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '16px', minWidth: '420px' }}>
             <TextField
               fullWidth
               label="Course Title"
@@ -2142,7 +2146,32 @@ const AdminDashboardPage = () => {
               onChange={(e) => setCourseForm(prev => ({ ...prev, title: e.target.value }))}
               InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
               InputProps={{ style: { color: 'var(--text-primary)' } }}
-              sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                  color: 'var(--text-primary)',
+                  '& fieldset': {
+                    borderColor: 'var(--divider)',
+                    transition: 'all 0.2s ease-in-out',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'var(--text-secondary)',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: 'var(--primary-main)',
+                    borderWidth: '1.5px',
+                  },
+                },
+                '& .MuiInputLabel-root': {
+                  color: 'var(--text-secondary)',
+                  fontFamily: '"Outfit", sans-serif',
+                  fontWeight: 600,
+                  '&.Mui-focused': {
+                    color: 'var(--primary-main)',
+                  }
+                }
+              }}
             />
             <TextField
               fullWidth
@@ -2153,7 +2182,32 @@ const AdminDashboardPage = () => {
               onChange={(e) => setCourseForm(prev => ({ ...prev, description: e.target.value }))}
               InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
               InputProps={{ style: { color: 'var(--text-primary)' } }}
-              sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                  color: 'var(--text-primary)',
+                  '& fieldset': {
+                    borderColor: 'var(--divider)',
+                    transition: 'all 0.2s ease-in-out',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'var(--text-secondary)',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: 'var(--primary-main)',
+                    borderWidth: '1.5px',
+                  },
+                },
+                '& .MuiInputLabel-root': {
+                  color: 'var(--text-secondary)',
+                  fontFamily: '"Outfit", sans-serif',
+                  fontWeight: 600,
+                  '&.Mui-focused': {
+                    color: 'var(--primary-main)',
+                  }
+                }
+              }}
             />
             <TextField
               fullWidth
@@ -2164,7 +2218,32 @@ const AdminDashboardPage = () => {
               onChange={(e) => setCourseForm(prev => ({ ...prev, about: e.target.value }))}
               InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
               InputProps={{ style: { color: 'var(--text-primary)' } }}
-              sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                  color: 'var(--text-primary)',
+                  '& fieldset': {
+                    borderColor: 'var(--divider)',
+                    transition: 'all 0.2s ease-in-out',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'var(--text-secondary)',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: 'var(--primary-main)',
+                    borderWidth: '1.5px',
+                  },
+                },
+                '& .MuiInputLabel-root': {
+                  color: 'var(--text-secondary)',
+                  fontFamily: '"Outfit", sans-serif',
+                  fontWeight: 600,
+                  '&.Mui-focused': {
+                    color: 'var(--primary-main)',
+                  }
+                }
+              }}
             />
             <TextField
               fullWidth
@@ -2173,21 +2252,86 @@ const AdminDashboardPage = () => {
               onChange={(e) => setCourseForm(prev => ({ ...prev, imageUrl: e.target.value }))}
               InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
               InputProps={{ style: { color: 'var(--text-primary)' } }}
-              sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                  color: 'var(--text-primary)',
+                  '& fieldset': {
+                    borderColor: 'var(--divider)',
+                    transition: 'all 0.2s ease-in-out',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'var(--text-secondary)',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: 'var(--primary-main)',
+                    borderWidth: '1.5px',
+                  },
+                },
+                '& .MuiInputLabel-root': {
+                  color: 'var(--text-secondary)',
+                  fontFamily: '"Outfit", sans-serif',
+                  fontWeight: 600,
+                  '&.Mui-focused': {
+                    color: 'var(--primary-main)',
+                  }
+                }
+              }}
             />
             <FormControlLabel
               control={
                 <Switch
                   checked={courseForm.comingsoon}
                   onChange={(e) => setCourseForm(prev => ({ ...prev, comingsoon: e.target.checked }))}
+                  sx={{
+                    '& .MuiSwitch-switchBase.Mui-checked': {
+                      color: 'var(--primary-main)',
+                    },
+                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                      backgroundColor: 'var(--primary-main)',
+                    }
+                  }}
                 />
               }
-              label="Coming Soon Status"
+              label={
+                <Typography style={{ fontFamily: '"Outfit", sans-serif', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                  Coming Soon Status
+                </Typography>
+              }
             />
           </DialogContent>
-          <DialogActions style={{ padding: '16px 24px' }}>
-            <Button onClick={() => setCourseDialogOpen(false)} style={{ color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 800 }}>Cancel</Button>
-            <Button onClick={handleSaveCourseMetadata} variant="contained" style={{ background: 'var(--hero-gradient)', textTransform: 'none', fontWeight: 800, borderRadius: '8px', color: '#fff' }}>Save Changes</Button>
+          <DialogActions style={{ padding: '16px 24px', gap: '12px' }}>
+            <Button 
+              onClick={() => setCourseDialogOpen(false)} 
+              style={{ 
+                color: 'var(--text-primary)', 
+                textTransform: 'none', 
+                fontWeight: 800, 
+                fontFamily: '"Outfit", sans-serif',
+                borderRadius: '12px',
+                padding: '8px 16px',
+                border: '1px solid var(--divider)'
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveCourseMetadata} 
+              variant="contained" 
+              style={{ 
+                background: 'var(--hero-gradient)', 
+                textTransform: 'none', 
+                fontWeight: 800, 
+                borderRadius: '12px', 
+                color: 'var(--text-primary)',
+                fontFamily: '"Outfit", sans-serif',
+                padding: '8px 18px',
+                boxShadow: 'var(--shadow-button)'
+              }}
+            >
+              Save Changes
+            </Button>
           </DialogActions>
         </Dialog>
       </Box>
@@ -2605,18 +2749,21 @@ const AdminDashboardPage = () => {
         onClose={() => setCourseDialogOpen(false)}
         PaperProps={{
           style: {
-            background: '#18181f',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '16px',
+            background: 'var(--background-paper)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid var(--divider)',
+            borderRadius: '24px',
             color: 'var(--text-primary)',
-            padding: '12px'
+            padding: '16px',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)'
           }
         }}
       >
-        <DialogTitle style={{ fontWeight: 800, paddingBottom: '4px' }}>
-          {courseForm.id === null ? 'Create New Course' : 'Edit Course Metadata'}
+        <DialogTitle style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-primary)', fontSize: '1.25rem', paddingBottom: '8px' }}>
+          <SettingsIcon style={{ color: 'var(--primary-main)' }} />
+          {courseForm.id === null ? 'Create New Course' : 'Edit Course Settings'}
         </DialogTitle>
-        <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: '18px', paddingTop: '16px', minWidth: '400px' }}>
+        <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '16px', minWidth: '420px' }}>
           <TextField
             fullWidth
             label="Course Title"
@@ -2624,7 +2771,32 @@ const AdminDashboardPage = () => {
             onChange={(e) => setCourseForm(prev => ({ ...prev, title: e.target.value }))}
             InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
             InputProps={{ style: { color: 'var(--text-primary)' } }}
-            sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '12px',
+                backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                color: 'var(--text-primary)',
+                '& fieldset': {
+                  borderColor: 'var(--divider)',
+                  transition: 'all 0.2s ease-in-out',
+                },
+                '&:hover fieldset': {
+                  borderColor: 'var(--text-secondary)',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: 'var(--primary-main)',
+                  borderWidth: '1.5px',
+                },
+              },
+              '& .MuiInputLabel-root': {
+                color: 'var(--text-secondary)',
+                fontFamily: '"Outfit", sans-serif',
+                fontWeight: 600,
+                '&.Mui-focused': {
+                  color: 'var(--primary-main)',
+                }
+              }
+            }}
           />
           <TextField
             fullWidth
@@ -2635,7 +2807,32 @@ const AdminDashboardPage = () => {
             onChange={(e) => setCourseForm(prev => ({ ...prev, description: e.target.value }))}
             InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
             InputProps={{ style: { color: 'var(--text-primary)' } }}
-            sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '12px',
+                backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                color: 'var(--text-primary)',
+                '& fieldset': {
+                  borderColor: 'var(--divider)',
+                  transition: 'all 0.2s ease-in-out',
+                },
+                '&:hover fieldset': {
+                  borderColor: 'var(--text-secondary)',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: 'var(--primary-main)',
+                  borderWidth: '1.5px',
+                },
+              },
+              '& .MuiInputLabel-root': {
+                color: 'var(--text-secondary)',
+                fontFamily: '"Outfit", sans-serif',
+                fontWeight: 600,
+                '&.Mui-focused': {
+                  color: 'var(--primary-main)',
+                }
+              }
+            }}
           />
           <TextField
             fullWidth
@@ -2646,7 +2843,32 @@ const AdminDashboardPage = () => {
             onChange={(e) => setCourseForm(prev => ({ ...prev, about: e.target.value }))}
             InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
             InputProps={{ style: { color: 'var(--text-primary)' } }}
-            sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '12px',
+                backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                color: 'var(--text-primary)',
+                '& fieldset': {
+                  borderColor: 'var(--divider)',
+                  transition: 'all 0.2s ease-in-out',
+                },
+                '&:hover fieldset': {
+                  borderColor: 'var(--text-secondary)',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: 'var(--primary-main)',
+                  borderWidth: '1.5px',
+                },
+              },
+              '& .MuiInputLabel-root': {
+                color: 'var(--text-secondary)',
+                fontFamily: '"Outfit", sans-serif',
+                fontWeight: 600,
+                '&.Mui-focused': {
+                  color: 'var(--primary-main)',
+                }
+              }
+            }}
           />
           <TextField
             fullWidth
@@ -2655,21 +2877,86 @@ const AdminDashboardPage = () => {
             onChange={(e) => setCourseForm(prev => ({ ...prev, imageUrl: e.target.value }))}
             InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
             InputProps={{ style: { color: 'var(--text-primary)' } }}
-            sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '12px',
+                backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                color: 'var(--text-primary)',
+                '& fieldset': {
+                  borderColor: 'var(--divider)',
+                  transition: 'all 0.2s ease-in-out',
+                },
+                '&:hover fieldset': {
+                  borderColor: 'var(--text-secondary)',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: 'var(--primary-main)',
+                  borderWidth: '1.5px',
+                },
+              },
+              '& .MuiInputLabel-root': {
+                color: 'var(--text-secondary)',
+                fontFamily: '"Outfit", sans-serif',
+                fontWeight: 600,
+                '&.Mui-focused': {
+                  color: 'var(--primary-main)',
+                }
+              }
+            }}
           />
           <FormControlLabel
             control={
               <Switch
                 checked={courseForm.comingsoon}
                 onChange={(e) => setCourseForm(prev => ({ ...prev, comingsoon: e.target.checked }))}
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': {
+                    color: 'var(--primary-main)',
+                  },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                    backgroundColor: 'var(--primary-main)',
+                  }
+                }}
               />
             }
-            label="Queue as Coming Soon"
+            label={
+              <Typography style={{ fontFamily: '"Outfit", sans-serif', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                Queue as Coming Soon
+              </Typography>
+            }
           />
         </DialogContent>
-        <DialogActions style={{ padding: '16px 24px' }}>
-          <Button onClick={() => setCourseDialogOpen(false)} style={{ color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 800 }}>Cancel</Button>
-          <Button onClick={handleSaveCourseMetadata} variant="contained" style={{ background: 'var(--hero-gradient)', textTransform: 'none', fontWeight: 800, borderRadius: '8px', color: '#fff' }}>Save Changes</Button>
+        <DialogActions style={{ padding: '16px 24px', gap: '12px' }}>
+          <Button 
+            onClick={() => setCourseDialogOpen(false)} 
+            style={{ 
+              color: 'var(--text-primary)', 
+              textTransform: 'none', 
+              fontWeight: 800, 
+              fontFamily: '"Outfit", sans-serif',
+              borderRadius: '12px',
+              padding: '8px 16px',
+              border: '1px solid var(--divider)'
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSaveCourseMetadata} 
+            variant="contained" 
+            style={{ 
+              background: 'var(--hero-gradient)', 
+              textTransform: 'none', 
+              fontWeight: 800, 
+              borderRadius: '12px', 
+              color: 'var(--text-primary)',
+              fontFamily: '"Outfit", sans-serif',
+              padding: '8px 18px',
+              boxShadow: 'var(--shadow-button)'
+            }}
+          >
+            Save Changes
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -2679,11 +2966,12 @@ const AdminDashboardPage = () => {
         onClose={() => setUserDialogOpen(false)}
         PaperProps={{
           style: {
-            background: '#18181f',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '16px',
+            background: 'var(--background-paper)',
+            border: '1px solid var(--divider)',
+            borderRadius: '24px',
             color: 'var(--text-primary)',
-            padding: '12px'
+            padding: '16px',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)'
           }
         }}
       >

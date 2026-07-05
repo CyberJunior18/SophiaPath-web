@@ -91,6 +91,8 @@
 
 html {
   scroll-behavior: smooth;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -99,6 +101,8 @@ body {
   font-family: 'Poppins', sans-serif;
   transition: background-color 0.35s ease, color 0.35s ease;
   background-image: none;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
 }
 
 #root {

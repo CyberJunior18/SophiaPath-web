@@ -27,10 +27,12 @@ import {
   Explore as ExploreIcon,
   Psychology as PsychologyIcon,
   VolumeUp as VolumeUpIcon,
-  VolumeOff as VolumeOffIcon
+  VolumeOff as VolumeOffIcon,
+  AccountTree as AccountTreeIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import './LearningContentPage.css'; // Reuses existing glassmorphic page styles
+import { ReligionTreeMap } from '../components/ReligionTreeMap';
 
 // 1. Upgraded Socratic Dialogue Widget (AI Chat Only)
 export const SocraticDialogueWidget = () => {
@@ -298,15 +300,15 @@ export const FallacySorterWidget = () => {
 
   return (
     <Paper className="glass-panel" style={{ padding: '24px', margin: '20px 0', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: '"Outfit", sans-serif' }}>
         Logic Lab: Fallacy Matcher
       </Typography>
 
-      <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginBottom: '18px' }}>
-        Identify the informal fallacy committed in each of the arguments below by selecting the correct category from the dropdown menu.
+      <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginBottom: '20px', fontSize: '0.88rem' }}>
+        Analyze each of the arguments below and select the informal fallacy it commits by clicking the corresponding option.
       </Typography>
 
-      <Box style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+      <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
         {cards.map(c => {
           const userVal = selections[c.id];
           const isCorrect = userVal === c.fallacy;
@@ -315,53 +317,97 @@ export const FallacySorterWidget = () => {
             <Box 
               key={c.id} 
               style={{ 
-                padding: '16px', 
-                borderRadius: '12px', 
-                background: 'rgba(255,255,255,0.02)', 
+                padding: '20px', 
+                borderRadius: '16px', 
+                background: 'rgba(255,255,255,0.01)', 
                 border: checked 
-                  ? (isCorrect ? '1.5px solid #4CAF50' : '1.5px solid #FF5252') 
+                  ? (isCorrect ? '1.5px solid rgba(76, 175, 80, 0.4)' : '1.5px solid rgba(244, 67, 54, 0.4)') 
                   : '1px solid rgba(255,255,255,0.06)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '12px'
+                gap: '14px',
+                transition: 'border-color 0.3s ease'
               }}
             >
-              <Typography variant="body2" style={{ fontStyle: 'italic', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+              <Typography variant="body1" style={{ fontStyle: 'italic', color: 'var(--text-primary)', lineHeight: 1.5, fontSize: '0.92rem', fontWeight: 500 }}>
                 "{c.arg}"
               </Typography>
               
-              <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                <select
-                  disabled={checked}
-                  value={userVal}
-                  onChange={(e) => handleSelect(c.id, e.target.value)}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--divider)',
-                    backgroundColor: 'var(--background-paper)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.8rem',
-                    minWidth: '150px',
-                    outline: 'none',
-                    fontFamily: 'inherit'
-                  }}
-                >
-                  <option value="" style={{ backgroundColor: 'var(--background-paper)', color: 'var(--text-primary)' }}>-- Choose Fallacy --</option>
-                  {fallacies.map(f => (
-                    <option key={f.id} value={f.id} style={{ backgroundColor: 'var(--background-paper)', color: 'var(--text-primary)' }}>{f.name}</option>
-                  ))}
-                </select>
+              <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <Box style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {fallacies.map(f => {
+                    const isSelected = userVal === f.id;
+                    
+                    let chipBg = 'rgba(255, 255, 255, 0.03)';
+                    let chipBorder = '1px solid rgba(255, 255, 255, 0.06)';
+                    let chipColor = 'var(--text-secondary)';
+                    
+                    if (isSelected) {
+                      chipBg = 'rgba(28, 176, 246, 0.12)';
+                      chipBorder = '1.5px solid var(--primary-main)';
+                      chipColor = 'var(--primary-main)';
+                    }
+                    
+                    if (checked) {
+                      const isChoiceCorrect = f.id === c.fallacy;
+                      if (isChoiceCorrect) {
+                        chipBg = 'rgba(76, 175, 80, 0.15)';
+                        chipBorder = '1.5px solid #4CAF50';
+                        chipColor = '#4CAF50';
+                      } else if (isSelected) {
+                        chipBg = 'rgba(244, 67, 54, 0.15)';
+                        chipBorder = '1.5px solid #f44336';
+                        chipColor = '#f44336';
+                      }
+                    }
+                    
+                    return (
+                      <motion.button
+                        key={f.id}
+                        disabled={checked}
+                        whileHover={!checked ? { scale: 1.03 } : {}}
+                        whileTap={!checked ? { scale: 0.97 } : {}}
+                        onClick={() => handleSelect(c.id, f.id)}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '16px',
+                          background: chipBg,
+                          border: chipBorder,
+                          color: chipColor,
+                          fontWeight: 800,
+                          fontSize: '0.74rem',
+                          cursor: checked ? 'default' : 'pointer',
+                          fontFamily: '"Outfit", sans-serif',
+                          transition: 'background-color 0.2s, border-color 0.2s, color 0.2s'
+                        }}
+                      >
+                        {f.name}
+                      </motion.button>
+                    );
+                  })}
+                </Box>
 
                 {checked && (
-                  <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <Typography variant="caption" style={{ fontWeight: 800, color: isCorrect ? '#4CAF50' : '#FF5252' }}>
-                      {isCorrect ? '✓ Correct' : `✗ Expected: ${c.fallacyName}`}
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25 }}
+                    style={{
+                      marginTop: '4px',
+                      padding: '12px 16px',
+                      background: isCorrect ? 'rgba(76, 175, 80, 0.05)' : 'rgba(244, 67, 54, 0.05)',
+                      borderLeft: isCorrect ? '3px solid #4CAF50' : '3px solid #f44336',
+                      borderRadius: '0 8px 8px 0',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <Typography variant="subtitle2" style={{ fontWeight: 850, color: isCorrect ? '#4CAF50' : '#f44336', fontSize: '0.8rem', marginBottom: '4px', fontFamily: '"Outfit", sans-serif' }}>
+                      {isCorrect ? '✓ Correct Identification' : `✗ Incorrect (Expected: ${c.fallacyName})`}
                     </Typography>
-                    <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', textAlign: 'right' }}>
+                    <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', lineHeight: 1.45 }}>
                       {c.explanation}
                     </Typography>
-                  </Box>
+                  </motion.div>
                 )}
               </Box>
             </Box>
@@ -379,8 +425,10 @@ export const FallacySorterWidget = () => {
               background: 'var(--hero-gradient)',
               color: '#fff',
               fontWeight: 800,
-              borderRadius: '10px',
-              textTransform: 'none'
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontFamily: '"Outfit", sans-serif',
+              boxShadow: 'var(--shadow-button)'
             }}
           >
             Check Fallacies
@@ -390,11 +438,13 @@ export const FallacySorterWidget = () => {
             variant="outlined"
             onClick={handleReset}
             style={{
-              borderColor: 'rgba(255,255,255,0.15)',
+              borderColor: 'rgba(255,255,255,0.12)',
               color: 'var(--text-primary)',
               fontWeight: 800,
-              borderRadius: '10px',
-              textTransform: 'none'
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontFamily: '"Outfit", sans-serif',
+              background: 'rgba(255,255,255,0.01)'
             }}
           >
             Reset Quiz
@@ -1852,7 +1902,8 @@ const PhilosophyLabPage = () => {
     { label: 'Ship of Theseus', icon: <BookIcon sx={{ fontSize: 18 }} />, component: <ShipOfTheseusWidget /> },
     { label: 'Trolley Problem', icon: <PlayIcon sx={{ fontSize: 18 }} />, component: <TrolleyProblemWidget /> },
     { label: "Plato's Cave", icon: <PsychologyIcon sx={{ fontSize: 18 }} />, component: <PlatosCaveWidget /> },
-    { label: 'Political Compass', icon: <ExploreIcon sx={{ fontSize: 18 }} />, component: <PoliticalCompassWidget /> }
+    { label: 'Political Compass', icon: <ExploreIcon sx={{ fontSize: 18 }} />, component: <PoliticalCompassWidget /> },
+    { label: 'Religion Tree Map', icon: <AccountTreeIcon sx={{ fontSize: 18 }} />, component: <ReligionTreeMap /> }
   ];
 
   return (

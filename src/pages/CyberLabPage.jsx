@@ -5,18 +5,18 @@ import {
   AlertTriangle, CheckCircle, Wrench, TerminalSquare, MonitorPlay, Key, HelpCircle
 } from 'lucide-react';
 import { Box, Typography, Button, Paper, Divider } from '@mui/material';
-import ChallengePage from './ChallengePage';
-import DenialOfServiceLab from './DenialOfServiceLab';
-import DistributedDenialOfServiceLab from './DistributedDenialOfServiceLab';
-import CaesarCipherExplorer from './CaesarCipherExplorer';
-import EnigmaMachine from './EnigmaMachine';
-import VigenereCipherExplorer from './VigenereCipherExplorer';
-import RSAVisualizer from './RSAVisualizer';
-import Base64Visualizer from './Base64Visualizer';
-import XORVisualizer from './XORVisualizer';
-import RansomwareLab from './RansomwareLab';
-import SocialEngineeringLab from './SocialEngineeringLab';
-import InsiderThreatLab from './InsiderThreatLab';
+import ChallengePage from './labs/ChallengePage';
+import DenialOfServiceLab from './labs/DenialOfServiceLab';
+import DistributedDenialOfServiceLab from './labs/DistributedDenialOfServiceLab';
+import CaesarCipherExplorer from './labs/CaesarCipherExplorer';
+import EnigmaMachine from './labs/EnigmaMachine';
+import VigenereCipherExplorer from './labs/VigenereCipherExplorer';
+import RSAVisualizer from './labs/RSAVisualizer';
+import Base64Visualizer from './labs/Base64Visualizer';
+import XORVisualizer from './labs/XORVisualizer';
+import RansomwareLab from './labs/RansomwareLab';
+import SocialEngineeringLab from './labs/SocialEngineeringLab';
+import InsiderThreatLab from './labs/InsiderThreatLab';
 import './CyberLabPage.css';
 
 // Explanation box
@@ -57,7 +57,7 @@ function LabLayout({ title, isSecure, children }) {
 }
 
 // 1. Cross-Site Scripting (XSS) Lab
-import './XssLab.css';
+import './labs/XssLab.css';
 
 function XSSLab({ isSecure, showAlert }) {
   const [xssType, setXssType] = useState('stored');
@@ -243,7 +243,7 @@ function XSSLab({ isSecure, showAlert }) {
 }
 
 // 2. SQL Injection (SQLi) Lab
-import './SqliLab.css';
+import './labs/SqliLab.css';
 
 const USERS_DB = [
   { id: 1, username: 'admin', password: 'supersecretpassword123', role: 'admin', balance: 50000 },
@@ -517,7 +517,7 @@ if (filter_var($ip, FILTER_VALIDATE_IP)) {
 }
 
 // 4. Cross-Site Request Forgery (CSRF) Lab
-import './CsrfLab.css';
+import './labs/CsrfLab.css';
 
 function CSRFLab({ isSecure, showAlert }) {
   const [csrfType, setCsrfType] = useState('post');
@@ -626,7 +626,7 @@ function CSRFLab({ isSecure, showAlert }) {
 }
 
 // 5. Broken Access Control Lab
-import './AccessControlLab.css';
+import './labs/AccessControlLab.css';
 
 const MOCK_DOCS = [
   { id: 1, title: 'Public Welcome Guide', content: 'Welcome to our platform! Here are the public rules...', isSensitive: false },
