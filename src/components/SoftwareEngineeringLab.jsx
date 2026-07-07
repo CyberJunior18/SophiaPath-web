@@ -588,29 +588,190 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     document.body.style.userSelect = 'none';
   };
 
+  const getDiagramBounds = (tabKey, diagramCode) => {
+    let minX = 0;
+    let minY = 0;
+    let maxX = 1200;
+    let maxY = 800;
+    let hasCoords = false;
+
+    if (tabKey === 'er') {
+      const { entities } = parseER(diagramCode);
+      let xs = [];
+      let ys = [];
+      entities.forEach((ent, idx) => {
+        const pos = nodePositions[ent.name] || { x: (idx % 3) * 320 + 80, y: Math.floor(idx / 3) * 260 + 80 };
+        xs.push(pos.x);
+        xs.push(pos.x + 250); // entity card width
+        ys.push(pos.y);
+        ys.push(pos.y + 180); // estimated height
+      });
+      if (xs.length > 0) {
+        minX = Math.min(...xs);
+        maxX = Math.max(...xs);
+        minY = Math.min(...ys);
+        maxY = Math.max(...ys);
+        hasCoords = true;
+      }
+    } 
+    else if (tabKey === 'usecase') {
+      const { actors, usecases } = parseUseCase(diagramCode);
+      let xs = [];
+      let ys = [];
+      
+      actors.forEach((act, idx) => {
+        const pos = nodePositions[act.id] || { x: 100, y: idx * 180 + 150 };
+        xs.push(pos.x);
+        xs.push(pos.x + 120);
+        ys.push(pos.y);
+        ys.push(pos.y + 120);
+      });
+
+      usecases.forEach((uc, idx) => {
+        const pos = nodePositions[uc.id] || { x: 420, y: idx * 110 + 100 };
+        xs.push(pos.x);
+        xs.push(pos.x + 180);
+        ys.push(pos.y);
+        ys.push(pos.y + 80);
+      });
+
+      if (xs.length > 0) {
+        minX = Math.min(...xs);
+        maxX = Math.max(...xs);
+        minY = Math.min(...ys);
+        maxY = Math.max(...ys);
+        hasCoords = true;
+      }
+    }
+    else if (tabKey === 'sequence') {
+      const { participants, messages } = parseSequence(diagramCode);
+      if (participants.length > 0) {
+        minX = 50;
+        maxX = (participants.length - 1) * 260 + 250;
+        minY = 30;
+        maxY = messages.length * 52 + 180;
+        hasCoords = true;
+      }
+    }
+    else if (tabKey === 'gantt') {
+      const { sections, tasks } = parseGantt(diagramCode);
+      if (tasks.length > 0) {
+        const dayWidth = 480 / 31;
+        const rowHeight = 48;
+        let xs = [20];
+        let ys = [30];
+
+        sections.forEach((section, secIdx) => {
+          const sectionTasks = tasks.filter(t => t.section === section);
+          const sectionYStart = secIdx * 450 + 60;
+          
+          sectionTasks.forEach((task, taskIdx) => {
+            const y = sectionYStart + taskIdx * rowHeight;
+            const width = Math.max(12, task.duration * dayWidth);
+            
+            let x = 240;
+            if (task.startDateStr) {
+              const tDate = new Date(task.startDateStr);
+              if (!isNaN(tDate.getTime())) {
+                const m = tDate.getMonth();
+                const d = tDate.getDate();
+                if (m === 6) {
+                  x = 240 + (d - 1) * dayWidth;
+                } else if (m === 7) {
+                  x = 720 + (d - 1) * dayWidth;
+                }
+              }
+            }
+
+            xs.push(x + width + 80);
+            ys.push(y + rowHeight + 20);
+          });
+        });
+
+        minX = 10;
+        maxX = Math.max(...xs);
+        minY = 10;
+        maxY = Math.max(...ys);
+        hasCoords = true;
+      }
+    }
+
+    if (hasCoords) {
+      const padding = 30;
+      return {
+        x: Math.max(0, minX - padding),
+        y: Math.max(0, minY - padding),
+        width: Math.min(1200, (maxX - minX) + (padding * 2)),
+        height: Math.min(800, (maxY - minY) + (padding * 2))
+      };
+    }
+
+    return { x: 0, y: 0, width: 1200, height: 800 };
+  };
+
   const handleDownloadPreviewPng = async () => {
     try {
       const element = document.getElementById('se-preview-capture-content');
       if (!element) return;
       
-      const oldScale = previewZoomScale;
-      setPreviewZoomScale(1.0);
-      
-      // Wait for React to apply the scale reset
-      await new Promise(r => setTimeout(r, 120));
+      // Temporarily reset scroll position of the preview canvas container to avoid html2canvas cutoff bugs
+      const scrollLeft = previewCanvasContainerRef.current ? previewCanvasContainerRef.current.scrollLeft : 0;
+      const scrollTop = previewCanvasContainerRef.current ? previewCanvasContainerRef.current.scrollTop : 0;
+      if (previewCanvasContainerRef.current) {
+        previewCanvasContainerRef.current.scrollLeft = 0;
+        previewCanvasContainerRef.current.scrollTop = 0;
+      }
 
-      const canvas = await html2canvas(element, {
-        backgroundColor: null,
+      await new Promise(r => setTimeout(r, 60));
+
+      const bounds = getDiagramBounds(activeTabKey, code);
+
+      const fullCanvas = await html2canvas(element, {
+        backgroundColor: '#ffffff',
         scale: 2,
         logging: false,
-        useCORS: true
+        useCORS: true,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDoc) => {
+          const wrapper = clonedDoc.getElementById('se-preview-capture-content');
+          const inner = clonedDoc.getElementById('se-preview-canvas-inner');
+          if (wrapper && inner) {
+            wrapper.style.width = '1400px';
+            wrapper.style.height = '1100px';
+            inner.style.transform = 'none';
+          }
+        }
       });
       
-      setPreviewZoomScale(oldScale);
+      // Restore scroll positions
+      if (previewCanvasContainerRef.current) {
+        previewCanvasContainerRef.current.scrollLeft = scrollLeft;
+        previewCanvasContainerRef.current.scrollTop = scrollTop;
+      }
+
+      // Perform dynamic in-memory canvas cropping to avoid DOM offset bugs
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = bounds.width * 2;
+      cropCanvas.height = bounds.height * 2;
+      const ctx = cropCanvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(
+          fullCanvas,
+          bounds.x * 2,
+          bounds.y * 2,
+          bounds.width * 2,
+          bounds.height * 2,
+          0,
+          0,
+          bounds.width * 2,
+          bounds.height * 2
+        );
+      }
 
       const link = document.createElement('a');
       link.download = `${activeTabKey}_diagram.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = cropCanvas.toDataURL('image/png');
       link.click();
     } catch (err) {
       console.error('Failed to capture PNG:', err);
@@ -619,26 +780,67 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
 
   const handleDownloadPng = async () => {
     try {
-      const element = document.querySelector('#canvas-interactive-area > div > div');
+      const element = document.getElementById('se-main-capture-content');
       if (!element) return;
       
-      const oldScale = zoomScale;
-      setZoomScale(1.0);
-      
-      await new Promise(r => setTimeout(r, 120));
+      // Temporarily reset scroll position of the canvas container to avoid html2canvas cutoff bugs
+      const scrollLeft = canvasContainerRef.current ? canvasContainerRef.current.scrollLeft : 0;
+      const scrollTop = canvasContainerRef.current ? canvasContainerRef.current.scrollTop : 0;
+      if (canvasContainerRef.current) {
+        canvasContainerRef.current.scrollLeft = 0;
+        canvasContainerRef.current.scrollTop = 0;
+      }
 
-      const canvas = await html2canvas(element, {
-        backgroundColor: null,
+      await new Promise(r => setTimeout(r, 60));
+
+      const bounds = getDiagramBounds(activeTabKey, code);
+
+      const fullCanvas = await html2canvas(element, {
+        backgroundColor: '#ffffff',
         scale: 2,
         logging: false,
-        useCORS: true
+        useCORS: true,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDoc) => {
+          const wrapper = clonedDoc.getElementById('se-main-capture-content');
+          const inner = clonedDoc.getElementById('se-main-canvas-inner');
+          if (wrapper && inner) {
+            wrapper.style.width = '1400px';
+            wrapper.style.height = '1100px';
+            inner.style.transform = 'none';
+          }
+        }
       });
       
-      setZoomScale(oldScale);
+      // Restore scroll positions
+      if (canvasContainerRef.current) {
+        canvasContainerRef.current.scrollLeft = scrollLeft;
+        canvasContainerRef.current.scrollTop = scrollTop;
+      }
+
+      // Perform dynamic in-memory canvas cropping to avoid DOM offset bugs
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = bounds.width * 2;
+      cropCanvas.height = bounds.height * 2;
+      const ctx = cropCanvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(
+          fullCanvas,
+          bounds.x * 2,
+          bounds.y * 2,
+          bounds.width * 2,
+          bounds.height * 2,
+          0,
+          0,
+          bounds.width * 2,
+          bounds.height * 2
+        );
+      }
 
       const link = document.createElement('a');
       link.download = `${activeTabKey}_diagram.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = cropCanvas.toDataURL('image/png');
       link.click();
     } catch (err) {
       console.error('Failed to capture PNG:', err);
@@ -1579,92 +1781,176 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
   // Render Gantt Chart
   const renderGanttChart = () => {
     const { sections, tasks } = parseGantt(code);
-    const dayWidth = 15; // wider spacing for clear visibility
-    const rowHeight = 44;
+    const rowHeight = 48;
 
-    // Find project start date from the parsed tasks
-    let projectStartDate = null;
-    tasks.forEach(t => {
-      if (t.startDateStr) {
-        const d = new Date(t.startDateStr);
-        if (!isNaN(d.getTime())) {
-          if (!projectStartDate || d < projectStartDate) {
-            projectStartDate = d;
+    const dayWidth = 480 / 31;
+    const monthDividerX = 720;
+
+    const getWeekLabel = (monthZeroIndexed, weekIdx) => {
+      const dayOfStart = weekIdx * 7 + 1;
+      return `${monthZeroIndexed + 1}/${dayOfStart}`;
+    };
+
+    // Precalculate positions
+    sections.forEach((section, secIdx) => {
+      const sectionTasks = tasks.filter(t => t.section === section);
+      const sectionYStart = secIdx * 450 + 60; // Shifted up after removing header banner
+      
+      sectionTasks.forEach((task, taskIdx) => {
+        task.y = sectionYStart + taskIdx * rowHeight;
+        task.width = Math.max(12, task.duration * dayWidth);
+        
+        let x = 240;
+        if (task.startDateStr) {
+          const tDate = new Date(task.startDateStr);
+          if (!isNaN(tDate.getTime())) {
+            const m = tDate.getMonth(); // 6 = July, 7 = August
+            const d = tDate.getDate();
+            if (m === 6) {
+              x = 240 + (d - 1) * dayWidth;
+            } else if (m === 7) {
+              x = 720 + (d - 1) * dayWidth;
+            }
           }
         }
-      }
+        task.x = x;
+      });
     });
-
-    if (!projectStartDate) {
-      projectStartDate = new Date("2026-07-01");
-    }
-
-    const getColLabel = (idx) => {
-      const d = new Date(projectStartDate);
-      d.setDate(d.getDate() + idx * 7);
-      return `${d.getMonth() + 1}/${d.getDate()}`;
-    };
 
     return (
       <svg width="1200" height="800" style={{ background: 'transparent' }}>
-        {/* Draw Grid Columns (Weeks with calendar dates) */}
-        {Array.from({ length: 10 }).map((_, idx) => {
-          const x = idx * 7 * dayWidth + 240;
+        {/* Month Labels at the top */}
+        <text x="480" y="15" fill="var(--text-primary)" fontSize="13" fontWeight="bold" textAnchor="middle">
+          July 2026
+        </text>
+        <text x="960" y="15" fill="var(--text-primary)" fontSize="13" fontWeight="bold" textAnchor="middle">
+          August 2026
+        </text>
+
+        {/* Weekly Date Headers */}
+        {/* July Weeks */}
+        {Array.from({ length: 4 }).map((_, idx) => {
+          const x = 240 + idx * 120 + 60;
           return (
-            <g key={idx}>
-              <line x1={x} y1="40" x2={x} y2="760" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-              <text x={x} y="30" fill="rgba(255,255,255,0.35)" fontSize="9" fontWeight="bold" textAnchor="middle">
-                {`W${idx+1} (${getColLabel(idx)})`}
-              </text>
-            </g>
+            <text key={`july_w_${idx}`} x={x} y="35" textAnchor="middle" fontSize="11" fontWeight="bold">
+              <tspan fill="var(--text-primary)">W{idx+1}</tspan>
+              <tspan fill="var(--primary-main)" dx="4">({getWeekLabel(6, idx)})</tspan>
+            </text>
+          );
+        })}
+        {/* August Weeks */}
+        {Array.from({ length: 4 }).map((_, idx) => {
+          const x = 720 + idx * 120 + 60;
+          return (
+            <text key={`aug_w_${idx}`} x={x} y="35" textAnchor="middle" fontSize="11" fontWeight="bold">
+              <tspan fill="var(--text-primary)">W{idx+5}</tspan>
+              <tspan fill="var(--primary-main)" dx="4">({getWeekLabel(7, idx)})</tspan>
+            </text>
           );
         })}
 
-        {/* Render Sections and Tasks */}
+        {/* Horizontal Divider separating calendar headers from diagram area */}
+        <line x1="15" y1="45" x2="1185" y2="45" stroke="var(--divider)" strokeOpacity="0.8" strokeWidth="1.5" />
+
+        {/* Vertical divider lines for start and end of months */}
+        {/* Start of July */}
+        <line x1="240" y1="45" x2="240" y2="760" stroke="var(--divider)" strokeOpacity="0.6" strokeWidth="1.5" />
+        {/* Transition of July/August */}
+        <line x1="720" y1="45" x2="720" y2="760" stroke="var(--divider)" strokeOpacity="0.6" strokeWidth="1.5" />
+        {/* End of August */}
+        <line x1="1200" y1="45" x2="1200" y2="760" stroke="var(--divider)" strokeOpacity="0.6" strokeWidth="1.5" />
+
+        {/* Vertical dotted week division guidelines */}
+        {/* July Week Lines */}
+        <line x1="360" y1="45" x2="360" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
+        <line x1="480" y1="45" x2="480" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
+        <line x1="600" y1="45" x2="600" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
+        {/* August Week Lines */}
+        <line x1="840" y1="45" x2="840" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
+        <line x1="960" y1="45" x2="960" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
+        <line x1="1080" y1="45" x2="1080" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
+
+        {/* Horizontal guide dotted lines under each task row separator */}
+        {tasks.map((task, idx) => (
+          <line
+            key={`guide_${idx}`}
+            x1="15"
+            y1={task.y + 36}
+            x2="1185"
+            y2={task.y + 36}
+            stroke="var(--text-secondary)"
+            strokeOpacity="0.55"
+            strokeDasharray="3,3"
+            strokeWidth="1.2"
+          />
+        ))}
+        {/* Bottom Horizontal Divider to close the grid frame horizontally */}
+        <line x1="15" y1="760" x2="1185" y2="760" stroke="var(--divider)" strokeOpacity="0.6" strokeWidth="1.5" />        {/* 4. Orthogonal Stepped Dependency Connectors (routed to never cross task bars) */}
+        {tasks.map((task, idx) => {
+          if (!task.dependencies || task.dependencies.length === 0) return null;
+          return task.dependencies.map((depName, depIdx) => {
+            const depTask = tasks.find(pt => pt.name === depName);
+            if (!depTask || depTask.x === undefined || depTask.y === undefined) return null;
+
+            const xStart = depTask.x + depTask.width;
+            const yStart = depTask.y + 10;
+            const xEnd = task.x;
+            const yEnd = task.y + 10;
+
+            // Route connection lines in the empty horizontal gap between rows to avoid cutting task bars
+            const yGap = depTask.y + 26; // bottom gap of the 20px bar in 48px rowHeight
+            const xBranch = xEnd - 10;   // vertical drop runs 10px to the left of destination start
+
+            const arrowTipX = xEnd;
+            const arrowBaseX = xEnd - 8;
+
+            return (
+              <g key={`${idx}_${depIdx}`}>
+                {/* Stepped Orthogonal Line (exit bar -> go to gap -> horizontal to branch -> vertical down -> enter destination) */}
+                <path
+                  d={`M ${xStart} ${yStart} H ${xStart + 6} V ${yGap} H ${xBranch} V ${yEnd} H ${arrowBaseX}`}
+                  fill="none"
+                  stroke="var(--primary-main)"
+                  strokeWidth="2.2"
+                />
+                {/* Manual Arrowhead pointing right */}
+                <polygon
+                  points={`${arrowTipX},${yEnd} ${arrowBaseX},${yEnd-4.5} ${arrowBaseX},${yEnd+4.5}`}
+                  fill="var(--primary-main)"
+                />
+              </g>
+            );
+          });
+        })}
+
+        {/* 5. Render Sections and Tasks */}
         {sections.map((section, secIdx) => {
           const sectionTasks = tasks.filter(t => t.section === section);
-          const sectionYStart = secIdx * 450 + 60; // separate sections cleanly
 
           return (
             <g key={secIdx}>
-              {/* Section Header */}
-              <text x="15" y={sectionYStart + 15} fill="var(--primary-main)" fontSize="13" fontWeight="bold">
-                📁 Project: {section}
-              </text>
-              
               {sectionTasks.map((task, taskIdx) => {
-                const y = sectionYStart + taskIdx * rowHeight + 35;
-                const width = Math.max(10, task.duration * dayWidth);
-                
-                // Calculate actual x position from date offset
-                let x = 240 + taskIdx * 25;
-                if (task.startDateStr) {
-                  const tDate = new Date(task.startDateStr);
-                  if (!isNaN(tDate.getTime())) {
-                    const daysFromStart = Math.round((tDate.getTime() - projectStartDate.getTime()) / (1000 * 60 * 60 * 24));
-                    x = 240 + daysFromStart * dayWidth;
-                  }
-                }
+                const y = task.y;
+                const width = task.width;
+                const x = task.x;
 
-                let barColor = 'rgba(61,92,255,0.6)';
-                let strokeColor = '#3D5CFF';
+                // Alternate between solid blue and orange bars matching the reference image
+                let barColor = taskIdx % 2 === 0 ? '#0D6EFD' : '#FFA726';
+                let strokeColor = taskIdx % 2 === 0 ? '#0B5ED7' : '#FB8C00';
                 
                 if (task.duration === 0) {
-                  // Milestone (diamond shape or red highlight)
-                  barColor = 'rgba(239,83,80,0.45)';
+                  // Milestone
+                  barColor = 'rgba(239,83,80,0.2)';
                   strokeColor = '#EF5350';
-                } else if (task.status === 'active') {
-                  barColor = 'rgba(0,255,204,0.35)';
-                  strokeColor = '#00FFCC';
                 } else if (task.status === 'done') {
-                  barColor = 'rgba(255,255,255,0.1)';
-                  strokeColor = 'rgba(255,255,255,0.4)';
+                  barColor = 'rgba(255,255,255,0.04)';
+                  strokeColor = 'rgba(255,255,255,0.3)';
                 }
 
                 return (
                   <g key={taskIdx}>
-                    {/* Task Name Label */}
-                    <text x="25" y={y + 14} fill="#ffffff" fontSize="11" fontWeight="500">
+                    {/* Task Name Label (Left sidebar area) */}
+                    <text x="25" y={y + 14} fill="var(--text-primary)" fontSize="11" fontWeight="600">
                       {task.name}
                     </text>
                     
@@ -1692,7 +1978,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     )}
 
                     {/* Duration Text */}
-                    <text x={x + (task.duration === 0 ? 25 : width + 8)} y={y + 13} fill="rgba(255,255,255,0.8)" fontSize="9" fontWeight="bold">
+                    <text x={x + (task.duration === 0 ? 32 : width + 22)} y={y + 13} fill="var(--text-secondary)" fontSize="10" fontWeight="bold">
                       {task.duration === 0 ? 'Milestone' : `${task.duration}d`}
                     </text>
                   </g>
@@ -1727,7 +2013,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               padding: '16px 24px',
               borderRadius: 0,
               borderBottomLeftRadius: '24px',
-              background: 'rgba(0, 0, 0, 0.25)',
+              background: activeTabKey === 'gantt' ? 'rgba(0, 0, 0, 0.05)' : 'rgba(0, 0, 0, 0.25)',
               borderRight: '1px solid rgba(255, 255, 255, 0.08)',
               display: 'flex',
               flexDirection: 'column',
@@ -1739,7 +2025,25 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
             <Typography variant="subtitle2" style={{ fontWeight: 800, marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               SOURCE CODE ({activeTabTitle})
             </Typography>
-            <Box style={{ flexGrow: 1, borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.05)', background: '#1e1e1e', height: 'calc(100% - 30px)' }}>
+            <Box style={{ 
+              flexGrow: 1, 
+              borderRadius: '12px', 
+              overflow: 'hidden', 
+              border: activeTabKey === 'gantt' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.05)', 
+              background: activeTabKey === 'gantt' ? 'transparent' : '#1e1e1e', 
+              height: 'calc(100% - 30px)',
+              position: 'relative'
+            }}>
+              {activeTabKey === 'gantt' && (
+                <style>{`
+                  .monaco-editor, 
+                  .monaco-editor .margin, 
+                  .monaco-editor-background, 
+                  .monaco-editor .inputarea.ime-input {
+                    background-color: transparent !important;
+                  }
+                `}</style>
+              )}
               <Editor
                 height="100%"
                 language="markdown"
@@ -1809,7 +2113,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               padding: '16px 24px',
               borderRadius: 0,
               borderBottomRightRadius: '24px',
-              background: 'rgba(10, 10, 20, 0.2)',
+              background: activeTabKey === 'gantt' ? 'rgba(10, 10, 20, 0.05)' : 'rgba(10, 10, 20, 0.2)',
               display: 'flex',
               flexDirection: 'column',
               height: '100%',
@@ -1900,7 +2204,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               data-theme={activeTheme}
               style={{ 
                 flexGrow: 1, 
-                background: activeTabKey === 'sequence' 
+                background: (activeTabKey === 'sequence' || activeTabKey === 'gantt')
                   ? 'var(--background-default)' 
                   : 'var(--background-default) linear-gradient(var(--divider) 1px, transparent 1px), linear-gradient(90deg, var(--divider) 1px, transparent 1px)',
                 backgroundSize: '24px 24px',
@@ -1915,29 +2219,35 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               }}
             >
               {/* Virtual Scroll Boundaries Wrapper */}
-              <Box style={{
-                width: `${(canvasDim.width + 200) * zoomScale}px`,
-                height: `${(canvasDim.height + 300) * zoomScale}px`,
-                position: 'relative',
-                overflow: 'hidden',
-                pointerEvents: 'none'
-              }}>
+              <Box 
+                id="se-main-capture-content"
+                style={{
+                  width: `${(canvasDim.width + 200) * zoomScale}px`,
+                  height: `${(canvasDim.height + 300) * zoomScale}px`,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  pointerEvents: 'none'
+                }}
+              >
                 {/* Virtual Canvas scaled as a single unit */}
-                <Box style={{
-                  width: `${canvasDim.width}px`,
-                  height: `${canvasDim.height}px`,
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  transform: `scale(${zoomScale})`,
-                  transformOrigin: 'top left',
-                  backgroundImage: activeTabKey === 'sequence' 
-                    ? 'none' 
-                    : 'linear-gradient(var(--divider) 1px, transparent 1px), linear-gradient(90deg, var(--divider) 1px, transparent 1px)',
-                  backgroundSize: '24px 24px',
-                  backgroundColor: 'var(--background-default)',
-                  pointerEvents: 'auto'
-                }}>
+                <Box 
+                  id="se-main-canvas-inner"
+                  style={{
+                    width: `${canvasDim.width}px`,
+                    height: `${canvasDim.height}px`,
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    transform: `scale(${zoomScale})`,
+                    transformOrigin: 'top left',
+                    backgroundImage: activeTabKey === 'sequence' 
+                      ? 'none' 
+                      : 'linear-gradient(var(--divider) 1px, transparent 1px), linear-gradient(90deg, var(--divider) 1px, transparent 1px)',
+                    backgroundSize: '24px 24px',
+                    backgroundColor: 'var(--background-default)',
+                    pointerEvents: 'auto'
+                  }}
+                >
                   <div
                     id="mermaid-preview-target"
                     style={{
@@ -2363,6 +2673,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               >
                 {/* Virtual Canvas scaled as a single unit */}
                 <Box
+                  id="se-preview-canvas-inner"
                   style={{
                     width: `${canvasDim.width}px`,
                     height: `${canvasDim.height}px`,
@@ -2371,7 +2682,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     left: 0,
                     transform: `scale(${previewZoomScale})`,
                     transformOrigin: 'top left',
-                    backgroundImage: activeTabKey === 'sequence' 
+                    backgroundImage: (activeTabKey === 'sequence' || activeTabKey === 'gantt') 
                       ? 'none' 
                       : 'linear-gradient(var(--divider) 1px, transparent 1px), linear-gradient(90deg, var(--divider) 1px, transparent 1px)',
                     backgroundSize: '24px 24px',
