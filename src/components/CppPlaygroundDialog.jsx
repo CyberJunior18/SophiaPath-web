@@ -612,9 +612,7 @@ const translateJavaToJs = (javaCode, inputStr) => {
 
   const types = [
     'int', 'double', 'float', 'boolean', 'char', 'String', 'auto', 
-    'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Object',
-    'Shape', 'Circle', 'Rectangle', 'Employee', 'Contractor', 'Appliance', 
-    'WashingMachine', 'Refrigerator', 'Product', 'Payable', 'BankAccount', 'Scanner'
+    'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Object'
   ];
   const allTypes = [...types, ...classNames];
   
@@ -709,8 +707,7 @@ const translateJavaToJs = (javaCode, inputStr) => {
 // eslint-disable-next-line react-refresh/only-export-components
 export const simulateCodeExecution = (code, inputStr = "", language = "cpp") => {
   try {
-    const isJava = language.toLowerCase() === 'java' || code.includes('class ') || code.includes('System.out');
-    const jsCode = isJava ? translateJavaToJs(code, inputStr) : translateCppToJs(code, inputStr);
+    const jsCode = translateCppToJs(code, inputStr);
     const result = new Function(jsCode)();
     return {
       output: String(result),
@@ -952,8 +949,7 @@ export const translateJavaToJsAsync = (javaCode) => {
 };
 
 export const executeCodeAsync = async (code, language, onStdout, onReadInput) => {
-  const isJava = language.toLowerCase() === 'java' || code.includes('class ') || code.includes('System.out');
-  const jsCode = isJava ? translateJavaToJsAsync(code) : translateCppToJsAsync(code);
+  const jsCode = translateCppToJsAsync(code);
   const runnerFn = new Function('onStdout', 'onReadInput', `
     return (async () => {
       \n${jsCode}\n
@@ -1359,9 +1355,6 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
     setCurrentInputVal('');
     
     try {
-      const isJava = code.includes('class ') || code.includes('System.out') || code.includes('public static void main');
-      const lang = isJava ? 'java' : 'cpp';
-      
       const onStdout = (text) => {
         setTerminalOutput(prev => prev + text);
       };
@@ -1373,14 +1366,12 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
         });
       };
       
-      console.log('Combined C++ code to execute:\n', code);
-      
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error("Execution Timed Out (Possible Infinite Loop or unresolved input stream)")), 10000);
       });
 
       await Promise.race([
-        executeCodeAsync(code, lang, onStdout, onReadInput),
+        executeCodeAsync(code, 'cpp', onStdout, onReadInput),
         timeoutPromise
       ]);
       

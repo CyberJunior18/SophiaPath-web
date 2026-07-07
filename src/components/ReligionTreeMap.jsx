@@ -109,6 +109,21 @@ const countVisibleLeaves = (node, expandedNodes) => {
   return node.children.reduce((acc, child) => acc + countVisibleLeaves(child, expandedNodes), 0);
 };
 
+// Dynamic node size based on depth
+const clampPan = (x, y, layoutMode) => {
+  if (layoutMode === 'vertical') {
+    return {
+      x: Math.min(Math.max(x, -1200), 1200),
+      y: Math.min(Math.max(y, -250), 950)
+    };
+  } else {
+    return {
+      x: Math.min(Math.max(x, -1300), 1300),
+      y: Math.min(Math.max(y, -1300), 1300)
+    };
+  }
+};
+
 // Helper: Resolve dynamic node size and font specs based on depth (dramatically contrasted)
 const getNodeSizeConfig = (depth) => {
   if (depth === 0) {
@@ -123,6 +138,7 @@ const getNodeSizeConfig = (depth) => {
   // Leaves are kept compact to maximize separation space and prevent overlap
   return { size: 32, font: '0.85rem', labelFont: '0.52rem', labelWeight: 600, iconOffset: 16 };
 };
+
 
 // MATHEMATICAL LAYOUT GENERATOR
 const computeGraphLayout = (root, expandedNodes, layoutMode) => {
@@ -405,7 +421,7 @@ export const ReligionTreeMap = () => {
       const delta = e.deltaY < 0 ? 1 : -1;
       
       const currentScale = scaleRef.current;
-      const nextScale = Math.min(Math.max(currentScale + delta * zoomIntensity, 0.35), 2.2);
+      const nextScale = Math.min(Math.max(currentScale + delta * zoomIntensity, 0.45), 1.7);
       
       // Calculate mouse pointer relative to the translation origin of the container
       const rect = wrapper.getBoundingClientRect();
@@ -415,10 +431,11 @@ export const ReligionTreeMap = () => {
       const mouseY = e.clientY - rect.top - centerY;
       
       // Adjust pan coordinates to zoom towards the pointer
-      setPan(prev => ({
-        x: prev.x + (mouseX - prev.x) * (1 - nextScale / currentScale),
-        y: prev.y + (mouseY - prev.y) * (1 - nextScale / currentScale)
-      }));
+      setPan(prev => clampPan(
+        prev.x + (mouseX - prev.x) * (1 - nextScale / currentScale),
+        prev.y + (mouseY - prev.y) * (1 - nextScale / currentScale),
+        layoutModeRef.current
+      ));
       setScale(nextScale);
     };
 
@@ -427,6 +444,7 @@ export const ReligionTreeMap = () => {
       wrapper.removeEventListener('wheel', handleWheel);
     };
   }, []);
+
 
   // Trigger brief fade-out of connections during layout shifts
   useEffect(() => {
@@ -470,21 +488,23 @@ export const ReligionTreeMap = () => {
   // Centered zoom controls (disabled if dialog is open)
   const handleZoomIn = () => {
     if (dialogOpen) return;
-    const nextScale = Math.min(scale + 0.15, 1.8);
-    setPan(prev => ({
-      x: prev.x * (nextScale / scale),
-      y: prev.y * (nextScale / scale)
-    }));
+    const nextScale = Math.min(scale + 0.15, 1.7);
+    setPan(prev => clampPan(
+      prev.x * (nextScale / scale),
+      prev.y * (nextScale / scale),
+      layoutMode
+    ));
     setScale(nextScale);
   };
 
   const handleZoomOut = () => {
     if (dialogOpen) return;
-    const nextScale = Math.max(scale - 0.15, 0.4);
-    setPan(prev => ({
-      x: prev.x * (nextScale / scale),
-      y: prev.y * (nextScale / scale)
-    }));
+    const nextScale = Math.max(scale - 0.15, 0.45);
+    setPan(prev => clampPan(
+      prev.x * (nextScale / scale),
+      prev.y * (nextScale / scale),
+      layoutMode
+    ));
     setScale(nextScale);
   };
 
@@ -508,10 +528,11 @@ export const ReligionTreeMap = () => {
 
   const handleMouseMove = (e) => {
     if (!isDragging || dialogOpen) return;
-    setPan({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
-    });
+    setPan(clampPan(
+      e.clientX - dragStart.x,
+      e.clientY - dragStart.y,
+      layoutMode
+    ));
   };
 
   const handleMouseUpOrLeave = () => {
@@ -530,10 +551,11 @@ export const ReligionTreeMap = () => {
 
   const handleTouchMove = (e) => {
     if (!isDragging || dialogOpen || e.touches.length !== 1) return;
-    setPan({
-      x: e.touches[0].clientX - dragStart.x,
-      y: e.touches[0].clientY - dragStart.y
-    });
+    setPan(clampPan(
+      e.touches[0].clientX - dragStart.x,
+      e.touches[0].clientY - dragStart.y,
+      layoutMode
+    ));
   };
 
   // Keyboard navigation support

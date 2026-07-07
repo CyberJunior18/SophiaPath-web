@@ -11,7 +11,10 @@ import {
   ListItemIcon, 
   Divider,
   Button,
-  Avatar
+  Avatar,
+  Select,
+  MenuItem,
+  FormControl
 } from '@mui/material';
 import { 
   Notifications as NotificationsIcon,
@@ -21,7 +24,12 @@ import {
   ChevronRight as ChevronRightIcon,
   VpnKey as VpnKeyIcon,
   Email as EmailIcon,
-  Brush as BrushIcon
+  Brush as BrushIcon,
+  VolumeUp as VolumeIcon,
+  TextFields as TextIcon,
+  TouchApp as CursorIcon,
+  Wallpaper as WallpaperIcon,
+  AutoAwesome as AutoAwesomeIcon
 } from '@mui/icons-material';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -36,6 +44,33 @@ const SettingsPage = () => {
   const [logoGradient, setLogoGradient] = useState(() => {
     return localStorage.getItem('sophiapath_logo_style') === 'gradient';
   });
+  const [customCursor, setCustomCursor] = useState(() => {
+    return localStorage.getItem('sophiapath_custom_cursor') || 'default';
+  });
+
+  const [fontPreference, setFontPreference] = useState(() => {
+    return localStorage.getItem('sophiapath_font_preference') || 'default';
+  });
+  const [globalBg, setGlobalBg] = useState(() => {
+    return localStorage.getItem('sophiapath_global_bg') === 'true';
+  });
+  const [bgStyle, setBgStyle] = useState(() => {
+    return localStorage.getItem('sophiapath_bg_style') || 'constellation';
+  });
+
+  const handleGlobalBgToggle = (e) => {
+    const checked = e.target.checked;
+    setGlobalBg(checked);
+    localStorage.setItem('sophiapath_global_bg', checked ? 'true' : 'false');
+    window.dispatchEvent(new Event('sophiapath_global_bg_changed'));
+  };
+
+  const handleBgStyleChange = (e) => {
+    const value = e.target.value;
+    setBgStyle(value);
+    localStorage.setItem('sophiapath_bg_style', value);
+    window.dispatchEvent(new Event('sophiapath_bg_style_changed'));
+  };
 
   const handleLogoStyleChange = (e) => {
     const isGradient = e.target.checked;
@@ -43,6 +78,35 @@ const SettingsPage = () => {
     localStorage.setItem('sophiapath_logo_style', isGradient ? 'gradient' : 'split');
     window.dispatchEvent(new Event('logo_style_changed'));
   };
+
+  const handleCursorChange = (cursorId) => {
+    setCustomCursor(cursorId);
+    localStorage.setItem('sophiapath_custom_cursor', cursorId);
+    window.dispatchEvent(new Event('custom_cursor_changed'));
+  };
+
+  const handleFontChange = (e) => {
+    const font = e.target.value;
+    setFontPreference(font);
+    localStorage.setItem('sophiapath_font_preference', font);
+    localStorage.setItem('sophiapath_dyslexic_font', font === 'dyslexic' ? 'true' : 'false');
+    window.dispatchEvent(new Event('dyslexic_font_changed'));
+  };
+
+
+
+  const cursors = [
+    { id: 'default', name: 'Classic', char: '🖱️' },
+    { id: 'rounded', name: 'Rounded', char: '⚪' },
+    { id: 'minimal', name: 'Minimal', char: '📐' },
+    { id: 'bold', name: 'Bold', char: '◻️' },
+    { id: 'glass', name: 'Glass', char: '✨' },
+    { id: 'neon', name: 'Neon', char: '💠' },
+    { id: 'pixel', name: 'Pixel', char: '🟪' },
+    { id: 'futuristic', name: 'Futuristic', char: '🛸' },
+    { id: 'crystal', name: 'Crystal', char: '💎' },
+    { id: 'contrast', name: 'High Contrast', char: '♿' },
+  ];
 
   const themes = [
     { id: 'light', name: 'Default Light', bg: '#FCFDFF', border: '#E9EDF5', text: '#2D2D4D', dot: '#3D5CFF' },
@@ -348,6 +412,124 @@ const SettingsPage = () => {
                   />
                   <Switch checked={logoGradient} onChange={handleLogoStyleChange} color="primary" />
                 </ListItem>
+                <Divider />
+                <ListItem className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px', padding: '20px 24px' }}>
+                  <Box style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <CursorIcon className="settings-primary-icon" />
+                    <ListItemText 
+                      primary={<Typography className="settings-row-title">Custom Pointer Styles</Typography>}
+                      secondary="Select an interactive cursor pointer for your philosophical journey"
+                    />
+                  </Box>
+                  <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', marginTop: '4px', width: '100%' }}>
+                    {cursors.map((c) => (
+                      <Box
+                        key={c.id}
+                        onClick={() => handleCursorChange(c.id)}
+                        style={{
+                          cursor: 'pointer',
+                          padding: '12px 8px',
+                          borderRadius: '12px',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: customCursor === c.id ? `2px solid var(--primary-main)` : '1.5px solid var(--divider)',
+                          boxShadow: customCursor === c.id ? `0 0 12px var(--primary-main)33` : 'none',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'all 0.2s ease',
+                          textAlign: 'center'
+                        }}
+                      >
+                        <span style={{ fontSize: '1.4rem' }}>{c.char}</span>
+                        <Typography style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--text-primary)' }}>{c.name}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </ListItem>
+                <Divider />
+                <ListItem className="settings-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <ListItemIcon className="settings-row-icon" style={{ minWidth: '40px' }}>
+                      <TextIcon className="settings-primary-icon" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={<Typography className="settings-row-title">Active Font Family</Typography>}
+                      secondary="Select user interface typeface to customize reading layouts"
+                    />
+                  </div>
+                  <FormControl size="small" style={{ minWidth: '160px' }}>
+                    <Select
+                      value={fontPreference}
+                      onChange={handleFontChange}
+                      sx={{
+                        color: 'var(--text-primary)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: '10px',
+                        fieldset: { borderColor: 'var(--divider)' },
+                        '&:hover fieldset': { borderColor: 'var(--primary-main) !important' },
+                        '&.Mui-focused fieldset': { borderColor: 'var(--primary-main) !important' },
+                      }}
+                    >
+                      <MenuItem value="default">Outfit / Poppins (Theme)</MenuItem>
+                      <MenuItem value="sans">Inter (Modern Sans)</MenuItem>
+                      <MenuItem value="serif">Playfair Display (Serif Reading)</MenuItem>
+                      <MenuItem value="monospace">Fira Code (Monospace Tech)</MenuItem>
+                      <MenuItem value="dyslexic">Dyslexic-Friendly</MenuItem>
+                    </Select>
+                  </FormControl>
+                </ListItem>
+                <Divider />
+                <ListItem className="settings-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <ListItemIcon className="settings-row-icon" style={{ minWidth: '40px' }}>
+                      <WallpaperIcon className="settings-primary-icon" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={<Typography className="settings-row-title">Global Background Animation</Typography>}
+                      secondary="Add active abstract animations to the website backdrop"
+                    />
+                  </div>
+                  <Switch checked={globalBg} onChange={handleGlobalBgToggle} color="primary" />
+                </ListItem>
+                {globalBg && (
+                  <>
+                    <Divider />
+                    <ListItem className="settings-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <ListItemIcon className="settings-row-icon" style={{ minWidth: '40px' }}>
+                          <AutoAwesomeIcon className="settings-primary-icon" />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={<Typography className="settings-row-title">Backdrop Animation Style</Typography>}
+                          secondary="Choose an animation style for the global website background"
+                        />
+                      </div>
+                      <FormControl size="small" style={{ minWidth: '220px' }}>
+                        <Select
+                          value={bgStyle}
+                          onChange={handleBgStyleChange}
+                          sx={{
+                            color: 'var(--text-primary)',
+                            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                            borderRadius: '10px',
+                            fieldset: { borderColor: 'var(--divider)' },
+                            '&:hover fieldset': { borderColor: 'var(--primary-main) !important' },
+                            '&.Mui-focused fieldset': { borderColor: 'var(--primary-main) !important' },
+                          }}
+                        >
+                          <MenuItem value="constellation">1. Constellation Network</MenuItem>
+                          <MenuItem value="circuit">2. Circuit</MenuItem>
+                          <MenuItem value="aurora">3. Aurora Waves</MenuItem>
+                          <MenuItem value="grid">4. 3D Mesh Grid</MenuItem>
+                          <MenuItem value="matrix">5. Matrix Code Rain</MenuItem>
+                          <MenuItem value="vortex">6. Cosmic Vortex</MenuItem>
+                          <MenuItem value="warp">7. Learning Warp</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </ListItem>
+                  </>
+                )}
                 <Divider />
                 <ListItem className="settings-row">
                   <ListItemIcon className="settings-row-icon">

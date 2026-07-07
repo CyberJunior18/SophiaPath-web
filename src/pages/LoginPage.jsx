@@ -14,11 +14,11 @@ import {
   Lock as LockIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
-  AutoAwesome as AutoAwesomeIcon,
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import logoImg from '../assets/sp-logo.png';
 import './Auth.css';
 
 const LoginPage = () => {
@@ -27,6 +27,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
+  const [logoStyle] = useState(() => localStorage.getItem('sophiapath_logo_style') || 'split');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -45,8 +46,27 @@ const LoginPage = () => {
     <Container maxWidth="sm" className="auth-container">
       <Paper className="auth-card glass-panel-strong" elevation={0}>
         <div className="auth-header">
-          <div className="auth-logo">
-            <AutoAwesomeIcon />
+          <div 
+            className={`nav-brand-logo-container ${logoStyle === 'gradient' ? 'sp-logo-gradient' : ''}`}
+            style={{ 
+              width: '40px', 
+              height: '40px', 
+              borderRadius: '10px', 
+              overflow: 'hidden', 
+              position: 'relative',
+              marginBottom: '1rem',
+              WebkitMaskImage: `url(${logoImg})`,
+              maskImage: `url(${logoImg})`,
+              WebkitMaskRepeat: 'no-repeat',
+              maskRepeat: 'no-repeat',
+              WebkitMaskPosition: 'center',
+              maskPosition: 'center',
+              WebkitMaskSize: 'contain',
+              maskSize: 'contain',
+            }}
+          >
+            <div className="nav-logo-left-half" />
+            <div className="nav-logo-right-half" />
           </div>
           <Typography variant="h4" className="auth-title">
             Welcome Back

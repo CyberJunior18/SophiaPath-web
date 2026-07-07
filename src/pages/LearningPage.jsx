@@ -208,13 +208,6 @@ const LearningPage = () => {
     <Box className="learning-page">
       <section className="learning-intro glass-panel-strong">
         <div className="learning-intro-copy">
-          <Typography variant="h2" className="learning-intro-title">
-            Your Personalized Learning Journey
-          </Typography>
-          <Typography variant="body1" className="learning-intro-text">
-            Explore {totalAvailableCourses} various fields of study and master new skills with interactive lessons and structured paths.
-          </Typography>
-
           <div className="learning-intro-search">
             <TextField
               fullWidth

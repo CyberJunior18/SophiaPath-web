@@ -37,14 +37,15 @@ import './LearningPage.css'; // Reuse the excellent glassmorphic dashboard style
 // Import the existing high-fidelity dialog components
 import { CppPlaygroundDialog } from '../components/CppPlaygroundDialog';
 import { JavaOopUmlPlayground } from '../components/JavaOopUmlPlayground';
+import { SoftwareEngineeringLab } from '../components/SoftwareEngineeringLab';
 
-const collectionsData = [
+const labsData = [
   {
     title: "Computer Science",
     description: "Dive into low-level runtime execution systems, standard terminal compilation, and object-oriented class diagrams.",
     category: "Computer Science",
     iconKey: "cs",
-    labsCount: 2,
+    labsCount: 3,
     labs: [
       {
         id: 'cpp',
@@ -59,6 +60,13 @@ const collectionsData = [
         description: 'Write Java classes and see them rendered into inheritance and relationship structures in real time.',
         path: 'dialog:java-uml',
         iconName: 'activity'
+      },
+      {
+        id: 'swe-diagrams',
+        title: 'Software Engineering Lab',
+        description: 'Design ER Diagrams, Use Cases, Sequence Diagrams, and Gantt charts with a live visualizer.',
+        path: 'dialog:swe-diagrams',
+        iconName: 'wrench'
       }
     ]
   },
@@ -88,7 +96,7 @@ const SEARCHABLE_LABS = [
     description: 'Write, compile, and run C++ code with simulated standard terminal outputs and OOP templates.',
     path: 'dialog:cpp',
     iconName: 'terminal',
-    collectionTitle: 'Computer Science',
+    labCategoryTitle: 'Computer Science',
     category: 'Computer Science'
   },
   {
@@ -97,7 +105,16 @@ const SEARCHABLE_LABS = [
     description: 'Write Java classes and see them rendered into inheritance and relationship structures in real time.',
     path: 'dialog:java-uml',
     iconName: 'activity',
-    collectionTitle: 'Computer Science',
+    labCategoryTitle: 'Computer Science',
+    category: 'Computer Science'
+  },
+  {
+    id: 'swe-diagrams',
+    title: 'Software Engineering Lab',
+    description: 'Design ER Diagrams, Use Cases, Sequence Diagrams, and Gantt charts with a live visualizer.',
+    path: 'dialog:swe-diagrams',
+    iconName: 'wrench',
+    labCategoryTitle: 'Computer Science',
     category: 'Computer Science'
   },
   // Cybersecurity
@@ -107,7 +124,7 @@ const SEARCHABLE_LABS = [
     description: 'Simulate Stored, Reflected, and DOM-based script injections on web input forms and apply sanitization guards.',
     path: '/cyber-lab?tab=xss',
     iconName: 'code',
-    collectionTitle: 'Cybersecurity',
+    labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
   {
@@ -116,7 +133,7 @@ const SEARCHABLE_LABS = [
     description: 'Execute database query bypasses to extract mock administrator credentials and implement parameterized queries.',
     path: '/cyber-lab?tab=sqli',
     iconName: 'database',
-    collectionTitle: 'Cybersecurity',
+    labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
   {
@@ -125,7 +142,7 @@ const SEARCHABLE_LABS = [
     description: 'Exploit unvalidated OS shell commands via network forms. Master strict whitelist inputs and character escaping.',
     path: '/cyber-lab?tab=cmd',
     iconName: 'terminal',
-    collectionTitle: 'Cybersecurity',
+    labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
   {
@@ -134,7 +151,7 @@ const SEARCHABLE_LABS = [
     description: 'Forge cross-site transfer requests and deploy anti-CSRF token parameters to protect endpoints.',
     path: '/cyber-lab?tab=csrf',
     iconName: 'globe',
-    collectionTitle: 'Cybersecurity',
+    labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
   {
@@ -143,7 +160,7 @@ const SEARCHABLE_LABS = [
     description: 'Manipulate URL resource identifiers to bypass access authorization and review unauthorized records.',
     path: '/cyber-lab?tab=auth',
     iconName: 'key',
-    collectionTitle: 'Cybersecurity',
+    labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
   {
@@ -152,7 +169,7 @@ const SEARCHABLE_LABS = [
     description: 'Simulate file encryption payloads, study symmetric key exchanges, and analyze shadow volume recovery.',
     path: '/cyber-lab?tab=ransomware',
     iconName: 'lock',
-    collectionTitle: 'Cybersecurity',
+    labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
   {
@@ -161,7 +178,7 @@ const SEARCHABLE_LABS = [
     description: 'Analyze email headers for phishing indicators, trace domain spoofing, and identify human exploitation vectors.',
     path: '/cyber-lab?tab=social',
     iconName: 'user',
-    collectionTitle: 'Cybersecurity',
+    labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
   {
@@ -170,7 +187,7 @@ const SEARCHABLE_LABS = [
     description: 'Monitor system logs to identify unauthorized exfiltration surges and privilege escalation patterns.',
     path: '/cyber-lab?tab=insider',
     iconName: 'userx',
-    collectionTitle: 'Cybersecurity',
+    labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
   {
@@ -179,7 +196,7 @@ const SEARCHABLE_LABS = [
     description: 'Simulate connection floods and stress-test mock target servers to analyze resource exhaustion.',
     path: '/cyber-lab?tab=dos',
     iconName: 'activity',
-    collectionTitle: 'Cybersecurity',
+    labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
   {
@@ -188,7 +205,7 @@ const SEARCHABLE_LABS = [
     description: 'Coordinate botnet TCP SYN floods. Deploy rate-limiting firewalls and CDN request filters to mitigate attacks.',
     path: '/cyber-lab?tab=ddos',
     iconName: 'activity',
-    collectionTitle: 'Cybersecurity',
+    labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
   {
@@ -197,7 +214,7 @@ const SEARCHABLE_LABS = [
     description: 'Directly invoke GCHQ\'s CyberChef utility kitchen to perform data carving and hex decoding recipes.',
     path: '/cyber-lab?tab=cyberchef',
     iconName: 'wrench',
-    collectionTitle: 'Cybersecurity',
+    labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
   // Philosophy
@@ -207,7 +224,7 @@ const SEARCHABLE_LABS = [
     description: 'Engage with the Socrates AI agent to challenge cognitive biases, examine logical contradictions, and refine ethical definitions.',
     path: '/philosophy-lab?tab=0',
     iconName: 'brain',
-    collectionTitle: 'Philosophy',
+    labCategoryTitle: 'Philosophy',
     category: 'Humanities'
   },
   {
@@ -216,7 +233,7 @@ const SEARCHABLE_LABS = [
     description: 'Analyze real-world arguments, identify logical fallacies, and map them to their correct classical definitions.',
     path: '/philosophy-lab?tab=1',
     iconName: 'help',
-    collectionTitle: 'Philosophy',
+    labCategoryTitle: 'Philosophy',
     category: 'Humanities'
   },
   {
@@ -225,7 +242,7 @@ const SEARCHABLE_LABS = [
     description: 'Experiment with identity paradoxes. Replace physical components and analyze the continuity of identity over time.',
     path: '/philosophy-lab?tab=2',
     iconName: 'ship',
-    collectionTitle: 'Philosophy',
+    labCategoryTitle: 'Philosophy',
     category: 'Humanities'
   },
   {
@@ -234,7 +251,7 @@ const SEARCHABLE_LABS = [
     description: 'Evaluate classic moral dilemmas under utilitarianism, deontology, and virtue ethics with live decision matrices.',
     path: '/philosophy-lab?tab=3',
     iconName: 'compass',
-    collectionTitle: 'Philosophy',
+    labCategoryTitle: 'Philosophy',
     category: 'Humanities'
   },
   {
@@ -243,7 +260,7 @@ const SEARCHABLE_LABS = [
     description: 'Journey from sensory shadows to objective enlightenment. Explore classical epistemological models in an interactive format.',
     path: '/philosophy-lab?tab=4',
     iconName: 'brain',
-    collectionTitle: 'Philosophy',
+    labCategoryTitle: 'Philosophy',
     category: 'Humanities'
   },
   {
@@ -252,7 +269,7 @@ const SEARCHABLE_LABS = [
     description: 'Map socio-economic ideological axes and explore political theory on a formal two-dimensional grid.',
     path: '/philosophy-lab?tab=5',
     iconName: 'compass',
-    collectionTitle: 'Philosophy',
+    labCategoryTitle: 'Philosophy',
     category: 'Humanities'
   },
   {
@@ -261,7 +278,7 @@ const SEARCHABLE_LABS = [
     description: 'Explore the historical relationships, lineages, and core beliefs of major faith traditions in an interactive tree.',
     path: '/philosophy-lab?tab=6',
     iconName: 'compass',
-    collectionTitle: 'Philosophy',
+    labCategoryTitle: 'Philosophy',
     category: 'Humanities'
   }
 ];
@@ -301,7 +318,7 @@ const getLabIcon = (iconName) => {
   }
 };
 
-const getCollectionIcon = (iconKey) => {
+const getLabGroupIcon = (iconKey) => {
   switch (iconKey) {
     case 'cs':
       return <CodeIcon />;
@@ -322,20 +339,21 @@ const LabsPage = () => {
   // Dialog States
   const [isCppOpen, setIsCppOpen] = useState(false);
   const [isJavaUmlOpen, setIsJavaUmlOpen] = useState(false);
+  const [isSweOpen, setIsSweOpen] = useState(false);
 
-  // Read URL query parameter for active collection to ensure persistence on refresh
-  const [selectedCollection, setSelectedCollection] = useState(() => {
+  // Read URL query parameter for active lab to ensure persistence on refresh
+  const [selectedLabGroup, setSelectedLabGroup] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    const col = params.get('collection');
-    if (col === 'Philosophy' || col === 'Cybersecurity') {
+    const labParam = params.get('lab');
+    if (labParam === 'Philosophy' || labParam === 'Cybersecurity') {
       return null;
     }
-    return col || null;
+    return labParam || null;
   });
 
   const categories = ['All', 'Computer Science', 'Security', 'Humanities'];
 
-  const handleSelectCollection = (name) => {
+  const handleSelectLabGroup = (name) => {
     if (name === 'Philosophy') {
       navigate('/philosophy-lab');
       return;
@@ -345,22 +363,22 @@ const LabsPage = () => {
       return;
     }
 
-    setSelectedCollection(name);
+    setSelectedLabGroup(name);
     const params = new URLSearchParams(window.location.search);
     if (name) {
-      params.set('collection', name);
+      params.set('lab', name);
     } else {
-      params.delete('collection');
+      params.delete('lab');
     }
     const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
     window.history.pushState(null, '', newUrl);
   };
 
-  // Get active selected collection object (only CS supports drill-down now)
-  const activeCollectionObj = useMemo(() => {
-    if (!selectedCollection) return null;
-    return collectionsData.find(c => c.title.toLowerCase() === selectedCollection.toLowerCase()) || null;
-  }, [selectedCollection]);
+  // Get active selected lab object (only CS supports drill-down now)
+  const activeLabGroupObj = useMemo(() => {
+    if (!selectedLabGroup) return null;
+    return labsData.find(c => c.title.toLowerCase() === selectedLabGroup.toLowerCase()) || null;
+  }, [selectedLabGroup]);
 
   // Compute all matching labs (for search query or category filter)
   const filteredLabsAcrossAll = useMemo(() => {
@@ -382,6 +400,8 @@ const LabsPage = () => {
       setIsCppOpen(true);
     } else if (path === 'dialog:java-uml') {
       setIsJavaUmlOpen(true);
+    } else if (path === 'dialog:swe-diagrams') {
+      setIsSweOpen(true);
     } else {
       navigate(path);
     }
@@ -393,13 +413,6 @@ const LabsPage = () => {
     <Box className="learning-page">
       <section className="learning-intro glass-panel-strong">
         <div className="learning-intro-copy">
-          <Typography variant="h2" className="learning-intro-title">
-            Interactive Practice Labs
-          </Typography>
-          <Typography variant="body1" className="learning-intro-text">
-            Build hands-on expertise with real-world security drills, cryptographic rotor layouts, and ethical decision modules.
-          </Typography>
-
           <div className="learning-intro-search">
             <TextField
               fullWidth
@@ -420,7 +433,7 @@ const LabsPage = () => {
                 label={category}
                 onClick={() => {
                   setActiveCategory(category);
-                  handleSelectCollection(null);
+                  handleSelectLabGroup(null);
                 }}
                 className={`learning-category-chip ${activeCategory === category ? 'is-active' : ''}`}
               />
@@ -430,10 +443,10 @@ const LabsPage = () => {
       </section>
 
       {/* Render Back Button if in Computer Science detail view */}
-      {activeCollectionObj && !isSearchingOrFiltering && (
+      {activeLabGroupObj && !isSearchingOrFiltering && (
         <Box style={{ display: 'flex', alignItems: 'center', margin: '2rem 0 1rem 0' }}>
           <IconButton 
-            onClick={() => handleSelectCollection(null)}
+            onClick={() => handleSelectLabGroup(null)}
             style={{ 
               color: 'var(--text-primary)', 
               background: 'rgba(255, 255, 255, 0.05)', 
@@ -444,28 +457,28 @@ const LabsPage = () => {
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="body1" style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
-            Back to Collections
+            Back to Labs
           </Typography>
         </Box>
       )}
 
       {/* RENDER VIEWS */}
-      {activeCollectionObj && !isSearchingOrFiltering ? (
-        /* COMPUTER SCIENCE COLLECTION DETAIL MODE */
+      {activeLabGroupObj && !isSearchingOrFiltering ? (
+        /* COMPUTER SCIENCE LAB DETAIL MODE */
         <section className="learning-section" style={{ marginTop: '0.5rem' }}>
           <div className="learning-section-head" style={{ alignItems: 'flex-start', textAlign: 'left', marginBottom: '24px' }}>
             <div>
               <Typography variant="h4" className="learning-section-title" style={{ fontSize: '1.6rem', color: 'var(--text-primary)' }}>
-                {activeCollectionObj.title} Playgrounds
+                {activeLabGroupObj.title} Playgrounds
               </Typography>
               <Typography variant="body1" className="learning-section-copy" style={{ fontSize: '0.92rem', color: 'var(--text-secondary)' }}>
-                {activeCollectionObj.description}
+                {activeLabGroupObj.description}
               </Typography>
             </div>
           </div>
 
           <div className="learning-course-grid">
-            {activeCollectionObj.labs.map((lab) => (
+            {activeLabGroupObj.labs.map((lab) => (
               <Paper
                 key={lab.id}
                 className="learning-course-card glass-panel"
@@ -477,7 +490,7 @@ const LabsPage = () => {
                     {getLabIcon(lab.iconName)}
                   </div>
                   <div className="cyber-badge" style={{ background: 'rgba(76, 175, 80, 0.15)', color: '#4caf50' }}>
-                    {activeCollectionObj.category}
+                    {activeLabGroupObj.category}
                   </div>
                 </div>
 
@@ -527,14 +540,14 @@ const LabsPage = () => {
                       {getLabIcon(lab.iconName)}
                     </div>
                     <div className="cyber-badge" style={{
-                      background: lab.collectionTitle === 'Philosophy' 
+                      background: lab.labCategoryTitle === 'Philosophy' 
                         ? 'rgba(156, 39, 176, 0.15)' 
-                        : (lab.collectionTitle === 'Computer Science' ? 'rgba(76, 175, 80, 0.15)' : 'rgba(28, 176, 246, 0.15)'),
-                      color: lab.collectionTitle === 'Philosophy' 
+                        : (lab.labCategoryTitle === 'Computer Science' ? 'rgba(76, 175, 80, 0.15)' : 'rgba(28, 176, 246, 0.15)'),
+                      color: lab.labCategoryTitle === 'Philosophy' 
                         ? '#e040fb' 
-                        : (lab.collectionTitle === 'Computer Science' ? '#4caf50' : 'var(--primary-main)')
+                        : (lab.labCategoryTitle === 'Computer Science' ? '#4caf50' : 'var(--primary-main)')
                     }}>
-                      {lab.collectionTitle}
+                      {lab.labCategoryTitle}
                     </div>
                   </div>
 
@@ -565,12 +578,12 @@ const LabsPage = () => {
           )}
         </section>
       ) : (
-        /* COLLECTIONS LANDING MODE (CS, Cyber, Philosophy cards) */
+        /* LABS LANDING MODE (CS, Cyber, Philosophy cards) */
         <section className="learning-section" style={{ marginTop: '1.5rem' }}>
           <div className="learning-section-head" style={{ alignItems: 'flex-start', textAlign: 'left', marginBottom: '24px' }}>
             <div>
               <Typography variant="h4" className="learning-section-title" style={{ fontSize: '1.6rem', color: 'var(--text-primary)' }}>
-                Select a Collection
+                Select a Lab Category
               </Typography>
               <Typography variant="body1" className="learning-section-copy" style={{ fontSize: '0.92rem', color: 'var(--text-secondary)' }}>
                 Choose one of our core topics below to access its corresponding interactive sandbox environments.
@@ -579,17 +592,17 @@ const LabsPage = () => {
           </div>
 
           <div className="learning-course-grid">
-            {collectionsData.map((col) => (
+            {labsData.map((col) => (
               <Paper
                 key={col.title}
                 className="learning-course-card glass-panel"
                 elevation={0}
-                onClick={() => handleSelectCollection(col.title)}
+                onClick={() => handleSelectLabGroup(col.title)}
                 style={{ cursor: 'pointer', minHeight: '320px', display: 'flex', flexDirection: 'column' }}
               >
                 <div className="learning-course-card-top">
                   <div className="learning-course-icon" style={{ background: 'rgba(28, 176, 246, 0.1)', color: 'var(--primary-main)' }}>
-                    {getCollectionIcon(col.iconKey)}
+                    {getLabGroupIcon(col.iconKey)}
                   </div>
                   <div className="cyber-badge" style={{
                     background: col.title === 'Philosophy' 
@@ -612,7 +625,7 @@ const LabsPage = () => {
 
                 <div className="learning-course-footer" style={{ width: '100%', marginTop: 'auto' }}>
                   <div className="learning-course-cta">
-                    <span>{col.title === 'Computer Science' ? 'Open Collection' : 'Launch Lab'}</span>
+                    <span>{col.title === 'Computer Science' ? 'Open Labs' : 'Launch Lab'}</span>
                     <PlayArrowIcon fontSize="small" />
                   </div>
                   <ArrowOutwardIcon className="learning-course-arrow" />
@@ -634,6 +647,11 @@ const LabsPage = () => {
         open={isJavaUmlOpen}
         onClose={() => setIsJavaUmlOpen(false)}
         initialCode={`public class Person {\n    private String name;\n    private int age;\n    \n    public void speak() {\n        System.out.println("Hello!");\n    }\n}\n\npublic class Student extends Person {\n    private String studentId;\n    private double gpa;\n}`}
+      />
+
+      <SoftwareEngineeringLab
+        open={isSweOpen}
+        onClose={() => setIsSweOpen(false)}
       />
     </Box>
   );

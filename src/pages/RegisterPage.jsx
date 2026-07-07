@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Container,
@@ -9,9 +9,6 @@ import {
   InputAdornment,
   IconButton,
   Alert,
-  Avatar,
-  useTheme,
-  Tooltip
 } from '@mui/material';
 import {
   Email as EmailIcon,
@@ -19,26 +16,13 @@ import {
   Person as PersonIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
-  AutoAwesome as AutoAwesomeIcon,
-  PhotoCamera as CameraIcon,
-  CloudUpload as UploadIcon,
-  Delete as DeleteIcon,
-  Check as CheckIcon,
 } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import logoImg from '../assets/sp-logo.png';
 import './Auth.css';
 
-const AVATAR_OPTIONS = [
-  'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80'
-];
-
 const RegisterPage = () => {
-  const theme = useTheme();
-  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -47,78 +31,14 @@ const RegisterPage = () => {
     age: '',
     gender: 'Rather Not Say',
   });
-  const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_OPTIONS[0]);
-  const [isCustomAvatar, setIsCustomAvatar] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [avatarError, setAvatarError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { register } = useAuth();
+  const [logoStyle] = useState(() => localStorage.getItem('sophiapath_logo_style') || 'split');
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleFile = (file) => {
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setAvatarError('Please select a valid image file (PNG, JPG, WebP).');
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setAvatarError('Profile picture must be smaller than 2MB.');
-      return;
-    }
-
-    setAvatarError('');
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setSelectedAvatar(e.target.result);
-      setIsCustomAvatar(true);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
-    }
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleRemoveAvatar = () => {
-    setSelectedAvatar(AVATAR_OPTIONS[0]);
-    setIsCustomAvatar(false);
-    setAvatarError('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -140,7 +60,7 @@ const RegisterPage = () => {
     const { confirmPassword, ...registerData } = formData;
     const result = await register({
       ...registerData,
-      avatar: selectedAvatar
+      avatar: 'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg' // Default avatar fallback
     });
     
     if (result.success) {
@@ -155,8 +75,27 @@ const RegisterPage = () => {
     <Container maxWidth="sm" className="auth-container">
       <Paper className="auth-card glass-panel-strong" elevation={0}>
         <div className="auth-header">
-          <div className="auth-logo">
-            <AutoAwesomeIcon />
+          <div 
+            className={`nav-brand-logo-container ${logoStyle === 'gradient' ? 'sp-logo-gradient' : ''}`}
+            style={{ 
+              width: '40px', 
+              height: '40px', 
+              borderRadius: '10px', 
+              overflow: 'hidden', 
+              position: 'relative',
+              marginBottom: '1rem',
+              WebkitMaskImage: `url(${logoImg})`,
+              maskImage: `url(${logoImg})`,
+              WebkitMaskRepeat: 'no-repeat',
+              maskRepeat: 'no-repeat',
+              WebkitMaskPosition: 'center',
+              maskPosition: 'center',
+              WebkitMaskSize: 'contain',
+              maskSize: 'contain',
+            }}
+          >
+            <div className="nav-logo-left-half" />
+            <div className="nav-logo-right-half" />
           </div>
           <Typography variant="h4" className="auth-title">
             Create Account
@@ -173,42 +112,6 @@ const RegisterPage = () => {
         )}
 
         <form onSubmit={handleSubmit} className="auth-form">
-          {/* Custom Avatar Upload Zone */}
-          <Box className="avatar-upload-section">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="image/*"
-              style={{ display: 'none' }}
-            />
-            
-            <Box 
-              className={`avatar-dropzone ${isDragging ? 'dragging' : ''}`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={triggerFileInput}
-            >
-              <Avatar
-                src={selectedAvatar}
-                className="avatar-preview"
-                sx={{
-                  width: '100%',
-                  height: '100%'
-                }}
-              />
-              <Box className="avatar-hover-overlay">
-                <CameraIcon sx={{ fontSize: 32 }} />
-              </Box>
-            </Box>
-
-            {avatarError && (
-              <Alert severity="warning" className="avatar-error-alert" sx={{ mt: 1, py: 0, px: 2, borderRadius: 2 }}>
-                {avatarError}
-              </Alert>
-            )}
-          </Box>
 
           <TextField
             fullWidth

@@ -287,7 +287,7 @@ const ProfilePage = () => {
     { label: 'Streak', value: userData.streak || 0, icon: <StreakIcon />, color: theme.palette.warning.main },
     { label: 'XP', value: user?.xp || 0, icon: <StreakIcon />, color: theme.palette.info.main },
     { label: 'Trophies', value: userData.achievements || 0, icon: <TrophyIcon />, color: theme.palette.secondary.main },
-    { label: 'Path', value: `Level ${Math.floor((user?.xp || 0) / 100) + 1}`, icon: <PathIcon />, color: theme.palette.success.main },
+    { label: 'Path', value: `${user?.levelName || 'Beginner'} (Lvl ${user?.level || 1})`, icon: <PathIcon />, color: theme.palette.success.main },
   ];
 
   const upcomingTasks = [
@@ -534,7 +534,7 @@ const ProfilePage = () => {
                 { label: 'Streak', value: userData.streak || 0, icon: <StreakIcon />, color: 'orange', bg: 'orange' },
                 { label: 'XP', value: user?.xp || 0, icon: <StreakIcon />, color: 'blue', bg: 'blue' },
                 { label: 'Trophies', value: userData.achievements || 0, icon: <TrophyIcon />, color: 'yellow', bg: 'yellow' },
-                { label: 'Path', value: `Level ${Math.floor((user?.xp || 0) / 100) + 1}`, icon: <PathIcon />, color: 'purple', bg: 'purple' },
+                { label: 'Path', value: `${user?.levelName || 'Beginner'} (Lvl ${user?.level || 1})`, icon: <PathIcon />, color: 'purple', bg: 'purple' },
               ].map((stat, idx) => (
                 <Paper key={idx} className="stat-card">
                   <Box className="stat-icon" sx={{ 

@@ -80,6 +80,9 @@ export const AuthProvider = ({ children }) => {
               age: userData.age,
               gender: userData.gender,
               tag: userData.tag,
+              xp: userData.xp ?? 0,
+              level: userData.level ?? 1,
+              levelName: userData.levelName ?? 'Beginner',
               joinedDate: userData.dateTime,
               avatar: localStorage.getItem(`avatar_${userData.id}`) || userData.avatar || 'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
               achievements: [],
@@ -165,6 +168,9 @@ export const AuthProvider = ({ children }) => {
           age: userData.age,
           gender: userData.gender,
           tag: userData.tag,
+          xp: userData.xp ?? 0,
+          level: userData.level ?? 1,
+          levelName: userData.levelName ?? 'Beginner',
           joinedDate: userData.dateTime,
           avatar: localStorage.getItem(`avatar_${userData.id}`) || userData.avatar || 'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
           achievements: [],
@@ -264,6 +270,7 @@ export const AuthProvider = ({ children }) => {
           }
           return prev;
         });
+        await refreshUser();
       }
     } catch (err) {
       console.error('updateQuizScore error:', err);
@@ -381,6 +388,9 @@ export const AuthProvider = ({ children }) => {
         tag: updatedUser.tag,
         gender: updatedUser.gender,
         age: updatedUser.age,
+        xp: updatedUser.xp !== undefined ? updatedUser.xp : prev.xp,
+        level: updatedUser.level !== undefined ? updatedUser.level : prev.level,
+        levelName: updatedUser.levelName !== undefined ? updatedUser.levelName : prev.levelName,
         avatar: profileData.avatar || prev.avatar
       }));
 
@@ -467,6 +477,8 @@ export const AuthProvider = ({ children }) => {
           return {
             ...prev,
             xp: userData.xp ?? 0,
+            level: userData.level ?? 1,
+            levelName: userData.levelName ?? 'Beginner',
             name: userData.fullname || prev.name,
             tag: userData.tag || prev.tag,
             gender: userData.gender || prev.gender,

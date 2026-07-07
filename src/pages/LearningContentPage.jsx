@@ -45,6 +45,7 @@ import {
   Download as DownloadIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
+import html2canvas from 'html2canvas';
 import { useAuth } from '../context/AuthContext';
 import { coursesData } from '../data/courses';
 import './LearningContentPage.css';
@@ -1658,6 +1659,7 @@ const LearningContentPage = () => {
 
   const [lesson, setLesson] = useState(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [portalElement, setPortalElement] = useState(null);
 
   useEffect(() => {
@@ -1821,96 +1823,84 @@ const LearningContentPage = () => {
 
   const handleDownloadCheatsheet = () => {
     if (!lesson) return;
-    
-    // Get active theme colors from document styles / variables
-    const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--background-default').trim() || '#1F1F39';
-    const paperColor = getComputedStyle(document.documentElement).getPropertyValue('--background-paper').trim() || '#161632';
-    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#FFFFFF';
-    const secColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || 'rgba(255,255,255,0.7)';
-    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-main').trim() || '#3D5CFF';
-    const dividerColor = getComputedStyle(document.documentElement).getPropertyValue('--divider').trim() || 'rgba(255,255,255,0.1)';
 
-    const element = document.createElement('div');
-    element.style.position = 'absolute';
-    element.style.left = '-9999px';
-    element.style.width = '750px';
-    element.style.backgroundColor = bgColor;
-    element.style.color = textColor;
-    element.style.fontFamily = "'Poppins', sans-serif";
-    element.style.padding = '40px';
-    element.style.boxSizing = 'border-box';
-
-    let contentHtml = `
-      <div style="font-family: 'Poppins', sans-serif;">
-        <h1 style="font-family: 'Outfit', sans-serif; font-size: 2.5rem; font-weight: 800; color: ${textColor}; border-bottom: 2px solid ${primaryColor}; padding-bottom: 12px; margin-bottom: 30px;">
-          ${lesson.title}
-        </h1>
-    `;
-
-    pages.forEach((page, pIdx) => {
-      contentHtml += `
-        <div style="background-color: ${paperColor}; border: 1px solid ${dividerColor}; border-radius: 16px; padding: 30px; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); page-break-inside: avoid;">
-          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.6rem; font-weight: 700; color: ${primaryColor}; margin-top: 0; margin-bottom: 20px;">
-            ${page.pageTitle || `Section ${pIdx + 1}`}
-          </h2>
-      `;
-
-      page.blocks?.forEach(block => {
-        if (block.type === 'text') {
-          contentHtml += `<p style="line-height: 1.6; color: ${secColor}; font-size: 1rem; margin-bottom: 16px;">${block.content}</p>`;
-        } else if (block.type === 'code') {
-          contentHtml += `<pre style="background-color: #0b0f19; color: #e5e9f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'Fira Code', monospace; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.05); white-space: pre-wrap; word-wrap: break-word;"><code style="font-family: 'Fira Code', monospace; color: #e5e9f0;">${block.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
-        } else if (block.type === 'list') {
-          contentHtml += `<ul style="color: ${secColor}; line-height: 1.6; padding-left: 20px; margin-bottom: 16px;">`;
-          block.items?.forEach(item => {
-            contentHtml += `<li style="margin-bottom: 8px;">${item}</li>`;
-          });
-          contentHtml += `</ul>`;
+    const loadJsPDF = () => {
+      return new Promise((resolve, reject) => {
+        if (window.jspdf) {
+          resolve(window.jspdf.jsPDF);
+          return;
         }
-      });
-
-      contentHtml += `</div>`;
-    });
-
-    contentHtml += `
-        <div style="text-align: center; margin-top: 50px; font-size: 0.85rem; color: ${secColor}; opacity: 0.6;">
-          Generated via SophiaPath Cheatsheet Downloader
-        </div>
-      </div>
-    `;
-
-    element.innerHTML = contentHtml;
-    document.body.appendChild(element);
-
-    const opt = {
-      margin: 0.5,
-      filename: `${lesson.title.replace(/\s+/g, '_')}_Cheatsheet.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: bgColor },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-
-    const runExport = () => {
-      window.html2pdf().from(element).set(opt).save().then(() => {
-        document.body.removeChild(element);
-      }).catch(err => {
-        console.error("PDF generation error:", err);
-        document.body.removeChild(element);
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.onload = () => {
+          resolve(window.jspdf.jsPDF);
+        };
+        script.onerror = () => {
+          reject(new Error("Failed to load jsPDF"));
+        };
+        document.head.appendChild(script);
       });
     };
 
-    if (!window.html2pdf) {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      script.onload = runExport;
-      script.onerror = () => {
-        console.error("Failed to load html2pdf.js");
-        document.body.removeChild(element);
-      };
-      document.head.appendChild(script);
-    } else {
-      runExport();
-    }
+    setIsExportingPdf(true);
+
+    setTimeout(async () => {
+      try {
+        const jsPDFClass = await loadJsPDF();
+        const exportContainer = document.getElementById('cheatsheet-pdf-export-container');
+        if (!exportContainer) {
+          throw new Error("Export container not found");
+        }
+
+        const slides = exportContainer.querySelectorAll('.cheatsheet-pdf-export-slide');
+        if (slides.length === 0) {
+          throw new Error("No slides found for export");
+        }
+
+        const pdf = new jsPDFClass({
+          orientation: 'portrait',
+          unit: 'px',
+          format: 'a4'
+        });
+
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+        for (let i = 0; i < slides.length; i++) {
+          const slide = slides[i];
+          
+          const canvas = await html2canvas(slide, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#1E1E38',
+            scrollY: 0,
+            scrollX: 0
+          });
+
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          
+          const padding = 30;
+          const imgWidth = pdfWidth - (padding * 2);
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+          if (i > 0) {
+            pdf.addPage();
+          }
+
+          const xOffset = padding;
+          const yOffset = (pdfHeight - imgHeight) / 2 > padding ? (pdfHeight - imgHeight) / 2 : padding;
+
+          pdf.addImage(imgData, 'JPEG', xOffset, yOffset, imgWidth, imgHeight);
+        }
+
+        pdf.save(`${lesson.title.replace(/\s+/g, '_')}_Cheatsheet.pdf`);
+      } catch (err) {
+        console.error("PDF generation failed:", err);
+        alert("Failed to generate PDF cheatsheet. Please try again.");
+      } finally {
+        setIsExportingPdf(false);
+      }
+    }, 600);
   };
   const currentPage = hasPages ? pages[currentPageIndex] : null;
   const progress = hasPages ? ((currentPageIndex + 1) / pages.length) * 100 : 0;
@@ -3323,6 +3313,60 @@ const LearningContentPage = () => {
           }}
         />
       )}
+
+      {isExportingPdf && (
+        <div 
+          id="cheatsheet-pdf-export-container" 
+          style={{ 
+            position: 'absolute', 
+            left: '0', 
+            top: '0', 
+            zIndex: -9999, 
+            width: '800px', 
+            backgroundColor: 'var(--background-default)', 
+            color: 'var(--text-primary)',
+            padding: '40px',
+            boxSizing: 'border-box'
+          }}
+        >
+          <h1 style={{ fontFamily: 'Outfit, sans-serif', fontSize: '2.5rem', fontWeight: 800, borderBottom: '2px solid var(--primary-main)', paddingBottom: '12px', marginBottom: '30px' }}>
+            {lesson.title} - Cheatsheet
+          </h1>
+          {pages.map((page, pIdx) => (
+            <div 
+              key={pIdx} 
+              className="cheatsheet-pdf-export-slide"
+              style={{ 
+                backgroundColor: 'var(--background-paper)', 
+                border: '1px solid var(--divider)', 
+                borderRadius: '16px', 
+                padding: '40px', 
+                marginBottom: '30px', 
+                boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+              }}
+            >
+              <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: '1.8rem', fontWeight: 700, color: 'var(--primary-main)', marginTop: 0, marginBottom: '20px' }}>
+                {page.pageTitle || `Section ${pIdx + 1}`}
+              </h2>
+              <div className="slide-blocks-list">
+                {page.blocks?.map((block, idx) => renderBlock(block, idx))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={isExportingPdf} PaperProps={{ style: { padding: '24px', borderRadius: '16px', background: 'rgba(30, 30, 56, 0.95)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#ffffff', textAlign: 'center' } }}>
+        <DialogContent>
+          <Typography variant="h6" style={{ fontWeight: 800, marginBottom: '8px', fontFamily: 'Outfit' }}>
+            Generating Cheatsheet PDF
+          </Typography>
+          <Typography variant="body2" style={{ opacity: 0.8, marginBottom: '20px' }}>
+            Taking high-definition screenshots of your lesson slides...
+          </Typography>
+          <LinearProgress color="primary" />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

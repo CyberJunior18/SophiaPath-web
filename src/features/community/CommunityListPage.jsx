@@ -307,8 +307,6 @@ const CommunityListPage = () => {
       return filteredCommunities
         .filter(c => !c.isJoined && !c.isPrivate)
         .sort((a, b) => (b.membersCount || 0) - (a.membersCount || 0));
-    } else if (activeTab === 3) {
-      return filteredCommunities.filter(c => c.isPrivate);
     }
     return [];
   }, [filteredCommunities, activeTab]);
@@ -371,7 +369,6 @@ const CommunityListPage = () => {
           <Tab label="My Communities" sx={{ textTransform: 'none', fontWeight: 700 }} />
           <Tab label="Discover" sx={{ textTransform: 'none', fontWeight: 700 }} />
           <Tab label="Saved Posts" sx={{ textTransform: 'none', fontWeight: 700 }} />
-          <Tab label="Private (Test)" sx={{ textTransform: 'none', fontWeight: 700, color: 'orange' }} />
         </Tabs>
       </Box>
 
@@ -383,9 +380,7 @@ const CommunityListPage = () => {
               <Typography color="text.secondary">
                 {activeTab === 0 
                   ? "You haven't joined any communities yet. Switch to the Discover tab to find one!" 
-                  : activeTab === 3
-                    ? "No private communities found."
-                    : "No communities found."}
+                  : "No communities found."}
               </Typography>
             </Box>
           ) : (

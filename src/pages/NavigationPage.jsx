@@ -15,6 +15,8 @@ import {
   useMediaQuery,
   useTheme,
   Stack,
+  Popover,
+  Tooltip,
 } from '@mui/material';
 import {
   AutoAwesome as AutoAwesomeIcon,
@@ -33,6 +35,7 @@ import {
   Groups as GroupsIcon,
   School as SchoolIcon,
   Science as ScienceIcon,
+  InfoOutlined as InfoIcon,
 } from '@mui/icons-material';
 
 
@@ -50,7 +53,6 @@ import ChallengePage from './labs/ChallengePage';
 import PhilosophyLabPage from './PhilosophyLabPage';
 import ChatListPage from '../features/chat/ChatListPage';
 import ChatPage from '../features/chat/ChatPage';
-import CodeEditorPage from '../features/editor/CodeEditorPage';
 import CyberLabPage from './CyberLabPage';
 import GroupChatPage from '../features/chat/GroupChatPage';
 import GroupJoinLinkHandler from '../features/chat/GroupJoinLinkHandler';
@@ -68,6 +70,7 @@ import { useTheme as useAppTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import LoginPage from './LoginPage';
 import RegisterPage from './RegisterPage';
+import ConstellationBackground from '../components/ConstellationBackground';
 import { coursesData } from '../data/courses';
 
 
@@ -162,6 +165,18 @@ const NavigationPage = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [logoStyle, setLogoStyle] = useState(() => localStorage.getItem('sophiapath_logo_style') || 'split');
+  const [showGlobalBg, setShowGlobalBg] = useState(() => localStorage.getItem('sophiapath_global_bg') === 'true');
+  const [bgStyle, setBgStyle] = useState(() => localStorage.getItem('sophiapath_bg_style') || 'constellation');
+
+  const [anchorEl, setAnchorEl] = useState(null);
+  const handleLevelInfoClick = (event) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+  };
+  const handleLevelInfoClose = () => {
+    setAnchorEl(null);
+  };
+  const isPopoverOpen = Boolean(anchorEl);
 
   const [activeTour, setActiveTour] = useState(null); // 'onboarding' | 'page' | null
   const [activeStepIndex, setActiveStepIndex] = useState(null);
@@ -1024,8 +1039,20 @@ const NavigationPage = () => {
     const handleStyleChange = () => {
       setLogoStyle(localStorage.getItem('sophiapath_logo_style') || 'split');
     };
+    const handleGlobalBgChange = () => {
+      setShowGlobalBg(localStorage.getItem('sophiapath_global_bg') === 'true');
+    };
+    const handleBgStyleChange = () => {
+      setBgStyle(localStorage.getItem('sophiapath_bg_style') || 'constellation');
+    };
     window.addEventListener('logo_style_changed', handleStyleChange);
-    return () => window.removeEventListener('logo_style_changed', handleStyleChange);
+    window.addEventListener('sophiapath_global_bg_changed', handleGlobalBgChange);
+    window.addEventListener('sophiapath_bg_style_changed', handleBgStyleChange);
+    return () => {
+      window.removeEventListener('logo_style_changed', handleStyleChange);
+      window.removeEventListener('sophiapath_global_bg_changed', handleGlobalBgChange);
+      window.removeEventListener('sophiapath_bg_style_changed', handleBgStyleChange);
+    };
   }, []);
 
   const theme = useTheme();
@@ -1073,7 +1100,6 @@ const NavigationPage = () => {
     items.push({ label: 'Courses', path: '/courses', icon: <SchoolIcon /> });
     items.push({ label: 'Labs', path: '/labs', icon: <ScienceIcon /> });
     items.push({ label: 'Achievements', path: '/achievements', icon: <EmojiEventsIcon /> });
-    items.push({ label: 'HTML Editor', path: '/editor', icon: <CodeIcon /> });
     items.push({ label: 'Chats', path: '/chats', icon: <ChatIcon /> });
     items.push({ label: 'Communities', path: '/communities', icon: <GroupsIcon /> });
     items.push({ label: 'Profile', path: '/profile', icon: <PersonIcon /> });
@@ -1088,7 +1114,6 @@ const NavigationPage = () => {
     '/learning-path': 'Your Roadmap',
     '/challenge': 'Chapter Challenge',
     '/achievements': 'Your Achievements',
-    '/editor': 'HTML Playground',
     '/chats': 'Messages',
     '/communities': 'Learning Communities',
     '/profile': 'Your Profile',
@@ -1096,27 +1121,21 @@ const NavigationPage = () => {
   };
 
   const pageDescriptions = {
-    '/': 'Manage system configurations, courses, users, and audit logs.',
-    '/courses': 'Explore courses, track progress, and launch your next module.',
-    '/labs': 'Hands-on practice labs for Cybersecurity, Cryptography, and Philosophy.',
-    '/learning-path': 'See the full roadmap and unlock your next milestone.',
-    '/challenge': 'Test your skills in interactive hacking and coding exercises.',
-    '/achievements': 'Monitor trophies, streaks, and progression signals.',
-    '/editor': 'Experiment with HTML, CSS, and JS in a live environment.',
-    '/chats': 'Connect with other learners and share your insights.',
-    '/communities': 'Join public rooms, share code snippets, and debate logic.',
-    '/profile': 'Review your public learner profile and progress footprint.',
-    '/settings': 'Tune the interface and account behavior to your workflow.',
+    '/': 'Manage your platform, users, courses, and system settings.',
+    '/courses': 'Browse courses, continue learning, and track your progress.',
+    '/labs': 'Practice through interactive labs.',
+    '/learning-path': 'Follow your personalized learning journey and unlock new milestones.',
+    '/challenge': 'Sharpen your skills with problem-solving challenges.',
+    '/achievements': 'View your achievements, streaks, and overall progress.',
+    '/chats': 'Chat with friends, learners, and experts in real time.',
+    '/communities': 'Join communities, participate in discussions, and connect with learners worldwide.',
+    '/profile': 'View your profile, accomplishments, and learning activity.',
+    '/settings': 'Customize your account, preferences, accessibility, and application settings.',
   };
 
 
 
   const handleNavigation = (path) => {
-    if (path === '/editor') {
-      window.open('/editor', '_blank');
-      setDrawerOpen(false);
-      return;
-    }
     navigate(path);
     setDrawerOpen(false);
   };
@@ -1215,9 +1234,26 @@ const NavigationPage = () => {
             />
             <div className="nav-profile-copy">
               <Typography className="nav-profile-name">{userName}</Typography>
-              <Typography className="nav-profile-role">
-                Level {Math.floor((user?.xp || 0) / 100) + 1} • {user?.xp || 0} XP
-              </Typography>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {user?.levelName || 'Beginner'}
+                  </span>
+                  <Tooltip title="View Level Guide">
+                    <IconButton 
+                      size="small" 
+                      onClick={handleLevelInfoClick}
+                      style={{ padding: '2px', color: 'rgba(255, 255, 255, 0.45)' }}
+                      className="interactive"
+                    >
+                      <InfoIcon style={{ fontSize: '0.88rem' }} />
+                    </IconButton>
+                  </Tooltip>
+                </div>
+                <span style={{ fontSize: '0.74rem', opacity: 0.65, color: 'var(--text-secondary)' }}>
+                  xp: {user?.xp || 0}
+                </span>
+              </div>
             </div>
           </motion.div>
         ) : (
@@ -1228,6 +1264,92 @@ const NavigationPage = () => {
             />
           </motion.div>
         )}
+
+        <Popover
+          open={isPopoverOpen}
+          anchorEl={anchorEl}
+          onClose={handleLevelInfoClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'left',
+          }}
+          PaperProps={{
+            style: {
+              padding: '16px',
+              width: '280px',
+              borderRadius: '16px',
+              background: 'rgba(30, 30, 56, 0.95)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#ffffff',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            }
+          }}
+        >
+          <Typography variant="subtitle2" style={{ fontWeight: 850, marginBottom: '6px', fontFamily: '"Outfit", sans-serif', color: '#3D5CFF' }}>
+            XP & Levels Rank System
+          </Typography>
+          <Typography variant="body2" style={{ fontSize: '0.74rem', opacity: 0.7, marginBottom: '12px', lineHeight: 1.4 }}>
+            Earn XP by finishing lessons and quizzes. Unlock a new rank every 100 XP!
+          </Typography>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto', marginBottom: '12px', paddingRight: '4px' }}>
+            {[
+              { level: 1, name: 'Beginner', range: '0 - 99' },
+              { level: 2, name: 'Learner', range: '100 - 199' },
+              { level: 3, name: 'Explorer', range: '200 - 299' },
+              { level: 4, name: 'Skilled', range: '300 - 399' },
+              { level: 5, name: 'Advanced', range: '400 - 499' },
+              { level: 6, name: 'Expert', range: '500 - 599' },
+              { level: 7, name: 'Veteran', range: '600 - 699' },
+              { level: 8, name: 'Elite', range: '700 - 799' },
+              { level: 9, name: 'Master', range: '800 - 899' },
+              { level: 10, name: 'Legend', range: '900+' },
+            ].map((cfg) => {
+              const currentLvl = user?.level || 1;
+              const isCurrent = currentLvl === cfg.level || (cfg.level === 10 && currentLvl >= 10);
+              return (
+                <div 
+                  key={cfg.level} 
+                  style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    padding: '5px 8px', 
+                    borderRadius: '8px',
+                    background: isCurrent ? 'rgba(61, 92, 255, 0.18)' : 'transparent',
+                    border: isCurrent ? '1.5px solid #3D5CFF' : '1px solid transparent',
+                  }}
+                >
+                  <span style={{ fontSize: '0.76rem', fontWeight: isCurrent ? 800 : 500, color: isCurrent ? '#3D5CFF' : 'inherit' }}>
+                    Lvl {cfg.level}: {cfg.name}
+                  </span>
+                  <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>
+                    {cfg.range} XP
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          
+          {(user?.level || 1) < 10 && (
+            <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <Typography style={{ fontSize: '0.74rem', fontWeight: 800 }}>
+                Next Rank: <span style={{ color: '#3D5CFF' }}>
+                  {[
+                    'Beginner', 'Learner', 'Explorer', 'Skilled', 'Advanced', 'Expert', 'Veteran', 'Elite', 'Master', 'Legend'
+                  ][(user?.level || 1)]}
+                </span>
+              </Typography>
+              <Typography style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '2px' }}>
+                Earn <strong>{((user?.level || 1) * 100) - (user?.xp || 0)} XP</strong> more to level up!
+              </Typography>
+            </div>
+          )}
+        </Popover>
 
         <List className="nav-menu-list">
           {navigationItems.map((item) => {
@@ -1421,6 +1543,7 @@ const NavigationPage = () => {
   if (isAuthPage) {
     return (
       <Box className="auth-shell">
+        <ConstellationBackground styleType={bgStyle} />
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/login" element={<AnimatedPage><LoginPage /></AnimatedPage>} />
@@ -1433,6 +1556,7 @@ const NavigationPage = () => {
 
   return (
     <Box className={`nav-shell ${isStickyFooterPage ? 'has-sticky-footer' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      {showGlobalBg && <ConstellationBackground styleType={bgStyle} />}
       {/* Floating Animated Brand Logo */}
       {!isMobile && (
         <motion.div
@@ -1446,7 +1570,7 @@ const NavigationPage = () => {
           className={`nav-brand-logo-container absolute-corner-logo ${logoStyle === 'gradient' ? 'sp-logo-gradient' : ''}`}
           style={{
             position: 'fixed',
-            zIndex: 9999, // Render on top of everything!
+            zIndex: 1200, // Render above sidebar but below dialog modals
             cursor: sidebarCollapsed ? 'pointer' : 'default',
             WebkitMaskImage: `url(${logoImg})`,
             maskImage: `url(${logoImg})`,
@@ -1481,7 +1605,7 @@ const NavigationPage = () => {
             left: '17rem',
             top: '56px',
             transform: 'translate(-50%, -50%)',
-            zIndex: 99999,
+            zIndex: 1200,
           }}
         >
           <IconButton 
