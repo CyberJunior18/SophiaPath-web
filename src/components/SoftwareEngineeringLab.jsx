@@ -4,6 +4,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
   Box,
   useTheme,
   Typography,
@@ -14,7 +15,14 @@ import {
   MenuItem,
   Alert,
   Tooltip,
-  Paper
+  Paper,
+  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  InputLabel
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -25,7 +33,9 @@ import {
   Download as DownloadIcon,
   Fullscreen as FullscreenIcon,
   FullscreenExit as FullscreenExitIcon,
-  Visibility as PreviewIcon
+  Visibility as PreviewIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import Editor from '@monaco-editor/react';
 import html2canvas from 'html2canvas';
@@ -207,6 +217,503 @@ MILESTONE Version 1.0
 DATE 2026-08-05`
 };
 
+const AddEntityDialog = ({ open, onClose, onSubmit, existingEntityNames }) => {
+  const [name, setName] = useState('');
+  const [fields, setFields] = useState([{ name: '', type: 'int', key: '' }]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setName('');
+      setFields([{ name: '', type: 'int', key: '' }]);
+      setError('');
+    }
+  }, [open]);
+
+  const handleAddField = () => {
+    setFields([...fields, { name: '', type: 'int', key: '' }]);
+  };
+
+  const handleRemoveField = (idx) => {
+    const updated = [...fields];
+    updated.splice(idx, 1);
+    setFields(updated);
+  };
+
+  const handleFieldChange = (idx, key, val) => {
+    const updated = [...fields];
+    updated[idx][key] = val;
+    setFields(updated);
+  };
+
+  const handleSubmit = () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError('Entity name cannot be empty.');
+      return;
+    }
+    if (/\s/.test(trimmedName)) {
+      setError('Entity name cannot contain spaces.');
+      return;
+    }
+    if (existingEntityNames.some(n => n.toLowerCase() === trimmedName.toLowerCase())) {
+      setError(`An entity named "${trimmedName}" already exists.`);
+      return;
+    }
+
+    const validFields = fields.filter(f => f.name.trim() !== '');
+    if (validFields.length === 0) {
+      setError('You must specify at least one attribute.');
+      return;
+    }
+
+    const fieldNames = validFields.map(f => f.name.trim());
+    if (new Set(fieldNames).size !== fieldNames.length) {
+      setError('Attribute names must be unique.');
+      return;
+    }
+
+    onSubmit(trimmedName, validFields);
+  };
+
+  return (
+    <Dialog 
+      open={open} 
+      onClose={onClose}
+      PaperProps={{
+        style: {
+          background: 'rgba(30, 30, 56, 0.95)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          color: '#ffffff',
+          borderRadius: '16px',
+          padding: '12px',
+          maxWidth: '600px',
+          width: '100%',
+        }
+      }}
+    >
+      <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+        ✨ Add New Entity
+      </DialogTitle>
+      <DialogContent style={{ marginTop: '16px' }}>
+        {error && <Alert severity="error" style={{ marginBottom: '16px', borderRadius: '8px' }}>{error}</Alert>}
+        
+        <TextField
+          fullWidth
+          label="Entity Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Employee"
+          variant="outlined"
+          size="small"
+          InputLabelProps={{ style: { color: 'rgba(255,255,255,0.7)' } }}
+          inputProps={{ style: { color: '#fff' } }}
+          sx={{
+            marginBottom: '24px',
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' },
+              '&:hover fieldset': { borderColor: 'var(--primary-main)' },
+              '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' },
+            }
+          }}
+        />
+
+        <Typography variant="subtitle2" style={{ fontWeight: 700, marginBottom: '8px', color: 'rgba(255,255,255,0.7)' }}>
+          Attributes / Fields
+        </Typography>
+
+        <Box style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', background: 'rgba(0,0,0,0.2)' }}>
+          <Table size="small" stickyHeader style={{ background: 'transparent' }}>
+            <TableHead>
+              <TableRow>
+                <TableCell style={{ background: '#191932', color: 'rgba(255,255,255,0.7)', borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 'bold' }}>Field Name</TableCell>
+                <TableCell style={{ background: '#191932', color: 'rgba(255,255,255,0.7)', borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 'bold' }}>Type</TableCell>
+                <TableCell style={{ background: '#191932', color: 'rgba(255,255,255,0.7)', borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 'bold' }}>Constraint</TableCell>
+                <TableCell style={{ background: '#191932', color: 'rgba(255,255,255,0.7)', borderBottom: '1px solid rgba(255,255,255,0.08)', width: '50px' }} />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {fields.map((field, idx) => (
+                <TableRow key={idx}>
+                  <TableCell style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <TextField
+                      value={field.name}
+                      onChange={(e) => handleFieldChange(idx, 'name', e.target.value)}
+                      placeholder="e.g. email"
+                      variant="standard"
+                      size="small"
+                      inputProps={{ style: { color: '#fff', fontSize: '0.85rem' } }}
+                      fullWidth
+                    />
+                  </TableCell>
+                  <TableCell style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <Select
+                      value={field.type}
+                      onChange={(e) => handleFieldChange(idx, 'type', e.target.value)}
+                      variant="standard"
+                      style={{ color: '#fff', fontSize: '0.85rem', width: '100px' }}
+                    >
+                      <MenuItem value="int">int</MenuItem>
+                      <MenuItem value="varchar">varchar</MenuItem>
+                      <MenuItem value="string">string</MenuItem>
+                      <MenuItem value="datetime">datetime</MenuItem>
+                      <MenuItem value="boolean">boolean</MenuItem>
+                      <MenuItem value="float">float</MenuItem>
+                    </Select>
+                  </TableCell>
+                  <TableCell style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <Select
+                      value={field.key}
+                      onChange={(e) => handleFieldChange(idx, 'key', e.target.value)}
+                      variant="standard"
+                      style={{ color: '#fff', fontSize: '0.85rem', width: '120px' }}
+                    >
+                      <MenuItem value="">None</MenuItem>
+                      <MenuItem value="PK">Primary Key</MenuItem>
+                      <MenuItem value="FK">Foreign Key</MenuItem>
+                    </Select>
+                  </TableCell>
+                  <TableCell style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                    <IconButton size="small" onClick={() => handleRemoveField(idx)} style={{ color: '#ff647c' }} disabled={fields.length <= 1}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
+
+        <Button
+          startIcon={<AddIcon />}
+          onClick={handleAddField}
+          style={{ color: 'var(--primary-main)', textTransform: 'none', marginTop: '12px', fontWeight: 'bold' }}
+        >
+          Add Attribute
+        </Button>
+      </DialogContent>
+      <DialogActions style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', gap: '8px' }}>
+        <Button onClick={onClose} style={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" style={{ background: 'var(--primary-main)', textTransform: 'none', fontWeight: 'bold' }}>
+          Create Entity
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+const CreateRelationDialog = ({ open, onClose, source, target, onSubmit }) => {
+  const [sourceCard, setSourceCard] = useState('MANY');
+  const [targetCard, setTargetCard] = useState('ONE');
+
+  useEffect(() => {
+    if (open) {
+      setSourceCard('MANY');
+      setTargetCard('ONE');
+    }
+  }, [open]);
+
+  const handleSubmit = () => {
+    onSubmit(source, target, sourceCard, targetCard);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      PaperProps={{
+        style: {
+          background: 'rgba(30, 30, 56, 0.95)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          color: '#ffffff',
+          borderRadius: '16px',
+          padding: '12px',
+          maxWidth: '450px',
+          width: '100%',
+        }
+      }}
+    >
+      <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+        🔗 Create Relationship
+      </DialogTitle>
+      <DialogContent style={{ marginTop: '16px' }}>
+        <Typography variant="body2" style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '24px' }}>
+          Define the cardinality constraint between the connected entities:
+        </Typography>
+
+        <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '16px' }}>
+          <Box style={{ flex: 1, padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', textAlign: 'center' }}>
+            <Typography variant="subtitle2" style={{ fontWeight: 'bold', color: 'var(--primary-main)', marginBottom: '12px' }}>
+              {source}
+            </Typography>
+            <FormControl fullWidth size="small">
+              <InputLabel style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem' }}>Cardinality</InputLabel>
+              <Select
+                value={sourceCard}
+                label="Cardinality"
+                onChange={(e) => setSourceCard(e.target.value)}
+                style={{ color: '#fff', fontSize: '0.85rem' }}
+                sx={{
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' },
+                }}
+              >
+                <MenuItem value="ONE">ONE (1)</MenuItem>
+                <MenuItem value="MANY">MANY (M)</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Typography variant="body1" style={{ fontWeight: 'bold', color: 'rgba(255,255,255,0.4)' }}>
+            TO
+          </Typography>
+
+          <Box style={{ flex: 1, padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', textAlign: 'center' }}>
+            <Typography variant="subtitle2" style={{ fontWeight: 'bold', color: 'var(--primary-main)', marginBottom: '12px' }}>
+              {target}
+            </Typography>
+            <FormControl fullWidth size="small">
+              <InputLabel style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem' }}>Cardinality</InputLabel>
+              <Select
+                value={targetCard}
+                label="Cardinality"
+                onChange={(e) => setTargetCard(e.target.value)}
+                style={{ color: '#fff', fontSize: '0.85rem' }}
+                sx={{
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' },
+                }}
+              >
+                <MenuItem value="ONE">ONE (1)</MenuItem>
+                <MenuItem value="MANY">MANY (N)</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </Box>
+      </DialogContent>
+      <DialogActions style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', gap: '8px' }}>
+        <Button onClick={onClose} style={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" style={{ background: 'var(--primary-main)', textTransform: 'none', fontWeight: 'bold' }}>
+          Create Relation
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+const AddActorDialog = ({ open, onClose, onSubmit, existingNames }) => {
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) { setName(''); setError(''); }
+  }, [open]);
+
+  const handleSubmit = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return setError('Actor name cannot be empty.');
+    if (existingNames.some(n => n.toLowerCase() === trimmed.toLowerCase())) {
+      return setError(`Actor "${trimmed}" already exists.`);
+    }
+    onSubmit(trimmed);
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} PaperProps={{ style: { background: 'rgba(30, 30, 56, 0.95)', border: '1px solid rgba(255,255,255,0.08)', color: '#ffffff', borderRadius: '16px', padding: '12px', maxWidth: '400px', width: '100%' } }}>
+      <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+        👤 Add Actor
+      </DialogTitle>
+      <DialogContent style={{ marginTop: '16px' }}>
+        {error && <Alert severity="error" style={{ marginBottom: '16px', borderRadius: '8px' }}>{error}</Alert>}
+        <TextField fullWidth label="Actor Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. User" variant="outlined" size="small" InputLabelProps={{ style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+      </DialogContent>
+      <DialogActions style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', gap: '8px' }}>
+        <Button onClick={onClose} style={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>Cancel</Button>
+        <Button onClick={handleSubmit} variant="contained" style={{ background: 'var(--primary-main)', textTransform: 'none', fontWeight: 'bold' }}>Create Actor</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+const AddUseCaseDialog = ({ open, onClose, onSubmit, existingNames }) => {
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) { setName(''); setError(''); }
+  }, [open]);
+
+  const handleSubmit = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return setError('Use Case name cannot be empty.');
+    if (existingNames.some(n => n.toLowerCase() === trimmed.toLowerCase())) {
+      return setError(`Use Case "${trimmed}" already exists.`);
+    }
+    onSubmit(trimmed);
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} PaperProps={{ style: { background: 'rgba(30, 30, 56, 0.95)', border: '1px solid rgba(255,255,255,0.08)', color: '#ffffff', borderRadius: '16px', padding: '12px', maxWidth: '400px', width: '100%' } }}>
+      <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+        🎯 Add Use Case
+      </DialogTitle>
+      <DialogContent style={{ marginTop: '16px' }}>
+        {error && <Alert severity="error" style={{ marginBottom: '16px', borderRadius: '8px' }}>{error}</Alert>}
+        <TextField fullWidth label="Use Case Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Login to System" variant="outlined" size="small" InputLabelProps={{ style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+      </DialogContent>
+      <DialogActions style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', gap: '8px' }}>
+        <Button onClick={onClose} style={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>Cancel</Button>
+        <Button onClick={handleSubmit} variant="contained" style={{ background: 'var(--primary-main)', textTransform: 'none', fontWeight: 'bold' }}>Create Use Case</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+const AddParticipantDialog = ({ open, onClose, onSubmit, existingNames }) => {
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) { setName(''); setError(''); }
+  }, [open]);
+
+  const handleSubmit = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return setError('Participant name cannot be empty.');
+    if (existingNames.some(n => n.toLowerCase() === trimmed.toLowerCase())) {
+      return setError(`Participant "${trimmed}" already exists.`);
+    }
+    onSubmit(trimmed);
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} PaperProps={{ style: { background: 'rgba(30, 30, 56, 0.95)', border: '1px solid rgba(255,255,255,0.08)', color: '#ffffff', borderRadius: '16px', padding: '12px', maxWidth: '400px', width: '100%' } }}>
+      <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+        ⏹ Add Participant
+      </DialogTitle>
+      <DialogContent style={{ marginTop: '16px' }}>
+        {error && <Alert severity="error" style={{ marginBottom: '16px', borderRadius: '8px' }}>{error}</Alert>}
+        <TextField fullWidth label="Participant Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Database" variant="outlined" size="small" InputLabelProps={{ style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+      </DialogContent>
+      <DialogActions style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', gap: '8px' }}>
+        <Button onClick={onClose} style={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>Cancel</Button>
+        <Button onClick={handleSubmit} variant="contained" style={{ background: 'var(--primary-main)', textTransform: 'none', fontWeight: 'bold' }}>Create Participant</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+const AddSequenceMessageDialog = ({ open, onClose, onSubmit, participants }) => {
+  const [source, setSource] = useState('');
+  const [target, setTarget] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) { setSource(''); setTarget(''); setMessage(''); setError(''); }
+  }, [open]);
+
+  const handleSubmit = () => {
+    const trimmedMsg = message.trim();
+    if (!source || !target) return setError('Please select a Source and Target participant.');
+    if (!trimmedMsg) return setError('Message cannot be empty.');
+    onSubmit(source, target, trimmedMsg);
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} PaperProps={{ style: { background: 'rgba(30, 30, 56, 0.95)', border: '1px solid rgba(255,255,255,0.08)', color: '#ffffff', borderRadius: '16px', padding: '12px', maxWidth: '450px', width: '100%' } }}>
+      <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+        ✉️ Add Message
+      </DialogTitle>
+      <DialogContent style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {error && <Alert severity="error" style={{ borderRadius: '8px' }}>{error}</Alert>}
+        
+        <Box style={{ display: 'flex', gap: '16px' }}>
+          <FormControl fullWidth size="small">
+            <InputLabel style={{ color: 'rgba(255,255,255,0.7)' }}>From</InputLabel>
+            <Select value={source} label="From" onChange={(e) => setSource(e.target.value)} style={{ color: '#fff' }} sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' } }}>
+              {participants.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+            </Select>
+          </FormControl>
+          
+          <FormControl fullWidth size="small">
+            <InputLabel style={{ color: 'rgba(255,255,255,0.7)' }}>To</InputLabel>
+            <Select value={target} label="To" onChange={(e) => setTarget(e.target.value)} style={{ color: '#fff' }} sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' } }}>
+              {participants.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Box>
+
+        <TextField fullWidth label="Message" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="e.g. Request Data" variant="outlined" size="small" InputLabelProps={{ style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+      </DialogContent>
+      <DialogActions style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', gap: '8px' }}>
+        <Button onClick={onClose} style={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>Cancel</Button>
+        <Button onClick={handleSubmit} variant="contained" style={{ background: 'var(--primary-main)', textTransform: 'none', fontWeight: 'bold' }}>Create Message</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+const AddTaskDialog = ({ open, onClose, onSubmit, existingTasks }) => {
+  const [name, setName] = useState('');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [deps, setDeps] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) { setName(''); setStart(''); setEnd(''); setDeps([]); setError(''); }
+  }, [open]);
+
+  const handleSubmit = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return setError('Task name cannot be empty.');
+    if (!start || !end) return setError('Start and End dates are required.');
+    if (new Date(start) > new Date(end)) return setError('Start date must be before End date.');
+    if (existingTasks.some(t => t.toLowerCase() === trimmed.toLowerCase())) {
+      return setError(`Task "${trimmed}" already exists.`);
+    }
+    onSubmit(trimmed, start, end, deps);
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} PaperProps={{ style: { background: 'rgba(30, 30, 56, 0.95)', border: '1px solid rgba(255,255,255,0.08)', color: '#ffffff', borderRadius: '16px', padding: '12px', maxWidth: '400px', width: '100%' } }}>
+      <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+        📅 Add Task
+      </DialogTitle>
+      <DialogContent style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {error && <Alert severity="error" style={{ borderRadius: '8px' }}>{error}</Alert>}
+        
+        <TextField fullWidth label="Task Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Design UI" variant="outlined" size="small" InputLabelProps={{ style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+        
+        <Box style={{ display: 'flex', gap: '16px' }}>
+          <TextField fullWidth label="Start Date" type="date" value={start} onChange={(e) => setStart(e.target.value)} InputLabelProps={{ shrink: true, style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+          <TextField fullWidth label="End Date" type="date" value={end} onChange={(e) => setEnd(e.target.value)} InputLabelProps={{ shrink: true, style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+        </Box>
+
+        {existingTasks.length > 0 && (
+          <FormControl fullWidth size="small">
+            <InputLabel style={{ color: 'rgba(255,255,255,0.7)' }}>Depends On</InputLabel>
+            <Select multiple value={deps} label="Depends On" onChange={(e) => setDeps(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)} style={{ color: '#fff' }} sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' } }}>
+              {existingTasks.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            </Select>
+          </FormControl>
+        )}
+      </DialogContent>
+      <DialogActions style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', gap: '8px' }}>
+        <Button onClick={onClose} style={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>Cancel</Button>
+        <Button onClick={handleSubmit} variant="contained" style={{ background: 'var(--primary-main)', textTransform: 'none', fontWeight: 'bold' }}>Create Task</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 export const SoftwareEngineeringLab = ({ open, onClose }) => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
@@ -217,6 +724,18 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
   const [code, setCode] = useState(TEMPLATES.er);
   const [error, setError] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
+
+  // States for visual entity and relationship builder
+  const [isAddEntityOpen, setIsAddEntityOpen] = useState(false);
+  const [isAddActorOpen, setIsAddActorOpen] = useState(false);
+  const [isAddUseCaseOpen, setIsAddUseCaseOpen] = useState(false);
+  const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
+  const [isAddSequenceMessageOpen, setIsAddSequenceMessageOpen] = useState(false);
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+
+  const [isRelationDialogOpen, setIsRelationDialogOpen] = useState(false);
+  const [pendingRelationSource, setPendingRelationSource] = useState(null);
+  const [relationTarget, setRelationTarget] = useState(null);
 
   // Split-pane slider state
   const [splitPercent, setSplitPercent] = useState(50);
@@ -252,6 +771,11 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
 
   const activeTabKey = tabsMeta[activeTab].key;
   const activeTabTitle = tabsMeta[activeTab].title;
+
+  useEffect(() => {
+    setPendingRelationSource(null);
+    setRelationTarget(null);
+  }, [activeTabKey]);
 
   // Refs for tracking interactive mouse states
   const isPanningRef = useRef(false);
@@ -494,16 +1018,20 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     };
   }, [draggingNode, zoomScale, activeTabKey]);
 
-  // Escape key to exit fullscreen mode
+  // Escape key to exit fullscreen mode or cancel relationship selection
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isFullscreen) {
-        setIsFullscreen(false);
+      if (e.key === 'Escape') {
+        if (pendingRelationSource) {
+          setPendingRelationSource(null);
+        } else if (isFullscreen) {
+          setIsFullscreen(false);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen]);
+  }, [isFullscreen, pendingRelationSource]);
 
   // Calculate canvas dimensions dynamically to expand scroll boundaries
   const getCanvasDimensions = () => {
@@ -564,6 +1092,90 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     };
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
+  };
+
+  const handleCreateEntity = (entityName, fields) => {
+    if (!entityName) return;
+    let entityStr = `\n\nENTITY ${entityName}\nATTRIBUTES\n`;
+    fields.forEach(field => {
+      if (!field.name) return;
+      const keyType = field.key === 'PK' ? ' PRIMARY KEY' : (field.key === 'FK' ? ' FOREIGN KEY' : '');
+      entityStr += `${field.name} : ${field.type}${keyType}\n`;
+    });
+
+    setCode(prevCode => prevCode + entityStr);
+
+    const count = Object.keys(nodePositions).length;
+    const newX = (count % 3) * 320 + 80;
+    const newY = Math.floor(count / 3) * 260 + 80;
+
+    setNodePositions(prev => ({
+      ...prev,
+      [entityName]: { x: newX, y: newY }
+    }));
+
+    setIsAddEntityOpen(false);
+  };
+
+  const handleCreateRelationship = (source, target, sourceCard, targetCard) => {
+    if (!source || !target) return;
+    const relStr = `\n\nRELATIONSHIP ${source} ${sourceCard} TO ${target} ${targetCard}`;
+    setCode(prevCode => prevCode + relStr);
+    setPendingRelationSource(null);
+    setRelationTarget(null);
+    setIsRelationDialogOpen(false);
+  };
+
+  const handleCreateActor = (name) => {
+    setCode(prev => prev + `\nACTOR ${name}`);
+    const count = Object.keys(nodePositions).length;
+    setNodePositions(prev => ({
+      ...prev,
+      [name]: { x: 100, y: count * 180 + 150 }
+    }));
+    setIsAddActorOpen(false);
+  };
+
+  const handleCreateUseCase = (name) => {
+    setCode(prev => prev + `\nUSE CASE ${name}`);
+    const count = Object.keys(nodePositions).length;
+    setNodePositions(prev => ({
+      ...prev,
+      [name]: { x: 420, y: count * 110 + 100 }
+    }));
+    setIsAddUseCaseOpen(false);
+  };
+
+  const handleCreateParticipant = (name) => {
+    setCode(prev => prev + `\nPARTICIPANT ${name}`);
+    setIsAddParticipantOpen(false);
+  };
+
+  const handleCreateSequenceMessage = (source, target, message) => {
+    setCode(prev => prev + `\n\n${source} sends "${message}" to ${target}.`);
+    setIsAddSequenceMessageOpen(false);
+  };
+
+  const handleCreateGanttTask = (name, start, end, deps) => {
+    let taskStr = `\n\nTASK ${name}\nSTART ${start}\nEND ${end}`;
+    deps.forEach(dep => {
+      taskStr += `\nDEPENDS ON ${dep}`;
+    });
+    setCode(prev => prev + taskStr);
+    setIsAddTaskOpen(false);
+  };
+
+  const handleRelationDotClick = (entityName) => {
+    if (pendingRelationSource) {
+      if (pendingRelationSource === entityName) {
+        setPendingRelationSource(null);
+      } else {
+        setRelationTarget(entityName);
+        setIsRelationDialogOpen(true);
+      }
+    } else {
+      setPendingRelationSource(entityName);
+    }
   };
 
   const handleCopyCode = () => {
@@ -2128,6 +2740,52 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               </Typography>
               
               <Box style={{ display: 'flex', gap: '4px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', padding: '2px', border: '1px solid rgba(255, 255, 255, 0.05)', zIndex: 5, alignItems: 'center' }}>
+                {activeTabKey === 'er' && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    color="primary"
+                    startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />}
+                    onClick={() => setIsAddEntityOpen(true)}
+                    style={{
+                      marginRight: '8px',
+                      marginLeft: '4px',
+                      borderRadius: '6px',
+                      textTransform: 'none',
+                      height: '28px',
+                      fontSize: '0.72rem',
+                      background: 'var(--primary-main)',
+                      fontWeight: 800,
+                    }}
+                  >
+                    Add Entity
+                  </Button>
+                )}
+                {activeTabKey === 'usecase' && (
+                  <>
+                    <Button variant="contained" size="small" color="primary" startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />} onClick={() => setIsAddActorOpen(true)} style={{ marginRight: '4px', marginLeft: '4px', borderRadius: '6px', textTransform: 'none', height: '28px', fontSize: '0.72rem', background: 'var(--primary-main)', fontWeight: 800 }}>
+                      Add Actor
+                    </Button>
+                    <Button variant="contained" size="small" color="primary" startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />} onClick={() => setIsAddUseCaseOpen(true)} style={{ marginRight: '8px', borderRadius: '6px', textTransform: 'none', height: '28px', fontSize: '0.72rem', background: 'var(--primary-main)', fontWeight: 800 }}>
+                      Add Use Case
+                    </Button>
+                  </>
+                )}
+                {activeTabKey === 'sequence' && (
+                  <>
+                    <Button variant="contained" size="small" color="primary" startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />} onClick={() => setIsAddParticipantOpen(true)} style={{ marginRight: '4px', marginLeft: '4px', borderRadius: '6px', textTransform: 'none', height: '28px', fontSize: '0.72rem', background: 'var(--primary-main)', fontWeight: 800 }}>
+                      Add Participant
+                    </Button>
+                    <Button variant="contained" size="small" color="primary" startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />} onClick={() => setIsAddSequenceMessageOpen(true)} style={{ marginRight: '8px', borderRadius: '6px', textTransform: 'none', height: '28px', fontSize: '0.72rem', background: 'var(--primary-main)', fontWeight: 800 }}>
+                      Add Message
+                    </Button>
+                  </>
+                )}
+                {activeTabKey === 'gantt' && (
+                  <Button variant="contained" size="small" color="primary" startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />} onClick={() => setIsAddTaskOpen(true)} style={{ marginRight: '8px', marginLeft: '4px', borderRadius: '6px', textTransform: 'none', height: '28px', fontSize: '0.72rem', background: 'var(--primary-main)', fontWeight: 800 }}>
+                    Add Task
+                  </Button>
+                )}
                 <Select
                   value={activeTheme}
                   onChange={(e) => setActiveTheme(e.target.value)}
@@ -2283,27 +2941,79 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     {/* DRAGGABLE NODE CARDS OVERLAY (HTML sibings for ER and Use Case) */}
                     {activeTabKey === 'er' && parseER(code).entities.map((entity, idx) => {
                       const coord = nodePositions[entity.name] || { x: (idx % 3) * 320 + 80, y: Math.floor(idx / 3) * 260 + 80 };
+                      const isPendingSource = pendingRelationSource === entity.name;
+                      const isCandidateTarget = pendingRelationSource && pendingRelationSource !== entity.name;
                       return (
                         <div
                           key={idx}
                           className="se-node-card er-entity-card"
+                          onClick={() => {
+                            if (isCandidateTarget) {
+                              setRelationTarget(entity.name);
+                              setIsRelationDialogOpen(true);
+                            }
+                          }}
                           style={{
                             position: 'absolute',
                             left: `${coord.x}px`,
                             top: `${coord.y}px`,
                             width: '250px',
                             background: 'var(--background-paper)',
-                            border: '2px solid var(--primary-main)',
+                            border: isPendingSource ? '2px solid #00FFCC' : '2px solid var(--primary-main)',
                             borderRadius: '12px',
                             color: 'var(--text-primary)',
                             fontFamily: 'Outfit, sans-serif',
-                            boxShadow: draggingNode === entity.name ? '0 12px 30px rgba(0,0,0,0.35)' : '0 4px 15px rgba(0,0,0,0.15)',
-                            zIndex: draggingNode === entity.name ? 10 : 3
+                            boxShadow: isPendingSource ? '0 0 20px rgba(0,255,204,0.6)' : (draggingNode === entity.name ? '0 12px 30px rgba(0,0,0,0.35)' : '0 4px 15px rgba(0,0,0,0.15)'),
+                            zIndex: draggingNode === entity.name ? 10 : 3,
+                            cursor: isCandidateTarget ? 'pointer' : 'default',
+                            transition: 'border 0.2s ease, box-shadow 0.2s ease'
                           }}
                         >
+                          {/* Connection Dot */}
+                          <div
+                            className="relation-dot"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              handleRelationDotClick(entity.name);
+                            }}
+                            title={isPendingSource ? "Cancel Connection" : "Start Connection"}
+                            style={{
+                              position: 'absolute',
+                              right: '-10px',
+                              top: 'calc(50% - 10px)',
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              backgroundColor: isPendingSource ? '#00FFCC' : 'var(--primary-main)',
+                              border: '3px solid var(--background-paper)',
+                              cursor: 'pointer',
+                              zIndex: 15,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                              transition: 'all 0.2s ease',
+                              transform: isPendingSource ? 'scale(1.2)' : 'scale(1)',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                backgroundColor: '#fff',
+                              }}
+                            />
+                          </div>
+
                           <div
                             onMouseDown={(e) => {
-                              if (e.target.closest('button')) return;
+                              if (e.target.closest('button') || e.target.closest('.relation-dot')) return;
                               setDraggingNode(entity.name);
                               dragStartOffset.current = {
                                 x: e.clientX / zoomScale - coord.x,
@@ -2445,6 +3155,103 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                 </Alert>
               )}
             </Box>
+
+            {pendingRelationSource && (
+              <Box
+                style={{
+                  position: 'absolute',
+                  bottom: '24px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  backgroundColor: 'rgba(30, 30, 56, 0.95)',
+                  border: '1.5px solid var(--primary-main)',
+                  borderRadius: '12px',
+                  padding: '8px 16px',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  zIndex: 100,
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                  backdropFilter: 'blur(5px)',
+                }}
+              >
+                <Typography variant="body2" style={{ fontWeight: 600 }}>
+                  Connecting <strong>{pendingRelationSource}</strong>: click a target entity to establish relationship...
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    setPendingRelationSource(null);
+                    setRelationTarget(null);
+                  }}
+                  style={{
+                    color: '#ff647c',
+                    borderColor: '#ff647c',
+                    textTransform: 'none',
+                    borderRadius: '6px',
+                    padding: '2px 8px',
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            )}
+
+            <AddEntityDialog
+              open={isAddEntityOpen}
+              onClose={() => setIsAddEntityOpen(false)}
+              onSubmit={handleCreateEntity}
+              existingEntityNames={parseER(code).entities.map(e => e.name)}
+            />
+
+            <AddActorDialog
+              open={isAddActorOpen}
+              onClose={() => setIsAddActorOpen(false)}
+              onSubmit={handleCreateActor}
+              existingNames={parseUseCase(code).actors.map(a => a.id)}
+            />
+
+            <AddUseCaseDialog
+              open={isAddUseCaseOpen}
+              onClose={() => setIsAddUseCaseOpen(false)}
+              onSubmit={handleCreateUseCase}
+              existingNames={parseUseCase(code).usecases.map(u => u.id)}
+            />
+
+            <AddParticipantDialog
+              open={isAddParticipantOpen}
+              onClose={() => setIsAddParticipantOpen(false)}
+              onSubmit={handleCreateParticipant}
+              existingNames={parseSequence(code).participants.map(p => p.id)}
+            />
+
+            <AddSequenceMessageDialog
+              open={isAddSequenceMessageOpen}
+              onClose={() => setIsAddSequenceMessageOpen(false)}
+              onSubmit={handleCreateSequenceMessage}
+              participants={parseSequence(code).participants.map(p => p.id)}
+            />
+
+            <AddTaskDialog
+              open={isAddTaskOpen}
+              onClose={() => setIsAddTaskOpen(false)}
+              onSubmit={handleCreateGanttTask}
+              existingTasks={parseGantt(code).tasks.map(t => t.id)}
+            />
+
+            <CreateRelationDialog
+              open={isRelationDialogOpen}
+              onClose={() => {
+                setIsRelationDialogOpen(false);
+                setPendingRelationSource(null);
+                setRelationTarget(null);
+              }}
+              source={pendingRelationSource}
+              target={relationTarget}
+              onSubmit={handleCreateRelationship}
+            />
           </Paper>
         </Box>
       </Box>

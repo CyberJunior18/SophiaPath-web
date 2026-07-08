@@ -320,7 +320,7 @@ const NavigationPage = () => {
     } else if (path === '/cyber-lab') {
       const queryParams = new URLSearchParams(location.search);
       const tab = queryParams.get('tab') || 'xss';
-      
+
       if (tab === 'xss') {
         targetKey = 'cyber_lab_xss';
         steps = [
@@ -771,19 +771,19 @@ const NavigationPage = () => {
       setSpotlightRect(null);
       return;
     }
-    
+
     const steps = activeTour === 'onboarding' ? TUTORIAL_STEPS : pageSteps;
     if (!steps || steps.length === 0 || !steps[activeStepIndex]) return;
-    
+
     const step = steps[activeStepIndex];
     let attempts = 0;
-    
+
     const scrollAndMeasure = () => {
       const element = document.querySelector(step.target);
       if (element) {
         // Automatically scroll the target element into view smoothly and center it ONCE
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
+
         // Wait for smooth scroll to finish settling before getting the bounding rect
         setTimeout(measureOnly, 300);
       } else if (attempts < 15) {
@@ -793,7 +793,7 @@ const NavigationPage = () => {
         setSpotlightRect(null);
       }
     };
-    
+
     const measureOnly = () => {
       const element = document.querySelector(step.target);
       if (element) {
@@ -808,10 +808,10 @@ const NavigationPage = () => {
         });
       }
     };
-    
+
     // Trigger scroll and measurement chain
     scrollAndMeasure();
-    
+
     // Event listeners only measure (no scroll recursion!)
     window.addEventListener('resize', measureOnly);
     window.addEventListener('scroll', measureOnly);
@@ -881,7 +881,7 @@ const NavigationPage = () => {
   const renderTutorialOverlay = () => {
     if (activeTour === null || activeStepIndex === null) return null;
     return (
-      <Box 
+      <Box
         className="sp-tutorial-overlay-blocker"
         style={{
           position: 'fixed',
@@ -899,9 +899,9 @@ const NavigationPage = () => {
 
   const renderTutorialSpotlight = () => {
     if (activeTour === null || activeStepIndex === null || !spotlightRect) return null;
-    
+
     return (
-      <div 
+      <div
         className="sp-tutorial-spotlight"
         style={{
           position: 'fixed',
@@ -924,28 +924,28 @@ const NavigationPage = () => {
     if (activeTour === null || activeStepIndex === null) return null;
     const steps = activeTour === 'onboarding' ? TUTORIAL_STEPS : pageSteps;
     if (!steps || steps.length === 0 || !steps[activeStepIndex]) return null;
-    
+
     const step = steps[activeStepIndex];
-    
+
     let style = {
       position: 'fixed',
       zIndex: 999995,
       width: '320px',
       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     };
-    
+
     if (spotlightRect) {
       let placement = step.placement;
-      
+
       // Auto-correct placement to prevent overlapping off-screen or target component
       if (placement === 'right' && spotlightRect.right + 336 > window.innerWidth) {
         placement = spotlightRect.left - 336 > 16 ? 'left' : 'bottom';
       }
-      
+
       if (placement === 'bottom' && spotlightRect.bottom + 220 > window.innerHeight) {
         placement = spotlightRect.top - 220 > 16 ? 'top' : 'right';
       }
-      
+
       // Calculate coordinates
       if (placement === 'right') {
         style.left = `${spotlightRect.right + 16}px`;
@@ -963,7 +963,7 @@ const NavigationPage = () => {
         style.left = `${spotlightRect.left + (spotlightRect.width / 2) - 160}px`;
         style.top = `${spotlightRect.bottom + 16}px`;
       }
-      
+
       // Prevent off-screen margins
       if (parseFloat(style.left) < 16) style.left = '16px';
       if (parseFloat(style.left) + 320 > window.innerWidth - 16) {
@@ -978,10 +978,10 @@ const NavigationPage = () => {
       style.top = '50%';
       style.transform = 'translate(-50%, -50%)';
     }
-    
+
     return (
-      <Paper 
-        className="glass-panel-strong sp-tutorial-tooltip" 
+      <Paper
+        className="glass-panel-strong sp-tutorial-tooltip"
         style={style}
         sx={{
           p: 2.5,
@@ -997,14 +997,14 @@ const NavigationPage = () => {
         <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mb: 2, lineHeight: 1.5 }}>
           {step.description}
         </Typography>
-        
+
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
           <Typography variant="caption" sx={{ color: 'var(--text-disabled)', fontWeight: 600 }}>
             Step {activeStepIndex + 1} of {steps.length}
           </Typography>
-          
+
           <Stack direction="row" spacing={1}>
-            <Button 
+            <Button
               size="small"
               onClick={handleSkipTutorial}
               sx={{ textTransform: 'none', color: 'var(--text-secondary)' }}
@@ -1012,8 +1012,8 @@ const NavigationPage = () => {
               Skip
             </Button>
             {activeStepIndex > 0 && (
-              <Button 
-                size="small" 
+              <Button
+                size="small"
                 variant="outlined"
                 onClick={handlePrevStep}
                 sx={{ textTransform: 'none', borderRadius: 1.5 }}
@@ -1021,8 +1021,8 @@ const NavigationPage = () => {
                 Back
               </Button>
             )}
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               variant="contained"
               onClick={handleNextStep}
               sx={{ textTransform: 'none', borderRadius: 1.5 }}
@@ -1072,7 +1072,7 @@ const NavigationPage = () => {
 
   useEffect(() => {
     const isCommunityDetailOnly = location.pathname.startsWith('/communities/') && !location.pathname.includes('/question/');
-    
+
     if (isCommunityDetailOnly) {
       if (!wasInCommunityDetailRef.current) {
         // Save the manual state of the sidebar before entering the community detail view
@@ -1168,9 +1168,9 @@ const NavigationPage = () => {
       y: 0,
       scale: 1,
       filter: "blur(0px)",
-      transition: { 
-        type: "spring", 
-        stiffness: 300, 
+      transition: {
+        type: "spring",
+        stiffness: 300,
         damping: 25,
         mass: 0.8
       }
@@ -1180,7 +1180,7 @@ const NavigationPage = () => {
       y: 60,
       scale: 0.9,
       filter: "blur(4px)",
-      transition: { 
+      transition: {
         type: "spring",
         stiffness: 300,
         damping: 28
@@ -1189,7 +1189,7 @@ const NavigationPage = () => {
   };
 
   const shellNav = (
-    <motion.div 
+    <motion.div
       className={`nav-shell-sidebar ${sidebarCollapsed ? 'is-collapsed' : ''}`}
       variants={containerVariants}
     >
@@ -1203,8 +1203,8 @@ const NavigationPage = () => {
           pointerEvents: sidebarCollapsed ? 'none' : 'auto'
         }}
       >
-        <motion.div 
-          className="nav-brand" 
+        <motion.div
+          className="nav-brand"
           variants={itemVariants}
           style={{
             display: 'flex',
@@ -1215,7 +1215,7 @@ const NavigationPage = () => {
           }}
         >
           {/* Empty placeholder reserving space for the floating animated logo */}
-          <div style={{ width: '40px', height: '40px', flexShrink: 0}} />
+          <div style={{ width: '40px', height: '40px', flexShrink: 0 }} />
           {!sidebarCollapsed && (
             <div>
               <Typography className="nav-brand-title">
@@ -1240,8 +1240,8 @@ const NavigationPage = () => {
                     {user?.levelName || 'Beginner'}
                   </span>
                   <Tooltip title="View Level Guide">
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      size="small"
                       onClick={handleLevelInfoClick}
                       style={{ padding: '2px', color: 'rgba(255, 255, 255, 0.45)' }}
                       className="interactive"
@@ -1313,12 +1313,12 @@ const NavigationPage = () => {
               const currentLvl = user?.level || 1;
               const isCurrent = currentLvl === cfg.level || (cfg.level === 10 && currentLvl >= 10);
               return (
-                <div 
-                  key={cfg.level} 
-                  style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    padding: '5px 8px', 
+                <div
+                  key={cfg.level}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '5px 8px',
                     borderRadius: '8px',
                     background: isCurrent ? 'rgba(61, 92, 255, 0.18)' : 'transparent',
                     border: isCurrent ? '1.5px solid #3D5CFF' : '1px solid transparent',
@@ -1334,7 +1334,7 @@ const NavigationPage = () => {
               );
             })}
           </div>
-          
+
           {(user?.level || 1) < 10 && (
             <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <Typography style={{ fontSize: '0.74rem', fontWeight: 800 }}>
@@ -1365,11 +1365,11 @@ const NavigationPage = () => {
                     px: sidebarCollapsed ? 1 : 2,
                   }}
                 >
-                  <ListItemIcon 
+                  <ListItemIcon
                     className="nav-menu-icon"
-                    sx={{ 
-                      minWidth: sidebarCollapsed ? 0 : 42, 
-                      display: 'flex', 
+                    sx={{
+                      minWidth: sidebarCollapsed ? 0 : 42,
+                      display: 'flex',
                       justifyContent: 'center',
                       color: active ? 'var(--primary-main)' : 'inherit'
                     }}
@@ -1401,7 +1401,7 @@ const NavigationPage = () => {
 
   const getHeaderDetails = () => {
     const path = location.pathname;
-    
+
     // Check exact matches
     if (pageTitles[path]) {
       return {
@@ -1409,11 +1409,11 @@ const NavigationPage = () => {
         description: pageDescriptions[path]
       };
     }
-    
+
     // Check dynamic routes
     if (path.startsWith('/course/')) {
       const courseId = path.substring(8);
-      const course = coursesData.find(c => 
+      const course = coursesData.find(c =>
         String(c.id) === String(courseId) ||
         c.title.toLowerCase().replace(/\s+/g, '-') === String(courseId).toLowerCase()
       );
@@ -1422,10 +1422,10 @@ const NavigationPage = () => {
         description: course ? course.description : 'Explore course content and details.'
       };
     }
-    
+
     if (path.startsWith('/learning-path/')) {
       const courseId = path.substring(15);
-      const course = coursesData.find(c => 
+      const course = coursesData.find(c =>
         String(c.id) === String(courseId) ||
         c.title.toLowerCase().replace(/\s+/g, '-') === String(courseId).toLowerCase()
       );
@@ -1434,14 +1434,14 @@ const NavigationPage = () => {
         description: course ? `Complete modules to progress in ${course.title}.` : 'See the full roadmap and unlock your next milestone.'
       };
     }
-    
+
     if (path.startsWith('/learning/')) {
       // Format: /learning/:courseId/:sectionId/:lessonId
       const parts = path.split('/');
       const courseId = parts[2];
       const sectionId = parts[3];
       const lessonId = parts[4];
-      const course = coursesData.find(c => 
+      const course = coursesData.find(c =>
         String(c.id) === String(courseId) ||
         c.title.toLowerCase().replace(/\s+/g, '-') === String(courseId).toLowerCase()
       );
@@ -1458,13 +1458,13 @@ const NavigationPage = () => {
         description: 'Read the materials, understand the key concepts, and take the quiz when ready.'
       };
     }
-    
+
     if (path.startsWith('/quiz/')) {
       // Format: /quiz/:courseDomain/:lessonId
       const parts = path.split('/');
       const courseDomain = parts[2];
       const lessonId = parts[3];
-      const course = coursesData.find(c => 
+      const course = coursesData.find(c =>
         c.domain?.toLowerCase() === courseDomain?.toLowerCase() ||
         c.title?.toLowerCase() === courseDomain?.toLowerCase()
       );
@@ -1480,7 +1480,7 @@ const NavigationPage = () => {
         description: 'Test your knowledge on this topic and review any incorrect answers.'
       };
     }
-    
+
     if (path.startsWith('/chat/')) {
       return {
         title: 'Messages',
@@ -1515,7 +1515,7 @@ const NavigationPage = () => {
         description: 'Experiment with hands-on labs and security exercises.'
       };
     }
-    
+
     return {
       title: 'SophiaPath',
       description: 'Your space for structured learning and growth.'
@@ -1524,7 +1524,7 @@ const NavigationPage = () => {
 
   const { title: currentTitle, description: currentDescription } = getHeaderDetails();
 
-  const hideTopbar = 
+  const hideTopbar =
     location.pathname.startsWith('/course/') ||
     location.pathname.startsWith('/learning-path') ||
     location.pathname.startsWith('/learning/') ||
@@ -1608,8 +1608,8 @@ const NavigationPage = () => {
             zIndex: 1200,
           }}
         >
-          <IconButton 
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)} 
+          <IconButton
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className="nav-sidebar-toggle-btn"
             size="small"
             sx={{
@@ -1666,26 +1666,26 @@ const NavigationPage = () => {
               </div>
             </div>
 
-          <div className="nav-topbar-actions">
-            <Button
-              variant="outlined"
-              startIcon={<Brightness6Icon />}
-              onClick={toggleTheme}
-              className="nav-topbar-button"
-            >
-              {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-            </Button>
-            <IconButton onClick={handleLogout} className="nav-logout-btn" title="Logout">
-              <LogoutIcon />
-            </IconButton>
-            <Avatar
-              src={user?.avatar || "https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"}
-              sx={{ width: 48, height: 48 }}
-              onClick={() => navigate('/profile')}
-              style={{ cursor: 'pointer' }}
-            />
-          </div>
-        </header>
+            <div className="nav-topbar-actions">
+              <Button
+                variant="outlined"
+                startIcon={<Brightness6Icon />}
+                onClick={toggleTheme}
+                className="nav-topbar-button"
+              >
+                {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+              </Button>
+              <IconButton onClick={handleLogout} className="nav-logout-btn" title="Logout">
+                <LogoutIcon />
+              </IconButton>
+              <Avatar
+                src={user?.avatar || "https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"}
+                sx={{ width: 48, height: 48 }}
+                onClick={() => navigate('/profile')}
+                style={{ cursor: 'pointer' }}
+              />
+            </div>
+          </header>
         )}
 
         <section className="nav-content">
@@ -1753,7 +1753,7 @@ const JoinInviteHandler = () => {
               const [mainPart, checksumPart1, checksumPart2] = parts;
               const salted = parseInt(mainPart, 36);
               const id = Math.round((salted - 27182818284) / 31415926535);
-              
+
               let hash1 = 0;
               let hash2 = 0;
               const str = String(id) + "SophiaSecretSaltSuperLong123!";
@@ -1765,7 +1765,7 @@ const JoinInviteHandler = () => {
               }
               const expectedChecksum1 = Math.abs(hash1).toString(36);
               const expectedChecksum2 = Math.abs(hash2).toString(36);
-              
+
               if (checksumPart1 === expectedChecksum1 && checksumPart2 === expectedChecksum2) {
                 decodedId = id;
               } else {
@@ -1777,7 +1777,7 @@ const JoinInviteHandler = () => {
               const [mainPart, checksumPart] = parts;
               const salted = parseInt(mainPart, 36);
               const id = Math.round((salted - 271828) / 314159);
-              
+
               let hash = 0;
               const str = String(id) + "SophiaSecretSalt123!";
               for (let i = 0; i < str.length; i++) {

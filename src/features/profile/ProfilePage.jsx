@@ -297,18 +297,13 @@ const ProfilePage = () => {
 
   return (
     <Box className="profile-container">
-      {/* Dynamic Hero Header */}
-      <Box className="profile-hero">
-        <Box className="profile-hero-decoration-1" />
-        <Box className="profile-hero-decoration-2" />
-      </Box>
-
       <Container maxWidth="lg" className="profile-content">
-        <Grid container spacing={6}>
-          {/* Left Column: Profile Info */}
-          <Grid item xs={12} lg={4}>
-            <Paper className="profile-card">
-              {!isEditing ? (
+        <Grid container spacing={4}>
+          {/* Main Column: Profile, Stats, Achievements */}
+          <Grid item xs={12} md={8}>
+            <Stack spacing={4}>
+              <Paper className="profile-card">
+                {!isEditing ? (
                 <>
                   <Box className="profile-avatar-container">
                     <Avatar
@@ -344,8 +339,6 @@ const ProfilePage = () => {
                   <Typography variant="body2" className="profile-bio">
                     "{userData.bio}"
                   </Typography>
-
-                  <Divider sx={{ my: 3 }} />
 
                   {/* Backend Meta Details */}
                   <Stack spacing={2} sx={{ mb: 4, px: 2, textAlign: 'left' }}>
@@ -528,28 +521,131 @@ const ProfilePage = () => {
               )}
             </Paper>
 
-            {/* Quick Stats Grid */}
-            <Box className="stats-grid">
-              {[
-                { label: 'Streak', value: userData.streak || 0, icon: <StreakIcon />, color: 'orange', bg: 'orange' },
-                { label: 'XP', value: user?.xp || 0, icon: <StreakIcon />, color: 'blue', bg: 'blue' },
-                { label: 'Trophies', value: userData.achievements || 0, icon: <TrophyIcon />, color: 'yellow', bg: 'yellow' },
-                { label: 'Path', value: `${user?.levelName || 'Beginner'} (Lvl ${user?.level || 1})`, icon: <PathIcon />, color: 'purple', bg: 'purple' },
-              ].map((stat, idx) => (
-                <Paper key={idx} className="stat-card">
-                  <Box className="stat-icon" sx={{ 
-                    backgroundColor: `rgba(var(--${stat.color}-500-rgb), 0.1)`,
-                    color: `var(--${stat.color}-500)`
-                  }}>
-                    {stat.icon}
-                  </Box>
-                  <Typography variant="h5" className="stat-value">{stat.value}</Typography>
-                  <Typography variant="caption" className="stat-label">{stat.label}</Typography>
-                </Paper>
-              ))}
+            {/* Statistics Section */}
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800, mb: 2, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
+                Statistics
+              </Typography>
+              <Grid container spacing={2}>
+                {[
+                  { label: 'Day streak', value: userData.streak || 0, icon: <StreakIcon fontSize="medium" />, color: 'orange' },
+                  { label: 'Total XP', value: user?.xp || 0, icon: <BoltIcon fontSize="medium" />, color: 'yellow' },
+                  { label: 'Current league', value: 'Ruby', icon: <TrophyIcon fontSize="medium" />, color: 'error' },
+                  { label: 'Top 3 finishes', value: userData.achievements || 0, icon: <TrophyIcon fontSize="medium" />, color: 'warning' },
+                ].map((stat, idx) => (
+                  <Grid item xs={12} sm={6} key={idx}>
+                    <Box sx={{ 
+                      p: 2.5, 
+                      borderRadius: 4, 
+                      border: '1px solid rgba(var(--divider-rgb), 0.5)',
+                      bgcolor: 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      transition: 'border-color 0.2s',
+                      '&:hover': { borderColor: `var(--${stat.color}-500)` }
+                    }}>
+                      <Box sx={{ color: `var(--${stat.color}-500)`, display: 'flex' }}>
+                        {stat.icon}
+                      </Box>
+                      <Box sx={{ textAlign: 'left' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1, color: 'var(--text-primary)' }}>{stat.value}</Typography>
+                        <Typography variant="caption" sx={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{stat.label}</Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
             </Box>
-          </Grid>          {/* Right Column: Content */}
-          <Grid item xs={12} lg={8} className="content-column">
+
+            {/* Achievements Collection Card */}
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
+                  Achievements
+                </Typography>
+                <Button 
+                  size="small" 
+                  onClick={() => navigate('/achievements')}
+                  sx={{ textTransform: 'none', fontWeight: 700 }}
+                >
+                  View All
+                </Button>
+              </Box>
+              
+              <Paper sx={{ p: 0, border: '1px solid var(--divider)', borderRadius: 4, overflow: 'hidden', bgcolor: 'transparent' }}>
+                <Stack divider={<Divider />}>
+                  {resolvedAchievements.map(ach => {
+                    const progressPercent = ach.targetValue > 0 ? Math.min(Math.round((ach.currentValue / ach.targetValue) * 100), 100) : 0;
+                    return (
+                      <Box 
+                        key={ach.id}
+                        sx={{ 
+                          p: 3, 
+                          display: 'flex',
+                          gap: 3,
+                          alignItems: 'center',
+                          opacity: ach.isUnlocked ? 1 : 0.6,
+                        }}
+                      >
+                        <Box 
+                          sx={{ 
+                            width: 64, 
+                            height: 64, 
+                            borderRadius: '50%', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            bgcolor: ach.isUnlocked ? `${ach.associatedColor}15` : 'rgba(0,0,0,0.05)',
+                            color: ach.isUnlocked ? ach.associatedColor : 'var(--text-disabled)',
+                            border: `2px solid ${ach.isUnlocked ? ach.associatedColor : 'var(--divider)'}`
+                          }}
+                        >
+                          {ach.iconReference === 'school' && <CourseIcon fontSize="large" />}
+                          {ach.iconReference === 'emoji_events' && <TrophyIcon fontSize="large" />}
+                          {ach.iconReference === 'local_fire_department' && <StreakIcon fontSize="large" />}
+                          {ach.iconReference === 'bolt' && <BoltIcon fontSize="large" />}
+                          {ach.iconReference === 'explore' && <PathIcon fontSize="large" />}
+                          {ach.iconReference === 'workspace_premium' && <TrophyIcon fontSize="large" />}
+                        </Box>
+                        
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.5 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+                              {ach.name}
+                            </Typography>
+                            <Typography variant="caption" sx={{ fontWeight: 750, color: 'var(--text-secondary)' }}>
+                              {ach.currentValue}/{ach.targetValue}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mb: 1.5 }}>
+                            {ach.description}
+                          </Typography>
+                          <LinearProgress 
+                            variant="determinate" 
+                            value={progressPercent}
+                            sx={{ 
+                              height: 12, 
+                              borderRadius: 6, 
+                              bgcolor: 'var(--divider)',
+                              '& .MuiLinearProgress-bar': {
+                                bgcolor: ach.isUnlocked ? ach.associatedColor : 'var(--text-disabled)',
+                                borderRadius: 6
+                              }
+                            }}
+                          />
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              </Paper>
+            </Box>
+          </Stack>
+        </Grid>
+        {/* Right Column: Sidebar */}
+        <Grid item xs={12} md={4} className="content-column">
             <Stack spacing={4}>
               {/* Registered Courses Card */}
               <Paper 
@@ -646,101 +742,6 @@ const ProfilePage = () => {
                 )}
               </Paper>
 
-              {/* Achievements Collection Card */}
-              <Paper 
-                sx={{ 
-                  p: 4,
-                  borderRadius: 4,
-                  border: '1px solid var(--divider)',
-                  bgcolor: 'var(--surface-glass)',
-                  backdropFilter: 'blur(16px)'
-                }}
-              >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
-                    Badges & Milestones
-                  </Typography>
-                  <Button 
-                    size="small" 
-                    onClick={() => navigate('/achievements')}
-                    sx={{ textTransform: 'none', fontWeight: 700 }}
-                  >
-                    View All
-                  </Button>
-                </Box>
-                
-                <Grid container spacing={3}>
-                  {resolvedAchievements.map(ach => {
-                    const progressPercent = ach.targetValue > 0 ? Math.min(Math.round((ach.currentValue / ach.targetValue) * 100), 100) : 0;
-                    return (
-                      <Grid item xs={12} sm={6} key={ach.id}>
-                        <Box 
-                          sx={{ 
-                            p: 2.5, 
-                            borderRadius: 3, 
-                            bgcolor: 'var(--background-default)', 
-                            border: '1px solid var(--divider)',
-                            display: 'flex',
-                            gap: 2,
-                            alignItems: 'center',
-                            opacity: ach.isUnlocked ? 1 : 0.6,
-                            position: 'relative'
-                          }}
-                        >
-                          <Box 
-                            sx={{ 
-                              width: 56, 
-                              height: 56, 
-                              borderRadius: '50%', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                              bgcolor: ach.isUnlocked ? `${ach.associatedColor}15` : 'rgba(0,0,0,0.05)',
-                              color: ach.isUnlocked ? ach.associatedColor : 'var(--text-disabled)',
-                              border: `2px solid ${ach.isUnlocked ? ach.associatedColor : 'var(--divider)'}`
-                            }}
-                          >
-                            {ach.iconReference === 'school' && <CourseIcon />}
-                            {ach.iconReference === 'emoji_events' && <TrophyIcon />}
-                            {ach.iconReference === 'local_fire_department' && <StreakIcon />}
-                            {ach.iconReference === 'bolt' && <BoltIcon />}
-                            {ach.iconReference === 'explore' && <PathIcon />}
-                            {ach.iconReference === 'workspace_premium' && <TrophyIcon />}
-                          </Box>
-                          
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'var(--text-primary)', noWrap: true }}>
-                              {ach.name}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: 'var(--text-secondary)', display: 'block', mb: 1, minHeight: '32px' }}>
-                              {ach.description}
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <LinearProgress 
-                                variant="determinate" 
-                                value={progressPercent}
-                                sx={{ 
-                                  height: 4, 
-                                  borderRadius: 2, 
-                                  flex: 1,
-                                  bgcolor: 'var(--divider)',
-                                  '& .MuiLinearProgress-bar': {
-                                    bgcolor: ach.isUnlocked ? ach.associatedColor : 'var(--text-disabled)'
-                                  }
-                                }}
-                              />
-                              <Typography variant="caption" sx={{ fontWeight: 750, color: 'var(--text-secondary)' }}>
-                                {ach.currentValue}/{ach.targetValue}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Box>
-                      </Grid>
-                    );
-                  })}
-                </Grid>
-              </Paper>
             </Stack>
           </Grid>
         </Grid>

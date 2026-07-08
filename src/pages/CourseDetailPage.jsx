@@ -10,7 +10,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Collapse
 } from '@mui/material';
 import { coursesData } from '../data/courses';
 import { useAuth } from '../context/AuthContext';
@@ -23,7 +24,9 @@ import {
   AccessTime as TimeIcon,
   MenuBook as BookIcon,
   EmojiEvents as TrophyIcon,
-  DeleteOutline as DeleteIcon
+  DeleteOutline as DeleteIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon
 } from '@mui/icons-material';
 
 const CourseDetailPage = () => {
@@ -31,7 +34,7 @@ const CourseDetailPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, registerCourse, unregisterCourse } = useAuth();
-  
+
   const [course, setCourse] = useState(location.state?.course || null);
   const [loading, setLoading] = useState(!course);
 
@@ -39,6 +42,12 @@ const CourseDetailPage = () => {
   const [confirmTitle, setConfirmTitle] = useState('');
   const [confirmMessage, setConfirmMessage] = useState('');
   const [onConfirmCallback, setOnConfirmCallback] = useState(null);
+
+  const [expandedSection, setExpandedSection] = useState(null);
+
+  const handleToggleSection = (sectionId) => {
+    setExpandedSection(prev => prev === sectionId ? null : sectionId);
+  };
 
   const showConfirmDialog = (title, message, callback) => {
     setConfirmTitle(title);
@@ -86,7 +95,7 @@ const CourseDetailPage = () => {
             })
           }));
 
-          const matched = mappedList.find(c => 
+          const matched = mappedList.find(c =>
             String(c.id) === String(courseId) ||
             c.title.toLowerCase().replace(/\s+/g, '-') === String(courseId).toLowerCase()
           );
@@ -101,7 +110,7 @@ const CourseDetailPage = () => {
       }
 
       // Fallback to local data
-      const fallback = coursesData.find(c => 
+      const fallback = coursesData.find(c =>
         c.title.toLowerCase().replace(/\s+/g, '-') === courseId ||
         String(c.id) === String(courseId)
       );
@@ -167,24 +176,7 @@ const CourseDetailPage = () => {
     <div className="course-detail-container">
       <div className="course-detail-header">
         <Container maxWidth="lg" className="course-detail-header-content">
-          <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-            <IconButton
-              onClick={() => navigate(-1)}
-              className="course-detail-back-button"
-            >
-              <ArrowBackIcon />
-            </IconButton>
-            
-            {isRegistered && (
-              <IconButton
-                onClick={handleUnregister}
-                style={{ color: 'var(--danger-main)', marginLeft: 'auto' }}
-                title="Unenroll from course"
-              >
-                <DeleteIcon />
-              </IconButton>
-            )}
-          </div>
+
 
           <div className="course-detail-copy">
             <Typography variant="overline" className="course-detail-kicker">
@@ -215,8 +207,8 @@ const CourseDetailPage = () => {
       <Container maxWidth="lg" className="course-detail-content">
         <div className="course-detail-grid">
           <div className="course-detail-main-stack">
-            {/* About Section */}
-            <Paper className="course-card about-card">
+            {/* Combined About & Curriculum Section */}
+            <Paper className="course-card">
               <Typography variant="h4" className="course-card-header">
                 About this course
               </Typography>
@@ -224,53 +216,70 @@ const CourseDetailPage = () => {
               <Typography className="course-about-text">
                 {course.about}
               </Typography>
-            </Paper>
 
-            {/* Curriculum Section */}
-            <Paper className="course-card">
+              <br /><br /><br />
+
               <Typography variant="h4" className="course-card-header">
-                <div className="course-card-icon">
-                  <BookIcon fontSize="large" />
-                </div>
                 Course Curriculum
               </Typography>
               <br></br>
               <div className="course-section-list">
                 {course.sections?.map((section, index) => {
                   const lessonCount = section.lessons?.length || 0;
+                  const isExpanded = expandedSection === section.id;
 
                   return (
                     <div
                       key={section.id}
                       className="course-section-item"
+                      style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0, overflow: 'hidden' }}
                     >
-                      <div className="course-section-number">
-                        {index + 1}
-                      </div>
-                      <div className="course-section-content">
-                        <Typography className="course-section-title">
-                          {section.title}
-                        </Typography>
-                        <div className="course-section-meta">
-                          <span className="course-section-meta-item">
-                            <TimeIcon sx={{ fontSize: 16 }} />
-                            {10 + index * 5} min
-                          </span>
-                          <span className="course-section-divider"></span>
-                          <span className="course-section-meta-label">{lessonCount} Lessons</span>
+                      {/* Section Header (Clickable) */}
+                      <div
+                        onClick={() => handleToggleSection(section.id)}
+                        style={{ display: 'flex', alignItems: 'center', padding: '1.75rem 2rem', cursor: 'pointer', width: '100%', boxSizing: 'border-box' }}
+                      >
+                        <div className="course-section-number">
+                          {index + 1}
+                        </div>
+                        <div className="course-section-content">
+                          <Typography className="course-section-title">
+                            {section.title}
+                          </Typography>
+                          <div className="course-section-meta">
+                            <span className="course-section-meta-item">
+                              <TimeIcon sx={{ fontSize: 16 }} />
+                              {10 + index * 5} min
+                            </span>
+                            <span className="course-section-divider"></span>
+                            <span className="course-section-meta-label">{lessonCount} Lessons</span>
+                          </div>
+                        </div>
+                        <div className="course-section-action" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <div style={{ color: 'var(--text-secondary)' }}>
+                            {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          </div>
                         </div>
                       </div>
-                      <div className="course-section-action">
-                        {index === 0 || isRegistered ? (
-                          <div className="course-section-play-icon">
-                            <PlayIcon />
-                          </div>
-                        ) : (
-                          <div className="course-section-lock-icon">
-                            <LockIcon fontSize="small" />
-                          </div>
-                        )}
-                      </div>
+
+                      {/* Expanded Lessons */}
+                      <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                        <div className="course-lesson-list" style={{ padding: '0 2rem 1.75rem 2rem' }}>
+                          {section.lessons?.map((lesson, idx) => (
+                            <div key={lesson.id || idx} style={{ display: 'flex', alignItems: 'center', padding: '1rem', borderTop: '1px solid rgba(var(--divider-rgb), 0.2)', gap: '1rem' }}>
+                              <div style={{ color: 'var(--text-secondary)' }}>
+                                {index === 0 || isRegistered ? <PlayIcon fontSize="small" style={{ color: 'var(--primary-main)' }} /> : <LockIcon fontSize="small" />}
+                              </div>
+                              <Typography style={{ flexGrow: 1, fontWeight: 500, opacity: (index === 0 || isRegistered) ? 1 : 0.6 }}>
+                                {lesson.title}
+                              </Typography>
+                              <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                                5 min
+                              </Typography>
+                            </div>
+                          ))}
+                        </div>
+                      </Collapse>
                     </div>
                   );
                 })}
@@ -288,7 +297,7 @@ const CourseDetailPage = () => {
               </Typography>
               <div style={{ height: "10px" }}></div>
               <Typography className="course-sidebar-description">
-                {isRegistered 
+                {isRegistered
                   ? `Pick up right where you left off and complete your mastery of ${course.title}.`
                   : `Join thousands of students and start your journey in ${course.title} today.`
                 }
@@ -349,16 +358,16 @@ const CourseDetailPage = () => {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
-          <Button 
-            variant="outlined" 
+          <Button
+            variant="outlined"
             onClick={() => setConfirmOpen(false)}
             fullWidth
             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
           >
             Cancel
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             color="error"
             onClick={() => {
               if (onConfirmCallback) onConfirmCallback();
