@@ -278,7 +278,7 @@ const LearningPage = () => {
                     </div>
                     <div className="cyber-badge">{course.domain}</div>
                   </div>
-
+                  
                   <Typography variant="h5" className="learning-course-title">
                     {course.title}
                   </Typography>

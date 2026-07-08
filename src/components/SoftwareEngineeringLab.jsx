@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import { ThemeContext } from '../context/ThemeContext';
 import {
   Dialog,
@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import Editor from '@monaco-editor/react';
 import html2canvas from 'html2canvas';
+import logoImg from '../assets/sp-logo.png';
 
 // Default Templates for the Diagrams
 const TEMPLATES = {
@@ -781,6 +782,11 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
   const canvasContainerRef = useRef(null);
+  const [canvasContainer, setCanvasContainerState] = useState(null);
+  const setCanvasContainer = useCallback((node) => {
+    canvasContainerRef.current = node;
+    setCanvasContainerState(node);
+  }, []);
   const dragStartOffset = useRef({ x: 0, y: 0 });
   const zoomAnchorRef = useRef(null);
   const isDraggingSplitRef = useRef(false);
@@ -789,6 +795,11 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
   const isPanningPreviewRef = useRef(false);
   const panStartPreviewRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
   const previewCanvasContainerRef = useRef(null);
+  const [previewCanvasContainer, setPreviewCanvasContainerState] = useState(null);
+  const setPreviewCanvasContainer = useCallback((node) => {
+    previewCanvasContainerRef.current = node;
+    setPreviewCanvasContainerState(node);
+  }, []);
   const previewZoomAnchorRef = useRef(null);
 
   const nodePositions = allNodePositions[activeTabKey] || {};
@@ -855,70 +866,68 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
 
   // 2. Zoom Scroll Anchor centering
   useEffect(() => {
-    if (zoomAnchorRef.current && canvasContainerRef.current) {
+    if (zoomAnchorRef.current && canvasContainer) {
       const { x_virtual, y_virtual, mx, my } = zoomAnchorRef.current;
-      canvasContainerRef.current.scrollLeft = x_virtual * zoomScale - mx;
-      canvasContainerRef.current.scrollTop = y_virtual * zoomScale - my;
+      canvasContainer.scrollLeft = x_virtual * zoomScale - mx;
+      canvasContainer.scrollTop = y_virtual * zoomScale - my;
       zoomAnchorRef.current = null;
     }
-  }, [zoomScale]);
+  }, [zoomScale, canvasContainer]);
 
   useEffect(() => {
-    if (previewZoomAnchorRef.current && previewCanvasContainerRef.current) {
+    if (previewZoomAnchorRef.current && previewCanvasContainer) {
       const { x_virtual, y_virtual, mx, my } = previewZoomAnchorRef.current;
-      previewCanvasContainerRef.current.scrollLeft = x_virtual * previewZoomScale - mx;
-      previewCanvasContainerRef.current.scrollTop = y_virtual * previewZoomScale - my;
+      previewCanvasContainer.scrollLeft = x_virtual * previewZoomScale - mx;
+      previewCanvasContainer.scrollTop = y_virtual * previewZoomScale - my;
       previewZoomAnchorRef.current = null;
     }
-  }, [previewZoomScale]);
+  }, [previewZoomScale, previewCanvasContainer]);
 
   // 3. Wheel listener for zooming main canvas
   useEffect(() => {
-    const container = canvasContainerRef.current;
-    if (!container) return;
+    if (!canvasContainer) return;
 
     const handleWheel = (e) => {
       e.preventDefault();
-      const rect = container.getBoundingClientRect();
+      const rect = canvasContainer.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      const x_virtual = (container.scrollLeft + mx) / zoomScale;
-      const y_virtual = (container.scrollTop + my) / zoomScale;
+      const x_virtual = (canvasContainer.scrollLeft + mx) / zoomScale;
+      const y_virtual = (canvasContainer.scrollTop + my) / zoomScale;
       zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
 
       const step = 0.05;
       setZoomScale(prev => Math.max(0.2, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
     };
 
-    container.addEventListener('wheel', handleWheel, { passive: false });
+    canvasContainer.addEventListener('wheel', handleWheel, { passive: false });
     return () => {
-      container.removeEventListener('wheel', handleWheel);
+      canvasContainer.removeEventListener('wheel', handleWheel);
     };
-  }, [canvasContainerRef.current, zoomScale]);
+  }, [canvasContainer, zoomScale]);
 
   // Wheel listener for zooming preview canvas
   useEffect(() => {
-    const container = previewCanvasContainerRef.current;
-    if (!container) return;
+    if (!previewCanvasContainer) return;
 
     const handleWheel = (e) => {
       e.preventDefault();
-      const rect = container.getBoundingClientRect();
+      const rect = previewCanvasContainer.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      const x_virtual = (container.scrollLeft + mx) / previewZoomScale;
-      const y_virtual = (container.scrollTop + my) / previewZoomScale;
+      const x_virtual = (previewCanvasContainer.scrollLeft + mx) / previewZoomScale;
+      const y_virtual = (previewCanvasContainer.scrollTop + my) / previewZoomScale;
       previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
 
       const step = 0.05;
       setPreviewZoomScale(prev => Math.max(0.2, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
     };
 
-    container.addEventListener('wheel', handleWheel, { passive: false });
+    previewCanvasContainer.addEventListener('wheel', handleWheel, { passive: false });
     return () => {
-      container.removeEventListener('wheel', handleWheel);
+      previewCanvasContainer.removeEventListener('wheel', handleWheel);
     };
-  }, [previewCanvasContainerRef.current, previewZoomScale]);
+  }, [previewCanvasContainer, previewZoomScale]);
 
   // 4. Global window listeners for drag partition resizing and canvas panning
   useEffect(() => {
@@ -1379,6 +1388,84 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           bounds.width * 2,
           bounds.height * 2
         );
+
+        // Draw watermark directly onto the cropped canvas in the bottom-right corner
+        // This approach is 100% reliable regardless of DOM structure or zoom level
+        const W = cropCanvas.width;
+        const H = cropCanvas.height;
+        const pad = 20 * 2; // 20px logical, x2 for scale
+        const logoSize = 32 * 2;
+        const fontSize = 22 * 2;
+        const gap = 10 * 2;
+        const sophiaText = 'Sophia';
+        const pathText = 'Path';
+
+        // Resolve the exact live theme colors from CSS variables — matches navbar exactly
+        const rootStyle = getComputedStyle(document.documentElement);
+        const colorMain = rootStyle.getPropertyValue('--primary-main').trim();
+        const colorDark = rootStyle.getPropertyValue('--primary-dark').trim();
+
+        // Load logo first so we can read its true natural dimensions
+        const logoImage = new Image();
+        logoImage.src = logoImg;
+        await new Promise((resolve) => {
+          logoImage.onload = resolve;
+          logoImage.onerror = resolve;
+        });
+
+        // Compute logo width that preserves aspect ratio at the target height
+        const logoH = logoSize;
+        const logoW = logoImage.naturalWidth > 0
+          ? Math.round(logoSize * (logoImage.naturalWidth / logoImage.naturalHeight))
+          : logoSize;
+
+        ctx.save();
+        ctx.font = `900 ${fontSize}px "Outfit", sans-serif`;
+        const sophiaWidth = ctx.measureText(sophiaText).width;
+        const pathWidth = ctx.measureText(pathText).width;
+        const totalWidth = logoW + gap + sophiaWidth + pathWidth;
+        const startX = W - pad - totalWidth;
+        const logoY = H - pad - logoH;
+        const textBaselineY = H - pad - logoH * 0.15;
+
+        // Replicate the exact navbar split-color logo using an offscreen canvas:
+        // 1. Draw left half in --primary-main, right half in --primary-dark
+        // 2. Use the logo PNG as a mask (destination-in) to cut it to the logo shape
+        if (logoImage.complete && logoImage.naturalWidth > 0) {
+          const offscreen = document.createElement('canvas');
+          // Size the offscreen canvas to the logo's true aspect-ratio dimensions
+          offscreen.width = logoW;
+          offscreen.height = logoH;
+          const offCtx = offscreen.getContext('2d');
+
+          // Left half: --primary-main
+          offCtx.fillStyle = colorMain;
+          offCtx.fillRect(0, 0, logoW / 2, logoH);
+
+          // Right half: --primary-dark
+          offCtx.fillStyle = colorDark;
+          offCtx.fillRect(logoW / 2, 0, logoW / 2, logoH);
+
+          // Clip to logo shape using the PNG as a mask (no stretching)
+          offCtx.globalCompositeOperation = 'destination-in';
+          offCtx.drawImage(logoImage, 0, 0, logoW, logoH);
+
+          // Paint the split-colored logo onto the main canvas
+          ctx.globalAlpha = 0.5;
+          ctx.drawImage(offscreen, startX, logoY, logoW, logoH);
+        }
+
+        // Draw "Sophia" in --primary-main (exact navbar color)
+        ctx.globalAlpha = 0.5;
+        ctx.font = `900 ${fontSize}px "Outfit", sans-serif`;
+        ctx.fillStyle = colorMain;
+        ctx.fillText(sophiaText, startX + logoW + gap, textBaselineY);
+
+        // Draw "Path" in --primary-dark (exact navbar color)
+        ctx.fillStyle = colorDark;
+        ctx.fillText(pathText, startX + logoW + gap + sophiaWidth, textBaselineY);
+
+        ctx.restore();
       }
 
       const link = document.createElement('a');
@@ -1448,6 +1535,84 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           bounds.width * 2,
           bounds.height * 2
         );
+
+        // Draw watermark directly onto the cropped canvas in the bottom-right corner
+        // This approach is 100% reliable regardless of DOM structure or zoom level
+        const W = cropCanvas.width;
+        const H = cropCanvas.height;
+        const pad = 20 * 2; // 20px logical, x2 for scale
+        const logoSize = 32 * 2;
+        const fontSize = 22 * 2;
+        const gap = 10 * 2;
+        const sophiaText = 'Sophia';
+        const pathText = 'Path';
+
+        // Resolve the exact live theme colors from CSS variables — matches navbar exactly
+        const rootStyle = getComputedStyle(document.documentElement);
+        const colorMain = rootStyle.getPropertyValue('--primary-main').trim();
+        const colorDark = rootStyle.getPropertyValue('--primary-dark').trim();
+
+        // Load logo first so we can read its true natural dimensions
+        const logoImage = new Image();
+        logoImage.src = logoImg;
+        await new Promise((resolve) => {
+          logoImage.onload = resolve;
+          logoImage.onerror = resolve;
+        });
+
+        // Compute logo width that preserves aspect ratio at the target height
+        const logoH = logoSize;
+        const logoW = logoImage.naturalWidth > 0
+          ? Math.round(logoSize * (logoImage.naturalWidth / logoImage.naturalHeight))
+          : logoSize;
+
+        ctx.save();
+        ctx.font = `900 ${fontSize}px "Outfit", sans-serif`;
+        const sophiaWidth = ctx.measureText(sophiaText).width;
+        const pathWidth = ctx.measureText(pathText).width;
+        const totalWidth = logoW + gap + sophiaWidth + pathWidth;
+        const startX = W - pad - totalWidth;
+        const logoY = H - pad - logoH;
+        const textBaselineY = H - pad - logoH * 0.15;
+
+        // Replicate the exact navbar split-color logo using an offscreen canvas:
+        // 1. Draw left half in --primary-main, right half in --primary-dark
+        // 2. Use the logo PNG as a mask (destination-in) to cut it to the logo shape
+        if (logoImage.complete && logoImage.naturalWidth > 0) {
+          const offscreen = document.createElement('canvas');
+          // Size the offscreen canvas to the logo's true aspect-ratio dimensions
+          offscreen.width = logoW;
+          offscreen.height = logoH;
+          const offCtx = offscreen.getContext('2d');
+
+          // Left half: --primary-main
+          offCtx.fillStyle = colorMain;
+          offCtx.fillRect(0, 0, logoW / 2, logoH);
+
+          // Right half: --primary-dark
+          offCtx.fillStyle = colorDark;
+          offCtx.fillRect(logoW / 2, 0, logoW / 2, logoH);
+
+          // Clip to logo shape using the PNG as a mask (no stretching)
+          offCtx.globalCompositeOperation = 'destination-in';
+          offCtx.drawImage(logoImage, 0, 0, logoW, logoH);
+
+          // Paint the split-colored logo onto the main canvas
+          ctx.globalAlpha = 0.5;
+          ctx.drawImage(offscreen, startX, logoY, logoW, logoH);
+        }
+
+        // Draw "Sophia" in --primary-main (exact navbar color)
+        ctx.globalAlpha = 0.5;
+        ctx.font = `900 ${fontSize}px "Outfit", sans-serif`;
+        ctx.fillStyle = colorMain;
+        ctx.fillText(sophiaText, startX + logoW + gap, textBaselineY);
+
+        // Draw "Path" in --primary-dark (exact navbar color)
+        ctx.fillStyle = colorDark;
+        ctx.fillText(pathText, startX + logoW + gap + sophiaWidth, textBaselineY);
+
+        ctx.restore();
       }
 
       const link = document.createElement('a');
@@ -2786,46 +2951,6 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     Add Task
                   </Button>
                 )}
-                <Select
-                  value={activeTheme}
-                  onChange={(e) => setActiveTheme(e.target.value)}
-                  variant="standard"
-                  disableUnderline
-                  sx={{
-                    fontSize: '0.75rem',
-                    color: '#fff',
-                    marginRight: '8px',
-                    marginLeft: '8px',
-                    '& .MuiSelect-select': { padding: '4px 0px' }
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      style: {
-                        background: 'rgba(30, 30, 56, 0.95)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        color: '#ffffff'
-                      }
-                    }
-                  }}
-                >
-                  <MenuItem value="light">Light</MenuItem>
-                  <MenuItem value="dark">Dark</MenuItem>
-                  <MenuItem value="sepia">Sepia</MenuItem>
-                  <MenuItem value="lava">Lava</MenuItem>
-                  <MenuItem value="ocean">Ocean</MenuItem>
-                  <MenuItem value="forest">Forest</MenuItem>
-                  <MenuItem value="amber">Amber</MenuItem>
-                  <MenuItem value="dracula">Dracula</MenuItem>
-                  <MenuItem value="amethyst">Amethyst</MenuItem>
-                  <MenuItem value="nordic">Nordic</MenuItem>
-                  <MenuItem value="mint">Mint</MenuItem>
-                  <MenuItem value="lavender">Lavender</MenuItem>
-                  <MenuItem value="peach">Peach</MenuItem>
-                  <MenuItem value="rose">Rose</MenuItem>
-                  <MenuItem value="clay">Clay</MenuItem>
-                  <MenuItem value="kitty">Kitty</MenuItem>
-                  <MenuItem value="midnight">Midnight</MenuItem>
-                </Select>
                 <Tooltip title="Fullscreen Visual Preview">
                   <IconButton size="small" onClick={() => setIsPreviewOpen(true)} style={{ color: 'var(--primary-main)' }}>
                     <PreviewIcon fontSize="small" />
@@ -2856,7 +2981,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
 
             {/* Scrollable Container Box */}
             <Box 
-              ref={canvasContainerRef}
+              ref={setCanvasContainer}
               id="canvas-interactive-area"
               onMouseDown={handleCanvasMouseDown}
               data-theme={activeTheme}
@@ -3147,14 +3272,14 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     borderRadius: '12px',
                     background: 'rgba(211, 47, 47, 0.9)',
                     color: '#fff',
-                    backdropFilter: 'blur(5px)',
-                    zIndex: 20
-                  }}
-                >
-                  {error}
-                </Alert>
-              )}
-            </Box>
+                  backdropFilter: 'blur(5px)',
+                  zIndex: 20
+                }}
+              >
+                {error}
+              </Alert>
+            )}
+          </Box>
 
             {pendingRelationSource && (
               <Box
@@ -3456,7 +3581,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           <DialogContent style={{ padding: 0, overflow: 'hidden', position: 'relative', height: '100%', width: '100%' }}>
             {/* Scrollable Preview Canvas Container */}
             <Box
-              ref={previewCanvasContainerRef}
+              ref={setPreviewCanvasContainer}
               id="uml-preview-canvas-container"
               onMouseDown={handlePreviewCanvasMouseDown}
               style={{
@@ -3642,6 +3767,53 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                   </div>
                 </Box>
               </Box>
+            </Box>
+            {/* Viewport Watermark (Always visible on the screen preview dialog) */}
+            <Box
+              style={{
+                position: 'absolute',
+                bottom: '24px',
+                right: '24px',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: '0.75rem',
+                opacity: 0.5,
+                pointerEvents: 'none',
+                userSelect: 'none',
+                zIndex: 10
+              }}
+            >
+              <div 
+                className="nav-brand-logo-container" 
+                style={{ 
+                  width: '2rem', 
+                  height: '2rem',
+                  WebkitMaskImage: `url(${logoImg})`,
+                  maskImage: `url(${logoImg})`,
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                  WebkitMaskSize: 'contain',
+                  maskSize: 'contain'
+                }}
+              >
+                <div className="nav-logo-left-half" />
+                <div className="nav-logo-right-half" />
+              </div>
+              <Typography 
+                className="nav-brand-title"
+                style={{
+                  fontSize: '1.1rem',
+                  fontWeight: 900,
+                  fontFamily: '"Outfit", sans-serif',
+                  letterSpacing: '0.05em'
+                }}
+              >
+                <span style={{ color: 'var(--primary-main)' }}>Sophia</span>
+                <span style={{ color: 'var(--primary-dark)' }}>Path</span>
+              </Typography>
             </Box>
           </DialogContent>
         </Dialog>

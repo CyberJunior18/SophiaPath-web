@@ -36,6 +36,7 @@ import {
   School as SchoolIcon,
   Science as ScienceIcon,
   InfoOutlined as InfoIcon,
+  SportsKabaddi as ArenaIcon,
 } from '@mui/icons-material';
 
 
@@ -60,6 +61,7 @@ import CommunityListPage from '../features/community/CommunityListPage';
 import CommunityDetailPage from '../features/community/CommunityDetailPage';
 import QuestionDetailPage from '../features/community/QuestionDetailPage';
 import LabsPage from './LabsPage';
+import ArenaPage from './ArenaPage';
 
 
 import { useNavigate, Routes, Route, useLocation, Navigate, useParams } from 'react-router-dom';
@@ -1097,8 +1099,9 @@ const NavigationPage = () => {
     if (user?.roleID === 2 || true) { // Temporarily bypassed for testing
       items.push({ label: 'Dashboard', path: '/', icon: <DashboardRoundedIcon /> });
     }
-    items.push({ label: 'Courses', path: '/courses', icon: <SchoolIcon /> });
-    items.push({ label: 'Labs', path: '/labs', icon: <ScienceIcon /> });
+    items.push({ label: 'Courses',      path: '/courses',      icon: <SchoolIcon />  });
+    items.push({ label: 'Labs',          path: '/labs',         icon: <ScienceIcon /> });
+    items.push({ label: 'Arena',         path: '/arena',        icon: <ArenaIcon />   });
     items.push({ label: 'Achievements', path: '/achievements', icon: <EmojiEventsIcon /> });
     items.push({ label: 'Chats', path: '/chats', icon: <ChatIcon /> });
     items.push({ label: 'Communities', path: '/communities', icon: <GroupsIcon /> });
@@ -1700,6 +1703,7 @@ const NavigationPage = () => {
               } />
               <Route path="/courses" element={<AnimatedPage><LearningPage /></AnimatedPage>} />
               <Route path="/labs" element={<AnimatedPage><LabsPage /></AnimatedPage>} />
+              <Route path="/arena" element={<AnimatedPage><ArenaPage /></AnimatedPage>} />
               <Route path="/challenge" element={<AnimatedPage><ChallengePage /></AnimatedPage>} />
               <Route path="/profile" element={<AnimatedPage><ProfilePage /></AnimatedPage>} />
               <Route path="/achievements" element={<AnimatedPage><AchievementsPage /></AnimatedPage>} />
