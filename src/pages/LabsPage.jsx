@@ -386,7 +386,7 @@ const LabsPage = () => {
       const matchesSearch =
         lab.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lab.description.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       const matchesCategory =
         activeCategory === 'All' ||
         lab.category === activeCategory;
@@ -445,13 +445,13 @@ const LabsPage = () => {
       {/* Render Back Button if in Computer Science detail view */}
       {activeLabGroupObj && !isSearchingOrFiltering && (
         <Box style={{ display: 'flex', alignItems: 'center', margin: '2rem 0 1rem 0' }}>
-          <IconButton 
+          <IconButton
             onClick={() => handleSelectLabGroup(null)}
-            style={{ 
-              color: 'var(--text-primary)', 
-              background: 'rgba(255, 255, 255, 0.05)', 
+            style={{
+              color: 'var(--text-primary)',
+              background: 'rgba(255, 255, 255, 0.05)',
               marginRight: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.1)' 
+              border: '1px solid rgba(255, 255, 255, 0.1)'
             }}
           >
             <ArrowBackIcon />
@@ -540,11 +540,11 @@ const LabsPage = () => {
                       {getLabIcon(lab.iconName)}
                     </div>
                     <div className="cyber-badge" style={{
-                      background: lab.labCategoryTitle === 'Philosophy' 
-                        ? 'rgba(156, 39, 176, 0.15)' 
+                      background: lab.labCategoryTitle === 'Philosophy'
+                        ? 'rgba(156, 39, 176, 0.15)'
                         : (lab.labCategoryTitle === 'Computer Science' ? 'rgba(76, 175, 80, 0.15)' : 'rgba(28, 176, 246, 0.15)'),
-                      color: lab.labCategoryTitle === 'Philosophy' 
-                        ? '#e040fb' 
+                      color: lab.labCategoryTitle === 'Philosophy'
+                        ? '#e040fb'
                         : (lab.labCategoryTitle === 'Computer Science' ? '#4caf50' : 'var(--primary-main)')
                     }}>
                       {lab.labCategoryTitle}
@@ -605,11 +605,11 @@ const LabsPage = () => {
                     {getLabGroupIcon(col.iconKey)}
                   </div>
                   <div className="cyber-badge" style={{
-                    background: col.title === 'Philosophy' 
-                      ? 'rgba(156, 39, 176, 0.15)' 
+                    background: col.title === 'Philosophy'
+                      ? 'rgba(156, 39, 176, 0.15)'
                       : (col.title === 'Computer Science' ? 'rgba(76, 175, 80, 0.15)' : 'rgba(28, 176, 246, 0.15)'),
-                    color: col.title === 'Philosophy' 
-                      ? '#e040fb' 
+                    color: col.title === 'Philosophy'
+                      ? '#e040fb'
                       : (col.title === 'Computer Science' ? '#4caf50' : 'var(--primary-main)')
                   }}>
                     {col.labsCount} {col.title === 'Computer Science' ? 'Playgrounds' : 'Labs'}

@@ -771,3 +771,13 @@ button,
   ) !important;
   clip-path: none !important;
 }
+/* Gantt Chart Interactive Elements */
+.gantt-waypoint-handle {
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+.gantt-dependency-group:hover .gantt-waypoint-handle,
+.gantt-waypoint-handle.active {
+  opacity: 1;
+}
+

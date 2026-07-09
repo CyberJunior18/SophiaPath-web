@@ -36,7 +36,7 @@ const validateCppSyntax = (cppCode) => {
 
   for (let i = 0; i < cppCode.length; i++) {
     const char = cppCode[i];
-    
+
     if (char === '\n') {
       line++;
       if (inLineComment) {
@@ -123,8 +123,8 @@ const validateCppSyntax = (cppCode) => {
 
   // Safety parse clean code
   let cleanCode = cppCode
-    .replace(/\/\/.*$/gm, "") 
-    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
   const stringLiterals = [];
   cleanCode = cleanCode.replace(/"(\\.|[^"\\])*"/g, (match) => {
     stringLiterals.push(match);
@@ -170,8 +170,8 @@ const translateCppToJs = (cppCode, inputStr) => {
 
   // 1. Clean comments
   let code = cppCode
-    .replace(/\/\/.*$/gm, "") 
-    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
 
   // Replace string and character literals with placeholders to make translation safe
   const stringLiterals = [];
@@ -256,18 +256,18 @@ const translateCppToJs = (cppCode, inputStr) => {
 
 const parseClassAttributes = (javaCode) => {
   let cleanCode = javaCode
-    .replace(/\/\/.*$/gm, "") 
-    .replace(/\/\*[\s\S]*?\*\//g, ""); 
-  
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+
   const attributes = [];
   const classDeclRegex = /class\s+([A-Za-z0-9_]+)/g;
   let match;
-  
+
   while ((match = classDeclRegex.exec(cleanCode)) !== null) {
     const searchStart = match.index + match[0].length;
     const openBraceIdx = cleanCode.indexOf("{", searchStart);
     if (openBraceIdx === -1) continue;
-    
+
     let depth = 1;
     let closeBraceIdx = -1;
     for (let i = openBraceIdx + 1; i < cleanCode.length; i++) {
@@ -281,12 +281,12 @@ const parseClassAttributes = (javaCode) => {
       }
     }
     if (closeBraceIdx === -1) continue;
-    
+
     const classBody = cleanCode.substring(openBraceIdx + 1, closeBraceIdx);
-    
+
     let accumulated = "";
     let bodyDepth = 0;
-    
+
     for (let charIdx = 0; charIdx < classBody.length; charIdx++) {
       const char = classBody[charIdx];
       if (char === '{') {
@@ -409,11 +409,11 @@ const processClassCode = (classCode, attributes) => {
 
 const extractMainMethodBodyFromRunner = (runnerCode) => {
   const cleanCode = runnerCode.trim();
-  
+
   // Try to find void main method
   const mainMethodRegex = /(?:\bpublic\s+|\bstatic\s+|\bprivate\s+|\bprotected\s+)*void\s+main\s*\([^)]*\)\s*\{/;
   const match = mainMethodRegex.exec(cleanCode);
-  
+
   if (match) {
     const mainOpenBraceIdx = match.index + match[0].length - 1;
     let mainDepth = 1;
@@ -432,7 +432,7 @@ const extractMainMethodBodyFromRunner = (runnerCode) => {
       return cleanCode.substring(mainOpenBraceIdx + 1, mainCloseBraceIdx).trim();
     }
   }
-  
+
   // Try to find class Runner body
   const runnerClassRegex = /(?:public\s+)?class\s+Runner\s*(?:extends\s+\w+)?\s*\{/;
   const classMatch = runnerClassRegex.exec(cleanCode);
@@ -474,7 +474,7 @@ const extractMainMethodBodyFromRunner = (runnerCode) => {
       return runnerBody;
     }
   }
-  
+
   return cleanCode;
 };
 
@@ -485,10 +485,10 @@ const extractMainMethodBody = (javaCode) => {
   if (!match) {
     return { mainBody: "", remainingCode: javaCode };
   }
-  
+
   const runnerStartIdx = match.index;
   const openBraceIdx = match.index + match[0].length - 1;
-  
+
   let depth = 1;
   let runnerCloseBraceIdx = -1;
   for (let i = openBraceIdx + 1; i < cleanCode.length; i++) {
@@ -501,11 +501,11 @@ const extractMainMethodBody = (javaCode) => {
       }
     }
   }
-  
+
   if (runnerCloseBraceIdx === -1) {
     return { mainBody: "", remainingCode: javaCode };
   }
-  
+
   const runnerBody = cleanCode.substring(openBraceIdx + 1, runnerCloseBraceIdx);
   const mainMethodRegexSimple = /void\s+main\s*\([^)]*\)\s*\{/;
   const mainMatch = mainMethodRegexSimple.exec(runnerBody);
@@ -513,7 +513,7 @@ const extractMainMethodBody = (javaCode) => {
     const remainingCode = javaCode.substring(0, runnerStartIdx) + javaCode.substring(runnerCloseBraceIdx + 1);
     return { mainBody: "", remainingCode };
   }
-  
+
   const mainOpenBraceIdx = mainMatch.index + mainMatch[0].length - 1;
   let mainDepth = 1;
   let mainCloseBraceIdx = -1;
@@ -527,26 +527,26 @@ const extractMainMethodBody = (javaCode) => {
       }
     }
   }
-  
+
   if (mainCloseBraceIdx === -1) {
     const remainingCode = javaCode.substring(0, runnerStartIdx) + javaCode.substring(runnerCloseBraceIdx + 1);
     return { mainBody: "", remainingCode };
   }
-  
+
   const mainBody = runnerBody.substring(mainOpenBraceIdx + 1, mainCloseBraceIdx).trim();
   const remainingCode = javaCode.substring(0, runnerStartIdx) + javaCode.substring(runnerCloseBraceIdx + 1);
-  
+
   return { mainBody, remainingCode };
 };
 
 const translateJavaToJs = (javaCode, inputStr) => {
   let code = javaCode
-    .replace(/\/\/.*$/gm, "") 
-    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
 
   // Strip Java import and package statements
   code = code.replace(/^\s*import\s+[A-Za-z0-9_.*]+\s*;/gm, "");
-  code = code.replace(/^\s*package\s+[A-Za-z0-9_.]+\s*;/gm, ""); 
+  code = code.replace(/^\s*package\s+[A-Za-z0-9_.]+\s*;/gm, "");
 
   // Mask string literals
   const stringLiterals = [];
@@ -574,7 +574,7 @@ const translateJavaToJs = (javaCode, inputStr) => {
     mainBody = extracted.mainBody;
     classesCode = extracted.remainingCode;
   }
-  
+
   let finalMainBody = mainBody;
   code = classesCode;
 
@@ -582,7 +582,7 @@ const translateJavaToJs = (javaCode, inputStr) => {
   code = code.replace(/(?:public|protected|private)?\s*abstract\s+[\w<>[\]]+\s+\w+\s*\([^)]*\)\s*;/g, "");
 
   const attributes = parseClassAttributes(code);
-  
+
   code = code.replace(/\b(public\s+|abstract\s+)*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+[\w\s,]+)?/g, (match, modifiers, className, parentClass) => {
     let res = `class ${className}`;
     if (parentClass) {
@@ -611,13 +611,13 @@ const translateJavaToJs = (javaCode, inputStr) => {
   code = code.replace(/\b(public|private|protected|final|abstract|synchronized|transient|volatile)\b/g, "");
 
   const types = [
-    'int', 'double', 'float', 'boolean', 'char', 'String', 'auto', 
+    'int', 'double', 'float', 'boolean', 'char', 'String', 'auto',
     'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Object'
   ];
   const allTypes = [...types, ...classNames];
-  
+
   const varDeclRegex = /\b([A-Z][a-zA-Z0-9_]*|int|double|float|boolean|char|byte|short|long|void)(?:<[a-zA-Z0-9_,\s<>?]*>)?(?:\[\])?\s+([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\()(?=\s*=[^=]|\s*;|\s*,)/g;
-  
+
   code = code.replace(varDeclRegex, 'let $2');
   finalMainBody = finalMainBody.replace(varDeclRegex, 'let $2');
 
@@ -726,8 +726,8 @@ export const translateCppToJsAsync = (cppCode) => {
 
   // 1. Clean comments
   let code = cppCode
-    .replace(/\/\/.*$/gm, "") 
-    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
 
   // Replace string and character literals with placeholders to make translation safe
   const stringLiterals = [];
@@ -802,12 +802,12 @@ export const translateCppToJsAsync = (cppCode) => {
 
 export const translateJavaToJsAsync = (javaCode) => {
   let code = javaCode
-    .replace(/\/\/.*$/gm, "") 
-    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
 
   // Strip Java import and package statements
   code = code.replace(/^\s*import\s+[A-Za-z0-9_.*]+\s*;/gm, "");
-  code = code.replace(/^\s*package\s+[A-Za-z0-9_.]+\s*;/gm, ""); 
+  code = code.replace(/^\s*package\s+[A-Za-z0-9_.]+\s*;/gm, "");
 
   const stringLiterals = [];
   code = code.replace(/"(\\.|[^"\\])*"/g, (match) => {
@@ -832,14 +832,14 @@ export const translateJavaToJsAsync = (javaCode) => {
     mainBody = extracted.mainBody;
     classesCode = extracted.remainingCode;
   }
-  
+
   let finalMainBody = mainBody;
   code = classesCode;
 
   code = code.replace(/(?:public|protected|private)?\s*abstract\s+[\w<>[\]]+\s+\w+\s*\([^)]*\)\s*;/g, "");
 
   const attributes = parseClassAttributes(code);
-  
+
   code = code.replace(/\b(public\s+|abstract\s+)*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+[\w\s,]+)?/g, (match, modifiers, className, parentClass) => {
     let res = `class ${className}`;
     if (parentClass) {
@@ -868,15 +868,15 @@ export const translateJavaToJsAsync = (javaCode) => {
   code = code.replace(/\b(public|private|protected|final|abstract|synchronized|transient|volatile)\b/g, "");
 
   const types = [
-    'int', 'double', 'float', 'boolean', 'char', 'String', 'auto', 
+    'int', 'double', 'float', 'boolean', 'char', 'String', 'auto',
     'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Object',
-    'Shape', 'Circle', 'Rectangle', 'Employee', 'Contractor', 'Appliance', 
+    'Shape', 'Circle', 'Rectangle', 'Employee', 'Contractor', 'Appliance',
     'WashingMachine', 'Refrigerator', 'Product', 'Payable', 'BankAccount', 'Scanner'
   ];
   const allTypes = [...types, ...classNames];
-  
+
   const varDeclRegex = /\b([A-Z][a-zA-Z0-9_]*|int|double|float|boolean|char|byte|short|long|void)(?:<[a-zA-Z0-9_,\s<>?]*>)?(?:\[\])?\s+([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\()(?=\s*=[^=]|\s*;|\s*,)/g;
-  
+
   code = code.replace(varDeclRegex, 'let $2');
   finalMainBody = finalMainBody.replace(varDeclRegex, 'let $2');
 
@@ -960,9 +960,9 @@ export const executeCodeAsync = async (code, language, onStdout, onReadInput) =>
 const normalizeCppCode = (cppCode) => {
   // Strip comments
   let code = cppCode
-    .replace(/\/\/.*$/gm, "") 
-    .replace(/\/\*[\s\S]*?\*\//g, ""); 
-  
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+
   // Wrap single-statement if/while/for/else without braces in explicit braces
   // e.g. "if (cond) stmt;" -> "if (cond) { stmt; }"
   code = code.replace(/(\b(if|while|for)\s*\([^)]+\))\s*([^{;\s\n][^;\n]+;)/g, '$1 { $3 }');
@@ -970,16 +970,16 @@ const normalizeCppCode = (cppCode) => {
 
   // Format braces to be on their own lines
   code = code.replace(/\{/g, '\n{\n').replace(/\}/g, '\n}\n');
-  
+
   // Split statements by semicolon, but not inside for (...) or inside string literals
   let result = "";
   let inParentheses = 0;
   let inString = false;
   let stringChar = null;
-  
+
   for (let i = 0; i < code.length; i++) {
     const char = code[i];
-    
+
     // Handle string literal boundaries
     if ((char === '"' || char === "'") && code[i - 1] !== '\\') {
       if (!inString) {
@@ -990,19 +990,19 @@ const normalizeCppCode = (cppCode) => {
         stringChar = null;
       }
     }
-    
+
     if (!inString) {
       if (char === '(') inParentheses++;
       else if (char === ')') inParentheses--;
     }
-    
+
     if (char === ';' && inParentheses === 0 && !inString) {
       result += ';\n';
     } else {
       result += char;
     }
   }
-  
+
   return result
     .split('\n')
     .map(line => line.trim())
@@ -1011,34 +1011,34 @@ const normalizeCppCode = (cppCode) => {
 
 const convertCppToPseudocode = (cppCode) => {
   if (!cppCode) return 'START\nEND';
-  
+
   const lines = normalizeCppCode(cppCode);
   const pseudocode = ['START'];
   const stack = [];
-  
+
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
-    
+
     // Skip boilerplates
     if (
-      line.startsWith('#') || 
-      line.startsWith('using') || 
-      line.startsWith('int main') || 
+      line.startsWith('#') ||
+      line.startsWith('using') ||
+      line.startsWith('int main') ||
       line === '{'
     ) {
       continue;
     }
-    
+
     // Stop at return
     if (line.startsWith('return')) {
       continue;
     }
-    
+
     // Handle block closing
     if (line === '}') {
       const nextLine = lines[i + 1] ? lines[i + 1].trim().toLowerCase() : '';
       const isElse = nextLine.startsWith('else');
-      
+
       if (stack.length > 0) {
         const top = stack[stack.length - 1];
         if (top === 'IF') {
@@ -1058,10 +1058,10 @@ const convertCppToPseudocode = (cppCode) => {
       }
       continue;
     }
-    
+
     // Clean standard prefixes std:: and spaces
     let parsed = line.replace(/std::/g, '').trim();
-    
+
     // Convert IF statement
     if (parsed.startsWith('if')) {
       const condMatch = /if\s*\((.*)\)/.exec(parsed);
@@ -1070,7 +1070,7 @@ const convertCppToPseudocode = (cppCode) => {
       pseudocode.push(`IF ${cond}`);
       continue;
     }
-    
+
     // Convert ELSE IF statement
     if (parsed.startsWith('else if')) {
       const condMatch = /else if\s*\((.*)\)/.exec(parsed);
@@ -1078,13 +1078,13 @@ const convertCppToPseudocode = (cppCode) => {
       pseudocode.push(`ELSE IF ${cond}`);
       continue;
     }
-    
+
     // Convert ELSE statement
     if (parsed.startsWith('else')) {
       pseudocode.push('ELSE');
       continue;
     }
-    
+
     // Convert WHILE statement
     if (parsed.startsWith('while')) {
       const condMatch = /while\s*\((.*)\)/.exec(parsed);
@@ -1093,7 +1093,7 @@ const convertCppToPseudocode = (cppCode) => {
       pseudocode.push(`WHILE ${cond}`);
       continue;
     }
-    
+
     // Convert FOR statement
     if (parsed.startsWith('for')) {
       const condMatch = /for\s*\((.*)\)/.exec(parsed);
@@ -1102,12 +1102,12 @@ const convertCppToPseudocode = (cppCode) => {
       pseudocode.push(`FOR ${cond}`);
       continue;
     }
-    
+
     // Convert declarations like int x = 10;
     if (/^(int|double|float|string|bool|char|auto)\s+/.test(parsed)) {
       parsed = parsed.replace(/^(int|double|float|string|bool|char|auto)\s+/, 'DECLARE ');
     }
-    
+
     // Convert cout and printf
     if (parsed.startsWith('cout')) {
       const parts = parsed.split('<<').slice(1);
@@ -1125,21 +1125,21 @@ const convertCppToPseudocode = (cppCode) => {
         parsed = `PRINT ${printfMatch[1].trim()}`;
       }
     }
-    
+
     // Convert cin
     if (parsed.startsWith('cin')) {
       const parts = parsed.split('>>').slice(1).map(p => p.trim().replace(/;$/, ''));
       parsed = `INPUT ${parts.join(', ')}`;
     }
-    
+
     // Clean up trailing semicolons
     parsed = parsed.replace(/;$/, '').trim();
-    
+
     if (parsed) {
       pseudocode.push(parsed);
     }
   }
-  
+
   // Empty remaining stack items just in case
   while (stack.length > 0) {
     const top = stack.pop();
@@ -1147,35 +1147,35 @@ const convertCppToPseudocode = (cppCode) => {
     else if (top === 'WHILE') pseudocode.push('END WHILE');
     else if (top === 'FOR') pseudocode.push('END FOR');
   }
-  
+
   pseudocode.push('END');
   return pseudocode.join('\n');
 };
 
 const parsePseudocodeToTree = (pseudocodeText) => {
   if (!pseudocodeText) return [];
-  
+
   const lines = pseudocodeText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  
+
   const parseHelper = (index) => {
     const result = [];
     let i = index;
-    
+
     while (i < lines.length) {
       const line = lines[i];
       const upper = line.toUpperCase();
-      
+
       if (
-        upper.startsWith('ELSE IF') || 
-        upper.startsWith('ELSE') || 
-        upper.startsWith('END IF') || 
-        upper.startsWith('END WHILE') || 
-        upper.startsWith('END FOR') || 
+        upper.startsWith('ELSE IF') ||
+        upper.startsWith('ELSE') ||
+        upper.startsWith('END IF') ||
+        upper.startsWith('END WHILE') ||
+        upper.startsWith('END FOR') ||
         upper.startsWith('END LOOP')
       ) {
         break;
       }
-      
+
       if (upper.startsWith('IF ')) {
         const condition = line.replace(/^IF\s+/i, '').trim();
         const node = {
@@ -1185,19 +1185,19 @@ const parsePseudocodeToTree = (pseudocodeText) => {
           falseBranch: [],
           color: '#FF9F43'
         };
-        
+
         i++; // move past IF
-        
+
         // Parse true branch
         const trueRes = parseHelper(i);
         node.trueBranch = trueRes.nodes;
         i = trueRes.nextIndex;
-        
+
         // Now we are at ELSE IF, ELSE, or END IF
         if (i < lines.length && lines[i].toUpperCase().startsWith('ELSE IF')) {
           const elseIfLine = lines[i].replace(/^ELSE IF\s+/i, 'IF ');
           lines[i] = elseIfLine;
-          
+
           const falseRes = parseHelper(i);
           node.falseBranch = falseRes.nodes;
           i = falseRes.nextIndex;
@@ -1207,12 +1207,12 @@ const parsePseudocodeToTree = (pseudocodeText) => {
           node.falseBranch = falseRes.nodes;
           i = falseRes.nextIndex;
         }
-        
+
         // Move past END IF
         if (i < lines.length && lines[i].toUpperCase() === 'END IF') {
           i++;
         }
-        
+
         result.push(node);
       } else if (upper.startsWith('WHILE ') || upper.startsWith('FOR ') || upper.startsWith('LOOP ')) {
         const condition = line;
@@ -1222,23 +1222,23 @@ const parsePseudocodeToTree = (pseudocodeText) => {
           body: [],
           color: '#8B5CF6'
         };
-        
+
         i++; // move past WHILE/FOR/LOOP
-        
+
         // Parse loop body
         const bodyRes = parseHelper(i);
         node.body = bodyRes.nodes;
         i = bodyRes.nextIndex;
-        
+
         // Move past END WHILE / END FOR / END LOOP
         if (i < lines.length && (
-          lines[i].toUpperCase().startsWith('END WHILE') || 
-          lines[i].toUpperCase().startsWith('END FOR') || 
+          lines[i].toUpperCase().startsWith('END WHILE') ||
+          lines[i].toUpperCase().startsWith('END FOR') ||
           lines[i].toUpperCase().startsWith('END LOOP')
         )) {
           i++;
         }
-        
+
         result.push(node);
       } else if (upper === 'END WHILE' || upper === 'END FOR' || upper === 'END LOOP') {
         i++; // skip loop endings
@@ -1247,7 +1247,7 @@ const parsePseudocodeToTree = (pseudocodeText) => {
         let label = line;
         let color = 'rgba(255, 255, 255, 0.4)';
         let shape = 'rectangle';
-        
+
         if (upper.startsWith('START') || upper.startsWith('BEGIN')) {
           type = 'terminal';
           label = 'START';
@@ -1259,12 +1259,12 @@ const parsePseudocodeToTree = (pseudocodeText) => {
           color = '#FF647C'; // red
           shape = 'oval';
         } else if (
-          upper.startsWith('PRINT') || 
-          upper.startsWith('OUTPUT') || 
-          upper.startsWith('DISPLAY') || 
-          upper.startsWith('WRITE') || 
-          upper.startsWith('INPUT') || 
-          upper.startsWith('READ') || 
+          upper.startsWith('PRINT') ||
+          upper.startsWith('OUTPUT') ||
+          upper.startsWith('DISPLAY') ||
+          upper.startsWith('WRITE') ||
+          upper.startsWith('INPUT') ||
+          upper.startsWith('READ') ||
           upper.startsWith('GET')
         ) {
           type = 'io';
@@ -1272,15 +1272,15 @@ const parsePseudocodeToTree = (pseudocodeText) => {
           color = '#1CB0F6'; // light blue
           shape = 'parallelogram';
         }
-        
+
         result.push({ type, label, color, shape });
         i++;
       }
     }
-    
+
     return { nodes: result, nextIndex: i };
   };
-  
+
   return parseHelper(0).nodes;
 };
 const DEFAULT_STARTER = `#include <iostream>
@@ -1301,7 +1301,7 @@ int main() {
 export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   const [activeTab, setActiveTab] = useState('compiler'); // 'compiler' | 'flowchart'
   const fileInputRef = useRef(null);
 
@@ -1353,19 +1353,19 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
     setTerminalOutput('');
     setIsWaitingForInput(false);
     setCurrentInputVal('');
-    
+
     try {
       const onStdout = (text) => {
         setTerminalOutput(prev => prev + text);
       };
-      
+
       const onReadInput = () => {
         return new Promise((resolve) => {
           setIsWaitingForInput(true);
           inputResolverRef.current = resolve;
         });
       };
-      
+
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error("Execution Timed Out (Possible Infinite Loop or unresolved input stream)")), 10000);
       });
@@ -1374,7 +1374,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
         executeCodeAsync(code, 'cpp', onStdout, onReadInput),
         timeoutPromise
       ]);
-      
+
     } catch (err) {
       setTerminalOutput(prev => prev + `\n❌ COMPILATION / RUNTIME ERROR: ${err.message}\n`);
     } finally {
@@ -1399,14 +1399,14 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
     try {
       const element = document.getElementById('flowchart-capture-content');
       if (!element) return;
-      
+
       const canvas = await html2canvas(element, {
         backgroundColor: theme.palette.mode === 'dark' ? '#0A0C16' : '#FAFAFC',
         scale: 2,
         logging: false,
         useCORS: true
       });
-      
+
       const link = document.createElement('a');
       link.download = 'flowchart.png';
       link.href = canvas.toDataURL('image/png');
@@ -1614,7 +1614,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
 
         {/* Split Rows Container */}
         <Box style={{ display: 'flex', width: '100%', position: 'relative', marginTop: '-2px' }}>
-          
+
           {/* Horizontal Connecting Line (Dashed) */}
           <Box style={{
             position: 'absolute',
@@ -1630,7 +1630,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
           <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative', paddingRight: '10px' }}>
             {/* Vertical line from horizontal line down */}
             <Box style={{ width: '2px', height: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-            
+
             {/* YES Label Chip */}
             <Box style={{
               background: 'rgba(61, 220, 151, 0.12)',
@@ -1665,7 +1665,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 </Box>
               )}
             </Box>
-            
+
             {/* Bottom vertical line to merge */}
             <Box style={{ width: '2px', flexGrow: 1, minHeight: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
           </Box>
@@ -1674,7 +1674,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
           <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative', paddingLeft: '10px' }}>
             {/* Vertical line from horizontal line down */}
             <Box style={{ width: '2px', height: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-            
+
             {/* NO Label Chip */}
             <Box style={{
               background: 'rgba(255, 100, 124, 0.12)',
@@ -1709,7 +1709,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 </Box>
               )}
             </Box>
-            
+
             {/* Bottom vertical line to merge */}
             <Box style={{ width: '2px', flexGrow: 1, minHeight: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
           </Box>
@@ -1775,7 +1775,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
 
         {/* Horizontal split for Loop Body vs. Exit */}
         <Box style={{ display: 'flex', width: '100%', position: 'relative', marginTop: '10px' }}>
-          
+
           {/* Connecting line */}
           <Box style={{
             position: 'absolute',
@@ -1790,7 +1790,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
           {/* Left Column: Loop Body (True) */}
           <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative', paddingRight: '10px', borderLeft: '2px dashed rgba(139, 92, 246, 0.25)', borderRadius: '8px 0 0 8px', marginLeft: '5px' }}>
             <Box style={{ width: '2px', height: '15px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-            
+
             <Box style={{
               background: 'rgba(139, 92, 246, 0.12)',
               border: '1px solid #8B5CF6',
@@ -1822,7 +1822,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 </Box>
               )}
             </Box>
-            
+
             {/* Arrow looping back up */}
             <Box style={{ width: '2px', flexGrow: 1, minHeight: '20px', borderLeft: '2px dashed rgba(139, 92, 246, 0.5)', zIndex: 1 }} />
             <Typography variant="caption" style={{ color: '#8B5CF6', fontSize: '0.6rem', fontWeight: 800, marginTop: '-5px', marginBottom: '10px' }}>
@@ -1833,7 +1833,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
           {/* Right Column: Loop Exit (False) */}
           <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative', paddingLeft: '10px' }}>
             <Box style={{ width: '2px', height: '15px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-            
+
             <Box style={{
               background: 'rgba(255, 100, 124, 0.12)',
               border: '1px solid #FF647C',
@@ -1851,7 +1851,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 Exit Loop
               </Typography>
             </Box>
-            
+
             <Box style={{ width: '2px', flexGrow: 1, minHeight: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
           </Box>
 
@@ -1878,11 +1878,11 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
 
   const renderTreeNodes = (nodes) => {
     if (!nodes || nodes.length === 0) return null;
-    
+
     return nodes.map((node, idx) => {
       const isLast = idx === nodes.length - 1;
       let element = null;
-      
+
       if (node.type === 'branch') {
         element = renderBranchNode(node);
       } else if (node.type === 'loop') {
@@ -1890,7 +1890,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
       } else {
         element = renderStandardNode(node);
       }
-      
+
       return (
         <React.Fragment key={idx}>
           {element}
@@ -1946,7 +1946,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
             C++ Compiler Playground
           </Typography>
         </Box>
-        
+
         {/* Switcher tabs */}
         <Box style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
           <button
@@ -2022,7 +2022,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   </IconButton>
                 </Box>
               </Box>
-              
+
               <Box style={{
                 borderRadius: '16px',
                 overflow: 'hidden',
