@@ -891,19 +891,24 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           }
         });
       } else if (activeTabKey === 'usecase') {
-        const { actors, usecases } = parseUseCase(code);
-        actors.forEach((act, idx) => {
-          if (!next[act.id]) {
-            next[act.id] = { x: 100, y: idx * 180 + 150 };
-            updated = true;
-          }
-        });
-        usecases.forEach((uc, idx) => {
-          if (!next[uc.id]) {
-            next[uc.id] = { x: 420, y: idx * 110 + 100 };
-            updated = true;
-          }
-        });
+        const { actors, usecases, links } = parseUseCase(code);
+        // Check if any nodes need positions assigned
+        const needsLayout =
+          actors.some(a => !next[a.id]) ||
+          usecases.some(u => !next[u.id]);
+        if (needsLayout) {
+          // Use the smart graph-aware auto-layout for ALL nodes
+          // (existing positions are preserved by only setting new ones)
+          const autoPositions = computeUseCaseAutoLayout(actors, usecases, links);
+          let anyNew = false;
+          Object.entries(autoPositions).forEach(([id, pos]) => {
+            if (!next[id]) {
+              next[id] = pos;
+              anyNew = true;
+            }
+          });
+          if (anyNew) updated = true;
+        }
       }
 
       return updated ? next : prev;
@@ -1352,12 +1357,13 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       }
     }
     else if (tabKey === 'usecase') {
-      const { actors, usecases } = parseUseCase(diagramCode);
+      const { actors, usecases, links } = parseUseCase(diagramCode);
+      const autoPositions = computeUseCaseAutoLayout(actors, usecases, links);
       let xs = [];
       let ys = [];
 
       actors.forEach((act, idx) => {
-        const pos = nodePositions[act.id] || { x: 100, y: idx * 180 + 150 };
+        const pos = nodePositions[act.id] || autoPositions[act.id] || { x: 100, y: idx * 180 + 150 };
         xs.push(pos.x);
         xs.push(pos.x + 120);
         ys.push(pos.y);
@@ -1365,9 +1371,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       });
 
       usecases.forEach((uc, idx) => {
-        const pos = nodePositions[uc.id] || { x: 420, y: idx * 110 + 100 };
+        const pos = nodePositions[uc.id] || autoPositions[uc.id] || { x: 420, y: idx * 110 + 100 };
         xs.push(pos.x);
-        xs.push(pos.x + 180);
+        xs.push(pos.x + 180); // Width of usecase is max ~180-200. We can use 250 to be safe, or just stick to 180 as before.
         ys.push(pos.y);
         ys.push(pos.y + 80);
       });
@@ -1476,14 +1482,11 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       const padRight = tabKey === 'gantt' ? 0 : padding; // Exactly 0 extra right padding for Gantt
       const padBottom = tabKey === 'gantt' ? 80 : padding;
       
-      let maxWidth = tabKey === 'gantt' ? maxX + padRight : 1200;
-      let maxHeight = tabKey === 'gantt' ? maxY + padBottom : 800;
-      
       return {
         x: Math.max(0, minX - padding),
         y: Math.max(0, minY - padding),
-        width: Math.min(maxWidth, (maxX - minX) + padding + padRight),
-        height: Math.min(maxHeight, (maxY - minY) + padding + padBottom)
+        width: (maxX - minX) + padding + padRight,
+        height: (maxY - minY) + padding + padBottom
       };
     }
 
@@ -1911,6 +1914,187 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     });
 
     return { systemName, actors, usecases, links };
+  }
+
+  /**
+   * Computes a clean 3-column UML use-case auto-layout:
+   *
+   *  LEFT   │  CENTER (system boundary)  │  RIGHT
+   * ────────┼───────────────────────────┼──────────────────
+   *  Actors │  Primary use cases         │  Secondary use cases
+   *         │  (directly connected       │  (connected only via
+   *         │   to actors)               │   extend/include/inherits)
+   *
+   * Pipeline:
+   *  1. Split links: actor↔uc vs uc↔uc (extend/include/inherits).
+   *  2. Classify use cases:
+   *       Primary   = directly reachable from any actor.
+   *       Secondary = everything else (only reachable via uc↔uc links).
+   *  3. Order primary UCs by which actor (in actor-declaration order)
+   *     first connects to them, so the actor's lines fan outward cleanly.
+   *  4. Order secondary UCs by which primary UC they extend/include,
+   *     keeping related secondaries together with a small gap between groups.
+   *  5. Each actor is positioned at the exact Y-midpoint of the primary
+   *     UCs it connects to — no fixed grid spacing needed.
+   */
+  function computeUseCaseAutoLayout(actors, usecases, links) {
+    if (usecases.length === 0 && actors.length === 0) return {};
+
+    const UC_W = 200;
+    const UC_H = 50;
+    const UC_GAP_PRIMARY  = 28;   // vertical gap between primary UCs
+    const UC_GAP_SECONDARY = 22;  // vertical gap between secondary UCs
+    const UC_GROUP_GAP    = 18;   // extra gap between secondary UC groups
+    const AC_H = 90;
+    const PRIMARY_COL_X   = 750;  // centre-X of the primary (centre) column
+    const SECONDARY_COL_X = 1150; // centre-X of the secondary (right) column
+    const LEFT_X          = 80;   // left edge of the actor column
+    const MARGIN_TOP      = 80;
+
+    const positions  = {};
+    const actorIds   = new Set(actors.map(a => a.id));
+    const ucIds      = new Set(usecases.map(u => u.id));
+
+    // ── Step 1: split links ──────────────────────────────────────────────
+    const ucUcLinks    = links.filter(l => ucIds.has(l.source) && ucIds.has(l.target));
+    const actorUcLinks = links.filter(l => actorIds.has(l.source) || actorIds.has(l.target));
+
+    // ── Step 2: classify use cases ───────────────────────────────────────
+    // Primary = any UC that has at least one direct actor link
+    const primaryUcIds = new Set();
+    actorUcLinks.forEach(l => {
+      const ucId = actorIds.has(l.source) ? l.target : l.source;
+      if (ucIds.has(ucId)) primaryUcIds.add(ucId);
+    });
+    // Secondary = all remaining UCs (only connected via uc↔uc links)
+    const secondaryUcIds = new Set([...ucIds].filter(id => !primaryUcIds.has(id)));
+
+    const primaryUcs   = usecases.filter(uc => primaryUcIds.has(uc.id));
+    const secondaryUcs = usecases.filter(uc => secondaryUcIds.has(uc.id));
+
+    // ── Step 3: order primary UCs ────────────────────────────────────────
+    // Each primary UC is tagged with the earliest actor-index that connects to it.
+    // This groups UCs under the actor that "owns" them, preserving declaration order.
+    const actorList = [...actors];
+    const ucFirstActorIdx = {};
+    primaryUcs.forEach(uc => {
+      let minIdx = Infinity;
+      actorUcLinks.forEach(l => {
+        const ucId     = actorIds.has(l.source) ? l.target  : l.source;
+        const actorId  = actorIds.has(l.source) ? l.source  : l.target;
+        if (ucId === uc.id) {
+          const aIdx = actorList.findIndex(a => a.id === actorId);
+          if (aIdx !== -1 && aIdx < minIdx) minIdx = aIdx;
+        }
+      });
+      ucFirstActorIdx[uc.id] = minIdx === Infinity ? 9999 : minIdx;
+    });
+    primaryUcs.sort((a, b) => {
+      const diff = ucFirstActorIdx[a.id] - ucFirstActorIdx[b.id];
+      return diff !== 0 ? diff : usecases.indexOf(a) - usecases.indexOf(b);
+    });
+
+    // ── Step 4: lay out primary UCs in the centre column ─────────────────
+    let primaryY = MARGIN_TOP;
+    const primaryYCenter = {}; // ucId → Y of the ellipse's centre
+    primaryUcs.forEach(uc => {
+      positions[uc.id] = { x: PRIMARY_COL_X - UC_W / 2, y: primaryY };
+      primaryYCenter[uc.id] = primaryY + UC_H / 2;
+      primaryY += UC_H + UC_GAP_PRIMARY;
+    });
+    const primaryEndY = primaryY;
+
+    // ── Step 5: order secondary UCs by their nearest primary UC ──────────
+    // Walk up the uc↔uc graph to find each secondary UC's primary ancestor.
+    const getParentPrimary = (ucId, depth = 0) => {
+      if (depth > 20) return null;
+      const parentLink = ucUcLinks.find(
+        l => (l.source === ucId && ucIds.has(l.target)) ||
+             (l.target === ucId && ucIds.has(l.source))
+      );
+      if (!parentLink) return null;
+      const parentId = parentLink.source === ucId ? parentLink.target : parentLink.source;
+      if (primaryUcIds.has(parentId)) return parentId;
+      // Recurse: the parent is also secondary — walk up further
+      return getParentPrimary(parentId, depth + 1);
+    };
+
+    const ucParentPrimary = {};
+    secondaryUcs.forEach(uc => { ucParentPrimary[uc.id] = getParentPrimary(uc.id); });
+
+    secondaryUcs.sort((a, b) => {
+      const aParent = ucParentPrimary[a.id];
+      const bParent = ucParentPrimary[b.id];
+      const aIdx = aParent ? primaryUcs.findIndex(p => p.id === aParent) : 9999;
+      const bIdx = bParent ? primaryUcs.findIndex(p => p.id === bParent) : 9999;
+      if (aIdx !== bIdx) return aIdx - bIdx;
+      return usecases.indexOf(a) - usecases.indexOf(b);
+    });
+
+    // ── Step 6: lay out secondary UCs aligned with their parent primary UC ─
+    // Each group of secondaries is vertically centred at the parent's Y so
+    // the connection lines stay as horizontal as possible.
+    // A top-down collision pass then nudges groups down just enough to avoid
+    // overlapping with the group above, keeping them as close as possible.
+
+    // Build groups: Map<parentPrimaryId | null, secondaryUc[]>
+    const secGroups = new Map();
+    secondaryUcs.forEach(uc => {
+      const parent = ucParentPrimary[uc.id] ?? null;
+      if (!secGroups.has(parent)) secGroups.set(parent, []);
+      secGroups.get(parent).push(uc);
+    });
+
+    // Process groups in top-to-bottom order (same as primaryUcs order)
+    const orderedParents = [
+      ...primaryUcs.map(p => p.id).filter(id => secGroups.has(id)),
+      ...(secGroups.has(null) ? [null] : [])
+    ];
+
+    let prevGroupBottom = -Infinity; // bottom Y of the previous placed group
+
+    orderedParents.forEach(parentId => {
+      const group = secGroups.get(parentId) || [];
+      if (group.length === 0) return;
+
+      const parentCenterY = parentId ? (primaryYCenter[parentId] ?? MARGIN_TOP) : MARGIN_TOP;
+      const groupH = group.length * UC_H + (group.length - 1) * UC_GAP_SECONDARY;
+
+      // Ideal top: centre the group around the parent's Y
+      let groupTop = parentCenterY - groupH / 2;
+
+      // Collision avoidance: never overlap the group placed just above
+      const minTop = prevGroupBottom + UC_GAP_SECONDARY;
+      if (groupTop < minTop) groupTop = minTop;
+
+      group.forEach((uc, idx) => {
+        positions[uc.id] = {
+          x: SECONDARY_COL_X - UC_W / 2,
+          y: groupTop + idx * (UC_H + UC_GAP_SECONDARY)
+        };
+      });
+
+      prevGroupBottom = groupTop + groupH;
+    });
+
+    // ── Step 7: position each actor at the Y-centre of its primary UCs ───
+    actors.forEach(actor => {
+      const connectedYs = actorUcLinks
+        .filter(l => l.source === actor.id || l.target === actor.id)
+        .map(l => {
+          const ucId = l.source === actor.id ? l.target : l.source;
+          return primaryYCenter[ucId] ?? null;
+        })
+        .filter(y => y !== null);
+
+      const centerY = connectedYs.length > 0
+        ? connectedYs.reduce((a, b) => a + b, 0) / connectedYs.length
+        : MARGIN_TOP + (primaryEndY - MARGIN_TOP) / 2;
+
+      positions[actor.id] = { x: LEFT_X, y: centerY - AC_H / 2 };
+    });
+
+    return positions;
   }
 
   function parseSequence(text) {
@@ -2534,20 +2718,69 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
   const renderUseCaseDiagram = () => {
     const { systemName, actors, usecases, links } = parseUseCase(code);
 
+    let boxX = 260;
+    let boxY = 30;
+    let boxWidth = 360;
+    let boxHeight = 540;
+
+    if (usecases.length > 0) {
+      let minUcX = Infinity;
+      let maxUcX = -Infinity;
+      let minUcY = Infinity;
+      let maxUcY = -Infinity;
+
+      usecases.forEach((uc, idx) => {
+        const coord = nodePositions[uc.id] || { x: 420, y: idx * 110 + 100 };
+        if (coord.x < minUcX) minUcX = coord.x;
+        if (coord.x + 200 > maxUcX) maxUcX = coord.x + 200;
+        if (coord.y < minUcY) minUcY = coord.y;
+        if (coord.y + 50 > maxUcY) maxUcY = coord.y + 50;
+      });
+
+      const paddingLeft = 60;
+      const paddingRight = 40;
+      const paddingTop = 70;
+      const paddingBottom = 45;
+
+      boxX = minUcX - paddingLeft;
+      boxY = minUcY - paddingTop;
+      boxWidth = (maxUcX + paddingRight) - boxX;
+      boxHeight = (maxUcY + paddingBottom) - boxY;
+
+      // Maintain minimum dimensions to keep the default neat look if usecases are clustered
+      if (boxWidth < 360) {
+        const diff = 360 - boxWidth;
+        boxWidth = 360;
+        boxX -= diff / 2;
+      }
+      if (boxHeight < 540) {
+        const diff = 540 - boxHeight;
+        boxHeight = 540;
+        boxY -= diff / 2;
+      }
+    }
+
     return (
       <>
         {/* System Boundary Box */}
         <rect
-          x="260"
-          y="30"
-          width="360"
-          height={Math.max(540, usecases.length * 110 + 40)}
+          x={boxX}
+          y={boxY}
+          width={boxWidth}
+          height={boxHeight}
           fill="rgba(255, 255, 255, 0.02)"
           stroke="rgba(61, 92, 255, 0.2)"
           strokeWidth="2"
           rx="16"
         />
-        <text x="440" y="55" fill="rgba(255,255,255,0.4)" fontSize="13" fontWeight="bold" textAnchor="middle">
+        <text 
+          x={boxX + boxWidth / 2} 
+          y={boxY + 25} 
+          fill="rgba(255,255,255,0.4)" 
+          fontSize="13" 
+          fontWeight="bold" 
+          textAnchor="middle"
+        >
           {systemName.toUpperCase()}
         </text>
 
@@ -3266,6 +3499,32 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     <Button variant="contained" size="small" color="primary" startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />} onClick={() => setIsAddUseCaseOpen(true)} style={{ marginRight: '8px', borderRadius: '6px', textTransform: 'none', height: '28px', fontSize: '0.72rem', background: 'var(--primary-main)', fontWeight: 800 }}>
                       Add Use Case
                     </Button>
+                    <Tooltip title="Auto-arrange all actors and use cases into a clean layout">
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => {
+                          const { actors, usecases, links } = parseUseCase(code);
+                          const autoPositions = computeUseCaseAutoLayout(actors, usecases, links);
+                          setNodePositions(prev => ({ ...prev, ...autoPositions }));
+                          // Clear all usecase waypoints so connectors reset to clean straight lines
+                          setUsecaseWaypoints({});
+                        }}
+                        style={{
+                          marginRight: '8px',
+                          borderRadius: '6px',
+                          textTransform: 'none',
+                          height: '28px',
+                          fontSize: '0.72rem',
+                          color: '#00FFCC',
+                          borderColor: '#00FFCC',
+                          fontWeight: 700,
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        ✦ Auto Layout
+                      </Button>
+                    </Tooltip>
                   </>
                 )}
                 {activeTabKey === 'sequence' && (
