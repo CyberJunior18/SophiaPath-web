@@ -22,7 +22,10 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  InputLabel
+  InputLabel,
+  Radio,
+  RadioGroup,
+  FormControlLabel
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -278,8 +281,8 @@ const AddEntityDialog = ({ open, onClose, onSubmit, existingEntityNames }) => {
   };
 
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={onClose}
       PaperProps={{
         style: {
@@ -298,7 +301,7 @@ const AddEntityDialog = ({ open, onClose, onSubmit, existingEntityNames }) => {
       </DialogTitle>
       <DialogContent style={{ marginTop: '16px' }}>
         {error && <Alert severity="error" style={{ marginBottom: '16px', borderRadius: '8px' }}>{error}</Alert>}
-        
+
         <TextField
           fullWidth
           label="Entity Name"
@@ -634,7 +637,7 @@ const AddSequenceMessageDialog = ({ open, onClose, onSubmit, participants }) => 
       </DialogTitle>
       <DialogContent style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {error && <Alert severity="error" style={{ borderRadius: '8px' }}>{error}</Alert>}
-        
+
         <Box style={{ display: 'flex', gap: '16px' }}>
           <FormControl fullWidth size="small">
             <InputLabel style={{ color: 'rgba(255,255,255,0.7)' }}>From</InputLabel>
@@ -642,7 +645,7 @@ const AddSequenceMessageDialog = ({ open, onClose, onSubmit, participants }) => 
               {participants.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
             </Select>
           </FormControl>
-          
+
           <FormControl fullWidth size="small">
             <InputLabel style={{ color: 'rgba(255,255,255,0.7)' }}>To</InputLabel>
             <Select value={target} label="To" onChange={(e) => setTarget(e.target.value)} style={{ color: '#fff' }} sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' } }}>
@@ -663,24 +666,41 @@ const AddSequenceMessageDialog = ({ open, onClose, onSubmit, participants }) => 
 
 const AddTaskDialog = ({ open, onClose, onSubmit, existingTasks }) => {
   const [name, setName] = useState('');
+  const [mode, setMode] = useState('date'); // 'date' or 'duration'
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  const [durationValue, setDurationValue] = useState(1);
+  const [durationUnit, setDurationUnit] = useState('days'); // 'days', 'weeks', 'months'
   const [deps, setDeps] = useState([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (open) { setName(''); setStart(''); setEnd(''); setDeps([]); setError(''); }
+    if (open) { setName(''); setMode('date'); setStart(''); setEnd(''); setDurationValue(1); setDurationUnit('days'); setDeps([]); setError(''); }
   }, [open]);
 
   const handleSubmit = () => {
     const trimmed = name.trim();
     if (!trimmed) return setError('Task name cannot be empty.');
-    if (!start || !end) return setError('Start and End dates are required.');
-    if (new Date(start) > new Date(end)) return setError('Start date must be before End date.');
+    if (!start) return setError('Start date is required.');
+    
+    let finalEnd = end;
+    if (mode === 'date') {
+      if (!end) return setError('End date is required.');
+      if (new Date(start) > new Date(end)) return setError('Start date must be before End date.');
+    } else {
+      if (durationValue <= 0) return setError('Duration must be greater than 0.');
+      const startDate = new Date(start);
+      let days = durationValue;
+      if (durationUnit === 'weeks') days = durationValue * 7;
+      else if (durationUnit === 'months') days = durationValue * 30; // Approx for gantt
+      const endDate = new Date(startDate.getTime() + days * 24 * 60 * 60 * 1000);
+      finalEnd = endDate.toISOString().split('T')[0];
+    }
+
     if (existingTasks.some(t => t.toLowerCase() === trimmed.toLowerCase())) {
       return setError(`Task "${trimmed}" already exists.`);
     }
-    onSubmit(trimmed, start, end, deps);
+    onSubmit(trimmed, start, finalEnd, deps);
   };
 
   return (
@@ -690,12 +710,34 @@ const AddTaskDialog = ({ open, onClose, onSubmit, existingTasks }) => {
       </DialogTitle>
       <DialogContent style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {error && <Alert severity="error" style={{ borderRadius: '8px' }}>{error}</Alert>}
-        
+
         <TextField fullWidth label="Task Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Design UI" variant="outlined" size="small" InputLabelProps={{ style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
-        
+
+        <FormControl component="fieldset" style={{ marginTop: '8px' }}>
+          <RadioGroup row value={mode} onChange={(e) => setMode(e.target.value)} style={{ color: '#fff' }}>
+            <FormControlLabel value="date" control={<Radio style={{ color: 'var(--primary-main)' }} />} label="By Date" />
+            <FormControlLabel value="duration" control={<Radio style={{ color: 'var(--primary-main)' }} />} label="By Duration" />
+          </RadioGroup>
+        </FormControl>
+
         <Box style={{ display: 'flex', gap: '16px' }}>
           <TextField fullWidth label="Start Date" type="date" value={start} onChange={(e) => setStart(e.target.value)} InputLabelProps={{ shrink: true, style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
-          <TextField fullWidth label="End Date" type="date" value={end} onChange={(e) => setEnd(e.target.value)} InputLabelProps={{ shrink: true, style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+          
+          {mode === 'date' ? (
+            <TextField fullWidth label="End Date" type="date" value={end} onChange={(e) => setEnd(e.target.value)} InputLabelProps={{ shrink: true, style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+          ) : (
+            <>
+              <TextField fullWidth label="Duration" type="number" value={durationValue} onChange={(e) => setDurationValue(Number(e.target.value))} InputLabelProps={{ style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ min: 1, style: { color: '#fff' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+              <FormControl fullWidth size="small">
+                <InputLabel style={{ color: 'rgba(255,255,255,0.7)' }}>Unit</InputLabel>
+                <Select value={durationUnit} label="Unit" onChange={(e) => setDurationUnit(e.target.value)} style={{ color: '#fff' }} sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' } }}>
+                  <MenuItem value="days">Days</MenuItem>
+                  <MenuItem value="weeks">Weeks</MenuItem>
+                  <MenuItem value="months">Months</MenuItem>
+                </Select>
+              </FormControl>
+            </>
+          )}
         </Box>
 
         {existingTasks.length > 0 && (
@@ -733,18 +775,22 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
   const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
   const [isAddSequenceMessageOpen, setIsAddSequenceMessageOpen] = useState(false);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [ganttViewScale, setGanttViewScale] = useState('weeks'); // 'days', 'weeks', 'months'
 
   const [isRelationDialogOpen, setIsRelationDialogOpen] = useState(false);
   const [pendingRelationSource, setPendingRelationSource] = useState(null);
   const [relationTarget, setRelationTarget] = useState(null);
 
   // Split-pane slider state
-  const [splitPercent, setSplitPercent] = useState(50);
+  const [splitPercent, setSplitPercent] = useState(35);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Zooming and Panning states
   const [zoomScale, setZoomScale] = useState(1.0);
   const [draggingNode, setDraggingNode] = useState(null);
+  const [ganttWaypoints, setGanttWaypoints] = useState({});
+  const [usecaseWaypoints, setUsecaseWaypoints] = useState({});
+  const [draggingWaypoint, setDraggingWaypoint] = useState(null);
 
   // Preview Dialog states matching Java UML playground
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -845,19 +891,24 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           }
         });
       } else if (activeTabKey === 'usecase') {
-        const { actors, usecases } = parseUseCase(code);
-        actors.forEach((act, idx) => {
-          if (!next[act.id]) {
-            next[act.id] = { x: 100, y: idx * 180 + 150 };
-            updated = true;
-          }
-        });
-        usecases.forEach((uc, idx) => {
-          if (!next[uc.id]) {
-            next[uc.id] = { x: 420, y: idx * 110 + 100 };
-            updated = true;
-          }
-        });
+        const { actors, usecases, links } = parseUseCase(code);
+        // Check if any nodes need positions assigned
+        const needsLayout =
+          actors.some(a => !next[a.id]) ||
+          usecases.some(u => !next[u.id]);
+        if (needsLayout) {
+          // Use the smart graph-aware auto-layout for ALL nodes
+          // (existing positions are preserved by only setting new ones)
+          const autoPositions = computeUseCaseAutoLayout(actors, usecases, links);
+          let anyNew = false;
+          Object.entries(autoPositions).forEach(([id, pos]) => {
+            if (!next[id]) {
+              next[id] = pos;
+              anyNew = true;
+            }
+          });
+          if (anyNew) updated = true;
+        }
       }
 
       return updated ? next : prev;
@@ -983,9 +1034,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     };
   }, []);
 
-  // 5. Throttled Node card dragging using requestAnimationFrame
+  // 5. Throttled Node card and waypoint dragging using requestAnimationFrame
   useEffect(() => {
-    if (!draggingNode) return;
+    if (!draggingNode && !draggingWaypoint) return;
 
     let animationFrameId = null;
 
@@ -994,20 +1045,58 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
 
       animationFrameId = requestAnimationFrame(() => {
         animationFrameId = null;
-        const newX = Math.max(0, e.clientX / zoomScale - dragStartOffset.current.x);
-        const yOffsetVal = e.clientY / zoomScale - dragStartOffset.current.y;
-        const newY = Math.max(0, yOffsetVal);
 
-        setNodePositions(prev => {
-          const current = prev[draggingNode];
-          if (current && Math.abs(current.x - newX) < 0.5 && Math.abs(current.y - newY) < 0.5) {
-            return prev;
+        if (draggingNode) {
+          const newX = Math.max(0, e.clientX / zoomScale - dragStartOffset.current.x);
+          const yOffsetVal = e.clientY / zoomScale - dragStartOffset.current.y;
+          const newY = Math.max(0, yOffsetVal);
+
+          setNodePositions(prev => {
+            const current = prev[draggingNode];
+            if (current && Math.abs(current.x - newX) < 0.5 && Math.abs(current.y - newY) < 0.5) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [draggingNode]: { x: newX, y: newY }
+            };
+          });
+        } else if (draggingWaypoint) {
+          const rect = canvasContainerRef.current?.getBoundingClientRect();
+          if (rect) {
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const newX = (canvasContainerRef.current.scrollLeft + mx) / zoomScale;
+            const newY = (canvasContainerRef.current.scrollTop + my) / zoomScale;
+
+            const parts = draggingWaypoint.split('::');
+            const wpKey = parts[0];
+            const prop = parts[1];
+            const context = parts[2];
+
+            if (context === 'usecase') {
+              setUsecaseWaypoints(prev => ({
+                ...prev,
+                [wpKey]: {
+                  ...(prev[wpKey] || {}),
+                  x: newX,
+                  y: newY
+                }
+              }));
+            } else {
+              setGanttWaypoints(prev => {
+                const existing = prev[wpKey] || {};
+                return {
+                  ...prev,
+                  [wpKey]: {
+                    ...existing,
+                    [prop]: prop === 'gapY' ? newY : newX
+                  }
+                };
+              });
+            }
           }
-          return {
-            ...prev,
-            [draggingNode]: { x: newX, y: newY }
-          };
-        });
+        }
       });
     };
 
@@ -1016,6 +1105,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
         cancelAnimationFrame(animationFrameId);
       }
       setDraggingNode(null);
+      setDraggingWaypoint(null);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -1025,7 +1115,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       window.removeEventListener('mouseup', handleMouseUp);
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
-  }, [draggingNode, zoomScale, activeTabKey]);
+  }, [draggingNode, draggingWaypoint, zoomScale, activeTabKey]);
 
   // Escape key to exit fullscreen mode or cancel relationship selection
   useEffect(() => {
@@ -1077,7 +1167,38 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       maxX = Math.max(1200, participants.length * 220 + 200);
       maxY = Math.max(800, messages.length * 52 + 180);
     } else if (activeTabKey === 'gantt') {
-      maxX = 1200;
+      const { tasks } = parseGantt(code);
+      let earliestDate = new Date('2026-07-01');
+      let latestDate = new Date('2026-08-31');
+      let foundDate = false;
+      
+      tasks.forEach(task => {
+        if (task.startDateStr) {
+          const d = new Date(task.startDateStr);
+          if (!isNaN(d.getTime())) {
+            const endDate = new Date(d.getTime() + task.duration * 24 * 60 * 60 * 1000);
+            if (!foundDate) {
+              earliestDate = d;
+              latestDate = endDate;
+              foundDate = true;
+            } else {
+              if (d < earliestDate) earliestDate = d;
+              if (endDate > latestDate) latestDate = endDate;
+            }
+          }
+        }
+      });
+      
+      const mStart = earliestDate.getMonth();
+      const yStart = earliestDate.getFullYear();
+      const mEnd = latestDate.getMonth();
+      const yEnd = latestDate.getFullYear();
+      let numMonths = (yEnd - yStart) * 12 + (mEnd - mStart) + 1;
+      if (numMonths < 2 && !foundDate) numMonths = 2;
+      if (numMonths < 1) numMonths = 1;
+      
+      const monthWidth = ganttViewScale === 'days' ? 930 : ganttViewScale === 'months' ? 160 : 480;
+      maxX = 240 + numMonths * monthWidth + 20;
       maxY = 800;
     }
 
@@ -1234,14 +1355,15 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
         maxY = Math.max(...ys);
         hasCoords = true;
       }
-    } 
+    }
     else if (tabKey === 'usecase') {
-      const { actors, usecases } = parseUseCase(diagramCode);
+      const { actors, usecases, links } = parseUseCase(diagramCode);
+      const autoPositions = computeUseCaseAutoLayout(actors, usecases, links);
       let xs = [];
       let ys = [];
-      
+
       actors.forEach((act, idx) => {
-        const pos = nodePositions[act.id] || { x: 100, y: idx * 180 + 150 };
+        const pos = nodePositions[act.id] || autoPositions[act.id] || { x: 100, y: idx * 180 + 150 };
         xs.push(pos.x);
         xs.push(pos.x + 120);
         ys.push(pos.y);
@@ -1249,9 +1371,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       });
 
       usecases.forEach((uc, idx) => {
-        const pos = nodePositions[uc.id] || { x: 420, y: idx * 110 + 100 };
+        const pos = nodePositions[uc.id] || autoPositions[uc.id] || { x: 420, y: idx * 110 + 100 };
         xs.push(pos.x);
-        xs.push(pos.x + 180);
+        xs.push(pos.x + 180); // Width of usecase is max ~180-200. We can use 250 to be safe, or just stick to 180 as before.
         ys.push(pos.y);
         ys.push(pos.y + 80);
       });
@@ -1277,7 +1399,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     else if (tabKey === 'gantt') {
       const { sections, tasks } = parseGantt(diagramCode);
       if (tasks.length > 0) {
-        const dayWidth = 480 / 31;
+        const monthWidth = ganttViewScale === 'days' ? 930 : ganttViewScale === 'months' ? 160 : 480;
+        const dayWidth = monthWidth / 31;
         const rowHeight = 48;
         let xs = [20];
         let ys = [30];
@@ -1285,21 +1408,58 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
         sections.forEach((section, secIdx) => {
           const sectionTasks = tasks.filter(t => t.section === section);
           const sectionYStart = secIdx * 450 + 60;
-          
+
+          let earliestDate = new Date('2026-07-01');
+          let latestDate = new Date('2026-08-31');
+          let foundDate = false;
+
+          tasks.forEach(task => {
+            if (task.startDateStr) {
+              const d = new Date(task.startDateStr);
+              if (!isNaN(d.getTime())) {
+                const endDate = new Date(d.getTime() + task.duration * 24 * 60 * 60 * 1000);
+                if (!foundDate) {
+                  earliestDate = d;
+                  latestDate = endDate;
+                  foundDate = true;
+                } else {
+                  if (d < earliestDate) earliestDate = d;
+                  if (endDate > latestDate) latestDate = endDate;
+                }
+              }
+            }
+          });
+
+          const mStart = earliestDate.getMonth();
+          const yStart = earliestDate.getFullYear();
+          const mEnd = latestDate.getMonth();
+          const yEnd = latestDate.getFullYear();
+          let numMonths = (yEnd - yStart) * 12 + (mEnd - mStart) + 1;
+          if (numMonths < 2 && !foundDate) numMonths = 2;
+          if (numMonths < 1) numMonths = 1;
+
+          const svgWidth = 240 + numMonths * monthWidth + 20;
+          xs.push(svgWidth); // Include full timeline width to end at the right of the last month
+
+
           sectionTasks.forEach((task, taskIdx) => {
             const y = sectionYStart + taskIdx * rowHeight;
             const width = Math.max(12, task.duration * dayWidth);
-            
+
             let x = 240;
             if (task.startDateStr) {
               const tDate = new Date(task.startDateStr);
               if (!isNaN(tDate.getTime())) {
                 const m = tDate.getMonth();
+                const year = tDate.getFullYear();
                 const d = tDate.getDate();
-                if (m === 6) {
-                  x = 240 + (d - 1) * dayWidth;
-                } else if (m === 7) {
-                  x = 720 + (d - 1) * dayWidth;
+                const monthDiff = (year - yStart) * 12 + (m - mStart);
+                if (monthDiff >= 0 && monthDiff < numMonths) {
+                  x = 240 + monthDiff * monthWidth + (d - 1) * dayWidth;
+                } else if (monthDiff < 0) {
+                  x = 240;
+                } else {
+                  x = svgWidth - 20;
                 }
               }
             }
@@ -1319,11 +1479,14 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
 
     if (hasCoords) {
       const padding = 30;
+      const padRight = tabKey === 'gantt' ? 0 : padding; // Exactly 0 extra right padding for Gantt
+      const padBottom = tabKey === 'gantt' ? 80 : padding;
+      
       return {
         x: Math.max(0, minX - padding),
         y: Math.max(0, minY - padding),
-        width: Math.min(1200, (maxX - minX) + (padding * 2)),
-        height: Math.min(800, (maxY - minY) + (padding * 2))
+        width: (maxX - minX) + padding + padRight,
+        height: (maxY - minY) + padding + padBottom
       };
     }
 
@@ -1334,7 +1497,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     try {
       const element = document.getElementById('se-preview-capture-content');
       if (!element) return;
-      
+
       // Temporarily reset scroll position of the preview canvas container to avoid html2canvas cutoff bugs
       const scrollLeft = previewCanvasContainerRef.current ? previewCanvasContainerRef.current.scrollLeft : 0;
       const scrollTop = previewCanvasContainerRef.current ? previewCanvasContainerRef.current.scrollTop : 0;
@@ -1348,7 +1511,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       const bounds = getDiagramBounds(activeTabKey, code);
 
       const fullCanvas = await html2canvas(element, {
-        backgroundColor: '#ffffff',
+        backgroundColor: activeTheme === 'dark' ? '#121212' : '#ffffff',
         scale: 2,
         logging: false,
         useCORS: true,
@@ -1358,13 +1521,13 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           const wrapper = clonedDoc.getElementById('se-preview-capture-content');
           const inner = clonedDoc.getElementById('se-preview-canvas-inner');
           if (wrapper && inner) {
-            wrapper.style.width = '1400px';
-            wrapper.style.height = '1100px';
+            wrapper.style.width = Math.max(1400, bounds.width + 200) + 'px';
+            wrapper.style.height = Math.max(1100, bounds.height + 200) + 'px';
             inner.style.transform = 'none';
           }
         }
       });
-      
+
       // Restore scroll positions
       if (previewCanvasContainerRef.current) {
         previewCanvasContainerRef.current.scrollLeft = scrollLeft;
@@ -1481,7 +1644,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     try {
       const element = document.getElementById('se-main-capture-content');
       if (!element) return;
-      
+
       // Temporarily reset scroll position of the canvas container to avoid html2canvas cutoff bugs
       const scrollLeft = canvasContainerRef.current ? canvasContainerRef.current.scrollLeft : 0;
       const scrollTop = canvasContainerRef.current ? canvasContainerRef.current.scrollTop : 0;
@@ -1495,7 +1658,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       const bounds = getDiagramBounds(activeTabKey, code);
 
       const fullCanvas = await html2canvas(element, {
-        backgroundColor: '#ffffff',
+        backgroundColor: activeTheme === 'dark' ? '#121212' : '#ffffff',
         scale: 2,
         logging: false,
         useCORS: true,
@@ -1505,13 +1668,13 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           const wrapper = clonedDoc.getElementById('se-main-capture-content');
           const inner = clonedDoc.getElementById('se-main-canvas-inner');
           if (wrapper && inner) {
-            wrapper.style.width = '1400px';
-            wrapper.style.height = '1100px';
+            wrapper.style.width = Math.max(1400, bounds.width + 200) + 'px';
+            wrapper.style.height = Math.max(1100, bounds.height + 200) + 'px';
             inner.style.transform = 'none';
           }
         }
       });
-      
+
       // Restore scroll positions
       if (canvasContainerRef.current) {
         canvasContainerRef.current.scrollLeft = scrollLeft;
@@ -1727,7 +1890,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
         return;
       }
 
-      const extendMatch = trimmed.match(/^([A-Za-z0-9_\-\s]+)\s+(EXTENDS|INCLUDES)\s+([A-Za-z0-9_\-\s]+)$/i);
+      const extendMatch = trimmed.match(/^([A-Za-z0-9_\-\s]+)\s+(EXTENDS|INCLUDES|EXTEND|INCLUDE|INHERITS)\s+([A-Za-z0-9_\-\s]+)$/i);
       if (extendMatch) {
         const src = extendMatch[1].trim();
         const tgt = extendMatch[3].trim();
@@ -1741,12 +1904,197 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           usecases.push({ id: tgtId, label: tgt });
         }
 
-        links.push({ source: srcId, target: tgtId, label: extendMatch[2].toUpperCase() });
+        let type = extendMatch[2].toUpperCase();
+        if (type === 'EXTENDS') type = 'EXTEND';
+        if (type === 'INCLUDES') type = 'INCLUDE';
+        
+        links.push({ source: srcId, target: tgtId, label: type });
         return;
       }
     });
 
     return { systemName, actors, usecases, links };
+  }
+
+  /**
+   * Computes a clean 3-column UML use-case auto-layout:
+   *
+   *  LEFT   │  CENTER (system boundary)  │  RIGHT
+   * ────────┼───────────────────────────┼──────────────────
+   *  Actors │  Primary use cases         │  Secondary use cases
+   *         │  (directly connected       │  (connected only via
+   *         │   to actors)               │   extend/include/inherits)
+   *
+   * Pipeline:
+   *  1. Split links: actor↔uc vs uc↔uc (extend/include/inherits).
+   *  2. Classify use cases:
+   *       Primary   = directly reachable from any actor.
+   *       Secondary = everything else (only reachable via uc↔uc links).
+   *  3. Order primary UCs by which actor (in actor-declaration order)
+   *     first connects to them, so the actor's lines fan outward cleanly.
+   *  4. Order secondary UCs by which primary UC they extend/include,
+   *     keeping related secondaries together with a small gap between groups.
+   *  5. Each actor is positioned at the exact Y-midpoint of the primary
+   *     UCs it connects to — no fixed grid spacing needed.
+   */
+  function computeUseCaseAutoLayout(actors, usecases, links) {
+    if (usecases.length === 0 && actors.length === 0) return {};
+
+    const UC_W = 200;
+    const UC_H = 50;
+    const UC_GAP_PRIMARY  = 28;   // vertical gap between primary UCs
+    const UC_GAP_SECONDARY = 22;  // vertical gap between secondary UCs
+    const UC_GROUP_GAP    = 18;   // extra gap between secondary UC groups
+    const AC_H = 90;
+    const PRIMARY_COL_X   = 750;  // centre-X of the primary (centre) column
+    const SECONDARY_COL_X = 1150; // centre-X of the secondary (right) column
+    const LEFT_X          = 80;   // left edge of the actor column
+    const MARGIN_TOP      = 80;
+
+    const positions  = {};
+    const actorIds   = new Set(actors.map(a => a.id));
+    const ucIds      = new Set(usecases.map(u => u.id));
+
+    // ── Step 1: split links ──────────────────────────────────────────────
+    const ucUcLinks    = links.filter(l => ucIds.has(l.source) && ucIds.has(l.target));
+    const actorUcLinks = links.filter(l => actorIds.has(l.source) || actorIds.has(l.target));
+
+    // ── Step 2: classify use cases ───────────────────────────────────────
+    // Primary = any UC that has at least one direct actor link
+    const primaryUcIds = new Set();
+    actorUcLinks.forEach(l => {
+      const ucId = actorIds.has(l.source) ? l.target : l.source;
+      if (ucIds.has(ucId)) primaryUcIds.add(ucId);
+    });
+    // Secondary = all remaining UCs (only connected via uc↔uc links)
+    const secondaryUcIds = new Set([...ucIds].filter(id => !primaryUcIds.has(id)));
+
+    const primaryUcs   = usecases.filter(uc => primaryUcIds.has(uc.id));
+    const secondaryUcs = usecases.filter(uc => secondaryUcIds.has(uc.id));
+
+    // ── Step 3: order primary UCs ────────────────────────────────────────
+    // Each primary UC is tagged with the earliest actor-index that connects to it.
+    // This groups UCs under the actor that "owns" them, preserving declaration order.
+    const actorList = [...actors];
+    const ucFirstActorIdx = {};
+    primaryUcs.forEach(uc => {
+      let minIdx = Infinity;
+      actorUcLinks.forEach(l => {
+        const ucId     = actorIds.has(l.source) ? l.target  : l.source;
+        const actorId  = actorIds.has(l.source) ? l.source  : l.target;
+        if (ucId === uc.id) {
+          const aIdx = actorList.findIndex(a => a.id === actorId);
+          if (aIdx !== -1 && aIdx < minIdx) minIdx = aIdx;
+        }
+      });
+      ucFirstActorIdx[uc.id] = minIdx === Infinity ? 9999 : minIdx;
+    });
+    primaryUcs.sort((a, b) => {
+      const diff = ucFirstActorIdx[a.id] - ucFirstActorIdx[b.id];
+      return diff !== 0 ? diff : usecases.indexOf(a) - usecases.indexOf(b);
+    });
+
+    // ── Step 4: lay out primary UCs in the centre column ─────────────────
+    let primaryY = MARGIN_TOP;
+    const primaryYCenter = {}; // ucId → Y of the ellipse's centre
+    primaryUcs.forEach(uc => {
+      positions[uc.id] = { x: PRIMARY_COL_X - UC_W / 2, y: primaryY };
+      primaryYCenter[uc.id] = primaryY + UC_H / 2;
+      primaryY += UC_H + UC_GAP_PRIMARY;
+    });
+    const primaryEndY = primaryY;
+
+    // ── Step 5: order secondary UCs by their nearest primary UC ──────────
+    // Walk up the uc↔uc graph to find each secondary UC's primary ancestor.
+    const getParentPrimary = (ucId, depth = 0) => {
+      if (depth > 20) return null;
+      const parentLink = ucUcLinks.find(
+        l => (l.source === ucId && ucIds.has(l.target)) ||
+             (l.target === ucId && ucIds.has(l.source))
+      );
+      if (!parentLink) return null;
+      const parentId = parentLink.source === ucId ? parentLink.target : parentLink.source;
+      if (primaryUcIds.has(parentId)) return parentId;
+      // Recurse: the parent is also secondary — walk up further
+      return getParentPrimary(parentId, depth + 1);
+    };
+
+    const ucParentPrimary = {};
+    secondaryUcs.forEach(uc => { ucParentPrimary[uc.id] = getParentPrimary(uc.id); });
+
+    secondaryUcs.sort((a, b) => {
+      const aParent = ucParentPrimary[a.id];
+      const bParent = ucParentPrimary[b.id];
+      const aIdx = aParent ? primaryUcs.findIndex(p => p.id === aParent) : 9999;
+      const bIdx = bParent ? primaryUcs.findIndex(p => p.id === bParent) : 9999;
+      if (aIdx !== bIdx) return aIdx - bIdx;
+      return usecases.indexOf(a) - usecases.indexOf(b);
+    });
+
+    // ── Step 6: lay out secondary UCs aligned with their parent primary UC ─
+    // Each group of secondaries is vertically centred at the parent's Y so
+    // the connection lines stay as horizontal as possible.
+    // A top-down collision pass then nudges groups down just enough to avoid
+    // overlapping with the group above, keeping them as close as possible.
+
+    // Build groups: Map<parentPrimaryId | null, secondaryUc[]>
+    const secGroups = new Map();
+    secondaryUcs.forEach(uc => {
+      const parent = ucParentPrimary[uc.id] ?? null;
+      if (!secGroups.has(parent)) secGroups.set(parent, []);
+      secGroups.get(parent).push(uc);
+    });
+
+    // Process groups in top-to-bottom order (same as primaryUcs order)
+    const orderedParents = [
+      ...primaryUcs.map(p => p.id).filter(id => secGroups.has(id)),
+      ...(secGroups.has(null) ? [null] : [])
+    ];
+
+    let prevGroupBottom = -Infinity; // bottom Y of the previous placed group
+
+    orderedParents.forEach(parentId => {
+      const group = secGroups.get(parentId) || [];
+      if (group.length === 0) return;
+
+      const parentCenterY = parentId ? (primaryYCenter[parentId] ?? MARGIN_TOP) : MARGIN_TOP;
+      const groupH = group.length * UC_H + (group.length - 1) * UC_GAP_SECONDARY;
+
+      // Ideal top: centre the group around the parent's Y
+      let groupTop = parentCenterY - groupH / 2;
+
+      // Collision avoidance: never overlap the group placed just above
+      const minTop = prevGroupBottom + UC_GAP_SECONDARY;
+      if (groupTop < minTop) groupTop = minTop;
+
+      group.forEach((uc, idx) => {
+        positions[uc.id] = {
+          x: SECONDARY_COL_X - UC_W / 2,
+          y: groupTop + idx * (UC_H + UC_GAP_SECONDARY)
+        };
+      });
+
+      prevGroupBottom = groupTop + groupH;
+    });
+
+    // ── Step 7: position each actor at the Y-centre of its primary UCs ───
+    actors.forEach(actor => {
+      const connectedYs = actorUcLinks
+        .filter(l => l.source === actor.id || l.target === actor.id)
+        .map(l => {
+          const ucId = l.source === actor.id ? l.target : l.source;
+          return primaryYCenter[ucId] ?? null;
+        })
+        .filter(y => y !== null);
+
+      const centerY = connectedYs.length > 0
+        ? connectedYs.reduce((a, b) => a + b, 0) / connectedYs.length
+        : MARGIN_TOP + (primaryEndY - MARGIN_TOP) / 2;
+
+      positions[actor.id] = { x: LEFT_X, y: centerY - AC_H / 2 };
+    });
+
+    return positions;
   }
 
   function parseSequence(text) {
@@ -1832,7 +2180,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
         const src = returnMatch[1].trim();
         const srcId = src.replace(/\s+/g, '_');
         let rawLabel = returnMatch[2].trim();
-        
+
         let label = rawLabel;
         let destId = '';
 
@@ -2085,6 +2433,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
 
     const currentRelId = currentRelation ? `${currentRelation.source}_${currentRelation.target}` : '';
 
+
     // Distribute connections if multiple share same target side (B)
     if (allRelations && allRelations.length > 0 && currentRelation) {
       const bRelations = allRelations.filter(r => r.source === currentRelation.target || r.target === currentRelation.target);
@@ -2164,7 +2513,13 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       const connIdx = sameSideConnections.findIndex(item => item.relId === currentRelId);
       const totalCount = sameSideConnections.length;
 
-      if (totalCount > 1 && connIdx !== -1) {
+      let isTargetActor = false;
+      if (activeTabKey === 'usecase') {
+        const { actors } = parseUseCase(code);
+        isTargetActor = actors.some(a => a.id === currentRelation.target);
+      }
+
+      if (totalCount > 1 && connIdx !== -1 && !isTargetActor) {
         const factor = (connIdx + 0.5) / totalCount;
         if (bestB.side === 'top' || bestB.side === 'bottom') {
           bestB = {
@@ -2259,7 +2614,13 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       const connIdxA = sameSideConnectionsA.findIndex(item => item.relId === currentRelId);
       const totalCountA = sameSideConnectionsA.length;
 
-      if (totalCountA > 1 && connIdxA !== -1) {
+      let isSourceActor = false;
+      if (activeTabKey === 'usecase') {
+        const { actors } = parseUseCase(code);
+        isSourceActor = actors.some(a => a.id === currentRelation.source);
+      }
+
+      if (totalCountA > 1 && connIdxA !== -1 && !isSourceActor) {
         const factor = (connIdxA + 0.5) / totalCountA;
         if (bestA.side === 'top' || bestA.side === 'bottom') {
           bestA = {
@@ -2357,20 +2718,69 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
   const renderUseCaseDiagram = () => {
     const { systemName, actors, usecases, links } = parseUseCase(code);
 
+    let boxX = 260;
+    let boxY = 30;
+    let boxWidth = 360;
+    let boxHeight = 540;
+
+    if (usecases.length > 0) {
+      let minUcX = Infinity;
+      let maxUcX = -Infinity;
+      let minUcY = Infinity;
+      let maxUcY = -Infinity;
+
+      usecases.forEach((uc, idx) => {
+        const coord = nodePositions[uc.id] || { x: 420, y: idx * 110 + 100 };
+        if (coord.x < minUcX) minUcX = coord.x;
+        if (coord.x + 200 > maxUcX) maxUcX = coord.x + 200;
+        if (coord.y < minUcY) minUcY = coord.y;
+        if (coord.y + 50 > maxUcY) maxUcY = coord.y + 50;
+      });
+
+      const paddingLeft = 60;
+      const paddingRight = 40;
+      const paddingTop = 70;
+      const paddingBottom = 45;
+
+      boxX = minUcX - paddingLeft;
+      boxY = minUcY - paddingTop;
+      boxWidth = (maxUcX + paddingRight) - boxX;
+      boxHeight = (maxUcY + paddingBottom) - boxY;
+
+      // Maintain minimum dimensions to keep the default neat look if usecases are clustered
+      if (boxWidth < 360) {
+        const diff = 360 - boxWidth;
+        boxWidth = 360;
+        boxX -= diff / 2;
+      }
+      if (boxHeight < 540) {
+        const diff = 540 - boxHeight;
+        boxHeight = 540;
+        boxY -= diff / 2;
+      }
+    }
+
     return (
       <>
         {/* System Boundary Box */}
         <rect
-          x="260"
-          y="30"
-          width="360"
-          height={Math.max(540, usecases.length * 110 + 40)}
+          x={boxX}
+          y={boxY}
+          width={boxWidth}
+          height={boxHeight}
           fill="rgba(255, 255, 255, 0.02)"
           stroke="rgba(61, 92, 255, 0.2)"
           strokeWidth="2"
           rx="16"
         />
-        <text x="440" y="55" fill="rgba(255,255,255,0.4)" fontSize="13" fontWeight="bold" textAnchor="middle">
+        <text 
+          x={boxX + boxWidth / 2} 
+          y={boxY + 25} 
+          fill="rgba(255,255,255,0.4)" 
+          fontSize="13" 
+          fontWeight="bold" 
+          textAnchor="middle"
+        >
           {systemName.toUpperCase()}
         </text>
 
@@ -2380,8 +2790,11 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           const end = nodePositions[link.target];
           if (!start || !end) return null;
 
-          const isExtendInclude = link.label === 'EXTENDS' || link.label === 'INCLUDES';
-          
+          const isExtend = link.label === 'EXTEND';
+          const isInclude = link.label === 'INCLUDE';
+          const isInherits = link.label === 'INHERITS';
+          const isExtendInclude = isExtend || isInclude;
+
           const isSourceActor = actors.some(a => a.id === link.source);
           const isTargetActor = actors.some(a => a.id === link.target);
 
@@ -2396,23 +2809,55 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           const x2 = pts.end.x;
           const y2 = pts.end.y;
 
+          const wpKey = `${link.source}_${link.target}`;
+          const wp = usecaseWaypoints[wpKey];
+          const cx = wp ? wp.x : (x1 + x2) / 2;
+          const cy = wp ? wp.y : (y1 + y2) / 2;
+          
+          const pathD = `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
+          const handleKey = `${wpKey}::ctrl::usecase`;
+          
+          let strokeColor = 'var(--primary-main)';
+          let strokeDasharray = '0';
+          let markerEnd = 'none';
+          
+          if (isExtendInclude) {
+            strokeColor = '#00FFCC';
+            strokeDasharray = '5,5';
+            markerEnd = 'url(#usecase-arrow)';
+          } else if (isInherits) {
+            markerEnd = 'url(#usecase-generalization-arrow)';
+          }
+
           return (
-            <g key={idx}>
-              <line
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                stroke={isExtendInclude ? '#00FFCC' : 'var(--primary-main)'}
+            <g key={idx} className="gantt-dependency-group" style={{ pointerEvents: 'auto' }}>
+              <path
+                d={pathD}
+                fill="none"
+                stroke={strokeColor}
                 strokeWidth="1.5"
-                strokeDasharray={isExtendInclude ? '5,5' : '0'}
-                markerEnd={isExtendInclude ? 'url(#usecase-arrow)' : 'none'}
+                strokeDasharray={strokeDasharray}
+                markerEnd={markerEnd}
               />
-              {link.label && (
+              <circle
+                className={`gantt-waypoint-handle ${draggingWaypoint === handleKey ? 'active' : ''}`}
+                cx={cx}
+                cy={cy}
+                r={5}
+                fill={draggingWaypoint === handleKey ? '#fff' : 'var(--primary-main)'}
+                stroke="#1e1e1e"
+                strokeWidth="1.5"
+                cursor="grab"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  setDraggingWaypoint(handleKey);
+                }}
+              />
+              {isExtendInclude && (
                 <g>
                   <rect
-                    x={(x1 + x2) / 2 - 38}
-                    y={(y1 + y2) / 2 - 14}
+                    x={cx - 38}
+                    y={cy - 14}
                     width="76"
                     height="18"
                     rx="4"
@@ -2421,14 +2866,14 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     strokeWidth="1"
                   />
                   <text
-                    x={(x1 + x2) / 2}
-                    y={(y1 + y2) / 2 - 1}
+                    x={cx}
+                    y={cy - 1}
                     fill="#00FFCC"
                     fontSize="9"
                     fontWeight="bold"
                     textAnchor="middle"
                   >
-                    {`<<${link.label.toLowerCase()}>>`}
+                    {link.label === 'EXTEND' ? '<<extend>>' : '<<include>>'}
                   </text>
                 </g>
               )}
@@ -2443,7 +2888,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
   const renderSequenceDiagram = () => {
     const { title, participants, messages } = parseSequence(code);
     const lifelines = {};
-    
+
     participants.forEach((part, idx) => {
       lifelines[part.id] = idx * 260 + 160;
     });
@@ -2534,9 +2979,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                 strokeDasharray={isResponseOrDisplay ? '4,4' : '0'}
               />
               {x2 > x1 ? (
-                <polygon points={`${x2},${y} ${x2-8},${y-4} ${x2-8},${y+4}`} fill={isResponseOrDisplay ? '#00FFCC' : 'var(--text-primary)'} />
+                <polygon points={`${x2},${y} ${x2 - 8},${y - 4} ${x2 - 8},${y + 4}`} fill={isResponseOrDisplay ? '#00FFCC' : 'var(--text-primary)'} />
               ) : (
-                <polygon points={`${x2},${y} ${x2+8},${y-4} ${x2+8},${y+4}`} fill={isResponseOrDisplay ? '#00FFCC' : 'var(--text-primary)'} />
+                <polygon points={`${x2},${y} ${x2 + 8},${y - 4} ${x2 + 8},${y + 4}`} fill={isResponseOrDisplay ? '#00FFCC' : 'var(--text-primary)'} />
               )}
               <text
                 x={(x1 + x2) / 2}
@@ -2560,7 +3005,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     const { sections, tasks } = parseGantt(code);
     const rowHeight = 48;
 
-    const dayWidth = 480 / 31;
+    const monthWidth = ganttViewScale === 'days' ? 930 : ganttViewScale === 'months' ? 160 : 480;
+    const dayWidth = monthWidth / 31;
     const monthDividerX = 720;
 
     const getWeekLabel = (monthZeroIndexed, weekIdx) => {
@@ -2568,25 +3014,63 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       return `${monthZeroIndexed + 1}/${dayOfStart}`;
     };
 
+    // Calculate earliest start date and latest end date dynamically
+    let earliestDate = new Date('2026-07-01'); // fallback
+    let latestDate = new Date('2026-08-31'); // fallback
+    let foundDate = false;
+
+    tasks.forEach(task => {
+      if (task.startDateStr) {
+        const d = new Date(task.startDateStr);
+        if (!isNaN(d.getTime())) {
+          const endDate = new Date(d.getTime() + task.duration * 24 * 60 * 60 * 1000);
+          if (!foundDate) {
+            earliestDate = d;
+            latestDate = endDate;
+            foundDate = true;
+          } else {
+            if (d < earliestDate) earliestDate = d;
+            if (endDate > latestDate) latestDate = endDate;
+          }
+        }
+      }
+    });
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const mStart = earliestDate.getMonth();
+    const yStart = earliestDate.getFullYear();
+    const mEnd = latestDate.getMonth();
+    const yEnd = latestDate.getFullYear();
+
+    let numMonths = (yEnd - yStart) * 12 + (mEnd - mStart) + 1;
+    if (numMonths < 2 && !foundDate) numMonths = 2; // Default to 2 if empty
+    if (numMonths < 1) numMonths = 1;
+
+    const svgWidth = 240 + numMonths * monthWidth + 20; // 240 left pane + monthWidth per month + 20 padding
+
     // Precalculate positions
     sections.forEach((section, secIdx) => {
       const sectionTasks = tasks.filter(t => t.section === section);
       const sectionYStart = secIdx * 450 + 60; // Shifted up after removing header banner
-      
+
       sectionTasks.forEach((task, taskIdx) => {
         task.y = sectionYStart + taskIdx * rowHeight;
         task.width = Math.max(12, task.duration * dayWidth);
-        
+
         let x = 240;
         if (task.startDateStr) {
           const tDate = new Date(task.startDateStr);
           if (!isNaN(tDate.getTime())) {
-            const m = tDate.getMonth(); // 6 = July, 7 = August
+            const m = tDate.getMonth();
+            const y = tDate.getFullYear();
             const d = tDate.getDate();
-            if (m === 6) {
-              x = 240 + (d - 1) * dayWidth;
-            } else if (m === 7) {
-              x = 720 + (d - 1) * dayWidth;
+            const monthDiff = (y - yStart) * 12 + (m - mStart);
+            if (monthDiff >= 0 && monthDiff < numMonths) {
+              x = 240 + monthDiff * monthWidth + (d - 1) * dayWidth;
+            } else if (monthDiff < 0) {
+              x = 240; // clamp to start
+            } else {
+              x = svgWidth - 20; // clamp to end
             }
           }
         }
@@ -2595,57 +3079,73 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     });
 
     return (
-      <svg width="1200" height="800" style={{ background: 'transparent' }}>
+      <svg width={svgWidth} height="800" style={{ background: 'transparent' }}>
         {/* Month Labels at the top */}
-        <text x="480" y="15" fill="var(--text-primary)" fontSize="13" fontWeight="bold" textAnchor="middle">
-          July 2026
-        </text>
-        <text x="960" y="15" fill="var(--text-primary)" fontSize="13" fontWeight="bold" textAnchor="middle">
-          August 2026
-        </text>
-
-        {/* Weekly Date Headers */}
-        {/* July Weeks */}
-        {Array.from({ length: 4 }).map((_, idx) => {
-          const x = 240 + idx * 120 + 60;
+        {Array.from({ length: numMonths }).map((_, idx) => {
+          const m = (mStart + idx) % 12;
+          const y = yStart + Math.floor((mStart + idx) / 12);
+          const x = 240 + idx * monthWidth + monthWidth / 2;
           return (
-            <text key={`july_w_${idx}`} x={x} y="35" textAnchor="middle" fontSize="11" fontWeight="bold">
-              <tspan fill="var(--text-primary)">W{idx+1}</tspan>
-              <tspan fill="var(--primary-main)" dx="4">({getWeekLabel(6, idx)})</tspan>
+            <text key={`month_label_${idx}`} x={x} y="15" fill="var(--text-primary)" fontSize="13" fontWeight="bold" textAnchor="middle">
+              {monthNames[m]} {y}
             </text>
           );
         })}
-        {/* August Weeks */}
-        {Array.from({ length: 4 }).map((_, idx) => {
-          const x = 720 + idx * 120 + 60;
-          return (
-            <text key={`aug_w_${idx}`} x={x} y="35" textAnchor="middle" fontSize="11" fontWeight="bold">
-              <tspan fill="var(--text-primary)">W{idx+5}</tspan>
-              <tspan fill="var(--primary-main)" dx="4">({getWeekLabel(7, idx)})</tspan>
-            </text>
-          );
+
+        {/* Dynamic Headers based on View Mode */}
+        {ganttViewScale === 'weeks' && Array.from({ length: numMonths }).map((_, mIdx) => {
+          const m = (mStart + mIdx) % 12;
+          return Array.from({ length: 4 }).map((_, wIdx) => {
+            const x = 240 + mIdx * monthWidth + wIdx * (monthWidth / 4) + (monthWidth / 8);
+            return (
+              <text key={`m_${mIdx}_w_${wIdx}`} x={x} y="35" textAnchor="middle" fontSize="11" fontWeight="bold">
+                <tspan fill="var(--text-primary)">W{mIdx * 4 + wIdx + 1}</tspan>
+                <tspan fill="var(--primary-main)" dx="4">({getWeekLabel(m, wIdx)})</tspan>
+              </text>
+            );
+          });
+        })}
+
+        {ganttViewScale === 'days' && Array.from({ length: numMonths }).map((_, mIdx) => {
+          return Array.from({ length: 31 }).map((_, dIdx) => {
+            const x = 240 + mIdx * monthWidth + dIdx * dayWidth + dayWidth / 2;
+            return (
+              <text key={`m_${mIdx}_d_${dIdx}`} x={x} y="35" textAnchor="middle" fill="var(--text-primary)" fontSize="9" fontWeight="500">
+                {dIdx + 1}
+              </text>
+            );
+          });
         })}
 
         {/* Horizontal Divider separating calendar headers from diagram area */}
-        <line x1="15" y1="45" x2="1185" y2="45" stroke="var(--divider)" strokeOpacity="0.8" strokeWidth="1.5" />
+        <line x1="15" y1="45" x2={svgWidth - 15} y2="45" stroke="var(--divider)" strokeOpacity="0.8" strokeWidth="1.5" />
 
         {/* Vertical divider lines for start and end of months */}
-        {/* Start of July */}
-        <line x1="240" y1="45" x2="240" y2="760" stroke="var(--divider)" strokeOpacity="0.6" strokeWidth="1.5" />
-        {/* Transition of July/August */}
-        <line x1="720" y1="45" x2="720" y2="760" stroke="var(--divider)" strokeOpacity="0.6" strokeWidth="1.5" />
-        {/* End of August */}
-        <line x1="1200" y1="45" x2="1200" y2="760" stroke="var(--divider)" strokeOpacity="0.6" strokeWidth="1.5" />
+        {Array.from({ length: numMonths + 1 }).map((_, idx) => {
+          const x = 240 + idx * monthWidth;
+          return (
+            <line key={`v_divider_${idx}`} x1={x} y1="45" x2={x} y2="760" stroke="var(--divider)" strokeOpacity="0.6" strokeWidth="1.5" />
+          );
+        })}
 
-        {/* Vertical dotted week division guidelines */}
-        {/* July Week Lines */}
-        <line x1="360" y1="45" x2="360" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
-        <line x1="480" y1="45" x2="480" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
-        <line x1="600" y1="45" x2="600" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
-        {/* August Week Lines */}
-        <line x1="840" y1="45" x2="840" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
-        <line x1="960" y1="45" x2="960" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
-        <line x1="1080" y1="45" x2="1080" y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
+        {/* Vertical dotted division guidelines */}
+        {ganttViewScale === 'weeks' && Array.from({ length: numMonths }).map((_, mIdx) => {
+          return [1, 2, 3].map(wIdx => {
+            const x = 240 + mIdx * monthWidth + wIdx * (monthWidth / 4);
+            return (
+              <line key={`w_line_${mIdx}_${wIdx}`} x1={x} y1="45" x2={x} y2="760" stroke="var(--divider)" strokeOpacity="0.35" strokeDasharray="2,4" />
+            );
+          });
+        })}
+
+        {ganttViewScale === 'days' && Array.from({ length: numMonths }).map((_, mIdx) => {
+          return Array.from({ length: 30 }).map((_, dIdx) => {
+            const x = 240 + mIdx * monthWidth + (dIdx + 1) * dayWidth;
+            return (
+              <line key={`d_line_${mIdx}_${dIdx}`} x1={x} y1="45" x2={x} y2="760" stroke="var(--divider)" strokeOpacity="0.15" strokeDasharray="2,4" />
+            );
+          });
+        })}
 
         {/* Horizontal guide dotted lines under each task row separator */}
         {tasks.map((task, idx) => (
@@ -2653,7 +3153,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
             key={`guide_${idx}`}
             x1="15"
             y1={task.y + 36}
-            x2="1185"
+            x2={svgWidth - 15}
             y2={task.y + 36}
             stroke="var(--text-secondary)"
             strokeOpacity="0.55"
@@ -2662,7 +3162,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           />
         ))}
         {/* Bottom Horizontal Divider to close the grid frame horizontally */}
-        <line x1="15" y1="760" x2="1185" y2="760" stroke="var(--divider)" strokeOpacity="0.6" strokeWidth="1.5" />        {/* 4. Orthogonal Stepped Dependency Connectors (routed to never cross task bars) */}
+        <line x1="15" y1="760" x2={svgWidth - 15} y2="760" stroke="var(--divider)" strokeOpacity="0.6" strokeWidth="1.5" />        {/* 4. Orthogonal Stepped Dependency Connectors (routed to never cross task bars) */}
         {tasks.map((task, idx) => {
           if (!task.dependencies || task.dependencies.length === 0) return null;
           return task.dependencies.map((depName, depIdx) => {
@@ -2674,27 +3174,92 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
             const xEnd = task.x;
             const yEnd = task.y + 10;
 
-            // Route connection lines in the empty horizontal gap between rows to avoid cutting task bars
             const yGap = depTask.y + 26; // bottom gap of the 20px bar in 48px rowHeight
-            const xBranch = xEnd - 10;   // vertical drop runs 10px to the left of destination start
-
             const arrowTipX = xEnd;
             const arrowBaseX = xEnd - 8;
 
+            const wpKey = `${depName}->${task.name}`;
+            const wp = ganttWaypoints[wpKey];
+
+            const generateRoundedPath = (x1, y1, x2, y2, gapY) => {
+              const r = 6;
+              const rightPad = 12;
+              const leftPad = 12;
+
+              if (y2 <= y1 + r) {
+                return { d: `M ${x1} ${y1} H ${x1 + rightPad} V ${gapY} H ${x2 - leftPad} V ${y2} H ${x2}`, handles: [] };
+              }
+
+              if (x1 + rightPad + r * 2 <= x2 - leftPad) {
+                // Forward route
+                let xDrop = x1 + rightPad;
+                if (wp && wp.xDrop !== undefined) xDrop = Math.max(x1 + r, Math.min(x2 - r, wp.xDrop));
+                
+                return {
+                  d: `M ${x1} ${y1} L ${xDrop - r} ${y1} A ${r} ${r} 0 0 1 ${xDrop} ${y1 + r} L ${xDrop} ${y2 - r} A ${r} ${r} 0 0 0 ${xDrop + r} ${y2} L ${x2} ${y2}`,
+                  handles: [
+                    { id: 'xDrop', cx: xDrop, cy: (y1 + y2) / 2 }
+                  ]
+                };
+              } else {
+                // Backward route
+                let xDrop1 = x1 + rightPad;
+                if (wp && wp.xDrop1 !== undefined) xDrop1 = Math.max(x1 + r, wp.xDrop1);
+
+                let customGapY = gapY;
+                if (wp && wp.gapY !== undefined) customGapY = wp.gapY;
+
+                let xDrop2 = x2 - leftPad;
+                if (wp && wp.xDrop2 !== undefined) xDrop2 = Math.min(x2 - r, wp.xDrop2);
+
+                return {
+                  d: `M ${x1} ${y1} L ${xDrop1 - r} ${y1} A ${r} ${r} 0 0 1 ${xDrop1} ${y1 + r} L ${xDrop1} ${customGapY - r} A ${r} ${r} 0 0 1 ${xDrop1 - r} ${customGapY} L ${xDrop2 + r} ${customGapY} A ${r} ${r} 0 0 0 ${xDrop2} ${customGapY + r} L ${xDrop2} ${y2 - r} A ${r} ${r} 0 0 0 ${xDrop2 + r} ${y2} L ${x2} ${y2}`,
+                  handles: [
+                    { id: 'xDrop1', cx: xDrop1, cy: (y1 + customGapY) / 2 },
+                    { id: 'gapY', cx: (xDrop1 + xDrop2) / 2, cy: customGapY },
+                    { id: 'xDrop2', cx: xDrop2, cy: (customGapY + y2) / 2 }
+                  ]
+                };
+              }
+            };
+
+            const pathInfo = generateRoundedPath(xStart, yStart, arrowBaseX, yEnd, yGap);
+
             return (
-              <g key={`${idx}_${depIdx}`}>
-                {/* Stepped Orthogonal Line (exit bar -> go to gap -> horizontal to branch -> vertical down -> enter destination) */}
+              <g key={`${idx}_${depIdx}`} className="gantt-dependency-group">
+                {/* Canva-style Rounded Orthogonal Line */}
                 <path
-                  d={`M ${xStart} ${yStart} H ${xStart + 6} V ${yGap} H ${xBranch} V ${yEnd} H ${arrowBaseX}`}
+                  d={pathInfo.d}
                   fill="none"
                   stroke="var(--primary-main)"
                   strokeWidth="2.2"
                 />
                 {/* Manual Arrowhead pointing right */}
                 <polygon
-                  points={`${arrowTipX},${yEnd} ${arrowBaseX},${yEnd-4.5} ${arrowBaseX},${yEnd+4.5}`}
+                  points={`${arrowTipX},${yEnd} ${arrowBaseX},${yEnd - 4.5} ${arrowBaseX},${yEnd + 4.5}`}
                   fill="var(--primary-main)"
                 />
+                {/* Draggable Control Handles */}
+                {pathInfo.handles.map(handle => {
+                  const handleKey = `${wpKey}::${handle.id}`;
+                  return (
+                    <circle
+                      key={handle.id}
+                      className={`gantt-waypoint-handle ${draggingWaypoint === handleKey ? 'active' : ''}`}
+                      cx={handle.cx}
+                      cy={handle.cy}
+                      r={5}
+                      fill={draggingWaypoint === handleKey ? '#fff' : 'var(--primary-main)'}
+                      stroke="#1e1e1e"
+                      strokeWidth="1.5"
+                      cursor="grab"
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        setDraggingWaypoint(handleKey);
+                      }}
+                    />
+                  );
+                })}
               </g>
             );
           });
@@ -2714,7 +3279,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                 // Alternate between solid blue and orange bars matching the reference image
                 let barColor = taskIdx % 2 === 0 ? '#0D6EFD' : '#FFA726';
                 let strokeColor = taskIdx % 2 === 0 ? '#0B5ED7' : '#FB8C00';
-                
+
                 if (task.duration === 0) {
                   // Milestone
                   barColor = 'rgba(239,83,80,0.2)';
@@ -2730,12 +3295,12 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     <text x="25" y={y + 14} fill="var(--text-primary)" fontSize="11" fontWeight="600">
                       {task.name}
                     </text>
-                    
+
                     {/* Gantt Bar */}
                     {task.duration === 0 ? (
                       // Milestone Diamond shape
                       <polygon
-                        points={`${x},${y+10} ${x+10},${y} ${x+20},${y+10} ${x+10},${y+20}`}
+                        points={`${x},${y + 10} ${x + 10},${y} ${x + 20},${y + 10} ${x + 10},${y + 20}`}
                         fill={barColor}
                         stroke={strokeColor}
                         strokeWidth="1.5"
@@ -2771,7 +3336,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
   const renderContent = () => {
     return (
       <Box id="se-split-container" style={{ display: 'flex', flexDirection: 'row', flexGrow: 1, width: '100%', alignItems: 'stretch', position: 'relative', minHeight: 0 }}>
-        
+
         {/* Left Pane: Code Editor */}
         <Box style={{
           width: isFullscreen ? '0%' : `${splitPercent}%`,
@@ -2802,12 +3367,12 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
             <Typography variant="subtitle2" style={{ fontWeight: 800, marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               SOURCE CODE ({activeTabTitle})
             </Typography>
-            <Box style={{ 
-              flexGrow: 1, 
-              borderRadius: '12px', 
-              overflow: 'hidden', 
-              border: activeTabKey === 'gantt' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.05)', 
-              background: activeTabKey === 'gantt' ? 'transparent' : '#1e1e1e', 
+            <Box style={{
+              flexGrow: 1,
+              borderRadius: '12px',
+              overflow: 'hidden',
+              border: activeTabKey === 'gantt' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.05)',
+              background: activeTabKey === 'gantt' ? 'transparent' : '#1e1e1e',
               height: 'calc(100% - 30px)',
               position: 'relative'
             }}>
@@ -2903,7 +3468,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 VISUAL DIAGRAM PREVIEW
               </Typography>
-              
+
               <Box style={{ display: 'flex', gap: '4px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', padding: '2px', border: '1px solid rgba(255, 255, 255, 0.05)', zIndex: 5, alignItems: 'center' }}>
                 {activeTabKey === 'er' && (
                   <Button
@@ -2934,6 +3499,32 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     <Button variant="contained" size="small" color="primary" startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />} onClick={() => setIsAddUseCaseOpen(true)} style={{ marginRight: '8px', borderRadius: '6px', textTransform: 'none', height: '28px', fontSize: '0.72rem', background: 'var(--primary-main)', fontWeight: 800 }}>
                       Add Use Case
                     </Button>
+                    <Tooltip title="Auto-arrange all actors and use cases into a clean layout">
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => {
+                          const { actors, usecases, links } = parseUseCase(code);
+                          const autoPositions = computeUseCaseAutoLayout(actors, usecases, links);
+                          setNodePositions(prev => ({ ...prev, ...autoPositions }));
+                          // Clear all usecase waypoints so connectors reset to clean straight lines
+                          setUsecaseWaypoints({});
+                        }}
+                        style={{
+                          marginRight: '8px',
+                          borderRadius: '6px',
+                          textTransform: 'none',
+                          height: '28px',
+                          fontSize: '0.72rem',
+                          color: '#00FFCC',
+                          borderColor: '#00FFCC',
+                          fontWeight: 700,
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        ✦ Auto Layout
+                      </Button>
+                    </Tooltip>
                   </>
                 )}
                 {activeTabKey === 'sequence' && (
@@ -2947,9 +3538,22 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                   </>
                 )}
                 {activeTabKey === 'gantt' && (
-                  <Button variant="contained" size="small" color="primary" startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />} onClick={() => setIsAddTaskOpen(true)} style={{ marginRight: '8px', marginLeft: '4px', borderRadius: '6px', textTransform: 'none', height: '28px', fontSize: '0.72rem', background: 'var(--primary-main)', fontWeight: 800 }}>
-                    Add Task
-                  </Button>
+                  <>
+                    <Select
+                      size="small"
+                      value={ganttViewScale}
+                      onChange={(e) => setGanttViewScale(e.target.value)}
+                      style={{ height: '28px', color: '#fff', fontSize: '0.75rem', marginRight: '8px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '6px' }}
+                      MenuProps={{ PaperProps: { style: { backgroundColor: '#1e1e1e', color: '#fff' } } }}
+                    >
+                      <MenuItem value="days">Days</MenuItem>
+                      <MenuItem value="weeks">Weeks</MenuItem>
+                      <MenuItem value="months">Months</MenuItem>
+                    </Select>
+                    <Button variant="contained" size="small" color="primary" startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />} onClick={() => setIsAddTaskOpen(true)} style={{ marginRight: '8px', marginLeft: '4px', borderRadius: '6px', textTransform: 'none', height: '28px', fontSize: '0.72rem', background: 'var(--primary-main)', fontWeight: 800 }}>
+                      Add Task
+                    </Button>
+                  </>
                 )}
                 <Tooltip title="Fullscreen Visual Preview">
                   <IconButton size="small" onClick={() => setIsPreviewOpen(true)} style={{ color: 'var(--primary-main)' }}>
@@ -2980,20 +3584,20 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
             </Box>
 
             {/* Scrollable Container Box */}
-            <Box 
+            <Box
               ref={setCanvasContainer}
               id="canvas-interactive-area"
               onMouseDown={handleCanvasMouseDown}
               data-theme={activeTheme}
-              style={{ 
-                flexGrow: 1, 
+              style={{
+                flexGrow: 1,
                 background: (activeTabKey === 'sequence' || activeTabKey === 'gantt')
-                  ? 'var(--background-default)' 
+                  ? 'var(--background-default)'
                   : 'var(--background-default) linear-gradient(var(--divider) 1px, transparent 1px), linear-gradient(90deg, var(--divider) 1px, transparent 1px)',
                 backgroundSize: '24px 24px',
-                borderRadius: '12px', 
-                border: '1.5px solid var(--divider)', 
-                position: 'relative', 
+                borderRadius: '12px',
+                border: '1.5px solid var(--divider)',
+                position: 'relative',
                 overflow: 'auto',
                 height: 'calc(100% - 30px)',
                 cursor: isPanningRef.current ? 'grabbing' : 'grab',
@@ -3002,7 +3606,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               }}
             >
               {/* Virtual Scroll Boundaries Wrapper */}
-              <Box 
+              <Box
                 id="se-main-capture-content"
                 style={{
                   width: `${(canvasDim.width + 200) * zoomScale}px`,
@@ -3013,7 +3617,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                 }}
               >
                 {/* Virtual Canvas scaled as a single unit */}
-                <Box 
+                <Box
                   id="se-main-canvas-inner"
                   style={{
                     width: `${canvasDim.width}px`,
@@ -3023,8 +3627,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     left: 0,
                     transform: `scale(${zoomScale})`,
                     transformOrigin: 'top left',
-                    backgroundImage: activeTabKey === 'sequence' 
-                      ? 'none' 
+                    backgroundImage: (activeTabKey === 'sequence' || activeTabKey === 'gantt')
+                      ? 'none'
                       : 'linear-gradient(var(--divider) 1px, transparent 1px), linear-gradient(90deg, var(--divider) 1px, transparent 1px)',
                     backgroundSize: '24px 24px',
                     backgroundColor: 'var(--background-default)',
@@ -3040,7 +3644,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     }}
                   >
                     {/* SVG Connector Lines Overlay */}
-                    <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 2, overflow: 'visible' }}>
+                    <svg width="4000" height="4000" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 2, overflow: 'visible' }}>
                       <defs>
                         {/* ER Crow-foot connection marker ends */}
                         <marker id="crow-foot-many" viewBox="0 0 20 20" refX="20" refY="10" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
@@ -3052,6 +3656,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                         </marker>
                         <marker id="usecase-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                           <path d="M 0 1 L 10 5 L 0 9" fill="none" stroke="var(--primary-main)" strokeWidth="1.5" />
+                        </marker>
+                        <marker id="usecase-generalization-arrow" viewBox="0 0 12 12" refX="12" refY="6" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                          <path d="M 0 2 L 12 6 L 0 10 Z" fill="var(--background-default)" stroke="var(--primary-main)" strokeWidth="1.5" />
                         </marker>
                       </defs>
 
@@ -3202,7 +3809,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             userSelect: 'none'
                           }}
                         >
-                          <svg width="60" height="90" viewBox="-30 -40 60 90" style={{ overflow: 'visible' }}>
+                          <svg width="60" height="100" viewBox="-30 -50 60 100" style={{ overflow: 'visible' }}>
                             <circle cx="0" cy="-30" r="12" fill="var(--background-paper)" stroke="var(--primary-main)" strokeWidth="3" />
                             <line x1="0" y1="-18" x2="0" y2="15" stroke="var(--primary-main)" strokeWidth="3" />
                             <line x1="-20" y1="-8" x2="20" y2="-8" stroke="var(--primary-main)" strokeWidth="3" />
@@ -3251,9 +3858,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             userSelect: 'none'
                           }}
                         >
-                          <Typography variant="body2" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: 0, padding: 0, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', transform: 'translateY(1px)' }}>
                             {uc.label}
-                          </Typography>
+                          </span>
                         </div>
                       );
                     })}
@@ -3262,24 +3869,24 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               </Box>
 
               {error && (
-                <Alert 
-                  severity="error" 
-                  style={{ 
-                    position: 'absolute', 
-                    bottom: '16px', 
-                    left: '16px', 
-                    right: '16px', 
+                <Alert
+                  severity="error"
+                  style={{
+                    position: 'absolute',
+                    bottom: '16px',
+                    left: '16px',
+                    right: '16px',
                     borderRadius: '12px',
                     background: 'rgba(211, 47, 47, 0.9)',
                     color: '#fff',
-                  backdropFilter: 'blur(5px)',
-                  zIndex: 20
-                }}
-              >
-                {error}
-              </Alert>
-            )}
-          </Box>
+                    backdropFilter: 'blur(5px)',
+                    zIndex: 20
+                  }}
+                >
+                  {error}
+                </Alert>
+              )}
+            </Box>
 
             {pendingRelationSource && (
               <Box
@@ -3417,7 +4024,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               Model database structures, user interfaces interactions, operational logic, and timelines.
             </Typography>
           </Box>
-          
+
           <Box style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Typography variant="subtitle2" style={{ fontWeight: 700, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
               Diagram Type:
@@ -3473,7 +4080,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
             >
               {isCopied ? 'Copied!' : 'Copy Code'}
             </Button>
-             <Button
+            <Button
               variant="contained"
               size="small"
               color="primary"
@@ -3594,7 +4201,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               }}
             >
               {/* Virtual Scroll Boundaries Wrapper for capturing PNG */}
-              <Box 
+              <Box
                 id="se-preview-capture-content"
                 style={{
                   width: `${(canvasDim.width + 200) * previewZoomScale}px`,
@@ -3614,8 +4221,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     left: 0,
                     transform: `scale(${previewZoomScale})`,
                     transformOrigin: 'top left',
-                    backgroundImage: (activeTabKey === 'sequence' || activeTabKey === 'gantt') 
-                      ? 'none' 
+                    backgroundImage: (activeTabKey === 'sequence' || activeTabKey === 'gantt')
+                      ? 'none'
                       : 'linear-gradient(var(--divider) 1px, transparent 1px), linear-gradient(90deg, var(--divider) 1px, transparent 1px)',
                     backgroundSize: '24px 24px',
                     backgroundColor: 'var(--background-default)'
@@ -3630,7 +4237,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     }}
                   >
                     {/* SVG Connector Lines Overlay */}
-                    <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 2, overflow: 'visible' }}>
+                    <svg width="4000" height="4000" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 2, overflow: 'visible' }}>
                       <defs>
                         {/* ER Crow-foot connection marker ends */}
                         <marker id="crow-foot-many" viewBox="0 0 20 20" refX="20" refY="10" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
@@ -3642,6 +4249,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                         </marker>
                         <marker id="usecase-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                           <path d="M 0 1 L 10 5 L 0 9" fill="none" stroke="var(--primary-main)" strokeWidth="1.5" />
+                        </marker>
+                        <marker id="usecase-generalization-arrow" viewBox="0 0 12 12" refX="12" refY="6" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                          <path d="M 0 2 L 12 6 L 0 10 Z" fill="var(--background-default)" stroke="var(--primary-main)" strokeWidth="1.5" />
                         </marker>
                       </defs>
 
@@ -3720,7 +4330,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             userSelect: 'none'
                           }}
                         >
-                          <svg width="60" height="90" viewBox="-30 -40 60 90" style={{ overflow: 'visible' }}>
+                          <svg width="60" height="100" viewBox="-30 -50 60 100" style={{ overflow: 'visible' }}>
                             <circle cx="0" cy="-30" r="12" fill="var(--background-paper)" stroke="var(--primary-main)" strokeWidth="3" />
                             <line x1="0" y1="-18" x2="0" y2="15" stroke="var(--primary-main)" strokeWidth="3" />
                             <line x1="-20" y1="-8" x2="20" y2="-8" stroke="var(--primary-main)" strokeWidth="3" />
@@ -3758,9 +4368,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             userSelect: 'none'
                           }}
                         >
-                          <Typography variant="body2" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: 0, padding: 0, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', transform: 'translateY(1px)' }}>
                             {uc.label}
-                          </Typography>
+                          </span>
                         </div>
                       );
                     })}
@@ -3784,10 +4394,10 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                 zIndex: 10
               }}
             >
-              <div 
-                className="nav-brand-logo-container" 
-                style={{ 
-                  width: '2rem', 
+              <div
+                className="nav-brand-logo-container"
+                style={{
+                  width: '2rem',
                   height: '2rem',
                   WebkitMaskImage: `url(${logoImg})`,
                   maskImage: `url(${logoImg})`,
@@ -3802,7 +4412,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                 <div className="nav-logo-left-half" />
                 <div className="nav-logo-right-half" />
               </div>
-              <Typography 
+              <Typography
                 className="nav-brand-title"
                 style={{
                   fontSize: '1.1rem',
@@ -3836,3 +4446,5 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     </Box>
   );
 };
+
+export default SoftwareEngineeringLab;

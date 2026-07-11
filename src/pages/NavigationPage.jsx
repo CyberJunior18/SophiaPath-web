@@ -1099,9 +1099,9 @@ const NavigationPage = () => {
     if (user?.roleID === 2 || true) { // Temporarily bypassed for testing
       items.push({ label: 'Dashboard', path: '/', icon: <DashboardRoundedIcon /> });
     }
-    items.push({ label: 'Courses',      path: '/courses',      icon: <SchoolIcon />  });
-    items.push({ label: 'Labs',          path: '/labs',         icon: <ScienceIcon /> });
-    items.push({ label: 'Arena',         path: '/arena',        icon: <ArenaIcon />   });
+    items.push({ label: 'Courses', path: '/courses', icon: <SchoolIcon /> });
+    items.push({ label: 'Labs', path: '/labs', icon: <ScienceIcon /> });
+    items.push({ label: 'Arena', path: '/arena', icon: <ArenaIcon /> });
     items.push({ label: 'Achievements', path: '/achievements', icon: <EmojiEventsIcon /> });
     items.push({ label: 'Chats', path: '/chats', icon: <ChatIcon /> });
     items.push({ label: 'Communities', path: '/communities', icon: <GroupsIcon /> });

@@ -151,18 +151,18 @@ const JavaOopUmlEditor = React.memo(({ isDarkMode, onChange, onMount }) => {
 // Helper functions for Java code execution
 const parseClassAttributes = (javaCode) => {
   let cleanCode = javaCode
-    .replace(/\/\/.*$/gm, "") 
-    .replace(/\/\*[\s\S]*?\*\//g, ""); 
-  
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+
   const attributes = [];
   const classDeclRegex = /class\s+([A-Za-z0-9_]+)/g;
   let match;
-  
+
   while ((match = classDeclRegex.exec(cleanCode)) !== null) {
     const searchStart = match.index + match[0].length;
     const openBraceIdx = cleanCode.indexOf("{", searchStart);
     if (openBraceIdx === -1) continue;
-    
+
     let depth = 1;
     let closeBraceIdx = -1;
     for (let i = openBraceIdx + 1; i < cleanCode.length; i++) {
@@ -176,12 +176,12 @@ const parseClassAttributes = (javaCode) => {
       }
     }
     if (closeBraceIdx === -1) continue;
-    
+
     const classBody = cleanCode.substring(openBraceIdx + 1, closeBraceIdx);
-    
+
     let accumulated = "";
     let bodyDepth = 0;
-    
+
     for (let charIdx = 0; charIdx < classBody.length; charIdx++) {
       const char = classBody[charIdx];
       if (char === '{') {
@@ -239,7 +239,7 @@ const processClassCode = (classCode, attributes) => {
     attributes.forEach(attr => {
       const letInitRegex = new RegExp(`\\blet\\s+${attr}\\s*=`, 'g');
       beforeMethod = beforeMethod.replace(letInitRegex, `${attr} =`);
-      
+
       const letRegex = new RegExp(`\\blet\\s+${attr}\\s*;`, 'g');
       beforeMethod = beforeMethod.replace(letRegex, `${attr} = null;`);
     });
@@ -294,7 +294,7 @@ const processClassCode = (classCode, attributes) => {
   attributes.forEach(attr => {
     const letInitRegex = new RegExp(`\\blet\\s+${attr}\\s*=`, 'g');
     remaining = remaining.replace(letInitRegex, `${attr} =`);
-    
+
     const letRegex = new RegExp(`\\blet\\s+${attr}\\s*;`, 'g');
     remaining = remaining.replace(letRegex, `${attr} = null;`);
   });
@@ -307,7 +307,7 @@ const extractMainMethodBodyFromRunner = (runnerCode) => {
   const cleanCode = runnerCode.trim();
   const mainMethodRegex = /(?:\bpublic\s+|\bstatic\s+|\bprivate\s+|\bprotected\s+)*void\s+main\s*\([^)]*\)\s*\{/;
   const match = mainMethodRegex.exec(cleanCode);
-  
+
   if (match) {
     const mainOpenBraceIdx = match.index + match[0].length - 1;
     let mainDepth = 1;
@@ -326,7 +326,7 @@ const extractMainMethodBodyFromRunner = (runnerCode) => {
       return cleanCode.substring(mainOpenBraceIdx + 1, mainCloseBraceIdx).trim();
     }
   }
-  
+
   const runnerClassRegex = /(?:public\s+)?class\s+Runner\s*(?:extends\s+\w+)?\s*\{/;
   const classMatch = runnerClassRegex.exec(cleanCode);
   if (classMatch) {
@@ -367,7 +367,7 @@ const extractMainMethodBodyFromRunner = (runnerCode) => {
       return runnerBody;
     }
   }
-  
+
   return cleanCode;
 };
 
@@ -378,10 +378,10 @@ const extractMainMethodBody = (javaCode) => {
   if (!match) {
     return { mainBody: "", remainingCode: javaCode };
   }
-  
+
   const runnerStartIdx = match.index;
   const openBraceIdx = match.index + match[0].length - 1;
-  
+
   let depth = 1;
   let runnerCloseBraceIdx = -1;
   for (let i = openBraceIdx + 1; i < cleanCode.length; i++) {
@@ -394,11 +394,11 @@ const extractMainMethodBody = (javaCode) => {
       }
     }
   }
-  
+
   if (runnerCloseBraceIdx === -1) {
     return { mainBody: "", remainingCode: javaCode };
   }
-  
+
   const runnerBody = cleanCode.substring(openBraceIdx + 1, runnerCloseBraceIdx);
   const mainMethodRegexSimple = /void\s+main\s*\([^)]*\)\s*\{/;
   const mainMatch = mainMethodRegexSimple.exec(runnerBody);
@@ -406,7 +406,7 @@ const extractMainMethodBody = (javaCode) => {
     const remainingCode = javaCode.substring(0, runnerStartIdx) + javaCode.substring(runnerCloseBraceIdx + 1);
     return { mainBody: "", remainingCode };
   }
-  
+
   const mainOpenBraceIdx = mainMatch.index + mainMatch[0].length - 1;
   let mainDepth = 1;
   let mainCloseBraceIdx = -1;
@@ -420,28 +420,28 @@ const extractMainMethodBody = (javaCode) => {
       }
     }
   }
-  
+
   if (mainCloseBraceIdx === -1) {
     const remainingCode = javaCode.substring(0, runnerStartIdx) + javaCode.substring(runnerCloseBraceIdx + 1);
     return { mainBody: "", remainingCode };
   }
-  
+
   const mainBody = runnerBody.substring(mainOpenBraceIdx + 1, mainCloseBraceIdx).trim();
   const remainingCode = javaCode.substring(0, runnerStartIdx) + javaCode.substring(runnerCloseBraceIdx + 1);
-  
+
   return { mainBody, remainingCode };
 };
 
 const translateJavaToJsAsync = (javaCode) => {
   let code = javaCode
-    .replace(/\/\/.*$/gm, "") 
-    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
 
   // Strip Java annotations (e.g. @Override, @Deprecated, etc.)
   code = code.replace(/@\w+\b/g, "");
 
   code = code.replace(/^\s*import\s+[A-Za-z0-9_.*]+\s*;/gm, "");
-  code = code.replace(/^\s*package\s+[A-Za-z0-9_.]+\s*;/gm, ""); 
+  code = code.replace(/^\s*package\s+[A-Za-z0-9_.]+\s*;/gm, "");
 
   const stringLiterals = [];
   code = code.replace(/"(\\.|[^"\\])*"/g, (match) => {
@@ -466,7 +466,7 @@ const translateJavaToJsAsync = (javaCode) => {
     mainBody = extracted.mainBody;
     classesCode = extracted.remainingCode;
   }
-  
+
   let finalMainBody = mainBody;
   code = classesCode;
 
@@ -497,7 +497,7 @@ const translateJavaToJsAsync = (javaCode) => {
   code = code.replace(/(?:public|protected|private)?\s*abstract\s+[\w<>[\]]+\s+\w+\s*\([^)]*\)\s*;/g, "");
 
   const attributes = parseClassAttributes(code);
-  
+
   code = code.replace(/\b(public\s+|abstract\s+)*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+[\w\s,]+)?/g, (match, modifiers, className, parentClass) => {
     let res = `class ${className}`;
     if (parentClass) {
@@ -526,10 +526,10 @@ const translateJavaToJsAsync = (javaCode) => {
   code = code.replace(/\b(public|private|protected|final|abstract|synchronized|transient|volatile)\b/g, "");
 
   const types = [
-    'int', 'double', 'float', 'boolean', 'char', 'String', 'auto', 
+    'int', 'double', 'float', 'boolean', 'char', 'String', 'auto',
     'Integer', 'Double', 'Float', 'Long', 'Short', 'Byte', 'Character', 'Boolean',
     'void', 'List', 'ArrayList', 'Map', 'HashMap', 'Set', 'HashSet', 'Stack', 'Object',
-    'Shape', 'Circle', 'Rectangle', 'Employee', 'Contractor', 'Appliance', 
+    'Shape', 'Circle', 'Rectangle', 'Employee', 'Contractor', 'Appliance',
     'WashingMachine', 'Refrigerator', 'Product', 'Payable', 'BankAccount', 'Scanner'
   ];
   const allTypes = [...types, ...classNames];
@@ -545,7 +545,7 @@ const translateJavaToJsAsync = (javaCode) => {
     }
   }
   const varDeclRegex = /\b([A-Z][a-zA-Z0-9_]*|int|double|float|boolean|char|byte|short|long|void)(?:<[a-zA-Z0-9_,\s<>?]*>)?(?:\s*\[\])*\s+([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\()(?=\s*=[^=]|\s*;|\s*,)/g;
-  
+
   code = code.replace(varDeclRegex, 'let $2');
   finalMainBody = finalMainBody.replace(varDeclRegex, 'let $2');
 
@@ -566,17 +566,17 @@ const translateJavaToJsAsync = (javaCode) => {
       let match;
       let result = '';
       let lastIndex = 0;
-      
+
       while ((match = regex.exec(str)) !== null) {
         const matchIndex = match.index;
         const matchStr = match[0];
         const braceStartIndex = matchIndex + matchStr.length - 1;
-        
+
         let braceCount = 1;
         let i = braceStartIndex + 1;
         let inString = false;
         let stringChar = '';
-        
+
         while (i < str.length && braceCount > 0) {
           const char = str[i];
           if (inString) {
@@ -593,7 +593,7 @@ const translateJavaToJsAsync = (javaCode) => {
           }
           i++;
         }
-        
+
         if (braceCount === 0) {
           const blockContent = str.substring(braceStartIndex + 1, i - 1);
           let convertedContent = '';
@@ -618,7 +618,7 @@ const translateJavaToJsAsync = (javaCode) => {
               convertedContent += char;
             }
           }
-          
+
           const prefix = matchStr.endsWith('{') ? matchStr.slice(0, -1) : matchStr;
           let replacement = '';
           if (prefix.trim().startsWith('new')) {
@@ -626,7 +626,7 @@ const translateJavaToJsAsync = (javaCode) => {
           } else {
             replacement = `${prefix}createJavaArray([${convertedContent}])`;
           }
-          
+
           result += str.substring(lastIndex, matchIndex) + replacement;
           lastIndex = i;
           regex.lastIndex = i;
@@ -641,7 +641,7 @@ const translateJavaToJsAsync = (javaCode) => {
 
     // Replace nested curly brace initializers
     c = replaceArrayInitializers(c);
-    
+
     // Replace multidimensional array instantiations like new int[2][3]
     c = c.replace(/new\s+([A-Za-z0-9_]+)\s*((?:\[[^\]]*\])+)/g, (match, type, brackets) => {
       const dims = [];
@@ -651,7 +651,7 @@ const translateJavaToJsAsync = (javaCode) => {
         const val = dimMatch[1].trim();
         dims.push(val === '' ? 'null' : val);
       }
-      
+
       let fillValue = 'null';
       if (['int', 'double', 'float', 'byte', 'short', 'long'].includes(type)) {
         fillValue = '0';
@@ -660,10 +660,10 @@ const translateJavaToJsAsync = (javaCode) => {
       } else if (type === 'char') {
         fillValue = '"\\0"';
       }
-      
+
       return `allocateJavaArray([${dims.join(', ')}], ${fillValue})`;
     });
-    
+
     return c;
   };
 
@@ -674,18 +674,18 @@ const translateJavaToJsAsync = (javaCode) => {
   const replaceAdvancedSyntax = (c) => {
     // 1. Enhanced for loop: for (Type val : collection) -> for (let val of collection)
     c = c.replace(/for\s*\(\s*([A-Za-z0-9_$<>[\]]+)\s+([A-Za-z0-9_$]+)\s*:\s*([^)]+)\)/g, 'for (let $2 of $3)');
-    
+
     // 2. Numeric casts: (int)(value) or (int) value
     c = c.replace(/\(int\)\s*\(([^)]+)\)/g, 'Math.trunc($1)');
     c = c.replace(/\(int\)\s*([A-Za-z0-9_$.]+(?:\([^)]*\))?)/g, 'Math.trunc($1)');
-    
+
     c = c.replace(/\((?:double|float)\)\s*\(([^)]+)\)/g, 'Number($1)');
     c = c.replace(/\((?:double|float)\)\s*([A-Za-z0-9_$.]+(?:\([^)]*\))?)/g, 'Number($1)');
-    
+
     // 3. String .length() and list .size() -> .length
     c = c.replace(/\.length\s*\(\s*\)/g, '.length');
     c = c.replace(/\.size\s*\(\s*\)/g, '.length');
-    
+
     // 4. String charAt and substring to safe non-global overrides
     c = c.replace(/\.charAt\s*\(/g, '.javaCharAt(');
     c = c.replace(/\.substring\s*\(/g, '.javaSubstring(');
@@ -1369,7 +1369,7 @@ const umlClassesToJava = (classes) => {
   let code = "";
   classes.forEach(uml => {
     const isInterface = uml.type === "interface";
-    
+
     if (isInterface) {
       code += "public interface " + uml.title;
       if (uml.extendsInterfaces && uml.extendsInterfaces.length > 0) {
@@ -1388,7 +1388,7 @@ const umlClassesToJava = (classes) => {
         code += " implements " + uml.implements.join(", ");
       }
     }
-    
+
     code += " {\n";
 
     // Attributes
@@ -1405,27 +1405,27 @@ const umlClassesToJava = (classes) => {
       const vis = m.visibility === "public" ? "public" : (m.visibility === "protected" ? "protected" : (m.visibility === "package-private" ? "" : "private"));
       const isStatic = m.isStatic ? "static " : "";
       const isAbstract = m.isAbstract || isInterface;
-      
+
       const paramsStr = (m.parameters || []).map(p => `${p.type} ${p.name}`).join(", ");
-      
+
       if (isAbstract) {
         code += `    ${vis} abstract ${isStatic}${m.returnType} ${m.name}(${paramsStr});\n`;
       } else {
         const retType = m.returnType === "constructor" ? "" : m.returnType + " ";
-        
+
         const bodyText = m.body !== undefined ? m.body : (
           m.returnType !== "void" && m.returnType !== "constructor"
             ? `\n        return ${m.returnType === "int" || m.returnType === "double" || m.returnType === "float" ? "0.0" : (m.returnType === "boolean" ? "false" : "null")};\n    `
             : '\n    '
         );
-        
+
         code += `    ${vis} ${isStatic}${retType}${m.name}(${paramsStr}) {${bodyText}}\n`;
       }
     });
 
     code += "}\n\n";
   });
-  
+
   return code.trim() + "\n";
 };
 
@@ -1455,7 +1455,7 @@ const validateJavaType = (typeStr, declaredClasses = []) => {
 
 const parseParams = (rawParams, declaredClasses = []) => {
   if (!rawParams.trim()) return [];
-  
+
   // Split parameters by commas at depth 0 (avoid splitting generic types like Map<K,V>)
   const parts = [];
   let current = "";
@@ -1464,7 +1464,7 @@ const parseParams = (rawParams, declaredClasses = []) => {
     const char = rawParams[i];
     if (char === '<') depth++;
     else if (char === '>') depth--;
-    
+
     if (char === ',' && depth === 0) {
       parts.push(current);
       current = "";
@@ -1482,7 +1482,7 @@ const parseParams = (rawParams, declaredClasses = []) => {
     }
     const type = match[1];
     const name = match[2];
-    
+
     if (!/^[A-Za-z_]+[0-9]*$/.test(name)) {
       throw new Error(`Parameter name '${name}' is not a valid Java identifier (numbers only come at the end, no special characters allowed)`);
     }
@@ -1499,7 +1499,7 @@ const parseParams = (rawParams, declaredClasses = []) => {
 const parseMethodSignature = (sig, uml, declaredClasses = []) => {
   const methodRegex = /^(public|private|protected)?\s*(static\s+)?(abstract\s+)?([A-Za-z0-9_$<>[\]]+)\s+([A-Za-z0-9_$]+)\s*\(([^)]*)\)/;
   let match = methodRegex.exec(sig);
-  
+
   if (match) {
     const visibility = match[1] || "package-private";
     const isStatic = !!match[2];
@@ -1522,8 +1522,8 @@ const parseMethodSignature = (sig, uml, declaredClasses = []) => {
     const parameters = parseParams(rawParams, declaredClasses);
 
     const paramSignature = parameters.map(p => p.type).join(",");
-    const isDuplicate = uml.methods.some(m => 
-      m.name === name && 
+    const isDuplicate = uml.methods.some(m =>
+      m.name === name &&
       m.parameters.map(p => p.type).join(",") === paramSignature
     );
     if (isDuplicate) {
@@ -1546,13 +1546,13 @@ const parseMethodSignature = (sig, uml, declaredClasses = []) => {
       const visibility = match[1] || "package-private";
       const name = match[2];
       const rawParams = match[3] || "";
-      
+
       if (name === uml.title) {
         if (!/^[A-Za-z_]+[0-9]*$/.test(name)) {
           throw new Error(`Constructor name '${name}' is not a valid Java identifier`);
         }
         const parameters = parseParams(rawParams, declaredClasses);
-        
+
         const paramSignature = parameters.map(p => p.type).join(",");
         if (uml.methods.some(m => m.name === name && m.returnType === "constructor" && m.parameters.map(p => p.type).join(",") === paramSignature)) {
           throw new Error(`Duplicate constructor signature '${name}(${paramSignature})' in class/interface '${uml.title}'`);
@@ -1610,7 +1610,7 @@ const parseAttributeSignature = (sig, uml, declaredClasses = []) => {
 
 const calculateCardWidth = (umlClass) => {
   let maxWidth = 280; // Minimum default width
-  
+
   // Calculate width from attributes
   (umlClass.attributes || []).forEach(attr => {
     const typeLen = attr.type ? attr.type.length : 0;
@@ -1643,12 +1643,12 @@ const calculateCardWidth = (umlClass) => {
 
 const calculateCompressedCardWidth = (umlClass) => {
   let maxWidth = 180; // Minimum default compressed width
-  
+
   // Title len
   const titleLen = (umlClass.title || '').length;
   const titleWidth = titleLen * 9 + 40;
   if (titleWidth > maxWidth) maxWidth = titleWidth;
-  
+
   // Extends len
   if (umlClass.extends) {
     const extLen = `extends ${umlClass.extends}`.length;
@@ -1680,8 +1680,8 @@ const calculateCompressedCardWidth = (umlClass) => {
 
 const javaToUmlClasses = (code) => {
   let cleanCode = code
-    .replace(/\/\/.*$/gm, "") 
-    .replace(/\/\*[\s\S]*?\*\//g, ""); 
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
 
   // Collect all declared classes/interfaces in the code first
   const declaredClasses = [];
@@ -1694,37 +1694,37 @@ const javaToUmlClasses = (code) => {
   const classes = [];
   const classDeclRegex = /(?:(public|protected|private)\s+)?(?:(abstract)\s+)?(class|interface)\s+([A-Za-z0-9_]+)/g;
   let match;
-  
+
   while ((match = classDeclRegex.exec(cleanCode)) !== null) {
     const isAbstract = !!match[2];
     const type = match[3]; // 'class' | 'interface'
     const className = match[4];
     const searchStart = match.index + match[0].length;
-    
+
     if (!/^[A-Za-z_]+[0-9]*$/.test(className)) {
       const lineNum = code.substring(0, code.indexOf(className) || 0).split('\n').length;
       throw new Error(`Class/Interface name '${className}' at line ${lineNum} is not a valid Java identifier. Suggestion: Class names must start with a letter and contain only letters and underscores with numbers only at the end (no digits in middle/start, no special characters).`);
     }
     const openBraceIdx = cleanCode.indexOf("{", searchStart);
     if (openBraceIdx === -1) continue;
-    
+
     const signatureText = cleanCode.substring(searchStart, openBraceIdx).trim();
-    
+
     let extendsClass = null;
     let extendsList = [];
     let implementsList = [];
-    
+
     const extendsIdx = signatureText.indexOf("extends");
     const implementsIdx = signatureText.indexOf("implements");
-    
+
     if (extendsIdx !== -1 && implementsIdx !== -1 && implementsIdx < extendsIdx) {
       const lineNum = code.substring(0, code.indexOf(className) || 0).split('\n').length;
       throw new Error(`Syntax Error in class '${className}' declaration signature around line ${lineNum}: 'extends' must come before 'implements'. Suggestion: Reorder the signature as: class A extends B implements C.`);
     }
-    
+
     let extendsPart = "";
     let implementsPart = "";
-    
+
     if (extendsIdx !== -1) {
       if (implementsIdx !== -1 && implementsIdx > extendsIdx) {
         extendsPart = signatureText.substring(extendsIdx + 7, implementsIdx).trim();
@@ -1735,7 +1735,7 @@ const javaToUmlClasses = (code) => {
     } else if (implementsIdx !== -1) {
       implementsPart = signatureText.substring(implementsIdx + 10).trim();
     }
-    
+
     if (extendsPart) {
       extendsList = extendsPart.split(",").map(s => s.trim()).filter(s => s.length > 0);
       if (type === 'class') {
@@ -1746,7 +1746,7 @@ const javaToUmlClasses = (code) => {
         extendsClass = extendsList[0] || null;
       }
     }
-    
+
     if (implementsPart) {
       implementsList = implementsPart.split(",").map(s => s.trim()).filter(s => s.length > 0);
       if (type === 'interface') {
@@ -1754,7 +1754,7 @@ const javaToUmlClasses = (code) => {
         throw new Error(`Inheritance Error: Interface '${className}' around line ${lineNum} cannot use 'implements' keyword. Suggestion: Interfaces can only use 'extends' to inherit from other interfaces. Remove the 'implements' clause.`);
       }
     }
-    
+
     let depth = 1;
     let closeBraceIdx = -1;
     for (let i = openBraceIdx + 1; i < cleanCode.length; i++) {
@@ -1773,7 +1773,7 @@ const javaToUmlClasses = (code) => {
     }
     const classBody = cleanCode.substring(openBraceIdx + 1, closeBraceIdx);
     classDeclRegex.lastIndex = closeBraceIdx + 1;
-    
+
     const uml = {
       title: className,
       type: type,
@@ -1784,15 +1784,15 @@ const javaToUmlClasses = (code) => {
       attributes: [],
       methods: []
     };
-    
+
     let accumulated = "";
     let methodBodyAccumulated = "";
     let bodyDepth = 0;
     let currentMethodIndex = -1;
-    
+
     for (let charIdx = 0; charIdx < classBody.length; charIdx++) {
       const char = classBody[charIdx];
-      
+
       if (char === '{') {
         if (bodyDepth === 0) {
           const sig = accumulated.trim();
@@ -1843,16 +1843,16 @@ const javaToUmlClasses = (code) => {
         }
       }
     }
-    
+
     if (accumulated.trim().length > 0) {
       const tokenIdx = code.indexOf(accumulated.trim(), code.indexOf(className));
       const lineNum = tokenIdx !== -1 ? code.substring(0, tokenIdx).split('\n').length : 1;
       throw new Error(`Syntax Error: Unexpected leftover token '${accumulated.trim()}' inside class '${className}' around line ${lineNum}. Suggestion: Check if you are missing a semicolon ';' or a method body opening brace '{'.`);
     }
-    
+
     classes.push(uml);
   }
-  
+
   return classes;
 };
 
@@ -1986,7 +1986,7 @@ const getDeclaredLocalVars = (bodyText, validTypes) => {
       declared.add(varName);
     }
   }
-  
+
   // 2. Comma-separated declarations (e.g. int a, b, c;)
   const segments = cleanText.split(/[;{}]/);
   segments.forEach(segment => {
@@ -2021,7 +2021,7 @@ const getUsedIdentifiers = (bodyText) => {
   while ((match = identRegex.exec(cleanText)) !== null) {
     const name = match[1];
     const index = match.index;
-    
+
     // Check if preceded by '.'
     let isPrecededByDot = false;
     let checkIdx = index - 1;
@@ -2031,7 +2031,7 @@ const getUsedIdentifiers = (bodyText) => {
     if (checkIdx >= 0 && cleanText[checkIdx] === '.') {
       isPrecededByDot = true;
     }
-    
+
     // Check if followed by '('
     let isFollowedByParen = false;
     let followIdx = index + name.length;
@@ -2165,22 +2165,22 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
 
   let braceStack = [];
   let parenStack = [];
-  
+
   let inSingleLineComment = false;
   let inMultiLineComment = false;
   let inString = false;
   let inChar = false;
-  
+
   const lines = code.split('\n');
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     inSingleLineComment = false;
-    
+
     for (let j = 0; j < line.length; j++) {
       const char = line[j];
       const nextChar = line[j + 1];
-      
+
       if (inMultiLineComment) {
         if (char === '*' && nextChar === '/') {
           inMultiLineComment = false;
@@ -2188,11 +2188,11 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
         }
         continue;
       }
-      
+
       if (inSingleLineComment) {
         break;
       }
-      
+
       if (inString) {
         if (char === '\\') {
           j++;
@@ -2201,7 +2201,7 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
         }
         continue;
       }
-      
+
       if (inChar) {
         if (char === '\\') {
           j++;
@@ -2210,7 +2210,7 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
         }
         continue;
       }
-      
+
       if (char === '/' && nextChar === '/') {
         inSingleLineComment = true;
         j++;
@@ -2229,7 +2229,7 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
         inChar = true;
         continue;
       }
-      
+
       if (char === '{') {
         braceStack.push({ line: i + 1, col: j + 1 });
       } else if (char === '}') {
@@ -2238,7 +2238,7 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
         }
         braceStack.pop();
       }
-      
+
       if (char === '(') {
         parenStack.push({ line: i + 1, col: j + 1 });
       } else if (char === ')') {
@@ -2249,7 +2249,7 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
       }
     }
   }
-  
+
   if (inMultiLineComment) {
     return { error: "Syntax Error: Unclosed block comment (/*). Suggestion: Add '*/' at the end of the comment block to close it.", line: lines.length };
   }
@@ -2264,21 +2264,21 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
     const lastParen = parenStack[parenStack.length - 1];
     return { error: `Syntax Error: Unclosed parenthesis '(' starting at line ${lastParen.line}, column ${lastParen.col}. Suggestion: Add a matching closing parenthesis ')' to close this expression.`, line: lastParen.line };
   }
-  
+
   try {
     let cleanCode = code
-      .replace(/\/\/.*$/gm, "") 
-      .replace(/\/\*[\s\S]*?\*\//g, ""); 
-    
+      .replace(/\/\/.*$/gm, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "");
+
     let tempCode = cleanCode;
     tempCode = tempCode.replace(/^\s*package\s+[A-Za-z0-9_.]+\s*;/gm, "");
     tempCode = tempCode.replace(/^\s*import\s+[A-Za-z0-9_.*]+\s*;/gm, "");
-    
+
     const classDeclRegex = /(?:(public|protected|private)\s+)?(?:(abstract)\s+)?(class|interface)\s+([A-Za-z0-9_]+)/g;
     let classMatch;
     let lastIdx = 0;
     let strippedCode = "";
-    
+
     classDeclRegex.lastIndex = 0;
     while ((classMatch = classDeclRegex.exec(tempCode)) !== null) {
       strippedCode += tempCode.substring(lastIdx, classMatch.index);
@@ -2288,7 +2288,7 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
         const lineNum = code.substring(0, classMatch.index).split('\n').length;
         return { error: `Class/Interface declaration '${classMatch[4]}' is missing body opening brace '{' (around line ${lineNum}). Suggestion: Add '{' to start the class body.`, line: lineNum };
       }
-      
+
       let depth = 1;
       let closeBraceIdx = -1;
       for (let i = openBraceIdx + 1; i < tempCode.length; i++) {
@@ -2301,7 +2301,7 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
           }
         }
       }
-      
+
       if (closeBraceIdx === -1) {
         const lineNum = code.substring(0, openBraceIdx).split('\n').length;
         return { error: `Class/Interface '${classMatch[4]}' body is missing closing brace '}' (starting on line ${lineNum}). Suggestion: Add a closing brace '}' at the end of the class body.`, line: lineNum };
@@ -2309,7 +2309,7 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
       lastIdx = closeBraceIdx + 1;
     }
     strippedCode += tempCode.substring(lastIdx);
-    
+
     if (strippedCode.trim().length > 0) {
       const leftover = strippedCode.trim();
       const truncatedLeftover = leftover.length > 30 ? leftover.substring(0, 30) + "..." : leftover;
@@ -2323,7 +2323,7 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
   } catch (err) {
     return { error: `Syntax error during top-level scan: ${err.message}`, line: 1 };
   }
-  
+
   try {
     const classes = javaToUmlClasses(code);
     const err = validateProposedClasses(classes);
@@ -2360,7 +2360,7 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
     for (let c of classes) {
       // Visible attributes in this class
       const classAttributes = new Set(c.attributes.map(a => a.name));
-      
+
       // Inherited public/protected fields
       let parentName = c.extends;
       let depth = 0;
@@ -2383,7 +2383,7 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
         if (m.body) {
           const methodParams = new Set((m.parameters || []).map(p => p.name));
           const localVars = getDeclaredLocalVars(m.body, validTypes);
-          
+
           const declaredInScope = new Set([
             ...classAttributes,
             ...methodParams,
@@ -2394,26 +2394,26 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
 
           for (let ident of usedIdentifiers) {
             // Skip check for standard Java exception classes (which end with Exception) and common classes
-            const isStandardJavaClass = 
-              ident.name.endsWith('Exception') || 
-              ident.name === 'System' || 
-              ident.name === 'Scanner' || 
-              ident.name === 'Math' || 
-              ident.name === 'String' || 
-              ident.name === 'Integer' || 
-              ident.name === 'Double' || 
-              ident.name === 'Float' || 
-              ident.name === 'Boolean' || 
-              ident.name === 'Character' || 
-              ident.name === 'Byte' || 
-              ident.name === 'Short' || 
-              ident.name === 'Long' || 
-              ident.name === 'Object' || 
-              ident.name === 'List' || 
-              ident.name === 'ArrayList' || 
-              ident.name === 'Map' || 
-              ident.name === 'HashMap' || 
-              ident.name === 'Set' || 
+            const isStandardJavaClass =
+              ident.name.endsWith('Exception') ||
+              ident.name === 'System' ||
+              ident.name === 'Scanner' ||
+              ident.name === 'Math' ||
+              ident.name === 'String' ||
+              ident.name === 'Integer' ||
+              ident.name === 'Double' ||
+              ident.name === 'Float' ||
+              ident.name === 'Boolean' ||
+              ident.name === 'Character' ||
+              ident.name === 'Byte' ||
+              ident.name === 'Short' ||
+              ident.name === 'Long' ||
+              ident.name === 'Object' ||
+              ident.name === 'List' ||
+              ident.name === 'ArrayList' ||
+              ident.name === 'Map' ||
+              ident.name === 'HashMap' ||
+              ident.name === 'Set' ||
               ident.name === 'HashSet' ||
               ident.name === 'Stack' ||
               ident.name === 'EmptyStackException' ||
@@ -2432,17 +2432,17 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
               continue;
             }
 
-            if (!declaredInScope.has(ident.name) && 
-                !JAVA_KEYWORDS.has(ident.name) && 
-                !declaredClassNames.has(ident.name) &&
-                !allClassNames.has(ident.name)) {
-              
+            if (!declaredInScope.has(ident.name) &&
+              !JAVA_KEYWORDS.has(ident.name) &&
+              !declaredClassNames.has(ident.name) &&
+              !allClassNames.has(ident.name)) {
+
               const classIdx = code.indexOf(c.title);
               const methodSigStart = code.indexOf(m.name, classIdx !== -1 ? classIdx : 0);
               const bodyStart = code.indexOf(m.body, methodSigStart !== -1 ? methodSigStart : 0);
               const absoluteIndex = (bodyStart !== -1 ? bodyStart : 0) + ident.index;
               const lineNum = code.substring(0, absoluteIndex).split('\n').length;
-              
+
               return {
                 error: `Compilation Error: Variable '${ident.name}' cannot be resolved. It has not been declared in this scope (around line ${lineNum}). Suggestion: Declare '${ident.name}' as a local variable, method parameter, or class attribute before using it.`,
                 line: lineNum
@@ -2455,13 +2455,13 @@ const checkJavaSyntax = (code, allClassNames = new Set()) => {
   } catch (err) {
     return { error: `Parser error: ${err.message}. Suggestion: Check the syntax of your class declarations, field/method types, and signatures.`, line: 1 };
   }
-  
+
   return null;
 };
 
 const analyzeRelationships = (classes) => {
   const relations = []; // { source, target, type, fieldName }
-  
+
   classes.forEach(c => {
     // 1. Inheritance
     if (c.type === 'class' && c.extends) {
@@ -2472,14 +2472,14 @@ const analyzeRelationships = (classes) => {
         relations.push({ source: c.title, target: parent, type: 'extends' });
       });
     }
-    
+
     // Realization (implements)
     if (c.implements && c.implements.length > 0) {
       c.implements.forEach(imp => {
         relations.push({ source: c.title, target: imp, type: 'implements' });
       });
     }
-    
+
     // 2. Attributes (Composition, Aggregation, Association)
     c.attributes.forEach(attr => {
       const targetClass = classes.find(p => p.title === attr.type && p.title !== c.title);
@@ -2494,18 +2494,18 @@ const analyzeRelationships = (classes) => {
             }
           }
         });
-        
+
         let type = 'aggregation';
         if (isInstantiatedInConstructor) {
           type = 'composition';
         } else if (attr.visibility === 'public' || attr.visibility === 'protected' || attr.visibility === 'package-private') {
           type = 'association';
         }
-        
+
         relations.push({ source: c.title, target: targetClass.title, type, fieldName: attr.name });
       }
     });
-    
+
     // 3. Methods (Dependency)
     c.methods.forEach(m => {
       // Check parameters
@@ -2519,7 +2519,7 @@ const analyzeRelationships = (classes) => {
           }
         }
       });
-      
+
       // Check local instantiation inside method body
       if (m.body && m.returnType !== 'constructor') {
         classes.forEach(targetClass => {
@@ -2536,7 +2536,7 @@ const analyzeRelationships = (classes) => {
       }
     });
   });
-  
+
   return relations;
 };
 
@@ -2714,7 +2714,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
             loadedZip.forEach((relativePath, zipEntry) => {
               if (zipEntry.dir) return;
-              
+
               if (relativePath === '.uml_metadata.json') {
                 const promise = zipEntry.async('string').then(text => {
                   try {
@@ -2775,7 +2775,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 if (lastWord === 'public' || lastWord === 'protected' || lastWord === 'private') {
                   startOfClass = text.lastIndexOf(lastWord, classIndex);
                 }
-                
+
                 mainPart = text.substring(startOfClass, i).trim();
                 classesPart = (text.substring(0, startOfClass) + '\n' + text.substring(i)).trim();
               } else {
@@ -2847,7 +2847,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     for (let i = 0; i < filesList.length; i++) {
       const file = filesList[i];
       const name = file.name;
-      
+
       if (name === '.uml_metadata.json') {
         const promise = new Promise((resolve) => {
           const reader = new FileReader();
@@ -2883,7 +2883,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   };
 
   const [isEditorReady, setIsEditorReady] = useState(false);
-  const [splitPercent, setSplitPercent] = useState(55);
+  const [splitPercent, setSplitPercent] = useState(35);
 
   // 2D Interactive Canvas States
   const [classPositions, setClassPositions] = useState({});
@@ -3033,7 +3033,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       const fileCode = files[activeFile] || '';
       model = monacoInstance.editor.createModel(fileCode, 'java', uri);
     }
-    
+
     if (editorInstance.getModel() !== model) {
       editorInstance.setModel(model);
     }
@@ -3047,14 +3047,14 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       const activeFileCode = files[activeFile] || '';
       const err = checkJavaSyntax(activeFileCode, new Set(umlClasses.map(c => c.title)));
       setSyntaxError(err);
-      
+
       const activeEl = document.activeElement;
       const isTypingInInput = activeEl && (
-        activeEl.tagName === 'INPUT' || 
-        activeEl.tagName === 'TEXTAREA' || 
+        activeEl.tagName === 'INPUT' ||
+        activeEl.tagName === 'TEXTAREA' ||
         activeEl.closest('.uml-class-card')
       );
-      
+
       if (!isTypingInInput) {
         editorInstance.focus();
       }
@@ -3136,7 +3136,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       const cardA = mapped[i];
       for (let j = i + 1; j < mapped.length; j++) {
         const cardB = mapped[j];
-        
+
         // If they are on the "same row" (vertical coordinates overlap or are very close, e.g. within 150px)
         const isSameRow = Math.abs(cardA.y - cardB.y) < 150;
         if (isSameRow) {
@@ -3260,9 +3260,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const handleCanvasMouseDown = (e) => {
     // Only pan if clicked on the background grid canvas, not inside a class card, port, menu, dialog, or buttons.
     if (
-      e.target.closest('.uml-class-card') || 
-      e.target.closest('.uml-port') || 
-      e.target.closest('button') || 
+      e.target.closest('.uml-class-card') ||
+      e.target.closest('.uml-port') ||
+      e.target.closest('button') ||
       e.target.closest('.MuiSelect-select') ||
       e.target.closest('.MuiSelect-root')
     ) {
@@ -3283,7 +3283,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
   const handlePreviewCanvasMouseDown = (e) => {
     if (
-      e.target.closest('.uml-class-card') || 
+      e.target.closest('.uml-class-card') ||
       e.target.closest('button')
     ) {
       return;
@@ -3372,14 +3372,14 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       for (let col = 0; col < 3; col++) {
         const slotX = 50 + col * 420;
         const slotY = 50 + row * 460;
-        
+
         // Check if any class is close to this slot
         const isOccupied = Object.values(currentPositions).some(pos => {
           const dx = pos.x - slotX;
           const dy = pos.y - slotY;
           return dx * dx + dy * dy < 200 * 200; // overlap threshold
         });
-        
+
         if (!isOccupied) {
           return { x: slotX, y: slotY };
         }
@@ -3424,7 +3424,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         animationFrameId = null;
         const newX = Math.max(0, e.clientX / zoomScale - dragStartOffset.current.x);
         const newY = Math.max(0, e.clientY / zoomScale - dragStartOffset.current.y);
-        
+
         setClassPositions(prev => {
           const current = prev[draggingClass];
           if (current && Math.abs(current.x - newX) < 0.5 && Math.abs(current.y - newY) < 0.5) {
@@ -3514,7 +3514,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       const canvasRect = canvasEl.getBoundingClientRect();
       const startX = (rect.left + rect.width / 2 - canvasRect.left + canvasEl.scrollLeft) / zoomScale;
       const startY = (rect.top + rect.height / 2 - canvasRect.top + canvasEl.scrollTop) / zoomScale;
-      
+
       setConnectingSource(className);
       setConnectionStart({ x: startX, y: startY, side });
       setConnectionCurrent({ x: startX, y: startY });
@@ -3529,9 +3529,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     if (sourceIdx !== -1) {
       const sourceClass = umlClasses[sourceIdx];
       const fieldName = newFieldName.trim() || `${target.charAt(0).toLowerCase() + target.slice(1)}`;
-      
+
       let newClasses = [...umlClasses];
-      
+
       if (newRelationType === 'extends') {
         newClasses = umlClasses.map((c, idx) => {
           if (idx === sourceIdx) {
@@ -3560,7 +3560,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             isStatic: false
           }
         ];
-        
+
         let newMethods = [...sourceClass.methods];
         if (newRelationType === 'composition') {
           // Look for existing constructor
@@ -3569,7 +3569,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             const currentBody = newMethods[constrIdx].body || '';
             newMethods[constrIdx] = {
               ...newMethods[constrIdx],
-              body: currentBody.trim() 
+              body: currentBody.trim()
                 ? currentBody.replace(/\s*$/, '') + `\n        this.${fieldName} = new ${target}();\n    `
                 : `\n        this.${fieldName} = new ${target}();\n    `
             };
@@ -3586,7 +3586,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             });
           }
         }
-        
+
         newClasses = umlClasses.map((c, idx) => {
           if (idx === sourceIdx) return { ...c, attributes: newAttributes, methods: newMethods };
           return c;
@@ -3647,7 +3647,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     if (!posA || !posB) return { sourceSide: 'bottom', targetSide: 'top' };
     const classA = umlClasses.find(x => x.title === sourceTitle);
     const classB = umlClasses.find(x => x.title === targetTitle);
-    
+
     const elA = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${sourceTitle}"]` : `.uml-class-card[data-classname="${sourceTitle}"]`);
     const elB = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${targetTitle}"]` : `.uml-class-card[data-classname="${targetTitle}"]`);
 
@@ -3693,7 +3693,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     if (!posA || !posB) return { start: { x: 0, y: 0 }, end: { x: 0, y: 0 } };
     const classA = umlClasses.find(x => x.title === posA.title);
     const classB = umlClasses.find(x => x.title === posB.title);
-    
+
     // Query actual DOM elements to get pixel-perfect anchor points under all conditions.
     const elA = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${posA.title}"]` : `.uml-class-card[data-classname="${posA.title}"]`);
     const elB = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${posB.title}"]` : `.uml-class-card[data-classname="${posB.title}"]`);
@@ -3738,25 +3738,25 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     if (allRelations && allRelations.length > 0) {
       const bRelations = allRelations.filter(r => r.source === posB.title || r.target === posB.title);
       const sameSideConnections = [];
-      
+
       bRelations.forEach(r => {
         const sides = getAttachmentSides(r.source, r.target, useCompressed);
         const isTarget = r.target === posB.title;
         const attachedSide = isTarget ? sides.targetSide : sides.sourceSide;
-        
+
         if (attachedSide === bestB.side) {
           const neighborTitle = isTarget ? r.source : r.target;
           const posNeighbor = classPositions[neighborTitle] || { x: 0, y: 0 };
           const classNeighbor = umlClasses.find(x => x.title === neighborTitle);
           const elNeighbor = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${neighborTitle}"]` : `.uml-class-card[data-classname="${neighborTitle}"]`);
-          
+
           const wNeighbor = elNeighbor ? elNeighbor.offsetWidth : (classNeighbor ? (useCompressed ? calculateCompressedCardWidth(classNeighbor) : calculateCardWidth(classNeighbor)) : 280);
           const hNeighbor = elNeighbor ? elNeighbor.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(neighborTitle) : getEstimatedHeight(neighborTitle));
-          
+
           const centerX = posNeighbor.x + wNeighbor / 2;
           const centerY = posNeighbor.y + hNeighbor / 2;
           const relId = `${r.source}_${r.target}_${r.type}_${r.fieldName || r.methodName || ''}`;
-          
+
           sameSideConnections.push({
             relId,
             centerX,
@@ -3764,21 +3764,21 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           });
         }
       });
-      
+
       // Sort connections based on the spatial location of their neighbor cards to prevent line crossing.
       if (bestB.side === 'top' || bestB.side === 'bottom') {
         sameSideConnections.sort((a, b) => a.centerX - b.centerX);
       } else {
         sameSideConnections.sort((a, b) => a.centerY - b.centerY);
       }
-      
-      const currentRelId = currentRelation 
+
+      const currentRelId = currentRelation
         ? `${currentRelation.source}_${currentRelation.target}_${currentRelation.type}_${currentRelation.fieldName || currentRelation.methodName || ''}`
         : `${posA.title}_${posB.title}_extends_`;
-      
+
       const connIdx = sameSideConnections.findIndex(item => item.relId === currentRelId);
       const totalCount = sameSideConnections.length;
-      
+
       if (totalCount > 1 && connIdx !== -1) {
         const factor = (connIdx + 1) / (totalCount + 1);
         if (bestB.side === 'top' || bestB.side === 'bottom') {
@@ -3799,25 +3799,25 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     if (allRelations && allRelations.length > 0) {
       const aRelations = allRelations.filter(r => r.source === posA.title || r.target === posA.title);
       const sameSideConnectionsA = [];
-      
+
       aRelations.forEach(r => {
         const sides = getAttachmentSides(r.source, r.target, useCompressed);
         const isSource = r.source === posA.title;
         const attachedSide = isSource ? sides.sourceSide : sides.targetSide;
-        
+
         if (attachedSide === bestA.side) {
           const neighborTitle = isSource ? r.target : r.source;
           const posNeighbor = classPositions[neighborTitle] || { x: 0, y: 0 };
           const classNeighbor = umlClasses.find(x => x.title === neighborTitle);
           const elNeighbor = document.querySelector(useCompressed ? `.uml-preview-card[data-classname="${neighborTitle}"]` : `.uml-class-card[data-classname="${neighborTitle}"]`);
-          
+
           const wNeighbor = elNeighbor ? elNeighbor.offsetWidth : (classNeighbor ? (useCompressed ? calculateCompressedCardWidth(classNeighbor) : calculateCardWidth(classNeighbor)) : 280);
           const hNeighbor = elNeighbor ? elNeighbor.offsetHeight : (useCompressed ? getEstimatedCompressedHeight(neighborTitle) : getEstimatedHeight(neighborTitle));
-          
+
           const centerX = posNeighbor.x + wNeighbor / 2;
           const centerY = posNeighbor.y + hNeighbor / 2;
           const relId = `${r.source}_${r.target}_${r.type}_${r.fieldName || r.methodName || ''}`;
-          
+
           sameSideConnectionsA.push({
             relId,
             centerX,
@@ -3825,21 +3825,21 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           });
         }
       });
-      
+
       // Sort connections based on the spatial location of their neighbor cards to prevent line crossing.
       if (bestA.side === 'top' || bestA.side === 'bottom') {
         sameSideConnectionsA.sort((a, b) => a.centerX - b.centerX);
       } else {
         sameSideConnectionsA.sort((a, b) => a.centerY - b.centerY);
       }
-      
-      const currentRelId = currentRelation 
+
+      const currentRelId = currentRelation
         ? `${currentRelation.source}_${currentRelation.target}_${currentRelation.type}_${currentRelation.fieldName || currentRelation.methodName || ''}`
         : `${posA.title}_${posB.title}_extends_`;
-      
+
       const connIdxA = sameSideConnectionsA.findIndex(item => item.relId === currentRelId);
       const totalCountA = sameSideConnectionsA.length;
-      
+
       if (totalCountA > 1 && connIdxA !== -1) {
         const factor = (connIdxA + 1) / (totalCountA + 1);
         if (bestA.side === 'top' || bestA.side === 'bottom') {
@@ -3949,7 +3949,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         if (c.title === oldName) {
           updatedTitle = newName;
         }
-        
+
         let updatedExtends = c.extends;
         if (c.extends === oldName) {
           updatedExtends = newName;
@@ -4039,7 +4039,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     if (!oldName || !newName || oldName === newName) return;
     const regex = new RegExp('\\b' + oldName + '\\b', 'g');
     isExternalUpdateRef.current = true;
-    
+
     setFiles(prev => {
       const nextFiles = {};
       Object.keys(prev).forEach(fileName => {
@@ -4047,15 +4047,15 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         if (fileName === currentFile) {
           content = currentCode;
         }
-        
+
         let targetFileName = fileName;
         if (type === 'class' && fileName === `${oldName}.java`) {
           targetFileName = `${newName}.java`;
         }
-        
+
         content = content.replace(regex, newName);
         nextFiles[targetFileName] = content;
-        
+
         if (targetFileName === 'Runner.java') {
           setMainCode(content);
         }
@@ -4073,7 +4073,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
-    
+
     if (!activeEditorRef.current) return;
     const currentCode = activeEditorRef.current.getValue();
     isTypingRef.current = false;
@@ -4094,15 +4094,15 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     try {
       const parsedList = javaToUmlClasses(currentCode);
       const currentUmlClasses = umlClassesRef.current;
-      
+
       if (parsedList && parsedList.length > 0) {
         const updatedClass = parsedList[0];
         const classIdx = currentUmlClasses.findIndex(c => `${c.title}.java` === currentFile);
-        
+
         let nextClasses = [...currentUmlClasses];
         const newTitle = updatedClass.title;
         let oldTitle = currentFile.replace('.java', '');
-        
+
         let activeCode = currentCode;
 
         if (classIdx !== -1) {
@@ -4158,7 +4158,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             [currentFile]: currentCode
           }));
         }
-        
+
         if (newTitle !== oldTitle) {
           const currentPositions = classPositionsRef.current;
           if (currentPositions[oldTitle]) {
@@ -4170,11 +4170,11 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             });
           }
         }
-        
+
         setUmlClasses(nextClasses);
         const combined = umlClassesToJava(nextClasses);
         setCode(combined);
-        
+
         const err = checkJavaSyntax(currentCode, new Set(nextClasses.map(c => c.title)));
         setSyntaxError(err);
       } else {
@@ -4184,7 +4184,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           setUmlClasses(nextClasses);
           const combined = umlClassesToJava(nextClasses);
           setCode(combined);
-          
+
           const err = checkJavaSyntax(currentCode, new Set(nextClasses.map(c => c.title)));
           setSyntaxError(err);
         }
@@ -4447,17 +4447,17 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     isExternalUpdateRef.current = true;
     setFiles(prev => {
       const nextFiles = { ...prev };
-      
+
       // Update code for the classes that are currently in newClasses
       newClasses.forEach(c => {
         nextFiles[`${c.title}.java`] = umlClassesToJava([c]);
       });
-      
+
       // Remove files for classes that were explicitly deleted from the canvas
       deletedClasses.forEach(c => {
         delete nextFiles[`${c.title}.java`];
       });
-      
+
       return nextFiles;
     });
 
@@ -4576,9 +4576,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           ext = null;
         }
 
-        return { 
-          ...c, 
-          type: finalType, 
+        return {
+          ...c,
+          type: finalType,
           abstract: isAbstract,
           extends: ext,
           extendsInterfaces: extInterfaces,
@@ -4611,7 +4611,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
   const updateClassTitle = (classIdx, newTitle) => {
     const oldTitle = umlClasses[classIdx].title;
     if (newTitle === oldTitle) return;
-    
+
     // Rename key in classPositions to preserve coordinate state
     if (classPositions[oldTitle]) {
       setClassPositions(prev => {
@@ -4623,7 +4623,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     }
 
     const newClasses = cascadeRenameInClasses(umlClasses, oldTitle, newTitle, 'class');
-    
+
     setActiveFile(prev => {
       if (prev === `${oldTitle}.java`) {
         return `${newTitle}.java`;
@@ -4825,7 +4825,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         if (isAbortedRef.current) throw new Error("Execution Aborted");
         setTerminalOutput(prev => prev + (text === undefined ? "" : (text === null ? "null" : text)));
       };
-      
+
       const onReadInput = () => {
         return new Promise((resolve, reject) => {
           if (isAbortedRef.current) {
@@ -4842,9 +4842,9 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           };
         });
       };
-      
+
       console.log('Combined Java code to execute:\n', combinedCode);
-      
+
       await executeCodeAsync(combinedCode, 'java', onStdout, onReadInput);
     } catch (err) {
       if (err.message !== "Execution Aborted") {
@@ -4873,10 +4873,10 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
     try {
       const element = document.getElementById('uml-preview-capture-content');
       if (!element) return;
-      
+
       const oldScale = previewZoomScale;
       setPreviewZoomScale(1.0);
-      
+
       // Wait for React to apply the scale reset
       await new Promise(r => setTimeout(r, 120));
 
@@ -4886,7 +4886,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
         logging: false,
         useCORS: true
       });
-      
+
       setPreviewZoomScale(oldScale);
 
       const link = document.createElement('a');
@@ -4901,7 +4901,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
 
 
 
-const containerW = canvasContainerRef.current ? canvasContainerRef.current.clientWidth : 800;
+  const containerW = canvasContainerRef.current ? canvasContainerRef.current.clientWidth : 800;
   const containerH = canvasContainerRef.current ? canvasContainerRef.current.clientHeight : 600;
   const dynamicMinZoom = parseFloat(Math.min(0.4, Math.max(0.1, Math.min(containerW / canvasDim.width, containerH / canvasDim.height))).toFixed(2));
 
@@ -4911,398 +4911,399 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
   return (
     <>
       <Dialog
-      open={open}
-      onClose={onClose}
-      fullScreen={isUmlFullscreen}
-      fullWidth={!isUmlFullscreen}
-      maxWidth="xl"
-      disableEnforceFocus
-      disableRestoreFocus
-      PaperProps={{
-        elevation: 0,
-        style: {
-          borderRadius: isUmlFullscreen ? '0px' : '24px',
-          background: 'var(--background-paper)',
-          backdropFilter: 'blur(20px)',
-          border: isUmlFullscreen ? 'none' : '1px solid var(--divider)',
-          boxShadow: isUmlFullscreen ? 'none' : '0 20px 60px rgba(0,0,0,0.5)',
-          height: isUmlFullscreen ? '100vh' : '95vh',
-          maxHeight: isUmlFullscreen ? '100vh' : '95vh',
-          width: isUmlFullscreen ? '100vw' : '95vw',
-          display: 'flex',
-          flexDirection: 'column',
-          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
-        }
-      }}
-    >
-      <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexWrap: 'wrap', gap: '12px' }}>
-        <Box style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <SyncIcon style={{ color: 'var(--primary-main)' }} />
-          <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif' }}>
-            Interactive Java OOP & UML Playground
-          </Typography>
-        </Box>
-        {/* Dialog Switcher Tabs */}
-        <Box style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-          <button
-            onClick={() => {
-              flushPendingFileCodeChange();
-              setActiveTab('uml');
-              umlEditorRef.current = null;
-              execEditorRef.current = null;
-              runnerEditorRef.current = null;
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'uml' ? 'var(--primary-main)' : 'transparent',
-              color: activeTab === 'uml' ? '#fff' : 'var(--text-secondary)',
-              fontSize: '0.8rem',
-              fontWeight: 850,
-              cursor: 'pointer',
-              transition: 'all 0.25s ease'
-            }}
-          >
-            2D Visual Class Map
-          </button>
-          <button
-            onClick={() => {
-              flushPendingFileCodeChange();
-              setActiveTab('runner');
-              umlEditorRef.current = null;
-              execEditorRef.current = null;
-              runnerEditorRef.current = null;
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'runner' ? 'var(--primary-main)' : 'transparent',
-              color: activeTab === 'runner' ? '#fff' : 'var(--text-secondary)',
-              fontSize: '0.8rem',
-              fontWeight: 850,
-              cursor: 'pointer',
-              transition: 'all 0.25s ease'
-            }}
-          >
-            Interactive Code Runner
-          </button>
-        </Box>
-        <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', marginRight: '8px' }}>
-          <IconButton size="small" onClick={handleDownloadClick} title="Download Java File" style={{ color: 'var(--success-main)' }}>
-            <DownloadIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" onClick={() => fileInputRef.current?.click()} title="Import Java/Zip File" style={{ color: 'var(--orange-500)' }}>
-            <UploadIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" onClick={() => folderInputRef.current?.click()} title="Import Java Folder" style={{ color: 'var(--orange-500)' }}>
-            <FolderIcon fontSize="small" />
-          </IconButton>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportCode}
-            accept=".java,.txt,.zip"
-            style={{ display: 'none' }}
-          />
-          <input
-            type="file"
-            ref={folderInputRef}
-            onChange={handleImportFolder}
-            webkitdirectory=""
-            directory=""
-            multiple
-            style={{ display: 'none' }}
-          />
-        </Box>
-
-        <IconButton onClick={onClose} style={{ color: 'var(--text-secondary)' }}>
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-
-      <DialogContent style={{ padding: isUmlFullscreen ? '0px' : '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-        <Box id="split-container" style={{ display: 'flex', flexDirection: 'row', flexGrow: 1, width: '100%', alignItems: 'stretch', position: 'relative', minHeight: 0 }}>
-          {/* Left Pane: Unified Tabbed IDE Code Editor */}
-          <Box style={{
-            width: isUmlFullscreen ? '0%' : `${splitPercent}%`,
-            opacity: isUmlFullscreen ? 0 : 1,
-            pointerEvents: isUmlFullscreen ? 'none' : 'auto',
+        open={open}
+        onClose={onClose}
+        fullScreen={isUmlFullscreen}
+        fullWidth={!isUmlFullscreen}
+        maxWidth="xl"
+        disableEnforceFocus
+        disableRestoreFocus
+        PaperProps={{
+          elevation: 0,
+          style: {
+            borderRadius: isUmlFullscreen ? '0px' : '24px',
+            background: 'var(--background-paper)',
+            backdropFilter: 'blur(20px)',
+            border: isUmlFullscreen ? 'none' : '1px solid var(--divider)',
+            boxShadow: isUmlFullscreen ? 'none' : '0 20px 60px rgba(0,0,0,0.5)',
+            height: isUmlFullscreen ? '100vh' : '95vh',
+            maxHeight: isUmlFullscreen ? '100vh' : '95vh',
+            width: isUmlFullscreen ? '100vw' : '95vw',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
-            minWidth: isUmlFullscreen ? '0px' : '200px',
-            height: '100%',
-            minHeight: 0,
-            overflow: 'hidden',
-            transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
-          }}>
-            <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Project Editor
+            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+          }
+        }}
+      >
+        <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexWrap: 'wrap', gap: '12px' }}>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <SyncIcon style={{ color: 'var(--primary-main)' }} />
+            <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif' }}>
+              Interactive Java OOP & UML Playground
             </Typography>
+          </Box>
+          {/* Dialog Switcher Tabs */}
+          <Box style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <button
+              onClick={() => {
+                flushPendingFileCodeChange();
+                setActiveTab('uml');
+                umlEditorRef.current = null;
+                execEditorRef.current = null;
+                runnerEditorRef.current = null;
+              }}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: activeTab === 'uml' ? 'var(--primary-main)' : 'transparent',
+                color: activeTab === 'uml' ? '#fff' : 'var(--text-secondary)',
+                fontSize: '0.8rem',
+                fontWeight: 850,
+                cursor: 'pointer',
+                transition: 'all 0.25s ease'
+              }}
+            >
+              2D Visual Class Map
+            </button>
+            <button
+              onClick={() => {
+                flushPendingFileCodeChange();
+                setActiveTab('runner');
+                umlEditorRef.current = null;
+                execEditorRef.current = null;
+                runnerEditorRef.current = null;
+              }}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: activeTab === 'runner' ? 'var(--primary-main)' : 'transparent',
+                color: activeTab === 'runner' ? '#fff' : 'var(--text-secondary)',
+                fontSize: '0.8rem',
+                fontWeight: 850,
+                cursor: 'pointer',
+                transition: 'all 0.25s ease'
+              }}
+            >
+              Interactive Code Runner
+            </button>
+          </Box>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', marginRight: '8px' }}>
+            <IconButton size="small" onClick={handleDownloadClick} title="Download Java File" style={{ color: 'var(--success-main)' }}>
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={() => fileInputRef.current?.click()} title="Import Java/Zip File" style={{ color: 'var(--orange-500)' }}>
+              <UploadIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={() => folderInputRef.current?.click()} title="Import Java Folder" style={{ color: 'var(--orange-500)' }}>
+              <FolderIcon fontSize="small" />
+            </IconButton>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImportCode}
+              accept=".java,.txt,.zip"
+              style={{ display: 'none' }}
+            />
+            <input
+              type="file"
+              ref={folderInputRef}
+              onChange={handleImportFolder}
+              webkitdirectory=""
+              directory=""
+              multiple
+              style={{ display: 'none' }}
+            />
+          </Box>
+
+          <IconButton onClick={onClose} style={{ color: 'var(--text-secondary)' }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent style={{ padding: isUmlFullscreen ? '0px' : '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+          <Box id="split-container" style={{ display: 'flex', flexDirection: 'row', flexGrow: 1, width: '100%', alignItems: 'stretch', position: 'relative', minHeight: 0 }}>
+            {/* Left Pane: Unified Tabbed IDE Code Editor */}
             <Box style={{
-              borderRadius: '16px',
-              overflow: 'hidden',
-              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
-              backgroundColor: isDarkMode ? '#1e1e1e' : '#fffffe',
-              boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
+              width: isUmlFullscreen ? '0%' : `${splitPercent}%`,
+              opacity: isUmlFullscreen ? 0 : 1,
+              pointerEvents: isUmlFullscreen ? 'none' : 'auto',
               display: 'flex',
               flexDirection: 'column',
-              flexGrow: 1,
+              gap: '8px',
+              minWidth: isUmlFullscreen ? '0px' : '200px',
+              height: '100%',
               minHeight: 0,
-              width: '100%'
+              overflow: 'hidden',
+              transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
             }}>
-              {/* IDE Header Bar with File Explorer Tabs */}
+              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Project Editor
+              </Typography>
               <Box style={{
-                background: isDarkMode ? '#252526' : '#f3f3f3',
-                borderBottom: isDarkMode ? '1px solid #2d2d2d' : '1px solid #e2e2e2',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                backgroundColor: isDarkMode ? '#1e1e1e' : '#fffffe',
+                boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingRight: '16px'
+                flexDirection: 'column',
+                flexGrow: 1,
+                minHeight: 0,
+                width: '100%'
               }}>
+                {/* IDE Header Bar with File Explorer Tabs */}
                 <Box style={{
+                  background: isDarkMode ? '#252526' : '#f3f3f3',
+                  borderBottom: isDarkMode ? '1px solid #2d2d2d' : '1px solid #e2e2e2',
                   display: 'flex',
-                  overflowX: 'auto',
-                  gap: '2px',
-                  padding: '6px 8px 0',
-                  flexGrow: 1,
-                  maxWidth: 'calc(100% - 50px)',
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none'
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingRight: '16px'
                 }}>
-                  {Object.keys(files).map((fileName) => {
-                    const isActive = activeFile === fileName;
-                    return (
-                      <Box
-                        key={fileName}
-                        onClick={() => handleTabChange(fileName)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          cursor: 'pointer',
-                          borderTopLeftRadius: '6px',
-                          borderTopRightRadius: '6px',
-                          background: isActive 
-                            ? (isDarkMode ? '#1e1e1e' : '#ffffff') 
-                            : 'transparent',
-                          border: isActive
-                            ? (isDarkMode ? '1px solid #2d2d2d' : '1px solid #e2e2e2')
-                            : '1px solid transparent',
-                          borderBottom: isActive ? 'none' : '1px solid transparent',
-                          marginBottom: '-1px',
-                          whiteSpace: 'nowrap',
-                          zIndex: isActive ? 2 : 1
-                        }}
-                      >
-                        <CodeIcon style={{ 
-                          color: isActive ? 'var(--primary-main)' : 'var(--text-secondary)', 
-                          fontSize: '0.9rem' 
-                        }} />
-                        <Typography style={{ 
-                          fontSize: '0.75rem', 
-                          fontFamily: 'monospace', 
-                          fontWeight: isActive ? 800 : 500,
-                          color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)'
-                        }}>
-                          {fileName}
-                        </Typography>
-                      </Box>
-                    );
-                  })}
+                  <Box style={{
+                    display: 'flex',
+                    overflowX: 'auto',
+                    gap: '2px',
+                    padding: '6px 8px 0',
+                    flexGrow: 1,
+                    maxWidth: 'calc(100% - 50px)',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none'
+                  }}>
+                    {Object.keys(files).map((fileName) => {
+                      const isActive = activeFile === fileName;
+                      return (
+                        <Box
+                          key={fileName}
+                          onClick={() => handleTabChange(fileName)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '6px 12px',
+                            cursor: 'pointer',
+                            borderTopLeftRadius: '6px',
+                            borderTopRightRadius: '6px',
+                            background: isActive
+                              ? (isDarkMode ? '#1e1e1e' : '#ffffff')
+                              : 'transparent',
+                            border: isActive
+                              ? (isDarkMode ? '1px solid #2d2d2d' : '1px solid #e2e2e2')
+                              : '1px solid transparent',
+                            borderBottom: isActive ? 'none' : '1px solid transparent',
+                            marginBottom: '-1px',
+                            whiteSpace: 'nowrap',
+                            zIndex: isActive ? 2 : 1
+                          }}
+                        >
+                          <CodeIcon style={{
+                            color: isActive ? 'var(--primary-main)' : 'var(--text-secondary)',
+                            fontSize: '0.9rem'
+                          }} />
+                          <Typography style={{
+                            fontSize: '0.75rem',
+                            fontFamily: 'monospace',
+                            fontWeight: isActive ? 800 : 500,
+                            color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)'
+                          }}>
+                            {fileName}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                  {/* Visual Mac-style window controls */}
+                  <Box style={{ display: 'flex', gap: '5px' }}>
+                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ff5f56' }}></span>
+                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ffbd2e' }}></span>
+                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#27c93f' }}></span>
+                  </Box>
                 </Box>
-                {/* Visual Mac-style window controls */}
-                <Box style={{ display: 'flex', gap: '5px' }}>
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ff5f56' }}></span>
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ffbd2e' }}></span>
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#27c93f' }}></span>
+
+                {/* Code Workspace */}
+                <Box style={{ flexGrow: 1, position: 'relative', width: '100%', minHeight: 0 }}>
+                  {isEditorReady && activeFile ? (
+                    <Box style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}>
+                      <JavaOopUmlEditor
+                        isDarkMode={isDarkMode}
+                        onChange={handleFileCodeChange}
+                        onMount={handleEditorMount}
+                      />
+                    </Box>
+                  ) : (
+                    <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
+                      <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                        Loading Editor...
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
               </Box>
+            </Box>
 
-              {/* Code Workspace */}
-              <Box style={{ flexGrow: 1, position: 'relative', width: '100%', minHeight: 0 }}>
-                {isEditorReady && activeFile ? (
-                  <Box style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}>
-                    <JavaOopUmlEditor
-                      isDarkMode={isDarkMode}
-                      onChange={handleFileCodeChange}
-                      onMount={handleEditorMount}
-                    />
-                  </Box>
-                ) : (
-                  <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
-                    <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
-                      Loading Editor...
+            {/* Draggable Divider */}
+            <Box
+              onMouseDown={(e) => {
+                if (isUmlFullscreen) return;
+                e.preventDefault();
+                isDraggingSplitRef.current = true;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+              }}
+              style={{
+                width: isUmlFullscreen ? '0px' : '8px',
+                opacity: isUmlFullscreen ? 0 : 1,
+                pointerEvents: isUmlFullscreen ? 'none' : 'auto',
+                cursor: 'col-resize',
+                backgroundColor: 'transparent',
+                position: 'relative',
+                zIndex: 10,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), margin 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                marginLeft: isUmlFullscreen ? '0px' : '-4px',
+                marginRight: isUmlFullscreen ? '0px' : '-4px',
+              }}
+              sx={{
+                '&:hover, &:active': {
+                  backgroundColor: 'var(--primary-main)',
+                },
+                '&::after': {
+                  content: '""',
+                  width: isUmlFullscreen ? '0px' : '2px',
+                  height: '40px',
+                  backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                  borderRadius: '1px',
+                  transition: 'width 0.4s'
+                }
+              }}
+            />
+
+            {/* Right Pane: Swappable Tab Views (UML Class Lab vs. Code Runner) */}
+            <Box style={{
+              width: isUmlFullscreen ? '100%' : `${100 - splitPercent}%`,
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: isUmlFullscreen ? '100%' : '200px',
+              height: '100%',
+              minHeight: 0,
+              transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              position: 'relative'
+            }}>
+              {/* UML Pane */}
+              <Box style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                opacity: activeTab === 'uml' ? 1 : 0,
+                transform: activeTab === 'uml' ? 'translateX(0)' : 'translateX(-20px)',
+                pointerEvents: activeTab === 'uml' ? 'auto' : 'none',
+                transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Interactive 2D UML Map
+                  </Typography>
+                  <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.68rem', fontWeight: 700 }}>
+                    Drag card headers to arrange them • Drag border circles to link classes
+                  </Typography>
+                </Box>
+
+                {syntaxError && (
+                  <Box
+                    style={{
+                      background: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                      border: '1.5px solid #ef444460',
+                      borderRadius: '12px',
+                      padding: '10px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.08)'
+                    }}
+                  >
+                    <ErrorIcon style={{ color: '#ef4444', fontSize: '1.25rem' }} />
+                    <Typography variant="body2" style={{ color: isDarkMode ? '#fca5a5' : '#b91c1c', fontWeight: 700, fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                      <strong>Syntax Warning:</strong> {syntaxError.error}
                     </Typography>
                   </Box>
                 )}
-              </Box>
-            </Box>
-          </Box>
 
-          {/* Draggable Divider */}
-          <Box
-            onMouseDown={(e) => {
-              if (isUmlFullscreen) return;
-              e.preventDefault();
-              isDraggingSplitRef.current = true;
-              document.body.style.cursor = 'col-resize';
-              document.body.style.userSelect = 'none';
-            }}
-            style={{
-              width: isUmlFullscreen ? '0px' : '8px',
-              opacity: isUmlFullscreen ? 0 : 1,
-              pointerEvents: isUmlFullscreen ? 'none' : 'auto',
-              cursor: 'col-resize',
-              backgroundColor: 'transparent',
-              position: 'relative',
-              zIndex: 10,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), margin 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-              marginLeft: isUmlFullscreen ? '0px' : '-4px',
-              marginRight: isUmlFullscreen ? '0px' : '-4px',
-            }}
-            sx={{
-              '&:hover, &:active': {
-                backgroundColor: 'var(--primary-main)',
-              },
-              '&::after': {
-                content: '""',
-                width: isUmlFullscreen ? '0px' : '2px',
-                height: '40px',
-                backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
-                borderRadius: '1px',
-                transition: 'width 0.4s'
-              }
-            }}
-          />
+                <Box style={{ flexGrow: 1, position: 'relative', height: '100%', width: '100%', minHeight: 0, overflow: 'hidden' }}>
+                  {/* Floating Buttons in UML editor space */}
+                  <Box style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 200, display: 'flex', gap: '8px' }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => {
+                        setPreviewZoomScale(zoomScale);
+                        setIsPreviewOpen(true);
+                      }}
+                      startIcon={<PreviewIcon />}
+                      style={{
+                        borderRadius: '8px',
+                        fontWeight: 800,
+                        fontSize: '0.75rem',
+                        background: 'rgba(28, 176, 246, 0.9)',
+                        backdropFilter: 'blur(4px)',
+                        color: '#fff',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        textTransform: 'none'
+                      }}
+                    >
+                      Preview UML
+                    </Button>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={addClass}
+                      startIcon={<AddIcon />}
+                      style={{
+                        borderRadius: '8px',
+                        fontWeight: 800,
+                        fontSize: '0.75rem',
+                        background: 'rgba(61, 92, 255, 0.9)',
+                        backdropFilter: 'blur(4px)',
+                        color: '#fff',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        textTransform: 'none'
+                      }}
+                    >
+                      Create New Class
+                    </Button>
+                  </Box>
 
-          {/* Right Pane: Swappable Tab Views (UML Class Lab vs. Code Runner) */}
-          <Box style={{
-            width: isUmlFullscreen ? '100%' : `${100 - splitPercent}%`,
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: isUmlFullscreen ? '100%' : '200px',
-            height: '100%',
-            minHeight: 0,
-            transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-            position: 'relative'
-          }}>
-            {/* UML Pane */}
-            <Box style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              opacity: activeTab === 'uml' ? 1 : 0,
-              transform: activeTab === 'uml' ? 'translateX(0)' : 'translateX(-20px)',
-              pointerEvents: activeTab === 'uml' ? 'auto' : 'none',
-              transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px'
-            }}>
-              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Interactive 2D UML Map
-                </Typography>
-                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.68rem', fontWeight: 700 }}>
-                  Drag card headers to arrange them • Drag border circles to link classes
-                </Typography>
-              </Box>
-
-              {syntaxError && (
-                <Box
-                  style={{
-                    background: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
-                    border: '1.5px solid #ef444460',
-                    borderRadius: '12px',
-                    padding: '10px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.08)'
-                  }}
-                >
-                  <ErrorIcon style={{ color: '#ef4444', fontSize: '1.25rem' }} />
-                  <Typography variant="body2" style={{ color: isDarkMode ? '#fca5a5' : '#b91c1c', fontWeight: 700, fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                    <strong>Syntax Warning:</strong> {syntaxError.error}
-                  </Typography>
-                </Box>
-              )}
-
-              <Box style={{ flexGrow: 1, position: 'relative', height: '100%', width: '100%', minHeight: 0, overflow: 'hidden' }}>
-                    {/* Floating Buttons in UML editor space */}
-                    <Box style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 200, display: 'flex', gap: '8px' }}>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        onClick={() => {
-                          setPreviewZoomScale(zoomScale);
-                          setIsPreviewOpen(true);
-                        }}
-                        startIcon={<PreviewIcon />}
-                        style={{
-                          borderRadius: '8px',
-                          fontWeight: 800,
-                          fontSize: '0.75rem',
-                          background: 'rgba(28, 176, 246, 0.9)',
-                          backdropFilter: 'blur(4px)',
-                          color: '#fff',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                          textTransform: 'none'
-                        }}
-                      >
-                        Preview UML
-                      </Button>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        onClick={addClass}
-                        startIcon={<AddIcon />}
-                        style={{
-                          borderRadius: '8px',
-                          fontWeight: 800,
-                          fontSize: '0.75rem',
-                          background: 'rgba(61, 92, 255, 0.9)',
-                          backdropFilter: 'blur(4px)',
-                          color: '#fff',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                          textTransform: 'none'
-                        }}
-                      >
-                        Create New Class
-                      </Button>
-                    </Box>
-
-                <Paper
-                  id="uml-canvas-container"
-                  ref={canvasContainerRef}
-                  onMouseDown={handleCanvasMouseDown}
-                  elevation={0}
-                  style={{
-                    background: isDarkMode 
-                      ? 'var(--background-default) linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)' 
-                      : 'var(--background-default) linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px)',
-                    backgroundSize: '24px 24px',
-                    border: '1.5px solid var(--divider)',
-                    borderRadius: '16px',
-                    height: '100%',
-                    width: '100%',
-                    position: 'relative',
-                    overflow: 'auto',
-                    boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.15)',
-                    cursor: 'grab'
-                  }}
-                >
-                  {/* CSS styles injection */}
-                  <style dangerouslySetInnerHTML={{ __html: `
+                  <Paper
+                    id="uml-canvas-container"
+                    ref={canvasContainerRef}
+                    onMouseDown={handleCanvasMouseDown}
+                    elevation={0}
+                    style={{
+                      background: isDarkMode
+                        ? 'var(--background-default) linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)'
+                        : 'var(--background-default) linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px)',
+                      backgroundSize: '24px 24px',
+                      border: '1.5px solid var(--divider)',
+                      borderRadius: '16px',
+                      height: '100%',
+                      width: '100%',
+                      position: 'relative',
+                      overflow: 'auto',
+                      boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.15)',
+                      cursor: 'grab'
+                    }}
+                  >
+                    {/* CSS styles injection */}
+                    <style dangerouslySetInnerHTML={{
+                      __html: `
                     .uml-port {
                       position: absolute;
                       width: 12px;
@@ -5371,193 +5372,1280 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
                     }
                   `}} />
 
-                  {/* Scroll container wrapper to preserve scroll bounds */}
-                  <Box
-                    style={{
-                      width: `${(canvasDim.width + 200) * zoomScale}px`,
-                      height: `${(canvasDim.height + 300) * zoomScale}px`,
-                      position: 'relative',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    {/* Virtual Canvas Box */}
+                    {/* Scroll container wrapper to preserve scroll bounds */}
                     <Box
                       style={{
-                        width: `${canvasDim.width}px`,
-                        height: `${canvasDim.height}px`,
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        transform: `scale(${zoomScale})`,
-                        transformOrigin: 'top left',
-                        backgroundImage: isDarkMode
-                          ? 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)'
-                          : 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
-                        backgroundSize: '24px 24px',
-                        backgroundColor: 'var(--background-default)'
+                        width: `${(canvasDim.width + 200) * zoomScale}px`,
+                        height: `${(canvasDim.height + 300) * zoomScale}px`,
+                        position: 'relative',
+                        overflow: 'hidden'
                       }}
                     >
-                    <svg
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        pointerEvents: 'none',
-                        zIndex: 2,
-                        overflow: 'visible'
-                      }}
-                    >
-                    <defs>
-                      {/* Generalization / Inheritance (Solid line with hollow closed triangle pointing to parent) */}
-                      <marker
-                        id="inheritance-arrow"
-                        viewBox="0 0 10 10"
-                        refX="9"
-                        refY="5"
-                        markerWidth="8"
-                        markerHeight="8"
-                        orient="auto-start-reverse"
+                      {/* Virtual Canvas Box */}
+                      <Box
+                        style={{
+                          width: `${canvasDim.width}px`,
+                          height: `${canvasDim.height}px`,
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          transform: `scale(${zoomScale})`,
+                          transformOrigin: 'top left',
+                          backgroundImage: isDarkMode
+                            ? 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)'
+                            : 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
+                          backgroundSize: '24px 24px',
+                          backgroundColor: 'var(--background-default)'
+                        }}
                       >
-                        <polygon
-                          points="0,1.5 9,5 0,8.5"
-                          fill="var(--background-paper)"
-                          stroke="var(--primary-main)"
-                          strokeWidth="1.5"
-                        />
-                      </marker>
+                        <svg
+                          width="4000"
+                          height="4000"
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            pointerEvents: 'none',
+                            zIndex: 2,
+                            overflow: 'visible'
+                          }}
+                        >
+                          <defs>
+                            {/* Generalization / Inheritance (Solid line with hollow closed triangle pointing to parent) */}
+                            <marker
+                              id="inheritance-arrow"
+                              viewBox="0 0 10 10"
+                              refX="9"
+                              refY="5"
+                              markerWidth="8"
+                              markerHeight="8"
+                              orient="auto-start-reverse"
+                            >
+                              <polygon
+                                points="0,1.5 9,5 0,8.5"
+                                fill="var(--background-paper)"
+                                stroke="var(--primary-main)"
+                                strokeWidth="1.5"
+                              />
+                            </marker>
 
-                      {/* Association (Solid line with open arrowhead pointing to target) */}
-                      <marker
-                        id="association-arrow"
-                        viewBox="0 0 10 10"
-                        refX="9"
-                        refY="5"
-                        markerWidth="8"
-                        markerHeight="8"
-                        orient="auto-start-reverse"
-                      >
-                        <path
-                          d="M 1,2 L 9,5 L 1,8"
-                          fill="none"
-                          stroke="#14b8a6"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </marker>
+                            {/* Association (Solid line with open arrowhead pointing to target) */}
+                            <marker
+                              id="association-arrow"
+                              viewBox="0 0 10 10"
+                              refX="9"
+                              refY="5"
+                              markerWidth="8"
+                              markerHeight="8"
+                              orient="auto-start-reverse"
+                            >
+                              <path
+                                d="M 1,2 L 9,5 L 1,8"
+                                fill="none"
+                                stroke="#14b8a6"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </marker>
 
-                      {/* Dependency (Dashed line with open arrowhead pointing to target) */}
-                      <marker
-                        id="dependency-arrow"
-                        viewBox="0 0 10 10"
-                        refX="9"
-                        refY="5"
-                        markerWidth="8"
-                        markerHeight="8"
-                        orient="auto-start-reverse"
-                      >
-                        <path
-                          d="M 1,2 L 9,5 L 1,8"
-                          fill="none"
-                          stroke="#f59e0b"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </marker>
+                            {/* Dependency (Dashed line with open arrowhead pointing to target) */}
+                            <marker
+                              id="dependency-arrow"
+                              viewBox="0 0 10 10"
+                              refX="9"
+                              refY="5"
+                              markerWidth="8"
+                              markerHeight="8"
+                              orient="auto-start-reverse"
+                            >
+                              <path
+                                d="M 1,2 L 9,5 L 1,8"
+                                fill="none"
+                                stroke="#f59e0b"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </marker>
 
-                      {/* Composition (Solid line with solid/filled diamond at source end) */}
-                      <marker
-                        id="composition-diamond"
-                        viewBox="0 0 16 10"
-                        refX="0"
-                        refY="5"
-                        markerWidth="10"
-                        markerHeight="6"
-                        orient="auto-start-reverse"
-                      >
-                        <polygon points="0,5 8,1 16,5 8,9" fill="#8b5cf6" stroke="#8b5cf6" strokeWidth="1.5" />
-                      </marker>
+                            {/* Composition (Solid line with solid/filled diamond at source end) */}
+                            <marker
+                              id="composition-diamond"
+                              viewBox="0 0 16 10"
+                              refX="0"
+                              refY="5"
+                              markerWidth="10"
+                              markerHeight="6"
+                              orient="auto-start-reverse"
+                            >
+                              <polygon points="0,5 8,1 16,5 8,9" fill="#8b5cf6" stroke="#8b5cf6" strokeWidth="1.5" />
+                            </marker>
 
-                      {/* Aggregation (Solid line with hollow diamond at source end) */}
-                      <marker
-                        id="aggregation-diamond"
-                        viewBox="0 0 16 10"
-                        refX="0"
-                        refY="5"
-                        markerWidth="10"
-                        markerHeight="6"
-                        orient="auto-start-reverse"
-                      >
-                        <polygon points="0,5 8,1 16,5 8,9" fill="var(--background-paper)" stroke="#6366f1" strokeWidth="1.8" />
-                      </marker>
+                            {/* Aggregation (Solid line with hollow diamond at source end) */}
+                            <marker
+                              id="aggregation-diamond"
+                              viewBox="0 0 16 10"
+                              refX="0"
+                              refY="5"
+                              markerWidth="10"
+                              markerHeight="6"
+                              orient="auto-start-reverse"
+                            >
+                              <polygon points="0,5 8,1 16,5 8,9" fill="var(--background-paper)" stroke="#6366f1" strokeWidth="1.8" />
+                            </marker>
 
-                      {/* Realization / Implementation (Dashed line with hollow closed triangle pointing to parent/interface) */}
-                      <marker
-                        id="realization-arrow"
-                        viewBox="0 0 10 10"
-                        refX="9"
-                        refY="5"
-                        markerWidth="8"
-                        markerHeight="8"
-                        orient="auto-start-reverse"
-                      >
-                        <polygon
-                          points="0,1.5 9,5 0,8.5"
-                          fill="var(--background-paper)"
-                          stroke="#10b981"
-                          strokeWidth="1.8"
-                        />
-                      </marker>
-                    </defs>
+                            {/* Realization / Implementation (Dashed line with hollow closed triangle pointing to parent/interface) */}
+                            <marker
+                              id="realization-arrow"
+                              viewBox="0 0 10 10"
+                              refX="9"
+                              refY="5"
+                              markerWidth="8"
+                              markerHeight="8"
+                              orient="auto-start-reverse"
+                            >
+                              <polygon
+                                points="0,1.5 9,5 0,8.5"
+                                fill="var(--background-paper)"
+                                stroke="#10b981"
+                                strokeWidth="1.8"
+                              />
+                            </marker>
+                          </defs>
 
-                    {(() => {
-                      const relations = analyzeRelationships(umlClasses);
-                      return relations.map((rel) => {
-                        const sourcePos = classPositions[rel.source];
-                        const targetPos = classPositions[rel.target];
-                        if (sourcePos && targetPos) {
-                          const pts = getBestConnectionPoints(
-                            { title: rel.source, x: sourcePos.x, y: sourcePos.y },
-                            { title: rel.target, x: targetPos.x, y: targetPos.y },
-                            false,
-                            relations,
-                            rel
+                          {(() => {
+                            const relations = analyzeRelationships(umlClasses);
+                            return relations.map((rel) => {
+                              const sourcePos = classPositions[rel.source];
+                              const targetPos = classPositions[rel.target];
+                              if (sourcePos && targetPos) {
+                                const pts = getBestConnectionPoints(
+                                  { title: rel.source, x: sourcePos.x, y: sourcePos.y },
+                                  { title: rel.target, x: targetPos.x, y: targetPos.y },
+                                  false,
+                                  relations,
+                                  rel
+                                );
+                                const pathData = getBezierPath(pts.start, pts.end);
+
+                                let strokeColor = '#8b5cf6';
+                                let dashArray = 'none';
+                                let markerStart = 'none';
+                                let markerEnd = 'none';
+
+                                if (rel.type === 'extends') {
+                                  strokeColor = 'var(--primary-main)';
+                                  markerEnd = 'url(#inheritance-arrow)';
+                                } else if (rel.type === 'implements') {
+                                  strokeColor = '#10b981';
+                                  dashArray = '4 4';
+                                  markerEnd = 'url(#realization-arrow)';
+                                } else if (rel.type === 'composition') {
+                                  strokeColor = '#8b5cf6';
+                                  markerStart = 'url(#composition-diamond)';
+                                } else if (rel.type === 'aggregation') {
+                                  strokeColor = '#6366f1';
+                                  markerStart = 'url(#aggregation-diamond)';
+                                } else if (rel.type === 'association') {
+                                  strokeColor = '#14b8a6';
+                                  markerEnd = 'url(#association-arrow)';
+                                } else if (rel.type === 'dependency') {
+                                  strokeColor = '#f59e0b';
+                                  dashArray = '4 4';
+                                  markerEnd = 'url(#dependency-arrow)';
+                                }
+
+                                return (
+                                  <path
+                                    key={`${rel.type}-line-${rel.source}-${rel.target}-${rel.fieldName || ''}`}
+                                    d={pathData}
+                                    fill="none"
+                                    stroke={strokeColor}
+                                    strokeWidth="2.5"
+                                    strokeDasharray={dashArray}
+                                    markerStart={markerStart}
+                                    markerEnd={markerEnd}
+                                  />
+                                );
+                              }
+                              return null;
+                            });
+                          })()}
+
+                          {connectingSource && connectionStart && connectionCurrent && (
+                            <path
+                              d={getTempPath(connectionStart, connectionCurrent)}
+                              fill="none"
+                              stroke={isDarkMode ? '#1CB0F6' : '#007bb5'}
+                              strokeWidth="2"
+                              strokeDasharray="4 4"
+                            />
+                          )}
+                        </svg>
+
+                        {/* Absolute Draggable Cards */}
+                        {umlClasses.map((umlClass, classIdx) => {
+                          const pos = classPositions[umlClass.title] || {
+                            x: 50 + (classIdx % 3) * 420,
+                            y: 50 + Math.floor(classIdx / 3) * 460
+                          };
+                          return (
+                            <Box
+                              key={classIdx}
+                              className="uml-class-card"
+                              data-classname={umlClass.title}
+                              style={{
+                                position: 'absolute',
+                                left: `${pos.x}px`,
+                                top: `${pos.y}px`,
+                                width: `${calculateCardWidth(umlClass)}px`,
+                                border: `2px solid ${theme.palette.primary.main}80`,
+                                borderRadius: '12px',
+                                background: 'var(--background-paper)',
+                                boxShadow: draggingClass === umlClass.title
+                                  ? '0 12px 30px rgba(0,0,0,0.35)'
+                                  : '0 4px 15px rgba(0,0,0,0.15)',
+                                zIndex: draggingClass === umlClass.title ? 10 : 3,
+                                transition: draggingClass === umlClass.title ? 'none' : 'box-shadow 0.2s ease',
+                                display: 'flex',
+                                flexDirection: 'column'
+                              }}
+                            >
+                              {/* Port circles for drag connecting */}
+                              <div className="uml-port uml-port-top" onMouseDown={(e) => handlePortMouseDown(e, umlClass.title, 'top')} />
+                              <div className="uml-port uml-port-bottom" onMouseDown={(e) => handlePortMouseDown(e, umlClass.title, 'bottom')} />
+                              <div className="uml-port uml-port-left" onMouseDown={(e) => handlePortMouseDown(e, umlClass.title, 'left')} />
+                              <div className="uml-port uml-port-right" onMouseDown={(e) => handlePortMouseDown(e, umlClass.title, 'right')} />
+
+                              {/* Header Block (Class Title / Abstract / Extends) */}
+                              <Box
+                                style={{
+                                  background: 'rgba(var(--primary-main-rgb), 0.08)',
+                                  padding: '10px',
+                                  borderBottom: '1.5px solid var(--divider)',
+                                  cursor: draggingClass === umlClass.title ? 'grabbing' : 'grab',
+                                  userSelect: 'none'
+                                }}
+                                onMouseDown={(e) => {
+                                  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.closest('button') || e.target.closest('.MuiSelect-select')) {
+                                    return;
+                                  }
+                                  setDraggingClass(umlClass.title);
+                                  dragStartOffset.current = {
+                                    x: e.clientX / zoomScale - pos.x,
+                                    y: e.clientY / zoomScale - pos.y
+                                  };
+                                }}
+                              >
+                                <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <Box style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                    <Select
+                                      size="small"
+                                      value={umlClass.type === 'interface' ? 'interface' : (umlClass.abstract ? 'abstract' : 'class')}
+                                      onChange={(e) => updateClassType(classIdx, e.target.value)}
+                                      style={{ height: '24px', fontSize: '0.72rem', fontWeight: 800, fontFamily: '"Outfit", sans-serif', color: 'var(--primary-main)' }}
+                                      sx={{
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                          borderColor: 'rgba(28,176,246,0.2)'
+                                        },
+                                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                                          borderColor: 'var(--primary-main)'
+                                        }
+                                      }}
+                                    >
+                                      <MenuItem value="class" style={{ fontSize: '0.72rem', fontWeight: 700 }}>Class</MenuItem>
+                                      <MenuItem value="abstract" style={{ fontSize: '0.72rem', fontWeight: 700 }}>Abstract</MenuItem>
+                                      <MenuItem value="interface" style={{ fontSize: '0.72rem', fontWeight: 700 }}>Interface</MenuItem>
+                                    </Select>
+                                  </Box>
+
+                                  <IconButton size="small" onClick={() => deleteClass(classIdx)} style={{ color: 'var(--danger-main)', padding: '2px' }}>
+                                    <DeleteIcon fontSize="inherit" />
+                                  </IconButton>
+                                </Box>
+
+                                {umlClass.type === 'interface' ? (
+                                  <Typography variant="caption" style={{ color: '#10b981', fontWeight: 850, display: 'block', textAlign: 'center', fontSize: '0.62rem', textTransform: 'uppercase' }}>
+                                    &lt;&lt;Interface&gt;&gt;
+                                  </Typography>
+                                ) : (
+                                  umlClass.abstract && (
+                                    <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 850, display: 'block', textAlign: 'center', fontSize: '0.62rem', textTransform: 'uppercase' }}>
+                                      &lt;&lt;Abstract&gt;&gt;
+                                    </Typography>
+                                  )
+                                )}
+
+                                <DebouncedInput
+                                  type="text"
+                                  value={umlClass.title}
+                                  onChange={(val) => updateClassTitle(classIdx, val)}
+                                  style={{
+                                    width: '90%',
+                                    display: 'block',
+                                    margin: '4px auto',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    borderBottom: '1.5px dashed var(--primary-main)',
+                                    color: isDarkMode ? '#fff' : '#000',
+                                    textAlign: 'center',
+                                    fontSize: '0.98rem',
+                                    fontWeight: 800,
+                                    fontFamily: '"Outfit", sans-serif',
+                                    outline: 'none'
+                                  }}
+                                />
+
+                                {/* Extends (Connection) Dropdown */}
+                                <Box style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                  <Box style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, fontSize: '0.7rem' }}>
+                                      extends
+                                    </Typography>
+                                    <Select
+                                      size="small"
+                                      value={umlClass.extends || 'none'}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        updateClassExtends(classIdx, val === 'none' ? null : val);
+                                      }}
+                                      style={{ height: '22px', fontSize: '0.7rem', fontFamily: 'monospace' }}
+                                    >
+                                      <MenuItem value="none">None</MenuItem>
+                                      {umlClasses
+                                        .filter(c => c.title !== umlClass.title)
+                                        .map(c => (
+                                          <MenuItem key={c.title} value={c.title}>{c.title}</MenuItem>
+                                        ))
+                                      }
+                                    </Select>
+                                  </Box>
+
+                                  {umlClass.type !== 'interface' && (
+                                    <Box style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, fontSize: '0.7rem' }}>
+                                        implements
+                                      </Typography>
+                                      <Select
+                                        size="small"
+                                        multiple
+                                        value={umlClass.implements || []}
+                                        onChange={(e) => {
+                                          updateClassImplements(classIdx, e.target.value);
+                                        }}
+                                        renderValue={(selected) => selected.join(', ')}
+                                        style={{ height: '22px', minWidth: '80px', fontSize: '0.7rem', fontFamily: 'monospace' }}
+                                      >
+                                        {umlClasses
+                                          .filter(c => c.type === 'interface' && c.title !== umlClass.title)
+                                          .map(c => (
+                                            <MenuItem key={c.title} value={c.title}>
+                                              <Checkbox size="small" checked={(umlClass.implements || []).includes(c.title)} />
+                                              <span style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>{c.title}</span>
+                                            </MenuItem>
+                                          ))
+                                        }
+                                      </Select>
+                                    </Box>
+                                  )}
+                                </Box>
+                              </Box>
+
+                              {/* Attributes Block */}
+                              <Box style={{ padding: '10px', borderBottom: '1.5px solid rgba(28,176,246,0.15)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', fontSize: '0.72rem' }}>
+                                    Attributes (Fields)
+                                  </Typography>
+                                  <IconButton size="small" onClick={() => addAttribute(classIdx)} style={{ color: 'var(--primary-main)', padding: '2px' }}>
+                                    <AddIcon fontSize="inherit" />
+                                  </IconButton>
+                                </Box>
+
+                                {umlClass.attributes.map((attr, attrIdx) => (
+                                  <Box key={attrIdx} style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <Box style={{ display: 'flex', gap: '4px', width: '100%', alignItems: 'center' }}>
+                                      <Select
+                                        size="small"
+                                        value={attr.visibility}
+                                        onChange={(e) => updateAttribute(classIdx, attrIdx, { visibility: e.target.value })}
+                                        style={{ height: '24px', fontSize: '0.72rem', fontFamily: 'monospace' }}
+                                      >
+                                        <MenuItem value="public">+</MenuItem>
+                                        <MenuItem value="private">-</MenuItem>
+                                        <MenuItem value="protected">#</MenuItem>
+                                        <MenuItem value="package-private">~</MenuItem>
+                                      </Select>
+                                      <Select
+                                        size="small"
+                                        value={attr.type}
+                                        onChange={(e) => updateAttribute(classIdx, attrIdx, { type: e.target.value })}
+                                        style={{
+                                          height: '24px',
+                                          fontSize: '0.72rem',
+                                          fontFamily: 'monospace',
+                                          background: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                                          border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+                                          borderRadius: '4px',
+                                          color: isDarkMode ? '#ffffff' : '#1e1e2f',
+                                          width: `${Math.max(70, (attr.type ? attr.type.length : 0) * 8 + 24)}px`,
+                                          padding: 0
+                                        }}
+                                        sx={{
+                                          '& .MuiSelect-select': {
+                                            paddingTop: '2px',
+                                            paddingBottom: '2px',
+                                            paddingLeft: '6px',
+                                            paddingRight: '20px'
+                                          }
+                                        }}
+                                      >
+                                        {getAttributeTypes(attr.type).map(t => (
+                                          <MenuItem key={t} value={t} style={{ fontSize: '0.72rem', fontFamily: 'monospace' }}>{t}</MenuItem>
+                                        ))}
+                                      </Select>
+                                      <DebouncedInput
+                                        type="text"
+                                        value={attr.name}
+                                        placeholder="name"
+                                        onChange={(val) => updateAttribute(classIdx, attrIdx, { name: val })}
+                                        style={{
+                                          flexGrow: 1,
+                                          minWidth: '40px',
+                                          background: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                                          border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+                                          borderRadius: '4px',
+                                          color: isDarkMode ? '#ffffff' : '#1e1e2f',
+                                          fontSize: '0.72rem',
+                                          padding: '2px 4px',
+                                          fontFamily: 'monospace',
+                                          outline: 'none'
+                                        }}
+                                      />
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            size="small"
+                                            checked={attr.isStatic}
+                                            onChange={(e) => updateAttribute(classIdx, attrIdx, { isStatic: e.target.checked })}
+                                            sx={{ padding: 0 }}
+                                          />
+                                        }
+                                        label="S"
+                                        style={{ margin: 0 }}
+                                        slotProps={{ typography: { style: { fontSize: '0.6rem', fontWeight: 800, marginLeft: '1px' } } }}
+                                      />
+                                      <IconButton size="small" onClick={() => deleteAttribute(classIdx, attrIdx)} style={{ color: 'var(--danger-main)', padding: '2px' }}>
+                                        <DeleteIcon fontSize="inherit" />
+                                      </IconButton>
+                                    </Box>
+                                  </Box>
+                                ))}
+                              </Box>
+
+                              {/* Methods Block */}
+                              <Box style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', fontSize: '0.72rem' }}>
+                                    Methods (Actions)
+                                  </Typography>
+                                  <IconButton size="small" onClick={() => addMethod(classIdx)} style={{ color: 'var(--primary-main)', padding: '2px' }}>
+                                    <AddIcon fontSize="inherit" />
+                                  </IconButton>
+                                </Box>
+
+                                {umlClass.methods.map((method, methodIdx) => (
+                                  <Box key={methodIdx} style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'nowrap' }}>
+                                    <Select
+                                      size="small"
+                                      value={method.visibility}
+                                      onChange={(e) => updateMethod(classIdx, methodIdx, { visibility: e.target.value })}
+                                      style={{ height: '24px', fontSize: '0.72rem', fontFamily: 'monospace' }}
+                                    >
+                                      <MenuItem value="public">+</MenuItem>
+                                      <MenuItem value="private">-</MenuItem>
+                                      <MenuItem value="protected">#</MenuItem>
+                                      <MenuItem value="package-private">~</MenuItem>
+                                    </Select>
+                                    <Select
+                                      size="small"
+                                      value={method.returnType}
+                                      disabled={method.returnType === 'constructor'}
+                                      onChange={(e) => updateMethod(classIdx, methodIdx, { returnType: e.target.value })}
+                                      style={{
+                                        height: '24px',
+                                        fontSize: '0.72rem',
+                                        fontFamily: 'monospace',
+                                        background: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                                        border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+                                        borderRadius: '4px',
+                                        color: isDarkMode ? '#ffffff' : '#1e1e2f',
+                                        width: `${Math.max(70, (method.returnType ? method.returnType.length : 0) * 8 + 24)}px`,
+                                        padding: 0
+                                      }}
+                                      sx={{
+                                        '& .MuiSelect-select': {
+                                          paddingTop: '2px',
+                                          paddingBottom: '2px',
+                                          paddingLeft: '6px',
+                                          paddingRight: '20px'
+                                        }
+                                      }}
+                                    >
+                                      {getMethodReturnTypes(method.returnType).map(t => (
+                                        <MenuItem key={t} value={t} style={{ fontSize: '0.72rem', fontFamily: 'monospace' }}>{t}</MenuItem>
+                                      ))}
+                                    </Select>
+                                    <DebouncedInput
+                                      type="text"
+                                      value={method.name}
+                                      placeholder="name"
+                                      onChange={(val) => updateMethod(classIdx, methodIdx, { name: val })}
+                                      style={{
+                                        flexGrow: 1,
+                                        minWidth: '40px',
+                                        background: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                                        border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+                                        borderRadius: '4px',
+                                        color: isDarkMode ? '#ffffff' : '#1e1e2f',
+                                        fontSize: '0.72rem',
+                                        padding: '2px 4px',
+                                        fontFamily: 'monospace',
+                                        outline: 'none'
+                                      }}
+                                    />
+                                    <Box style={{ display: 'flex', gap: '2px' }}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            size="small"
+                                            checked={method.isStatic}
+                                            onChange={(e) => updateMethod(classIdx, methodIdx, { isStatic: e.target.checked })}
+                                            sx={{ padding: 0 }}
+                                          />
+                                        }
+                                        label="S"
+                                        style={{ margin: 0 }}
+                                        slotProps={{ typography: { style: { fontSize: '0.6rem', fontWeight: 800 } } }}
+                                      />
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            size="small"
+                                            checked={method.isAbstract}
+                                            onChange={(e) => updateMethod(classIdx, methodIdx, { isAbstract: e.target.checked })}
+                                            sx={{ padding: 0 }}
+                                          />
+                                        }
+                                        label="A"
+                                        style={{ margin: 0 }}
+                                        slotProps={{ typography: { style: { fontSize: '0.6rem', fontWeight: 800 } } }}
+                                      />
+                                    </Box>
+                                    <IconButton size="small" onClick={() => deleteMethod(classIdx, methodIdx)} style={{ color: 'var(--danger-main)', padding: '2px' }}>
+                                      <DeleteIcon fontSize="inherit" />
+                                    </IconButton>
+                                  </Box>
+                                ))}
+                              </Box>
+                            </Box>
                           );
+                        })}
+                      </Box>
+                    </Box>
+                  </Paper>
+
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      bottom: '16px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'var(--surface-glass)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid var(--divider)',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
+                      zIndex: 200
+                    }}
+                  >
+                    <IconButton
+                      size="small"
+                      disabled={zoomScale <= dynamicMinZoom}
+                      onClick={() => {
+                        const container = canvasContainerRef.current;
+                        if (container) {
+                          const mx = container.clientWidth / 2;
+                          const my = container.clientHeight / 2;
+                          const x_virtual = (container.scrollLeft + mx) / zoomScale;
+                          const y_virtual = (container.scrollTop + my) / zoomScale;
+                          zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+                        }
+                        setZoomScale(prev => Math.max(dynamicMinZoom, prev - 0.1));
+                      }}
+                      style={{ color: zoomScale <= dynamicMinZoom ? 'var(--text-disabled)' : 'var(--text-primary)' }}
+                    >
+                      <RemoveIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      disabled={zoomScale >= 2.0}
+                      onClick={() => {
+                        const container = canvasContainerRef.current;
+                        if (container) {
+                          const mx = container.clientWidth / 2;
+                          const my = container.clientHeight / 2;
+                          const x_virtual = (container.scrollLeft + mx) / zoomScale;
+                          const y_virtual = (container.scrollTop + my) / zoomScale;
+                          zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+                        }
+                        setZoomScale(prev => Math.min(2.0, prev + 0.1));
+                      }}
+                      style={{ color: zoomScale >= 2.0 ? 'var(--text-disabled)' : 'var(--text-primary)' }}
+                    >
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        const container = canvasContainerRef.current;
+                        if (container) {
+                          const mx = container.clientWidth / 2;
+                          const my = container.clientHeight / 2;
+                          const x_virtual = (container.scrollLeft + mx) / zoomScale;
+                          const y_virtual = (container.scrollTop + my) / zoomScale;
+                          zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+                        }
+                        setZoomScale(1.0);
+                      }}
+                      style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'none', color: 'var(--primary-main)', minWidth: 0, padding: '2px 6px' }}
+                    >
+                      Reset
+                    </Button>
+                  </Box>
+
+                  {/* Floating Fullscreen Icon Button at bottom right corner of UML workspace */}
+                  <IconButton
+                    onClick={() => setIsUmlFullscreen(!isUmlFullscreen)}
+                    style={{
+                      position: 'absolute',
+                      bottom: '16px',
+                      right: '16px',
+                      background: 'var(--primary-main)',
+                      border: '1px solid var(--divider)',
+                      padding: '10px',
+                      borderRadius: '50%',
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                      zIndex: 200,
+                      color: '#fff',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}
+                    sx={{
+                      '&:hover': {
+                        background: 'var(--primary-main)',
+                        filter: 'brightness(1.15)',
+                        transform: 'scale(1.1)'
+                      }
+                    }}
+                    title={isUmlFullscreen ? 'Exit Fullscreen' : 'Fullscreen Pure UML'}
+                  >
+                    {isUmlFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                  </IconButton>
+                </Box>
+              </Box>
+
+              {/* Runner Pane */}
+              <Box style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                opacity: activeTab === 'runner' ? 1 : 0,
+                transform: activeTab === 'runner' ? 'translateX(0)' : 'translateX(20px)',
+                pointerEvents: activeTab === 'runner' ? 'auto' : 'none',
+                transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Interactive Java Console
+                </Typography>
+
+                <Paper
+                  elevation={0}
+                  style={{
+                    background: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)',
+                    border: '1.5px solid rgba(255,255,255,0.06)',
+                    borderRadius: '16px',
+                    padding: '20px',
+                    flexGrow: 1,
+                    minHeight: '400px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px'
+                  }}
+                >
+                  {/* Run button */}
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    onClick={isRunning ? handleStop : handleRun}
+                    startIcon={isRunning ? <StopIcon /> : <PlayIcon />}
+                    style={{
+                      background: isRunning ? '#ff4f4f' : 'var(--primary-main)',
+                      color: '#fff',
+                      borderRadius: '12px',
+                      fontWeight: 800,
+                      textTransform: 'none',
+                      padding: '8px 16px',
+                      boxShadow: isRunning
+                        ? '0 4px 15px rgba(255, 79, 79, 0.25)'
+                        : '0 4px 15px rgba(28, 176, 246, 0.25)'
+                    }}
+                  >
+                    {isRunning ? 'Stop Execution' : 'Run Java Code'}
+                  </Button>
+
+                  {/* Output console terminal */}
+                  <Box style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '8px', minHeight: 0 }}>
+                    <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                      Console Output Terminal
+                    </Typography>
+                    {syntaxError && (
+                      <Box
+                        style={{
+                          background: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                          border: '1.5px solid #ef444460',
+                          borderRadius: '12px',
+                          padding: '10px 16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          boxShadow: '0 2px 8px rgba(239, 68, 68, 0.08)'
+                        }}
+                      >
+                        <ErrorIcon style={{ color: '#ef4444', fontSize: '1.25rem' }} />
+                        <Typography variant="body2" style={{ color: isDarkMode ? '#fca5a5' : '#b91c1c', fontWeight: 700, fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                          <strong>Syntax Warning:</strong> {syntaxError.error}
+                        </Typography>
+                      </Box>
+                    )}
+                    <Paper
+                      elevation={0}
+                      style={{
+                        flexGrow: 1,
+                        padding: '16px',
+                        backgroundColor: '#0c0d12',
+                        borderRadius: '16px',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        fontFamily: '"Roboto Mono", monospace',
+                        fontSize: '0.8rem',
+                        color: '#3DDC97',
+                        whiteSpace: 'pre-wrap',
+                        overflowY: 'auto',
+                        minHeight: '350px',
+                        boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.5)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-start'
+                      }}
+                    >
+                      <div style={{ flexGrow: 1, overflowY: 'auto' }}>
+                        {terminalOutput}
+                        {isWaitingForInput && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                            <span style={{ color: '#FF9F43', fontWeight: 800 }}>{`> `}</span>
+                            <input
+                              type="text"
+                              defaultValue=""
+                              onKeyDown={handleInputSubmit}
+                              autoFocus
+                              placeholder="Type input and press Enter..."
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                outline: 'none',
+                                color: '#3DDC97',
+                                fontFamily: '"Roboto Mono", monospace',
+                                fontSize: '0.82rem',
+                                flexGrow: 1,
+                                caretColor: '#3DDC97'
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </Paper>
+                  </Box>
+                </Paper>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+
+        {/* Download File Dialog */}
+        <Dialog
+          open={isDownloadDialogOpen}
+          onClose={() => setIsDownloadDialogOpen(false)}
+          PaperProps={{
+            elevation: 0,
+            style: {
+              borderRadius: '16px',
+              background: 'var(--background-paper)',
+              border: '1px solid var(--divider)',
+              padding: '16px',
+              width: '400px'
+            }
+          }}
+        >
+          <DialogTitle style={{ fontWeight: 800, fontFamily: '"Outfit", sans-serif', paddingBottom: '8px', color: 'var(--text-primary)' }}>
+            Download Java Project
+          </DialogTitle>
+          <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '8px' }}>
+            <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+              Specify a filename to save your Java OOP project on your device:
+            </Typography>
+            <TextField
+              autoFocus
+              fullWidth
+              size="small"
+              variant="outlined"
+              placeholder="Playground"
+              value={downloadFileName}
+              onChange={(e) => setDownloadFileName(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleConfirmDownload();
+                }
+              }}
+              inputProps={{
+                style: {
+                  fontFamily: 'monospace',
+                  fontSize: '0.85rem'
+                }
+              }}
+              InputProps={{
+                style: {
+                  borderRadius: '8px',
+                  color: 'var(--text-primary)',
+                  background: 'var(--background-default)'
+                }
+              }}
+            />
+          </DialogContent>
+          <DialogActions style={{ padding: '8px 16px' }}>
+            <Button onClick={() => setIsDownloadDialogOpen(false)} style={{ borderRadius: '8px', fontWeight: 800, color: 'var(--text-secondary)' }}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmDownload} variant="contained" style={{ borderRadius: '8px', fontWeight: 800, background: 'var(--primary-main)', color: '#fff' }}>
+              Download
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Create Connection Dialog */}
+        <Dialog
+          open={isConnectionDialogOpen}
+          onClose={() => setIsConnectionDialogOpen(false)}
+          PaperProps={{
+            elevation: 0,
+            style: {
+              borderRadius: '16px',
+              background: 'var(--background-paper)',
+              border: '1px solid var(--divider)',
+              padding: '16px',
+              width: '400px'
+            }
+          }}
+        >
+          <DialogTitle style={{ fontWeight: 800, fontFamily: '"Outfit", sans-serif', paddingBottom: '8px' }}>
+            Create Relationship Link
+          </DialogTitle>
+          <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '8px' }}>
+            <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+              Configure the relationship properties below:
+            </Typography>
+
+            {/* Source Class Dropdown */}
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <Typography variant="caption" style={{ fontWeight: 850, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                Source Class
+              </Typography>
+              <Select
+                value={newConnectionData.source || ''}
+                onChange={(e) => {
+                  const selectedSource = e.target.value;
+                  setNewConnectionData(prev => ({ ...prev, source: selectedSource }));
+                }}
+                fullWidth
+                size="small"
+                style={{ borderRadius: '8px' }}
+              >
+                {umlClasses.map(c => (
+                  <MenuItem key={c.title} value={c.title}>{c.title}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+
+            {/* Target Class Dropdown */}
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <Typography variant="caption" style={{ fontWeight: 850, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                Target Class
+              </Typography>
+              <Select
+                value={newConnectionData.target || ''}
+                onChange={(e) => {
+                  const selectedTarget = e.target.value;
+                  setNewConnectionData(prev => ({ ...prev, target: selectedTarget }));
+                }}
+                fullWidth
+                size="small"
+                style={{ borderRadius: '8px' }}
+              >
+                {umlClasses
+                  .filter(c => c.title !== newConnectionData.source)
+                  .map(c => (
+                    <MenuItem key={c.title} value={c.title}>{c.title}</MenuItem>
+                  ))
+                }
+              </Select>
+            </Box>
+
+            {/* Relationship Type Dropdown */}
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <Typography variant="caption" style={{ fontWeight: 850, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                Relationship Connection Type
+              </Typography>
+              <Select
+                value={newRelationType}
+                onChange={(e) => setNewRelationType(e.target.value)}
+                fullWidth
+                size="small"
+                style={{ borderRadius: '8px' }}
+              >
+                <MenuItem value="extends">Inheritance (extends)</MenuItem>
+                <MenuItem value="implements">Realization (implements)</MenuItem>
+                <MenuItem value="composition">Composition (Has-A, instantiated in constructor)</MenuItem>
+                <MenuItem value="aggregation">Aggregation (Has-A reference, private field)</MenuItem>
+                <MenuItem value="association">Association (Has-A reference, public field)</MenuItem>
+                <MenuItem value="dependency">Dependency (Uses-A parameter in new method)</MenuItem>
+              </Select>
+            </Box>
+          </DialogContent>
+          <DialogActions style={{ padding: '8px 16px' }}>
+            <Button onClick={() => setIsConnectionDialogOpen(false)} style={{ borderRadius: '8px', fontWeight: 800 }}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmConnection} variant="contained" style={{ borderRadius: '8px', fontWeight: 800, background: 'var(--primary-main)', color: '#fff' }}>
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Dialog>
+
+      {/* Fullscreen UML Preview Dialog */}
+      <Dialog
+        open={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        fullScreen
+        PaperProps={{
+          elevation: 0,
+          'data-theme': themeMode,
+          style: {
+            background: 'var(--background-default)',
+          }
+        }}
+      >
+        <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--divider)' }}>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <PreviewIcon style={{ color: 'var(--primary-main)' }} />
+            <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
+              UML Diagram Fullscreen Preview
+            </Typography>
+          </Box>
+          <Box style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <Typography variant="body2" style={{ fontWeight: 800, color: 'var(--text-secondary)' }}>
+              Choose Theme:
+            </Typography>
+            <Select
+              value={previewTheme}
+              onChange={(e) => setPreviewTheme(e.target.value)}
+              variant="outlined"
+              size="small"
+              style={{
+                borderRadius: '12px',
+                fontWeight: 800,
+                fontSize: '0.8rem',
+                color: 'var(--text-primary)',
+                background: 'var(--background-paper)',
+                minWidth: '150px',
+                height: '40px',
+                border: '1px solid var(--divider)'
+              }}
+            >
+              <MenuItem value="light">Default Light</MenuItem>
+              <MenuItem value="dark">Default Dark</MenuItem>
+              <MenuItem value="sepia">Warm Sepia</MenuItem>
+              <MenuItem value="lava">Volcanic Lava</MenuItem>
+              <MenuItem value="ocean">Deep Ocean</MenuItem>
+              <MenuItem value="forest">Emerald Forest</MenuItem>
+              <MenuItem value="amber">Solarized Amber</MenuItem>
+              <MenuItem value="dracula">Dracula Vampire</MenuItem>
+              <MenuItem value="amethyst">Royal Amethyst</MenuItem>
+              <MenuItem value="nordic">Nordic Ice</MenuItem>
+              <MenuItem value="mint">Frosted Mint</MenuItem>
+              <MenuItem value="lavender">Soft Lavender</MenuItem>
+              <MenuItem value="peach">Peach Cream</MenuItem>
+              <MenuItem value="rose">Rose Gold</MenuItem>
+              <MenuItem value="clay">Clay Slate</MenuItem>
+              <MenuItem value="kitty">Hello Kitty</MenuItem>
+              <MenuItem value="midnight">Midnight Shimmer</MenuItem>
+              <MenuItem value="custom">Custom Theme</MenuItem>
+            </Select>
+            <Button variant="outlined" onClick={handleDownloadPreviewPng} style={{ borderRadius: '12px', fontWeight: 800 }}>
+              Download PNG
+            </Button>
+            <Button variant="outlined" onClick={() => setIsPreviewOpen(false)} style={{ borderRadius: '12px', fontWeight: 800 }}>
+              Close Preview
+            </Button>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent style={{ padding: 0, overflow: 'hidden', position: 'relative', height: '100%', width: '100%' }}>
+          <Paper
+            id="uml-preview-canvas-container"
+            ref={previewCanvasContainerRef}
+            onMouseDown={handlePreviewCanvasMouseDown}
+            elevation={0}
+            data-theme={previewTheme}
+            style={{
+              background: 'var(--background-default)',
+              height: '100%',
+              width: '100%',
+              position: 'relative',
+              overflow: 'auto',
+              cursor: 'grab',
+              ...(previewTheme === 'custom' ? {
+                '--primary-main': customColors?.primaryMain || '#3D5CFF',
+                '--primary-dark': customColors?.primaryDark || '#2E49D1',
+                '--primary-light': customColors?.primaryLight || '#7C8DFF',
+                '--primary-main-rgb': hexToRgb(customColors?.primaryMain || '#3D5CFF'),
+                '--primary-dark-rgb': hexToRgb(customColors?.primaryDark || '#2E49D1'),
+                '--background-default': customColors?.bgDefault || '#F5F7FA',
+                '--background-paper': customColors?.bgPaper || '#FFFFFF',
+                '--background-paper-alt': customColors?.bgPaperAlt || '#F0F4F8',
+                '--surface-elevated': customColors?.bgPaper || '#FFFFFF',
+                '--surface-glass': `rgba(${hexToRgb(customColors?.bgPaper || '#FFFFFF')}, 0.76)`,
+                '--surface-glass-strong': `rgba(${hexToRgb(customColors?.bgPaper || '#FFFFFF')}, 0.9)`,
+                '--text-primary': customColors?.textPrimary || '#2D2D4D',
+                '--text-secondary': customColors?.textSecondary || '#64748b',
+                '--text-disabled': `rgba(${hexToRgb(customColors?.textPrimary || '#2D2D4D')}, 0.42)`,
+                '--divider': customColors?.divider || '#3d5cff15',
+                '--divider-rgb': hexToRgb(customColors?.divider || '#3d5cff15'),
+                '--action-hover': `rgba(${hexToRgb(customColors?.primaryMain || '#3D5CFF')}, 0.08)`,
+                '--hero-gradient': customColors?.primaryMain || '#3D5CFF',
+                '--code-bg': customColors?.codeBg || '#f8f9fa',
+                '--code-header-bg': customColors?.bgPaperAlt || '#F0F4F8',
+                '--code-border': customColors?.divider || '#3d5cff15',
+                '--code-line-num': `rgba(${hexToRgb(customColors?.textSecondary || '#64748b')}, 0.38)`,
+                '--code-text-default': customColors?.textPrimary || '#2D2D4D'
+              } : {})
+            }}
+          >
+            {/* Virtual Canvas Box */}
+            <Box
+              style={{
+                width: `${canvasDim.width * previewZoomScale}px`,
+                height: `${canvasDim.height * previewZoomScale}px`,
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              <Box
+                id="uml-preview-capture-content"
+                style={{
+                  width: `${canvasDim.width}px`,
+                  height: `${canvasDim.height}px`,
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  transform: `scale(${previewZoomScale})`,
+                  transformOrigin: 'top left',
+                  backgroundImage: 'linear-gradient(var(--divider) 1px, transparent 1px), linear-gradient(90deg, var(--divider) 1px, transparent 1px)',
+                  backgroundSize: '24px 24px',
+                  backgroundColor: 'var(--background-default)'
+                }}
+              >
+                {/* SVG lines */}
+                <svg
+                  width="4000"
+                  height="4000"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    pointerEvents: 'none',
+                    zIndex: 2,
+                    overflow: 'visible'
+                  }}
+                >
+                  <defs>
+                    {/* Generalization / Inheritance (Solid line with hollow closed triangle pointing to parent) */}
+                    <marker
+                      id="preview-inheritance-arrow"
+                      viewBox="0 0 10 10"
+                      refX="9"
+                      refY="5"
+                      markerWidth="8"
+                      markerHeight="8"
+                      orient="auto-start-reverse"
+                    >
+                      <polygon
+                        points="0,1.5 9,5 0,8.5"
+                        fill="var(--background-paper)"
+                        stroke="var(--primary-main)"
+                        strokeWidth="1.5"
+                      />
+                    </marker>
+
+                    {/* Association (Solid line with open arrowhead pointing to target) */}
+                    <marker
+                      id="preview-association-arrow"
+                      viewBox="0 0 10 10"
+                      refX="9"
+                      refY="5"
+                      markerWidth="8"
+                      markerHeight="8"
+                      orient="auto-start-reverse"
+                    >
+                      <path
+                        d="M 1,2 L 9,5 L 1,8"
+                        fill="none"
+                        stroke="#14b8a6"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </marker>
+
+                    {/* Dependency (Dashed line with open arrowhead pointing to target) */}
+                    <marker
+                      id="preview-dependency-arrow"
+                      viewBox="0 0 10 10"
+                      refX="9"
+                      refY="5"
+                      markerWidth="8"
+                      markerHeight="8"
+                      orient="auto-start-reverse"
+                    >
+                      <path
+                        d="M 1,2 L 9,5 L 1,8"
+                        fill="none"
+                        stroke="#f59e0b"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </marker>
+
+                    {/* Composition (Solid line with solid/filled diamond at source end) */}
+                    <marker
+                      id="preview-composition-diamond"
+                      viewBox="0 0 16 10"
+                      refX="0"
+                      refY="5"
+                      markerWidth="10"
+                      markerHeight="6"
+                      orient="auto-start-reverse"
+                    >
+                      <polygon points="0,5 8,1 16,5 8,9" fill="#8b5cf6" stroke="#8b5cf6" strokeWidth="1.5" />
+                    </marker>
+
+                    {/* Aggregation (Solid line with hollow diamond at source end) */}
+                    <marker
+                      id="preview-aggregation-diamond"
+                      viewBox="0 0 16 10"
+                      refX="0"
+                      refY="5"
+                      markerWidth="10"
+                      markerHeight="6"
+                      orient="auto-start-reverse"
+                    >
+                      <polygon points="0,5 8,1 16,5 8,9" fill="var(--background-paper)" stroke="#6366f1" strokeWidth="1.8" />
+                    </marker>
+
+                    {/* Realization / Implementation (Dashed line with hollow closed triangle pointing to parent/interface) */}
+                    <marker
+                      id="preview-realization-arrow"
+                      viewBox="0 0 10 10"
+                      refX="9"
+                      refY="5"
+                      markerWidth="8"
+                      markerHeight="8"
+                      orient="auto-start-reverse"
+                    >
+                      <polygon
+                        points="0,1.5 9,5 0,8.5"
+                        fill="var(--background-paper)"
+                        stroke="#10b981"
+                        strokeWidth="1.8"
+                      />
+                    </marker>
+                  </defs>
+
+                  {(() => {
+                    const relations = analyzeRelationships(umlClasses);
+                    return relations.map((rel) => {
+                      const sourcePos = classPositions[rel.source];
+                      const targetPos = classPositions[rel.target];
+                      if (sourcePos && targetPos) {
+                        const pts = getBestConnectionPoints(
+                          { title: rel.source, x: sourcePos.x, y: sourcePos.y },
+                          { title: rel.target, x: targetPos.x, y: targetPos.y },
+                          true,
+                          relations,
+                          rel
+                        );
                         const pathData = getBezierPath(pts.start, pts.end);
-                        
+
                         let strokeColor = '#8b5cf6';
                         let dashArray = 'none';
                         let markerStart = 'none';
                         let markerEnd = 'none';
-                        
+
                         if (rel.type === 'extends') {
                           strokeColor = 'var(--primary-main)';
-                          markerEnd = 'url(#inheritance-arrow)';
+                          markerEnd = 'url(#preview-inheritance-arrow)';
                         } else if (rel.type === 'implements') {
                           strokeColor = '#10b981';
                           dashArray = '4 4';
-                          markerEnd = 'url(#realization-arrow)';
+                          markerEnd = 'url(#preview-realization-arrow)';
                         } else if (rel.type === 'composition') {
                           strokeColor = '#8b5cf6';
-                          markerStart = 'url(#composition-diamond)';
+                          markerStart = 'url(#preview-composition-diamond)';
                         } else if (rel.type === 'aggregation') {
                           strokeColor = '#6366f1';
-                          markerStart = 'url(#aggregation-diamond)';
+                          markerStart = 'url(#preview-aggregation-diamond)';
                         } else if (rel.type === 'association') {
                           strokeColor = '#14b8a6';
-                          markerEnd = 'url(#association-arrow)';
+                          markerEnd = 'url(#preview-association-arrow)';
                         } else if (rel.type === 'dependency') {
                           strokeColor = '#f59e0b';
                           dashArray = '4 4';
-                          markerEnd = 'url(#dependency-arrow)';
+                          markerEnd = 'url(#preview-dependency-arrow)';
                         }
-                        
+
                         return (
                           <path
-                            key={`${rel.type}-line-${rel.source}-${rel.target}-${rel.fieldName || ''}`}
+                            key={`preview-${rel.type}-line-${rel.source}-${rel.target}-${rel.fieldName || ''}`}
                             d={pathData}
                             fill="none"
                             stroke={strokeColor}
@@ -5571,1279 +6659,192 @@ const containerW = canvasContainerRef.current ? canvasContainerRef.current.clien
                       return null;
                     });
                   })()}
+                </svg>
 
-                    {connectingSource && connectionStart && connectionCurrent && (
-                      <path
-                        d={getTempPath(connectionStart, connectionCurrent)}
-                        fill="none"
-                        stroke={isDarkMode ? '#1CB0F6' : '#007bb5'}
-                        strokeWidth="2"
-                        strokeDasharray="4 4"
-                      />
-                    )}
-                  </svg>
-
-                  {/* Absolute Draggable Cards */}
-                  {umlClasses.map((umlClass, classIdx) => {
-                    const pos = classPositions[umlClass.title] || {
-                      x: 50 + (classIdx % 3) * 420,
-                      y: 50 + Math.floor(classIdx / 3) * 460
-                    };
-                    return (
-                      <Box
-                        key={classIdx}
-                        className="uml-class-card"
-                        data-classname={umlClass.title}
-                        style={{
-                          position: 'absolute',
-                          left: `${pos.x}px`,
-                          top: `${pos.y}px`,
-                          width: `${calculateCardWidth(umlClass)}px`,
-                          border: `2px solid ${theme.palette.primary.main}80`,
-                          borderRadius: '12px',
-                          background: 'var(--background-paper)',
-                          boxShadow: draggingClass === umlClass.title
-                            ? '0 12px 30px rgba(0,0,0,0.35)'
-                            : '0 4px 15px rgba(0,0,0,0.15)',
-                          zIndex: draggingClass === umlClass.title ? 10 : 3,
-                          transition: draggingClass === umlClass.title ? 'none' : 'box-shadow 0.2s ease',
-                          display: 'flex',
-                          flexDirection: 'column'
-                        }}
-                      >
-                        {/* Port circles for drag connecting */}
-                        <div className="uml-port uml-port-top" onMouseDown={(e) => handlePortMouseDown(e, umlClass.title, 'top')} />
-                        <div className="uml-port uml-port-bottom" onMouseDown={(e) => handlePortMouseDown(e, umlClass.title, 'bottom')} />
-                        <div className="uml-port uml-port-left" onMouseDown={(e) => handlePortMouseDown(e, umlClass.title, 'left')} />
-                        <div className="uml-port uml-port-right" onMouseDown={(e) => handlePortMouseDown(e, umlClass.title, 'right')} />
-
-                        {/* Header Block (Class Title / Abstract / Extends) */}
-                        <Box
-                          style={{
-                            background: 'rgba(var(--primary-main-rgb), 0.08)',
-                            padding: '10px',
-                            borderBottom: '1.5px solid var(--divider)',
-                            cursor: draggingClass === umlClass.title ? 'grabbing' : 'grab',
-                            userSelect: 'none'
-                          }}
-                          onMouseDown={(e) => {
-                            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.closest('button') || e.target.closest('.MuiSelect-select')) {
-                              return;
-                            }
-                            setDraggingClass(umlClass.title);
-                            dragStartOffset.current = {
-                              x: e.clientX / zoomScale - pos.x,
-                              y: e.clientY / zoomScale - pos.y
-                            };
-                          }}
-                        >
-                          <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Box style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              <Select
-                                size="small"
-                                value={umlClass.type === 'interface' ? 'interface' : (umlClass.abstract ? 'abstract' : 'class')}
-                                onChange={(e) => updateClassType(classIdx, e.target.value)}
-                                style={{ height: '24px', fontSize: '0.72rem', fontWeight: 800, fontFamily: '"Outfit", sans-serif', color: 'var(--primary-main)' }}
-                                sx={{
-                                  '& .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: 'rgba(28,176,246,0.2)'
-                                  },
-                                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: 'var(--primary-main)'
-                                  }
-                                }}
-                              >
-                                <MenuItem value="class" style={{ fontSize: '0.72rem', fontWeight: 700 }}>Class</MenuItem>
-                                <MenuItem value="abstract" style={{ fontSize: '0.72rem', fontWeight: 700 }}>Abstract</MenuItem>
-                                <MenuItem value="interface" style={{ fontSize: '0.72rem', fontWeight: 700 }}>Interface</MenuItem>
-                              </Select>
-                            </Box>
-
-                            <IconButton size="small" onClick={() => deleteClass(classIdx)} style={{ color: 'var(--danger-main)', padding: '2px' }}>
-                              <DeleteIcon fontSize="inherit" />
-                            </IconButton>
-                          </Box>
-
-                          {umlClass.type === 'interface' ? (
-                            <Typography variant="caption" style={{ color: '#10b981', fontWeight: 850, display: 'block', textAlign: 'center', fontSize: '0.62rem', textTransform: 'uppercase' }}>
-                              &lt;&lt;Interface&gt;&gt;
-                            </Typography>
-                          ) : (
-                            umlClass.abstract && (
-                              <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 850, display: 'block', textAlign: 'center', fontSize: '0.62rem', textTransform: 'uppercase' }}>
-                                &lt;&lt;Abstract&gt;&gt;
-                              </Typography>
-                            )
-                          )}
-
-                          <DebouncedInput
-                            type="text"
-                            value={umlClass.title}
-                            onChange={(val) => updateClassTitle(classIdx, val)}
-                            style={{
-                              width: '90%',
-                              display: 'block',
-                              margin: '4px auto',
-                              background: 'transparent',
-                              border: 'none',
-                              borderBottom: '1.5px dashed var(--primary-main)',
-                              color: isDarkMode ? '#fff' : '#000',
-                              textAlign: 'center',
-                              fontSize: '0.98rem',
-                              fontWeight: 800,
-                              fontFamily: '"Outfit", sans-serif',
-                              outline: 'none'
-                            }}
-                          />
-
-                          {/* Extends (Connection) Dropdown */}
-                          <Box style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                            <Box style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, fontSize: '0.7rem' }}>
-                                extends
-                              </Typography>
-                              <Select
-                                size="small"
-                                value={umlClass.extends || 'none'}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  updateClassExtends(classIdx, val === 'none' ? null : val);
-                                }}
-                                style={{ height: '22px', fontSize: '0.7rem', fontFamily: 'monospace' }}
-                              >
-                                <MenuItem value="none">None</MenuItem>
-                                {umlClasses
-                                  .filter(c => c.title !== umlClass.title)
-                                  .map(c => (
-                                    <MenuItem key={c.title} value={c.title}>{c.title}</MenuItem>
-                                  ))
-                                }
-                              </Select>
-                            </Box>
-
-                            {umlClass.type !== 'interface' && (
-                              <Box style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, fontSize: '0.7rem' }}>
-                                  implements
-                                </Typography>
-                                <Select
-                                  size="small"
-                                  multiple
-                                  value={umlClass.implements || []}
-                                  onChange={(e) => {
-                                    updateClassImplements(classIdx, e.target.value);
-                                  }}
-                                  renderValue={(selected) => selected.join(', ')}
-                                  style={{ height: '22px', minWidth: '80px', fontSize: '0.7rem', fontFamily: 'monospace' }}
-                                >
-                                  {umlClasses
-                                    .filter(c => c.type === 'interface' && c.title !== umlClass.title)
-                                    .map(c => (
-                                      <MenuItem key={c.title} value={c.title}>
-                                        <Checkbox size="small" checked={(umlClass.implements || []).includes(c.title)} />
-                                        <span style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>{c.title}</span>
-                                      </MenuItem>
-                                    ))
-                                  }
-                                </Select>
-                              </Box>
-                            )}
-                          </Box>
-                        </Box>
-
-                        {/* Attributes Block */}
-                        <Box style={{ padding: '10px', borderBottom: '1.5px solid rgba(28,176,246,0.15)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', fontSize: '0.72rem' }}>
-                              Attributes (Fields)
-                            </Typography>
-                            <IconButton size="small" onClick={() => addAttribute(classIdx)} style={{ color: 'var(--primary-main)', padding: '2px' }}>
-                              <AddIcon fontSize="inherit" />
-                            </IconButton>
-                          </Box>
-
-                          {umlClass.attributes.map((attr, attrIdx) => (
-                            <Box key={attrIdx} style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
-                              <Box style={{ display: 'flex', gap: '4px', width: '100%', alignItems: 'center' }}>
-                                <Select
-                                  size="small"
-                                  value={attr.visibility}
-                                  onChange={(e) => updateAttribute(classIdx, attrIdx, { visibility: e.target.value })}
-                                  style={{ height: '24px', fontSize: '0.72rem', fontFamily: 'monospace' }}
-                                >
-                                  <MenuItem value="public">+</MenuItem>
-                                  <MenuItem value="private">-</MenuItem>
-                                  <MenuItem value="protected">#</MenuItem>
-                                  <MenuItem value="package-private">~</MenuItem>
-                                </Select>
-                                <Select
-                                  size="small"
-                                  value={attr.type}
-                                  onChange={(e) => updateAttribute(classIdx, attrIdx, { type: e.target.value })}
-                                  style={{
-                                    height: '24px',
-                                    fontSize: '0.72rem',
-                                    fontFamily: 'monospace',
-                                    background: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-                                    border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
-                                    borderRadius: '4px',
-                                    color: isDarkMode ? '#ffffff' : '#1e1e2f',
-                                    width: `${Math.max(70, (attr.type ? attr.type.length : 0) * 8 + 24)}px`,
-                                    padding: 0
-                                  }}
-                                  sx={{
-                                    '& .MuiSelect-select': {
-                                      paddingTop: '2px',
-                                      paddingBottom: '2px',
-                                      paddingLeft: '6px',
-                                      paddingRight: '20px'
-                                    }
-                                  }}
-                                >
-                                  {getAttributeTypes(attr.type).map(t => (
-                                    <MenuItem key={t} value={t} style={{ fontSize: '0.72rem', fontFamily: 'monospace' }}>{t}</MenuItem>
-                                  ))}
-                                </Select>
-                                <DebouncedInput
-                                  type="text"
-                                  value={attr.name}
-                                  placeholder="name"
-                                  onChange={(val) => updateAttribute(classIdx, attrIdx, { name: val })}
-                                  style={{
-                                    flexGrow: 1,
-                                    minWidth: '40px',
-                                    background: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-                                    border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
-                                    borderRadius: '4px',
-                                    color: isDarkMode ? '#ffffff' : '#1e1e2f',
-                                    fontSize: '0.72rem',
-                                    padding: '2px 4px',
-                                    fontFamily: 'monospace',
-                                    outline: 'none'
-                                  }}
-                                />
-                                <FormControlLabel
-                                  control={
-                                    <Checkbox
-                                      size="small"
-                                      checked={attr.isStatic}
-                                      onChange={(e) => updateAttribute(classIdx, attrIdx, { isStatic: e.target.checked })}
-                                      sx={{ padding: 0 }}
-                                    />
-                                  }
-                                  label="S"
-                                  style={{ margin: 0 }}
-                                  slotProps={{ typography: { style: { fontSize: '0.6rem', fontWeight: 800, marginLeft: '1px' } } }}
-                                />
-                                <IconButton size="small" onClick={() => deleteAttribute(classIdx, attrIdx)} style={{ color: 'var(--danger-main)', padding: '2px' }}>
-                                  <DeleteIcon fontSize="inherit" />
-                                </IconButton>
-                              </Box>
-                            </Box>
-                          ))}
-                        </Box>
-
-                        {/* Methods Block */}
-                        <Box style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', fontSize: '0.72rem' }}>
-                              Methods (Actions)
-                            </Typography>
-                            <IconButton size="small" onClick={() => addMethod(classIdx)} style={{ color: 'var(--primary-main)', padding: '2px' }}>
-                              <AddIcon fontSize="inherit" />
-                            </IconButton>
-                          </Box>
-
-                          {umlClass.methods.map((method, methodIdx) => (
-                            <Box key={methodIdx} style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'nowrap' }}>
-                              <Select
-                                size="small"
-                                value={method.visibility}
-                                onChange={(e) => updateMethod(classIdx, methodIdx, { visibility: e.target.value })}
-                                style={{ height: '24px', fontSize: '0.72rem', fontFamily: 'monospace' }}
-                              >
-                                <MenuItem value="public">+</MenuItem>
-                                <MenuItem value="private">-</MenuItem>
-                                <MenuItem value="protected">#</MenuItem>
-                                <MenuItem value="package-private">~</MenuItem>
-                              </Select>
-                              <Select
-                                size="small"
-                                value={method.returnType}
-                                disabled={method.returnType === 'constructor'}
-                                onChange={(e) => updateMethod(classIdx, methodIdx, { returnType: e.target.value })}
-                                style={{
-                                  height: '24px',
-                                  fontSize: '0.72rem',
-                                  fontFamily: 'monospace',
-                                  background: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-                                  border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
-                                  borderRadius: '4px',
-                                  color: isDarkMode ? '#ffffff' : '#1e1e2f',
-                                  width: `${Math.max(70, (method.returnType ? method.returnType.length : 0) * 8 + 24)}px`,
-                                  padding: 0
-                                }}
-                                sx={{
-                                  '& .MuiSelect-select': {
-                                    paddingTop: '2px',
-                                    paddingBottom: '2px',
-                                    paddingLeft: '6px',
-                                    paddingRight: '20px'
-                                  }
-                                }}
-                              >
-                                {getMethodReturnTypes(method.returnType).map(t => (
-                                  <MenuItem key={t} value={t} style={{ fontSize: '0.72rem', fontFamily: 'monospace' }}>{t}</MenuItem>
-                                ))}
-                              </Select>
-                              <DebouncedInput
-                                type="text"
-                                value={method.name}
-                                placeholder="name"
-                                onChange={(val) => updateMethod(classIdx, methodIdx, { name: val })}
-                                style={{
-                                  flexGrow: 1,
-                                  minWidth: '40px',
-                                  background: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-                                  border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
-                                  borderRadius: '4px',
-                                  color: isDarkMode ? '#ffffff' : '#1e1e2f',
-                                  fontSize: '0.72rem',
-                                  padding: '2px 4px',
-                                  fontFamily: 'monospace',
-                                  outline: 'none'
-                                }}
-                              />
-                              <Box style={{ display: 'flex', gap: '2px' }}>
-                                <FormControlLabel
-                                  control={
-                                    <Checkbox
-                                      size="small"
-                                      checked={method.isStatic}
-                                      onChange={(e) => updateMethod(classIdx, methodIdx, { isStatic: e.target.checked })}
-                                      sx={{ padding: 0 }}
-                                    />
-                                  }
-                                  label="S"
-                                  style={{ margin: 0 }}
-                                  slotProps={{ typography: { style: { fontSize: '0.6rem', fontWeight: 800 } } }}
-                                />
-                                <FormControlLabel
-                                  control={
-                                    <Checkbox
-                                      size="small"
-                                      checked={method.isAbstract}
-                                      onChange={(e) => updateMethod(classIdx, methodIdx, { isAbstract: e.target.checked })}
-                                      sx={{ padding: 0 }}
-                                    />
-                                  }
-                                  label="A"
-                                  style={{ margin: 0 }}
-                                  slotProps={{ typography: { style: { fontSize: '0.6rem', fontWeight: 800 } } }}
-                                />
-                              </Box>
-                              <IconButton size="small" onClick={() => deleteMethod(classIdx, methodIdx)} style={{ color: 'var(--danger-main)', padding: '2px' }}>
-                                <DeleteIcon fontSize="inherit" />
-                              </IconButton>
-                            </Box>
-                          ))}
-                        </Box>
-                      </Box>
-                    );
-                  })}
-                  </Box>
-                </Box>
-              </Paper>
-
-              <Box
-                style={{
-                  position: 'absolute',
-                  bottom: '16px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background: 'var(--surface-glass)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid var(--divider)',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
-                  boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
-                  zIndex: 200
-                }}
-              >
-                <IconButton 
-                  size="small" 
-                  disabled={zoomScale <= dynamicMinZoom}
-                  onClick={() => {
-                    const container = canvasContainerRef.current;
-                    if (container) {
-                      const mx = container.clientWidth / 2;
-                      const my = container.clientHeight / 2;
-                      const x_virtual = (container.scrollLeft + mx) / zoomScale;
-                      const y_virtual = (container.scrollTop + my) / zoomScale;
-                      zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
-                    }
-                    setZoomScale(prev => Math.max(dynamicMinZoom, prev - 0.1));
-                  }}
-                  style={{ color: zoomScale <= dynamicMinZoom ? 'var(--text-disabled)' : 'var(--text-primary)' }}
-                >
-                  <RemoveIcon fontSize="small" />
-                </IconButton>
-                <IconButton 
-                  size="small" 
-                  disabled={zoomScale >= 2.0}
-                  onClick={() => {
-                    const container = canvasContainerRef.current;
-                    if (container) {
-                      const mx = container.clientWidth / 2;
-                      const my = container.clientHeight / 2;
-                      const x_virtual = (container.scrollLeft + mx) / zoomScale;
-                      const y_virtual = (container.scrollTop + my) / zoomScale;
-                      zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
-                    }
-                    setZoomScale(prev => Math.min(2.0, prev + 0.1));
-                  }}
-                  style={{ color: zoomScale >= 2.0 ? 'var(--text-disabled)' : 'var(--text-primary)' }}
-                >
-                  <AddIcon fontSize="small" />
-                </IconButton>
-                <Button 
-                  size="small" 
-                  onClick={() => {
-                    const container = canvasContainerRef.current;
-                    if (container) {
-                      const mx = container.clientWidth / 2;
-                      const my = container.clientHeight / 2;
-                      const x_virtual = (container.scrollLeft + mx) / zoomScale;
-                      const y_virtual = (container.scrollTop + my) / zoomScale;
-                      zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
-                    }
-                    setZoomScale(1.0);
-                  }}
-                  style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'none', color: 'var(--primary-main)', minWidth: 0, padding: '2px 6px' }}
-                >
-                  Reset
-                </Button>
-              </Box>
-
-              {/* Floating Fullscreen Icon Button at bottom right corner of UML workspace */}
-              <IconButton
-                onClick={() => setIsUmlFullscreen(!isUmlFullscreen)}
-                style={{
-                  position: 'absolute',
-                  bottom: '16px',
-                  right: '16px',
-                  background: 'var(--primary-main)',
-                  border: '1px solid var(--divider)',
-                  padding: '10px',
-                  borderRadius: '50%',
-                  boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-                  zIndex: 200,
-                  color: '#fff',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-                }}
-                sx={{
-                  '&:hover': {
-                    background: 'var(--primary-main)',
-                    filter: 'brightness(1.15)',
-                    transform: 'scale(1.1)'
-                  }
-                }}
-                title={isUmlFullscreen ? 'Exit Fullscreen' : 'Fullscreen Pure UML'}
-              >
-                {isUmlFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
-              </IconButton>
-            </Box>
-          </Box>
-
-          {/* Runner Pane */}
-          <Box style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            opacity: activeTab === 'runner' ? 1 : 0,
-            transform: activeTab === 'runner' ? 'translateX(0)' : 'translateX(20px)',
-            pointerEvents: activeTab === 'runner' ? 'auto' : 'none',
-            transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Interactive Java Console
-              </Typography>
-
-              <Paper
-                elevation={0}
-                style={{
-                  background: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)',
-                  border: '1.5px solid rgba(255,255,255,0.06)',
-                  borderRadius: '16px',
-                  padding: '20px',
-                  flexGrow: 1,
-                  minHeight: '400px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px'
-                }}
-              >
-                {/* Run button */}
-                <Button
-                  variant="contained"
-                  fullWidth
-                  onClick={isRunning ? handleStop : handleRun}
-                  startIcon={isRunning ? <StopIcon /> : <PlayIcon />}
-                  style={{
-                    background: isRunning ? '#ff4f4f' : 'var(--primary-main)',
-                    color: '#fff',
-                    borderRadius: '12px',
-                    fontWeight: 800,
-                    textTransform: 'none',
-                    padding: '8px 16px',
-                    boxShadow: isRunning 
-                      ? '0 4px 15px rgba(255, 79, 79, 0.25)' 
-                      : '0 4px 15px rgba(28, 176, 246, 0.25)'
-                  }}
-                >
-                  {isRunning ? 'Stop Execution' : 'Run Java Code'}
-                </Button>
-
-                {/* Output console terminal */}
-                <Box style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '8px', minHeight: 0 }}>
-                  <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-                    Console Output Terminal
-                  </Typography>
-                  {syntaxError && (
+                {/* Absolute Read-only Cards */}
+                {umlClasses.map((umlClass, classIdx) => {
+                  const pos = classPositions[umlClass.title] || {
+                    x: 50 + (classIdx % 3) * 420,
+                    y: 50 + Math.floor(classIdx / 3) * 460
+                  };
+                  return (
                     <Box
+                      key={`preview-${umlClass.title}`}
+                      className="uml-preview-card"
+                      data-classname={umlClass.title}
                       style={{
-                        background: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
-                        border: '1.5px solid #ef444460',
+                        position: 'absolute',
+                        left: `${pos.x}px`,
+                        top: `${pos.y}px`,
+                        width: `${calculateCompressedCardWidth(umlClass)}px`,
+                        border: '2.5px solid var(--primary-main)',
                         borderRadius: '12px',
-                        padding: '10px 16px',
+                        background: 'var(--background-paper)',
+                        boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+                        zIndex: 3,
                         display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        boxShadow: '0 2px 8px rgba(239, 68, 68, 0.08)'
+                        flexDirection: 'column',
+                        padding: '10px'
                       }}
                     >
-                      <ErrorIcon style={{ color: '#ef4444', fontSize: '1.25rem' }} />
-                      <Typography variant="body2" style={{ color: isDarkMode ? '#fca5a5' : '#b91c1c', fontWeight: 700, fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                        <strong>Syntax Warning:</strong> {syntaxError.error}
-                      </Typography>
-                    </Box>
-                  )}
-                  <Paper
-                    elevation={0}
-                    style={{
-                      flexGrow: 1,
-                      padding: '16px',
-                      backgroundColor: '#0c0d12',
-                      borderRadius: '16px',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      fontFamily: '"Roboto Mono", monospace',
-                      fontSize: '0.8rem',
-                      color: '#3DDC97',
-                      whiteSpace: 'pre-wrap',
-                      overflowY: 'auto',
-                      minHeight: '350px',
-                      boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.5)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'flex-start'
-                    }}
-                  >
-                    <div style={{ flexGrow: 1, overflowY: 'auto' }}>
-                      {terminalOutput}
-                      {isWaitingForInput && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                          <span style={{ color: '#FF9F43', fontWeight: 800 }}>{`> `}</span>
-                          <input
-                            type="text"
-                            defaultValue=""
-                            onKeyDown={handleInputSubmit}
-                            autoFocus
-                            placeholder="Type input and press Enter..."
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              outline: 'none',
-                              color: '#3DDC97',
-                              fontFamily: '"Roboto Mono", monospace',
-                              fontSize: '0.82rem',
-                              flexGrow: 1,
-                              caretColor: '#3DDC97'
-                            }}
-                          />
-                        </div>
+                      {/* Class Title */}
+                      <Box style={{ borderBottom: '1.5px solid var(--divider)', paddingBottom: '6px', marginBottom: '8px', textAlign: 'center' }}>
+                        {umlClass.type === 'interface' ? (
+                          <Typography variant="caption" style={{ color: '#10b981', fontWeight: 800, display: 'block', fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                            &lt;&lt;Interface&gt;&gt;
+                          </Typography>
+                        ) : (
+                          umlClass.abstract && (
+                            <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800, display: 'block', fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                              &lt;&lt;Abstract&gt;&gt;
+                            </Typography>
+                          )
+                        )}
+                        <Typography variant="subtitle2" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
+                          {umlClass.title}
+                        </Typography>
+                        {umlClass.extends && (
+                          <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>
+                            extends {umlClass.extends}
+                          </Typography>
+                        )}
+                        {umlClass.implements && umlClass.implements.length > 0 && (
+                          <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', display: 'block' }}>
+                            implements {umlClass.implements.join(', ')}
+                          </Typography>
+                        )}
+                      </Box>
+
+                      {/* Attributes List */}
+                      {umlClass.attributes.length > 0 && (
+                        <Box style={{ borderBottom: '1.5px solid var(--divider)', paddingBottom: '6px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          {umlClass.attributes.map((attr, attrIdx) => {
+                            const visSign = attr.visibility === 'public' ? '+' : (attr.visibility === 'protected' ? '#' : (attr.visibility === 'package-private' ? '~' : '-'));
+                            return (
+                              <Typography
+                                key={attrIdx}
+                                variant="caption"
+                                style={{
+                                  fontFamily: 'monospace',
+                                  color: 'var(--text-primary)',
+                                  textDecoration: attr.isStatic ? 'underline' : 'none',
+                                  fontWeight: attr.isStatic ? 800 : 400
+                                }}
+                              >
+                                {visSign} {attr.name}: {attr.type}
+                              </Typography>
+                            );
+                          })}
+                        </Box>
                       )}
-                    </div>
-                  </Paper>
-                </Box>
-              </Paper>
+
+                      {/* Methods List */}
+                      {umlClass.methods.length > 0 && (
+                        <Box style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          {umlClass.methods.map((method, methodIdx) => {
+                            const visSign = method.visibility === 'public' ? '+' : (method.visibility === 'protected' ? '#' : (method.visibility === 'package-private' ? '~' : '-'));
+                            const paramsText = (method.parameters || []).map(p => `${p.name}: ${p.type}`).join(', ');
+                            const retText = method.returnType === 'constructor' ? '' : `: ${method.returnType}`;
+                            return (
+                              <Typography
+                                key={methodIdx}
+                                variant="caption"
+                                style={{
+                                  fontFamily: 'monospace',
+                                  color: 'var(--text-primary)',
+                                  textDecoration: method.isStatic ? 'underline' : 'none',
+                                  fontStyle: method.isAbstract ? 'italic' : 'normal',
+                                  fontWeight: (method.isStatic || method.isAbstract) ? 800 : 400
+                                }}
+                              >
+                                {visSign} {method.name}({paramsText}){retText}
+                              </Typography>
+                            );
+                          })}
+                        </Box>
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
             </Box>
-          </Box>
-        </Box>
-      </DialogContent>
+          </Paper>
 
-      {/* Download File Dialog */}
-      <Dialog
-        open={isDownloadDialogOpen}
-        onClose={() => setIsDownloadDialogOpen(false)}
-        PaperProps={{
-          elevation: 0,
-          style: {
-            borderRadius: '16px',
-            background: 'var(--background-paper)',
-            border: '1px solid var(--divider)',
-            padding: '16px',
-            width: '400px'
-          }
-        }}
-      >
-        <DialogTitle style={{ fontWeight: 800, fontFamily: '"Outfit", sans-serif', paddingBottom: '8px', color: 'var(--text-primary)' }}>
-          Download Java Project
-        </DialogTitle>
-        <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '8px' }}>
-          <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-            Specify a filename to save your Java OOP project on your device:
-          </Typography>
-          <TextField
-            autoFocus
-            fullWidth
-            size="small"
-            variant="outlined"
-            placeholder="Playground"
-            value={downloadFileName}
-            onChange={(e) => setDownloadFileName(e.target.value)}
-            onFocus={(e) => e.target.select()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleConfirmDownload();
-              }
-            }}
-            inputProps={{
-              style: {
-                fontFamily: 'monospace',
-                fontSize: '0.85rem'
-              }
-            }}
-            InputProps={{
-              style: {
-                borderRadius: '8px',
-                color: 'var(--text-primary)',
-                background: 'var(--background-default)'
-              }
-            }}
-          />
-        </DialogContent>
-        <DialogActions style={{ padding: '8px 16px' }}>
-          <Button onClick={() => setIsDownloadDialogOpen(false)} style={{ borderRadius: '8px', fontWeight: 800, color: 'var(--text-secondary)' }}>
-            Cancel
-          </Button>
-          <Button onClick={handleConfirmDownload} variant="contained" style={{ borderRadius: '8px', fontWeight: 800, background: 'var(--primary-main)', color: '#fff' }}>
-            Download
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Create Connection Dialog */}
-      <Dialog
-        open={isConnectionDialogOpen}
-        onClose={() => setIsConnectionDialogOpen(false)}
-        PaperProps={{
-          elevation: 0,
-          style: {
-            borderRadius: '16px',
-            background: 'var(--background-paper)',
-            border: '1px solid var(--divider)',
-            padding: '16px',
-            width: '400px'
-          }
-        }}
-      >
-        <DialogTitle style={{ fontWeight: 800, fontFamily: '"Outfit", sans-serif', paddingBottom: '8px' }}>
-          Create Relationship Link
-        </DialogTitle>
-        <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '8px' }}>
-          <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-            Configure the relationship properties below:
-          </Typography>
-
-          {/* Source Class Dropdown */}
-          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <Typography variant="caption" style={{ fontWeight: 850, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-              Source Class
-            </Typography>
-            <Select
-              value={newConnectionData.source || ''}
-              onChange={(e) => {
-                const selectedSource = e.target.value;
-                setNewConnectionData(prev => ({ ...prev, source: selectedSource }));
-              }}
-              fullWidth
-              size="small"
-              style={{ borderRadius: '8px' }}
-            >
-              {umlClasses.map(c => (
-                <MenuItem key={c.title} value={c.title}>{c.title}</MenuItem>
-              ))}
-            </Select>
-          </Box>
-
-          {/* Target Class Dropdown */}
-          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <Typography variant="caption" style={{ fontWeight: 850, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-              Target Class
-            </Typography>
-            <Select
-              value={newConnectionData.target || ''}
-              onChange={(e) => {
-                const selectedTarget = e.target.value;
-                setNewConnectionData(prev => ({ ...prev, target: selectedTarget }));
-              }}
-              fullWidth
-              size="small"
-              style={{ borderRadius: '8px' }}
-            >
-              {umlClasses
-                .filter(c => c.title !== newConnectionData.source)
-                .map(c => (
-                  <MenuItem key={c.title} value={c.title}>{c.title}</MenuItem>
-                ))
-              }
-            </Select>
-          </Box>
-
-          {/* Relationship Type Dropdown */}
-          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <Typography variant="caption" style={{ fontWeight: 850, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-              Relationship Connection Type
-            </Typography>
-            <Select
-              value={newRelationType}
-              onChange={(e) => setNewRelationType(e.target.value)}
-              fullWidth
-              size="small"
-              style={{ borderRadius: '8px' }}
-            >
-              <MenuItem value="extends">Inheritance (extends)</MenuItem>
-              <MenuItem value="implements">Realization (implements)</MenuItem>
-              <MenuItem value="composition">Composition (Has-A, instantiated in constructor)</MenuItem>
-              <MenuItem value="aggregation">Aggregation (Has-A reference, private field)</MenuItem>
-              <MenuItem value="association">Association (Has-A reference, public field)</MenuItem>
-              <MenuItem value="dependency">Dependency (Uses-A parameter in new method)</MenuItem>
-            </Select>
-          </Box>       
-        </DialogContent>
-        <DialogActions style={{ padding: '8px 16px' }}>
-          <Button onClick={() => setIsConnectionDialogOpen(false)} style={{ borderRadius: '8px', fontWeight: 800 }}>
-            Cancel
-          </Button>
-          <Button onClick={handleConfirmConnection} variant="contained" style={{ borderRadius: '8px', fontWeight: 800, background: 'var(--primary-main)', color: '#fff' }}>
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Dialog>
-
-    {/* Fullscreen UML Preview Dialog */}
-    <Dialog
-      open={isPreviewOpen}
-      onClose={() => setIsPreviewOpen(false)}
-      fullScreen
-      PaperProps={{
-        elevation: 0,
-        'data-theme': themeMode,
-        style: {
-          background: 'var(--background-default)',
-        }
-      }}
-    >
-      <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--divider)' }}>
-        <Box style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <PreviewIcon style={{ color: 'var(--primary-main)' }} />
-          <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
-            UML Diagram Fullscreen Preview
-          </Typography>
-        </Box>
-        <Box style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <Typography variant="body2" style={{ fontWeight: 800, color: 'var(--text-secondary)' }}>
-            Choose Theme:
-          </Typography>
-          <Select
-            value={previewTheme}
-            onChange={(e) => setPreviewTheme(e.target.value)}
-            variant="outlined"
-            size="small"
-            style={{
-              borderRadius: '12px',
-              fontWeight: 800,
-              fontSize: '0.8rem',
-              color: 'var(--text-primary)',
-              background: 'var(--background-paper)',
-              minWidth: '150px',
-              height: '40px',
-              border: '1px solid var(--divider)'
-            }}
-          >
-            <MenuItem value="light">Default Light</MenuItem>
-            <MenuItem value="dark">Default Dark</MenuItem>
-            <MenuItem value="sepia">Warm Sepia</MenuItem>
-            <MenuItem value="lava">Volcanic Lava</MenuItem>
-            <MenuItem value="ocean">Deep Ocean</MenuItem>
-            <MenuItem value="forest">Emerald Forest</MenuItem>
-            <MenuItem value="amber">Solarized Amber</MenuItem>
-            <MenuItem value="dracula">Dracula Vampire</MenuItem>
-            <MenuItem value="amethyst">Royal Amethyst</MenuItem>
-            <MenuItem value="nordic">Nordic Ice</MenuItem>
-            <MenuItem value="mint">Frosted Mint</MenuItem>
-            <MenuItem value="lavender">Soft Lavender</MenuItem>
-            <MenuItem value="peach">Peach Cream</MenuItem>
-            <MenuItem value="rose">Rose Gold</MenuItem>
-            <MenuItem value="clay">Clay Slate</MenuItem>
-            <MenuItem value="kitty">Hello Kitty</MenuItem>
-            <MenuItem value="midnight">Midnight Shimmer</MenuItem>
-            <MenuItem value="custom">Custom Theme</MenuItem>
-          </Select>
-          <Button variant="outlined" onClick={handleDownloadPreviewPng} style={{ borderRadius: '12px', fontWeight: 800 }}>
-            Download PNG
-          </Button>
-          <Button variant="outlined" onClick={() => setIsPreviewOpen(false)} style={{ borderRadius: '12px', fontWeight: 800 }}>
-            Close Preview
-          </Button>
-        </Box>
-      </DialogTitle>
-      
-      <DialogContent style={{ padding: 0, overflow: 'hidden', position: 'relative', height: '100%', width: '100%' }}>
-        <Paper
-          id="uml-preview-canvas-container"
-          ref={previewCanvasContainerRef}
-          onMouseDown={handlePreviewCanvasMouseDown}
-          elevation={0}
-          data-theme={previewTheme}
-          style={{
-            background: 'var(--background-default)',
-            height: '100%',
-            width: '100%',
-            position: 'relative',
-            overflow: 'auto',
-            cursor: 'grab',
-            ...(previewTheme === 'custom' ? {
-              '--primary-main': customColors?.primaryMain || '#3D5CFF',
-              '--primary-dark': customColors?.primaryDark || '#2E49D1',
-              '--primary-light': customColors?.primaryLight || '#7C8DFF',
-              '--primary-main-rgb': hexToRgb(customColors?.primaryMain || '#3D5CFF'),
-              '--primary-dark-rgb': hexToRgb(customColors?.primaryDark || '#2E49D1'),
-              '--background-default': customColors?.bgDefault || '#F5F7FA',
-              '--background-paper': customColors?.bgPaper || '#FFFFFF',
-              '--background-paper-alt': customColors?.bgPaperAlt || '#F0F4F8',
-              '--surface-elevated': customColors?.bgPaper || '#FFFFFF',
-              '--surface-glass': `rgba(${hexToRgb(customColors?.bgPaper || '#FFFFFF')}, 0.76)`,
-              '--surface-glass-strong': `rgba(${hexToRgb(customColors?.bgPaper || '#FFFFFF')}, 0.9)`,
-              '--text-primary': customColors?.textPrimary || '#2D2D4D',
-              '--text-secondary': customColors?.textSecondary || '#64748b',
-              '--text-disabled': `rgba(${hexToRgb(customColors?.textPrimary || '#2D2D4D')}, 0.42)`,
-              '--divider': customColors?.divider || '#3d5cff15',
-              '--divider-rgb': hexToRgb(customColors?.divider || '#3d5cff15'),
-              '--action-hover': `rgba(${hexToRgb(customColors?.primaryMain || '#3D5CFF')}, 0.08)`,
-              '--hero-gradient': customColors?.primaryMain || '#3D5CFF',
-              '--code-bg': customColors?.codeBg || '#f8f9fa',
-              '--code-header-bg': customColors?.bgPaperAlt || '#F0F4F8',
-              '--code-border': customColors?.divider || '#3d5cff15',
-              '--code-line-num': `rgba(${hexToRgb(customColors?.textSecondary || '#64748b')}, 0.38)`,
-              '--code-text-default': customColors?.textPrimary || '#2D2D4D'
-            } : {})
-          }}
-        >
-          {/* Virtual Canvas Box */}
+          {/* Floating zoom control bar in preview */}
           <Box
             style={{
-              width: `${canvasDim.width * previewZoomScale}px`,
-              height: `${canvasDim.height * previewZoomScale}px`,
-              position: 'relative',
-              overflow: 'hidden'
+              position: 'absolute',
+              bottom: '16px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'var(--surface-glass)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid var(--divider)',
+              padding: '4px 12px',
+              borderRadius: '20px',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
+              zIndex: 10
             }}
           >
-            <Box
-              id="uml-preview-capture-content"
-              style={{
-                width: `${canvasDim.width}px`,
-                height: `${canvasDim.height}px`,
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                transform: `scale(${previewZoomScale})`,
-                transformOrigin: 'top left',
-                backgroundImage: 'linear-gradient(var(--divider) 1px, transparent 1px), linear-gradient(90deg, var(--divider) 1px, transparent 1px)',
-                backgroundSize: '24px 24px',
-                backgroundColor: 'var(--background-default)'
+            <IconButton
+              size="small"
+              disabled={previewZoomScale <= dynamicPreviewMinZoom}
+              onClick={() => {
+                const container = previewCanvasContainerRef.current;
+                if (container) {
+                  const mx = container.clientWidth / 2;
+                  const my = container.clientHeight / 2;
+                  const x_virtual = (container.scrollLeft + mx) / previewZoomScale;
+                  const y_virtual = (container.scrollTop + my) / previewZoomScale;
+                  previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+                }
+                setPreviewZoomScale(prev => Math.max(dynamicPreviewMinZoom, prev - 0.1));
               }}
+              style={{ color: previewZoomScale <= dynamicPreviewMinZoom ? 'var(--text-disabled)' : 'var(--text-primary)' }}
             >
-              {/* SVG lines */}
-              <svg
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  pointerEvents: 'none',
-                  zIndex: 2,
-                  overflow: 'visible'
-                }}
-              >
-                <defs>
-                  {/* Generalization / Inheritance (Solid line with hollow closed triangle pointing to parent) */}
-                  <marker
-                    id="preview-inheritance-arrow"
-                    viewBox="0 0 10 10"
-                    refX="9"
-                    refY="5"
-                    markerWidth="8"
-                    markerHeight="8"
-                    orient="auto-start-reverse"
-                  >
-                    <polygon
-                      points="0,1.5 9,5 0,8.5"
-                      fill="var(--background-paper)"
-                      stroke="var(--primary-main)"
-                      strokeWidth="1.5"
-                    />
-                  </marker>
-
-                  {/* Association (Solid line with open arrowhead pointing to target) */}
-                  <marker
-                    id="preview-association-arrow"
-                    viewBox="0 0 10 10"
-                    refX="9"
-                    refY="5"
-                    markerWidth="8"
-                    markerHeight="8"
-                    orient="auto-start-reverse"
-                  >
-                    <path
-                      d="M 1,2 L 9,5 L 1,8"
-                      fill="none"
-                      stroke="#14b8a6"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </marker>
-
-                  {/* Dependency (Dashed line with open arrowhead pointing to target) */}
-                  <marker
-                    id="preview-dependency-arrow"
-                    viewBox="0 0 10 10"
-                    refX="9"
-                    refY="5"
-                    markerWidth="8"
-                    markerHeight="8"
-                    orient="auto-start-reverse"
-                  >
-                    <path
-                      d="M 1,2 L 9,5 L 1,8"
-                      fill="none"
-                      stroke="#f59e0b"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                        />
-                  </marker>
-
-                  {/* Composition (Solid line with solid/filled diamond at source end) */}
-                  <marker
-                    id="preview-composition-diamond"
-                    viewBox="0 0 16 10"
-                    refX="0"
-                    refY="5"
-                    markerWidth="10"
-                    markerHeight="6"
-                    orient="auto-start-reverse"
-                  >
-                    <polygon points="0,5 8,1 16,5 8,9" fill="#8b5cf6" stroke="#8b5cf6" strokeWidth="1.5" />
-                  </marker>
-
-                  {/* Aggregation (Solid line with hollow diamond at source end) */}
-                  <marker
-                    id="preview-aggregation-diamond"
-                    viewBox="0 0 16 10"
-                    refX="0"
-                    refY="5"
-                    markerWidth="10"
-                    markerHeight="6"
-                    orient="auto-start-reverse"
-                  >
-                    <polygon points="0,5 8,1 16,5 8,9" fill="var(--background-paper)" stroke="#6366f1" strokeWidth="1.8" />
-                  </marker>
-
-                  {/* Realization / Implementation (Dashed line with hollow closed triangle pointing to parent/interface) */}
-                  <marker
-                    id="preview-realization-arrow"
-                    viewBox="0 0 10 10"
-                    refX="9"
-                    refY="5"
-                    markerWidth="8"
-                    markerHeight="8"
-                    orient="auto-start-reverse"
-                  >
-                    <polygon
-                      points="0,1.5 9,5 0,8.5"
-                      fill="var(--background-paper)"
-                      stroke="#10b981"
-                      strokeWidth="1.8"
-                    />
-                  </marker>
-                </defs>
-
-                {(() => {
-                  const relations = analyzeRelationships(umlClasses);
-                  return relations.map((rel) => {
-                    const sourcePos = classPositions[rel.source];
-                    const targetPos = classPositions[rel.target];
-                    if (sourcePos && targetPos) {
-                      const pts = getBestConnectionPoints(
-                        { title: rel.source, x: sourcePos.x, y: sourcePos.y },
-                        { title: rel.target, x: targetPos.x, y: targetPos.y },
-                        true,
-                        relations,
-                        rel
-                      );
-                    const pathData = getBezierPath(pts.start, pts.end);
-                    
-                    let strokeColor = '#8b5cf6';
-                    let dashArray = 'none';
-                    let markerStart = 'none';
-                    let markerEnd = 'none';
-                    
-                    if (rel.type === 'extends') {
-                      strokeColor = 'var(--primary-main)';
-                      markerEnd = 'url(#preview-inheritance-arrow)';
-                    } else if (rel.type === 'implements') {
-                      strokeColor = '#10b981';
-                      dashArray = '4 4';
-                      markerEnd = 'url(#preview-realization-arrow)';
-                    } else if (rel.type === 'composition') {
-                      strokeColor = '#8b5cf6';
-                      markerStart = 'url(#preview-composition-diamond)';
-                    } else if (rel.type === 'aggregation') {
-                      strokeColor = '#6366f1';
-                      markerStart = 'url(#preview-aggregation-diamond)';
-                    } else if (rel.type === 'association') {
-                      strokeColor = '#14b8a6';
-                      markerEnd = 'url(#preview-association-arrow)';
-                    } else if (rel.type === 'dependency') {
-                      strokeColor = '#f59e0b';
-                      dashArray = '4 4';
-                      markerEnd = 'url(#preview-dependency-arrow)';
-                    }
-                    
-                    return (
-                      <path
-                        key={`preview-${rel.type}-line-${rel.source}-${rel.target}-${rel.fieldName || ''}`}
-                        d={pathData}
-                        fill="none"
-                        stroke={strokeColor}
-                        strokeWidth="2.5"
-                        strokeDasharray={dashArray}
-                        markerStart={markerStart}
-                        markerEnd={markerEnd}
-                      />
-                    );
-                  }
-                  return null;
-                });
-              })()}
-              </svg>
-
-              {/* Absolute Read-only Cards */}
-              {umlClasses.map((umlClass, classIdx) => {
-                const pos = classPositions[umlClass.title] || {
-                  x: 50 + (classIdx % 3) * 420,
-                  y: 50 + Math.floor(classIdx / 3) * 460
-                };
-                return (
-                  <Box
-                    key={`preview-${umlClass.title}`}
-                    className="uml-preview-card"
-                    data-classname={umlClass.title}
-                    style={{
-                      position: 'absolute',
-                      left: `${pos.x}px`,
-                      top: `${pos.y}px`,
-                      width: `${calculateCompressedCardWidth(umlClass)}px`,
-                      border: '2.5px solid var(--primary-main)',
-                      borderRadius: '12px',
-                      background: 'var(--background-paper)',
-                      boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
-                      zIndex: 3,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      padding: '10px'
-                    }}
-                  >
-                    {/* Class Title */}
-                    <Box style={{ borderBottom: '1.5px solid var(--divider)', paddingBottom: '6px', marginBottom: '8px', textAlign: 'center' }}>
-                      {umlClass.type === 'interface' ? (
-                        <Typography variant="caption" style={{ color: '#10b981', fontWeight: 800, display: 'block', fontSize: '0.65rem', textTransform: 'uppercase' }}>
-                          &lt;&lt;Interface&gt;&gt;
-                        </Typography>
-                      ) : (
-                        umlClass.abstract && (
-                          <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800, display: 'block', fontSize: '0.65rem', textTransform: 'uppercase' }}>
-                            &lt;&lt;Abstract&gt;&gt;
-                          </Typography>
-                        )
-                      )}
-                      <Typography variant="subtitle2" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
-                        {umlClass.title}
-                      </Typography>
-                      {umlClass.extends && (
-                        <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>
-                          extends {umlClass.extends}
-                        </Typography>
-                      )}
-                      {umlClass.implements && umlClass.implements.length > 0 && (
-                        <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', display: 'block' }}>
-                          implements {umlClass.implements.join(', ')}
-                        </Typography>
-                      )}
-                    </Box>
-
-                    {/* Attributes List */}
-                    {umlClass.attributes.length > 0 && (
-                      <Box style={{ borderBottom: '1.5px solid var(--divider)', paddingBottom: '6px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        {umlClass.attributes.map((attr, attrIdx) => {
-                          const visSign = attr.visibility === 'public' ? '+' : (attr.visibility === 'protected' ? '#' : (attr.visibility === 'package-private' ? '~' : '-'));
-                          return (
-                            <Typography
-                              key={attrIdx}
-                              variant="caption"
-                              style={{
-                                fontFamily: 'monospace',
-                                color: 'var(--text-primary)',
-                                textDecoration: attr.isStatic ? 'underline' : 'none',
-                                fontWeight: attr.isStatic ? 800 : 400
-                              }}
-                            >
-                              {visSign} {attr.name}: {attr.type}
-                            </Typography>
-                          );
-                        })}
-                      </Box>
-                    )}
-
-                    {/* Methods List */}
-                    {umlClass.methods.length > 0 && (
-                      <Box style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        {umlClass.methods.map((method, methodIdx) => {
-                          const visSign = method.visibility === 'public' ? '+' : (method.visibility === 'protected' ? '#' : (method.visibility === 'package-private' ? '~' : '-'));
-                          const paramsText = (method.parameters || []).map(p => `${p.name}: ${p.type}`).join(', ');
-                          const retText = method.returnType === 'constructor' ? '' : `: ${method.returnType}`;
-                          return (
-                            <Typography
-                              key={methodIdx}
-                              variant="caption"
-                              style={{
-                                fontFamily: 'monospace',
-                                color: 'var(--text-primary)',
-                                textDecoration: method.isStatic ? 'underline' : 'none',
-                                fontStyle: method.isAbstract ? 'italic' : 'normal',
-                                fontWeight: (method.isStatic || method.isAbstract) ? 800 : 400
-                              }}
-                            >
-                              {visSign} {method.name}({paramsText}){retText}
-                            </Typography>
-                          );
-                        })}
-                      </Box>
-                    )}
-                  </Box>
-                );
-              })}
-            </Box>
+              <RemoveIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              disabled={previewZoomScale >= 2.0}
+              onClick={() => {
+                const container = previewCanvasContainerRef.current;
+                if (container) {
+                  const mx = container.clientWidth / 2;
+                  const my = container.clientHeight / 2;
+                  const x_virtual = (container.scrollLeft + mx) / previewZoomScale;
+                  const y_virtual = (container.scrollTop + my) / previewZoomScale;
+                  previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+                }
+                setPreviewZoomScale(prev => Math.min(2.0, prev + 0.1));
+              }}
+              style={{ color: previewZoomScale >= 2.0 ? 'var(--text-disabled)' : 'var(--text-primary)' }}
+            >
+              <AddIcon fontSize="small" />
+            </IconButton>
+            <Button
+              size="small"
+              onClick={() => {
+                const container = previewCanvasContainerRef.current;
+                if (container) {
+                  const mx = container.clientWidth / 2;
+                  const my = container.clientHeight / 2;
+                  const x_virtual = (container.scrollLeft + mx) / previewZoomScale;
+                  const y_virtual = (container.scrollTop + my) / previewZoomScale;
+                  previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+                }
+                setPreviewZoomScale(1.0);
+              }}
+              style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'none', color: 'var(--primary-main)', minWidth: 0, padding: '2px 6px' }}
+            >
+              Reset
+            </Button>
           </Box>
-        </Paper>
-
-        {/* Floating zoom control bar in preview */}
-        <Box
-          style={{
-            position: 'absolute',
-            bottom: '16px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: 'var(--surface-glass)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid var(--divider)',
-            padding: '4px 12px',
-            borderRadius: '20px',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
-            zIndex: 10
-          }}
-        >
-          <IconButton 
-            size="small" 
-            disabled={previewZoomScale <= dynamicPreviewMinZoom}
-            onClick={() => {
-              const container = previewCanvasContainerRef.current;
-              if (container) {
-                const mx = container.clientWidth / 2;
-                const my = container.clientHeight / 2;
-                const x_virtual = (container.scrollLeft + mx) / previewZoomScale;
-                const y_virtual = (container.scrollTop + my) / previewZoomScale;
-                previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
-              }
-              setPreviewZoomScale(prev => Math.max(dynamicPreviewMinZoom, prev - 0.1));
-            }}
-            style={{ color: previewZoomScale <= dynamicPreviewMinZoom ? 'var(--text-disabled)' : 'var(--text-primary)' }}
-          >
-            <RemoveIcon fontSize="small" />
-          </IconButton>
-          <IconButton 
-            size="small" 
-            disabled={previewZoomScale >= 2.0}
-            onClick={() => {
-              const container = previewCanvasContainerRef.current;
-              if (container) {
-                const mx = container.clientWidth / 2;
-                const my = container.clientHeight / 2;
-                const x_virtual = (container.scrollLeft + mx) / previewZoomScale;
-                const y_virtual = (container.scrollTop + my) / previewZoomScale;
-                previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
-              }
-              setPreviewZoomScale(prev => Math.min(2.0, prev + 0.1));
-            }}
-            style={{ color: previewZoomScale >= 2.0 ? 'var(--text-disabled)' : 'var(--text-primary)' }}
-          >
-            <AddIcon fontSize="small" />
-          </IconButton>
-          <Button 
-            size="small" 
-            onClick={() => {
-              const container = previewCanvasContainerRef.current;
-              if (container) {
-                const mx = container.clientWidth / 2;
-                const my = container.clientHeight / 2;
-                const x_virtual = (container.scrollLeft + mx) / previewZoomScale;
-                const y_virtual = (container.scrollTop + my) / previewZoomScale;
-                previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
-              }
-              setPreviewZoomScale(1.0);
-            }}
-            style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'none', color: 'var(--primary-main)', minWidth: 0, padding: '2px 6px' }}
-          >
-            Reset
-          </Button>
-        </Box>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
