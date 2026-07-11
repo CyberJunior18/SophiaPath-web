@@ -1586,7 +1586,7 @@ const RailroadTracksSVG = ({ startX, startY, endX, endY, tiesCount = 12 }) => {
 // 5. Upgraded Trolley Problem Widget (SVG Track & Animation System)
 export const TrolleyProblemWidget = () => {
   const [currentScenario, setCurrentScenario] = useState(1);
-  const [answers, setAnswers] = useState({ 1: null, 2: null, 3: null });
+  const [answers, setAnswers] = useState({ 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null, 8: null, 9: null, 10: null });
   const [profilingDone, setProfilingDone] = useState(false);
   const [animationState, setAnimationState] = useState('idle'); // 'idle' | 'running' | 'complete'
   const [decision, setDecision] = useState(null); // 'yes' | 'no'
@@ -1608,10 +1608,59 @@ export const TrolleyProblemWidget = () => {
     },
     {
       id: 3,
-      title: 'Scenario 3: The Organ Transplant',
-      description: 'A doctor has 5 patients dying of organ failure. A healthy traveler walks into the hospital for a checkup. The doctor can secretly kill the traveler, harvest their organs, and save the 5. Do you authorize this action?',
-      yesLabel: 'Yes (Harvest Organs)',
-      noLabel: 'No (Protect Patient)'
+      title: 'Scenario 3: The Murderer at the Door',
+      description: 'A murderer asks whether your friend is hiding in your house. Telling the truth will almost certainly lead to your friend\'s death, but lying violates your absolute duty to tell the truth. Do you lie to protect your friend?',
+      yesLabel: 'Yes (Lie to Protect Friend)',
+      noLabel: 'No (Tell the Truth)'
+    },
+    {
+      id: 4,
+      title: 'Scenario 4: The Self-Driving Car',
+      description: 'A self-driving car carries 1 passenger. Brakes fail, and it is hurtling toward 5 pedestrians on a crosswalk. It can swerve into a concrete barrier (saving the 5 but killing its own passenger) or continue straight. Do you program it to swerve?',
+      yesLabel: 'Yes (Swerve & Sacrifice Passenger)',
+      noLabel: 'No (Continue Straight)'
+    },
+    {
+      id: 5,
+      title: 'Scenario 5: The Stolen Medicine',
+      description: 'A parent cannot afford medicine that will save their dying child. The pharmacist refuses to lower the price or offer a payment plan. The parent has the opportunity to steal the medicine unnoticed. Should they steal it?',
+      yesLabel: 'Yes (Steal the Medicine)',
+      noLabel: 'No (Refuse to Steal)'
+    },
+    {
+      id: 6,
+      title: 'Scenario 6: The Lifeboat',
+      description: 'A lifeboat can safely hold only 5 people, but 6 are aboard in a storm. If no one leaves, the boat will capsize and all 6 will drown. Active force is required to throw 1 person overboard to save the rest. Do you force someone overboard?',
+      yesLabel: 'Yes (Force One Overboard)',
+      noLabel: 'No (Do Nothing)'
+    },
+    {
+      id: 7,
+      title: 'Scenario 7: The Promise',
+      description: 'You promised a dying friend that you would never reveal a secret. Years later, you realize that revealing it is the only way to prevent serious harm to many innocent people. Do you reveal the secret?',
+      yesLabel: 'Yes (Reveal Secret to Prevent Harm)',
+      noLabel: 'No (Keep the Promise)'
+    },
+    {
+      id: 8,
+      title: 'Scenario 8: The AI Hiring System',
+      description: 'An AI hiring system is extremely accurate at predicting job success but slightly biased against one demographic group. Using it improves overall workforce efficiency but perpetuates systemic bias. Do you deploy it?',
+      yesLabel: 'Yes (Deploy to Maximize Efficiency)',
+      noLabel: 'No (Reject Biased System)'
+    },
+    {
+      id: 9,
+      title: 'Scenario 9: The Found Wallet',
+      description: 'You find a wallet containing $2,000 cash and the owner\'s ID. No one saw you find it. You are in financial distress and could use the cash, but returning it preserves trust and helps the owner. Do you return the wallet?',
+      yesLabel: 'Yes (Return the Wallet)',
+      noLabel: 'No (Keep the Cash)'
+    },
+    {
+      id: 10,
+      title: 'Scenario 10: The Burning Museum',
+      description: 'A fire breaks out in a museum. You only have time to save either a single trapped stranger who will otherwise perish, or a priceless collection of historical artifacts that enrich the cultural life of millions. Do you save the stranger?',
+      yesLabel: 'Yes (Save the Stranger)',
+      noLabel: 'No (Save the Artifacts)'
     }
   ];
 
@@ -1628,7 +1677,7 @@ export const TrolleyProblemWidget = () => {
   const handleNext = () => {
     setAnimationState('idle');
     setDecision(null);
-    if (currentScenario < 3) {
+    if (currentScenario < 10) {
       setCurrentScenario(prev => prev + 1);
     } else {
       setProfilingDone(true);
@@ -1640,25 +1689,29 @@ export const TrolleyProblemWidget = () => {
     if (answers[1] === 'yes') utilitarianCount++;
     if (answers[2] === 'yes') utilitarianCount++;
     if (answers[3] === 'yes') utilitarianCount++;
+    if (answers[4] === 'yes') utilitarianCount++;
+    if (answers[5] === 'yes') utilitarianCount++;
+    if (answers[6] === 'yes') utilitarianCount++;
+    if (answers[7] === 'yes') utilitarianCount++;
+    if (answers[8] === 'yes') utilitarianCount++;
+    if (answers[9] === 'no') utilitarianCount++;
+    if (answers[10] === 'no') utilitarianCount++;
 
-    const utilitarianPct = Math.round((utilitarianCount / 3) * 100);
+    const utilitarianPct = Math.round((utilitarianCount / 10) * 100);
     const deontologyPct = 100 - utilitarianPct;
 
     let profileTitle = '';
     let profileDesc = '';
 
-    if (answers[1] === 'yes' && answers[2] === 'no' && answers[3] === 'no') {
-      profileTitle = 'Pragmatic Deontologist (Most Common)';
-      profileDesc = 'You favor utilitarian outcomes when harm is indirect (pulling a lever), but refuse to violate moral rules when it requires direct physical contact (pushing the man) or violates professional trust (surgeon). You follow the Doctrine of Double Effect: foreseen side-effects are permissible, but directly using a person as a means to an end is not.';
-    } else if (answers[1] === 'yes' && answers[2] === 'yes' && answers[3] === 'yes') {
-      profileTitle = 'Pure Consequentialist / Utilitarian';
-      profileDesc = 'You believe that the moral worth of an action is determined solely by its consequences. Maximizing the number of survivors (5 vs 1) is always the right action, regardless of direct contact or professional rules. You agree with Jeremy Bentham: "Each to count for one, and none for more than one."';
-    } else if (answers[1] === 'no' && answers[2] === 'no' && answers[3] === 'no') {
-      profileTitle = 'Pure Deontologist / Kantian';
-      profileDesc = 'You follow absolute moral duties. For you, actively causing the death of an innocent person is a moral violation that can never be justified by the consequences (saving others). You agree with Immanuel Kant: human beings must be treated as ends in themselves, never merely as a means to an end.';
+    if (utilitarianPct >= 80) {
+      profileTitle = 'Strong Consequentialist / Utilitarian';
+      profileDesc = 'You consistently prioritize the greatest good for the greatest number. You believe that the moral worth of an action is determined by its consequences, valuing net lives saved, public welfare, and long-term societal utility above absolute rules, direct action constraints, or personal promises.';
+    } else if (utilitarianPct <= 30) {
+      profileTitle = 'Strong Deontologist / Kantian';
+      profileDesc = 'You strictly adhere to absolute moral duties and rules. You believe that actively harming an innocent person, lying, stealing, or breaking promises is fundamentally wrong and can never be justified by positive outcomes, regardless of the scale of potential benefits.';
     } else {
-      profileTitle = 'Intuitive Pluralist';
-      profileDesc = 'Your moral decisions are guided by a mix of duties and consequences depending on context. You evaluate active vs. passive harm dynamically, prioritizing absolute rights in some scenarios while allowing utilitarian compromises in others.';
+      profileTitle = 'Contextual Pluralist';
+      profileDesc = 'You balance rules and consequences depending on context. You distinguish between direct harm (pushing a bystander, harvesting organs, or forcing someone overboard) and indirect consequences (diverting a car/train, stealing out of survival necessity, or breaking minor promises to avert major disasters).';
     }
 
     return { utilitarianPct, deontologyPct, profileTitle, profileDesc };
@@ -1666,13 +1719,12 @@ export const TrolleyProblemWidget = () => {
 
   const handleReset = () => {
     setCurrentScenario(1);
-    setAnswers({ 1: null, 2: null, 3: null });
+    setAnswers({ 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null, 8: null, 9: null, 10: null });
     setProfilingDone(false);
     setAnimationState('idle');
     setDecision(null);
   };
 
-  // Dynamic values for keyframe animation of trolley
   const trolleyX = decision === 'yes' ? [50, 200, 360] : [50, 360];
   const trolleyY = decision === 'yes' ? [90, 90, 130] : [90, 90];
 
@@ -1686,15 +1738,24 @@ export const TrolleyProblemWidget = () => {
         <Box>
           <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--primary-main)' }}>
-              Scenario {currentScenario} of 3
+              Scenario {currentScenario} of 10
             </Typography>
             <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>
-              {currentScenario === 1 ? "SWITCH Y/N" : currentScenario === 2 ? "FOOTBRIDGE Y/N" : "SURGERY Y/N"}
+              {currentScenario === 1 ? "SWITCH Y/N" 
+               : currentScenario === 2 ? "FOOTBRIDGE Y/N" 
+               : currentScenario === 3 ? "MURDERER Y/N" 
+               : currentScenario === 4 ? "SELF-DRIVING Y/N" 
+               : currentScenario === 5 ? "MEDICINE Y/N" 
+               : currentScenario === 6 ? "LIFEBOAT Y/N" 
+               : currentScenario === 7 ? "PROMISE Y/N" 
+               : currentScenario === 8 ? "AI HIRING Y/N" 
+               : currentScenario === 9 ? "WALLET Y/N" 
+               : "MUSEUM Y/N"}
             </Typography>
           </Box>
           <LinearProgress 
             variant="determinate" 
-            value={(currentScenario / 3) * 100} 
+            value={(currentScenario / 10) * 100} 
             style={{ marginBottom: '20px', borderRadius: '4px', height: '6px', backgroundColor: 'rgba(255,255,255,0.05)' }} 
           />
 
@@ -1705,20 +1766,13 @@ export const TrolleyProblemWidget = () => {
             {scenarios[currentScenario - 1].description}
           </Typography>
 
-          {/* SVG Visual Demonstration - Theme Responsive backgrounds & lines */}
           <Box style={{ width: '100%', height: '280px', backgroundColor: 'rgba(128,128,128,0.08)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)', position: 'relative', overflow: 'hidden', marginBottom: '20px' }}>
             
-            {/* Scenario 1: The Switch SVG */}
             {currentScenario === 1 && (
               <svg viewBox="0 0 450 180" width="100%" height="100%">
-                {/* Main tracks sleepers & rails */}
                 <RailroadTracksSVG startX={20} startY={90} endX={430} endY={90} tiesCount={16} />
-                
-                {/* Side track fork sleepers & rails */}
                 <path d="M 180,90 Q 260,90 320,130 L 430,130" fill="none" stroke="#5d4037" strokeWidth="5.5" strokeLinecap="round" opacity="0.6" />
                 <path d="M 180,90 Q 260,90 320,130 L 430,130" fill="none" stroke="#cfd8dc" strokeWidth="2.5" />
-                
-                {/* Switch point representation */}
                 <motion.line
                   x1="180" y1="90" x2="220" y2={decision === 'yes' ? 98 : 90}
                   stroke="#cfd8dc"
@@ -1726,18 +1780,13 @@ export const TrolleyProblemWidget = () => {
                   animate={{ y2: decision === 'yes' ? 98 : 90 }}
                   transition={{ duration: 0.5 }}
                 />
-
-                {/* 5 Workers */}
                 <StickFigure x={380} y={90} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
                 <StickFigure x={395} y={75} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
                 <StickFigure x={395} y={105} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
                 <StickFigure x={410} y={83} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
                 <StickFigure x={410} y={97} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-
-                {/* 1 Worker */}
                 <StickFigure x={380} y={130} color={animationState === 'complete' && decision === 'yes' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'yes'} scale={0.6} />
 
-                {/* Tactical Lever mechanism */}
                 <g transform="translate(180, 50)" style={{ cursor: 'pointer' }} onClick={() => { if (animationState === 'idle') handleChoice('yes'); }}>
                   <rect x="-14" y="-2" width="28" height="12" rx="3" fill="#37474f" stroke="#263238" strokeWidth="1" />
                   <motion.line
@@ -1751,7 +1800,6 @@ export const TrolleyProblemWidget = () => {
                   <text x="-12" y="-18" fill="var(--text-secondary)" fontSize="8" fontWeight="800">PULL LEVER</text>
                 </g>
 
-                {/* Trolley */}
                 <motion.g
                   initial={{ x: 30, y: 90 }}
                   animate={animationState === 'running' ? { x: trolleyX, y: trolleyY } : { x: 30, y: 90 }}
@@ -1762,18 +1810,13 @@ export const TrolleyProblemWidget = () => {
               </svg>
             )}
 
-            {/* Scenario 2: The Footbridge SVG */}
             {currentScenario === 2 && (
               <svg viewBox="0 0 450 180" width="100%" height="100%">
-                {/* Railroad tracks */}
                 <RailroadTracksSVG startX={20} startY={140} endX={430} endY={140} tiesCount={16} />
-
-                {/* Stone Bridge Pillars and Arch */}
                 <rect x="180" y="55" width="100" height="10" fill="#78909c" rx="2" />
                 <path d="M 180,65 L 180,140 L 195,140 L 195,75 Q 230,70 265,75 L 265,140 L 280,140 L 280,65 Z" fill="#546e7a" />
                 <line x1="180" y1="55" x2="280" y2="55" stroke="#b0bec5" strokeWidth="2.5" />
 
-                {/* Large Bystander */}
                 <motion.g
                   initial={{ x: 215, y: 55 }}
                   animate={animationState === 'running' && decision === 'yes' ? { y: [55, 55, 140], x: [215, 215, 215], rotate: [0, 90, 180] } : { x: 215, y: 55 }}
@@ -1787,18 +1830,15 @@ export const TrolleyProblemWidget = () => {
                   )}
                 </motion.g>
 
-                {/* Player */}
                 <StickFigure x={255} y={55} color="#4CAF50" scale={0.8} />
                 <text x="248" y="32" fill="#4CAF50" fontSize="8" fontWeight="800">YOU</text>
 
-                {/* 5 Workers */}
                 <StickFigure x={380} y={140} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
                 <StickFigure x={395} y={125} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
                 <StickFigure x={395} y={155} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
                 <StickFigure x={410} y={133} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
                 <StickFigure x={410} y={147} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
 
-                {/* Trolley */}
                 <motion.g
                   initial={{ x: 30, y: 130 }}
                   animate={animationState === 'running' ? { x: decision === 'yes' ? [30, 205] : [30, 360] } : { x: 30, y: 130 }}
@@ -1809,85 +1849,435 @@ export const TrolleyProblemWidget = () => {
               </svg>
             )}
 
-            {/* Scenario 3: Organ Transplant SVG */}
             {currentScenario === 3 && (
               <svg viewBox="0 0 450 180" width="100%" height="100%">
-                {/* futuristic grid lines */}
-                <path d="M 0,20 L 450,20 M 0,50 L 450,50 M 0,80 L 450,80 M 0,110 L 450,110 M 0,140 L 450,140 M 0,170 L 450,170" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                
-                {/* 5 Patients Futuristic Pods */}
-                {Array.from({ length: 5 }).map((_, idx) => {
-                  const yVal = 30 + idx * 30;
-                  const isSaved = animationState === 'complete' && decision === 'yes';
-                  const isDead = animationState === 'complete' && decision === 'no';
-                  return (
-                    <g key={idx} transform={`translate(40, ${yVal})`}>
-                      {/* Pod outline */}
-                      <rect x="0" y="-12" width="60" height="24" rx="4" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" opacity="0.3" />
-                      {/* Scanning glow */}
-                      <rect x="2" y="-10" width="56" height="20" rx="2" fill={isSaved ? 'rgba(76, 175, 80, 0.05)' : 'rgba(255, 82, 82, 0.03)'} />
-                      <line x1="5" y1="0" x2="55" y2="0" stroke={isSaved ? '#4CAF50' : isDead ? 'rgba(255,255,255,0.2)' : 'var(--text-primary)'} strokeWidth="3" />
-                      {/* Hologram pulse */}
-                      <motion.path
-                        d="M 68,-3 L 73,-3 L 75,-12 L 78,8 L 81,-8 L 83,-3 L 95,-3"
-                        fill="none"
-                        stroke={isSaved ? '#4CAF50' : isDead ? 'rgba(255,255,255,0.15)' : '#ff5252'}
-                        strokeWidth="1.8"
-                        animate={!isDead && !isSaved ? { strokeDashoffset: [0, 20] } : {}}
-                        transition={{ repeat: Infinity, duration: 1.0, ease: "linear" }}
-                        strokeDasharray="4,8"
-                      />
-                    </g>
-                  );
-                })}
+                <rect x="0" y="0" width="450" height="180" fill="#263238" />
+                <rect x="0" y="140" width="450" height="40" fill="#3e2723" />
+                <line x1="160" y1="0" x2="160" y2="140" stroke="#cfd8dc" strokeWidth="5" />
+                <rect x="145" y="40" width="30" height="90" fill="#8d6e63" stroke="#5d4037" strokeWidth="2.5" />
+                <circle cx="152" cy="85" r="3" fill="#ffeb3b" />
 
-                {/* Surgeon Station */}
-                <StickFigure x={220} y={90} color="#2196F3" scale={0.9} />
-                {/* Hologram Ring */}
-                <ellipse cx="220" cy="95" rx="14" ry="4" fill="none" stroke="#2196F3" strokeWidth="1.5" strokeDasharray="3,3" />
-                <text x="195" y="65" fill="#2196F3" fontSize="8" fontWeight="800">SURGEON</text>
-
-                {/* Healthy Traveler Pod */}
                 <motion.g
-                  initial={{ x: 360, y: 90 }}
+                  initial={{ x: 50, y: 110 }}
+                  animate={animationState === 'running' && decision === 'no' ? { x: 130 } : { x: 50 }}
+                  transition={{ duration: 1.5 }}
+                >
+                  <circle cx="0" cy="-25" r="7" fill="#ff5252" />
+                  <line x1="0" y1="-18" x2="0" y2="5" stroke="#ff5252" strokeWidth="2.5" />
+                  <line x1="0" y1="5" x2="-8" y2="25" stroke="#ff5252" strokeWidth="2" />
+                  <line x1="0" y1="5" x2="8" y2="25" stroke="#ff5252" strokeWidth="2" />
+                  <line x1="0" y1="-10" x2="10" y2="-5" stroke="#ff5252" strokeWidth="2" />
+                  <text x="-25" y="-38" fill="#ff5252" fontSize="7" fontWeight="900">MURDERER</text>
+                </motion.g>
+
+                <StickFigure x={220} y={110} color="#4CAF50" scale={0.9} />
+                <text x="212" y="75" fill="#4CAF50" fontSize="8" fontWeight="800">YOU</text>
+
+                {animationState === 'complete' && (
+                  <motion.g initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                    <path d="M 220,60 L 230,45 L 290,45 L 290,20 L 205,20 L 205,45 L 215,45 Z" fill="#fff" />
+                    <text x="212" y="35" fill="#000" fontSize="7" fontWeight="bold">
+                      {decision === 'yes' ? "He's not here!" : "He is inside."}
+                    </text>
+                  </motion.g>
+                )}
+
+                <StickFigure
+                  x={360}
+                  y={110}
+                  color={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#2196F3'}
+                  isDead={animationState === 'complete' && decision === 'no'}
+                  scale={0.8}
+                />
+                <rect x="335" y="70" width="50" height="70" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeDasharray="3,3" />
+                <text x="345" y="60" fill="#2196F3" fontSize="7" fontWeight="800">FRIEND</text>
+              </svg>
+            )}
+
+            {currentScenario === 4 && (
+              <svg viewBox="0 0 450 180" width="100%" height="100%">
+                <rect x="0" y="30" width="450" height="120" fill="#37474f" />
+                <line x1="0" y1="90" x2="450" y2="90" stroke="#fff" strokeWidth="2" strokeDasharray="15,15" opacity="0.4" />
+                <line x1="0" y1="30" x2="450" y2="30" stroke="#fff" strokeWidth="3" />
+                <line x1="0" y1="150" x2="450" y2="150" stroke="#fff" strokeWidth="3" />
+
+                <g transform="translate(240, 45)">
+                  <rect x="0" y="0" width="30" height="30" fill="#f44336" rx="4" />
+                  <line x1="5" y1="0" x2="30" y2="25" stroke="#fff" strokeWidth="3" />
+                  <line x1="0" y1="5" x2="25" y2="30" stroke="#fff" strokeWidth="3" />
+                  <text x="-5" y="-6" fill="#ff5252" fontSize="7" fontWeight="900">BARRIER</text>
+                </g>
+
+                <g transform="translate(360, 110)">
+                  <rect x="-10" y="-20" width="50" height="40" fill="none" stroke="#fff" strokeWidth="2" strokeDasharray="4,4" opacity="0.3" />
+                  <StickFigure x={0} y={10} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
+                  <StickFigure x={12} y={-5} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
+                  <StickFigure x={12} y={20} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
+                  <StickFigure x={24} y={5} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
+                  <StickFigure x={24} y={15} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
+                  <text x="-5" y="-24" fill="var(--text-secondary)" fontSize="7" fontWeight="900">5 PEDESTRIANS</text>
+                </g>
+
+                <motion.g
+                  initial={{ x: 30, y: 110 }}
                   animate={
                     animationState === 'running' && decision === 'yes'
-                      ? { x: [360, 220], y: [90, 130], rotate: [0, 90] }
+                      ? { x: [30, 140, 210], y: [110, 110, 50], rotate: [0, -15, -30] }
                       : animationState === 'complete' && decision === 'yes'
-                      ? { x: 220, y: 130, rotate: 90 }
+                      ? { x: 210, y: 50, rotate: -30 }
                       : animationState === 'running' && decision === 'no'
-                      ? { x: [360, 420], opacity: [1, 0] }
+                      ? { x: [30, 340], y: [110, 110] }
                       : animationState === 'complete' && decision === 'no'
-                      ? { x: 420, opacity: 0 }
-                      : { x: 360, y: 90 }
+                      ? { x: 340, y: 110 }
+                      : { x: 30, y: 110 }
                   }
                   transition={{ duration: 1.8, ease: "easeInOut" }}
                 >
-                  <rect x="-10" y="-20" width="20" height="40" rx="3" fill="none" stroke="#4CAF50" strokeWidth="1.5" opacity="0.4" />
-                  <StickFigure x={0} y={10} color={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#4CAF50'} isDead={animationState === 'complete' && decision === 'yes'} scale={0.9} />
+                  <rect x="-24" y="-12" width="48" height="24" rx="6" fill="#2196F3" stroke="#0d47a1" strokeWidth="2" />
+                  <rect x="8" y="-9" width="12" height="18" rx="2" fill="#e3f2fd" />
+                  <polygon points="24,-6 38,-10 38,10 24,6" fill="url(#carLightGlow)" opacity="0.4" />
+                  <circle cx="-6" cy="0" r="4" fill={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#fff'} />
                 </motion.g>
-                {animationState === 'idle' && (
-                  <text x="340" y="60" fill="#4CAF50" fontSize="8" fontWeight="800">TRAVELER</text>
+
+                <defs>
+                  <linearGradient id="carLightGlow" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#fff59d" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="#fff59d" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+
+                {animationState === 'complete' && decision === 'yes' && (
+                  <motion.g initial={{ scale: 0, opacity: 0 }} animate={{ scale: [1, 1.5, 1.2], opacity: [0, 1, 0] }} transition={{ duration: 0.6 }}>
+                    <path d="M 230,45 L 240,25 L 245,40 L 265,35 L 250,55 L 260,70 L 240,60 L 230,75 L 232,52 Z" fill="#ffeb3b" />
+                  </motion.g>
+                )}
+              </svg>
+            )}
+
+            {currentScenario === 5 && (
+              <svg viewBox="0 0 450 180" width="100%" height="100%">
+                <rect x="0" y="0" width="450" height="180" fill="#1e272c" />
+                <rect x="0" y="140" width="450" height="40" fill="#37474f" />
+                <rect x="250" y="90" width="120" height="50" fill="#455a64" rx="2" />
+                <line x1="80" y1="75" x2="200" y2="75" stroke="#cfd8dc" strokeWidth="3.5" />
+                <circle cx="100" cy="65" r="4" fill="#ffb74d" />
+                <circle cx="120" cy="65" r="4" fill="#64b5f6" />
+                <circle cx="180" cy="65" r="4" fill="#81c784" />
+
+                {!(animationState === 'complete' && decision === 'yes') && (
+                  <motion.g
+                    transform="translate(145, 52)"
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                  >
+                    <path d="M 0,16 L 10,16 L 8,5 L 5,5 L 5,0 L 2,0 L 2,5 L 0,5 Z" fill="#00e676" />
+                    <text x="-16" y="-6" fill="#00e676" fontSize="6" fontWeight="bold">ANTIDOTE</text>
+                  </motion.g>
                 )}
 
-                {/* laser harvest beams */}
-                {animationState === 'running' && decision === 'yes' && (
-                  <g>
-                    {Array.from({ length: 5 }).map((_, idx) => {
-                      const yVal = 30 + idx * 30;
-                      return (
-                        <motion.line
-                          key={idx}
-                          x1="220" y1="130" x2="100" y2={yVal}
-                          stroke="#ffeb3b"
-                          strokeWidth="2.5"
-                          strokeDasharray="4,10"
-                          animate={{ strokeDashoffset: [20, 0], opacity: [0, 1, 0] }}
-                          transition={{ duration: 1.0, repeat: 2, ease: "easeOut" }}
-                        />
-                      );
-                    })}
+                <StickFigure x={310} y={135.5} color="var(--text-secondary)" scale={0.9} />
+                <text x="292" y="100" fill="var(--text-secondary)" fontSize="7" fontWeight="800">PHARMACIST</text>
+
+                <motion.g
+                  initial={{ x: 60, y: 135.5 }}
+                  animate={
+                    animationState === 'running' && decision === 'yes'
+                      ? { x: [60, 140, 40], y: [135.5, 120, 135.5] }
+                      : animationState === 'complete' && decision === 'yes'
+                      ? { x: 40, y: 135.5 }
+                      : { x: 60, y: 135.5 }
+                  }
+                  transition={{ duration: 2.0 }}
+                >
+                  <StickFigure x={0} y={0} color="#4CAF50" scale={0.9} />
+                  <text x="-8" y="-32" fill="#4CAF50" fontSize="7" fontWeight="800">PARENT</text>
+                  {animationState === 'complete' && decision === 'yes' && (
+                    <path d="M 12,0 L 20,0 L 18,-8 L 16,-8 L 16,-12 L 14,-12 L 14,-8 L 12,-8 Z" fill="#00e676" />
+                  )}
+                </motion.g>
+
+                <g transform="translate(15, 115)">
+                  <rect x="0" y="5" width="25" height="20" fill="#b0bec5" rx="1" />
+                  <rect x="2" y="2" width="8" height="6" fill="#eceff1" rx="1" />
+                  <line x1="2" y1="12" x2="23" y2="12" stroke={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#81c784'} strokeWidth="2.5" />
+                  <text x="-2" y="-5" fill="var(--text-secondary)" fontSize="6" fontWeight="bold">CHILD</text>
+                </g>
+              </svg>
+            )}
+
+            {currentScenario === 6 && (
+              <svg viewBox="0 0 450 180" width="100%" height="100%">
+                <rect x="0" y="0" width="450" height="180" fill="#1a237e" />
+                <path d="M 0,110 Q 50,100 100,110 Q 150,120 200,110 Q 250,100 300,110 Q 350,120 400,110 Q 450,100 450,110 L 450,180 L 0,180 Z" fill="#0d47a1" />
+                <motion.g
+                  initial={{ x: 120, y: 88 }}
+                  animate={
+                    animationState === 'complete' && decision === 'no'
+                      ? { x: 120, y: 128, rotate: -8, opacity: 0.6 }
+                      : { x: 120, y: [88, 83, 88], rotate: [0, 2, 0] }
+                  }
+                  transition={{ repeat: animationState === 'complete' && decision === 'no' ? 0 : Infinity, duration: 2.5 }}
+                >
+                  <path d="M 0,30 L 110,30 L 125,5 L -15,5 Z" fill="#8d6e63" stroke="#5d4037" strokeWidth="2" />
+                  <circle cx="10" cy="-2" r="5" fill="#4CAF50" />
+                  <circle cx="25" cy="-2" r="5" fill="#4CAF50" />
+                  <circle cx="40" cy="-2" r="5" fill="#4CAF50" />
+                  <circle cx="55" cy="-2" r="5" fill="#4CAF50" />
+                  <circle cx="70" cy="-2" r="5" fill="#4CAF50" />
+                  {!(animationState === 'complete' && decision === 'yes') && (
+                    <motion.circle
+                      cx="85" cy="-2" r="5" fill={animationState === 'complete' ? '#ff5252' : '#2196F3'}
+                      animate={animationState === 'running' && decision === 'yes' ? { x: 40, y: -40, opacity: 0 } : {}}
+                      transition={{ duration: 1.5 }}
+                    />
+                  )}
+                  <text x="30" y="20" fill="#fff" fontSize="7" fontWeight="bold">LIFEBOAT</text>
+                </motion.g>
+
+                {animationState === 'complete' && decision === 'yes' && (
+                  <motion.g initial={{ opacity: 0, x: 225, y: 115 }} animate={{ opacity: 1, y: 120 }}>
+                    <circle cx="0" cy="0" r="5" fill="#ff5252" />
+                    <path d="M -8,8 Q 0,4 8,8" stroke="#fff" strokeWidth="1.5" />
+                    <text x="-25" y="-12" fill="#ff5252" fontSize="6" fontWeight="bold">SACRIFICED</text>
+                  </motion.g>
+                )}
+              </svg>
+            )}
+
+            {currentScenario === 7 && (
+              <svg viewBox="0 0 450 180" width="100%" height="100%">
+                <rect x="0" y="0" width="450" height="180" fill="#1b1c1e" />
+                <g transform="translate(60, 100)">
+                  <path d="M -15,40 L 15,40 L 12,0 Q 12,-15 0,-15 Q -12,-15 -12,0 Z" fill="#37474f" stroke="#263238" strokeWidth="2" />
+                  <line x1="0" y1="5" x2="0" y2="25" stroke="#90a4ae" strokeWidth="2" />
+                  <line x1="-5" y1="12" x2="5" y2="12" stroke="#90a4ae" strokeWidth="2" />
+                  <text x="-20" y="-22" fill="#90a4ae" fontSize="7" fontWeight="bold">DECEASED FRIEND</text>
+                </g>
+
+                <g transform="translate(200, 80)">
+                  <rect x="-15" y="-2" width="30" height="24" rx="3" fill="#ffd54f" stroke="#ffb300" strokeWidth="2" />
+                  <circle cx="0" cy="8" r="3" fill="#3e2723" />
+                  <motion.path
+                    d="M -9,-2 L -9,-12 Q 0,-22 9,-12 L 9,-2"
+                    fill="none"
+                    stroke="#ffd54f"
+                    strokeWidth="3.5"
+                    animate={animationState === 'complete' && decision === 'yes' ? { y: -8, rotate: 15 } : {}}
+                    transition={{ duration: 0.5 }}
+                  />
+                  <text x="-22" y="36" fill="#ffd54f" fontSize="7" fontWeight="bold">SACRED PROMISE</text>
+                </g>
+
+                <g transform="translate(360, 100)">
+                  <StickFigure x={0} y={0} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#81c784'} scale={0.7} />
+                  <StickFigure x={15} y={15} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#81c784'} scale={0.7} />
+                  <StickFigure x={15} y={-15} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#81c784'} scale={0.7} />
+                  <text x="-15" y="-32" fill="var(--text-secondary)" fontSize="7" fontWeight="bold">THE PUBLIC</text>
+                </g>
+
+                {animationState === 'complete' && decision === 'yes' && (
+                  <motion.line
+                    x1="215" y1="90" x2="330" y2="100"
+                    stroke="#ffeb3b"
+                    strokeWidth="3.5"
+                    strokeDasharray="5,5"
+                    animate={{ strokeDashoffset: [20, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.0, ease: "linear" }}
+                  />
+                )}
+              </svg>
+            )}
+
+            {currentScenario === 8 && (
+              <svg viewBox="0 0 450 180" width="100%" height="100%">
+                <rect x="0" y="0" width="450" height="180" fill="#0f172a" />
+                <rect x="20" y="20" width="80" height="140" fill="#1e293b" rx="2" />
+                <line x1="20" y1="50" x2="100" y2="50" stroke="#334155" />
+                <line x1="20" y1="90" x2="100" y2="90" stroke="#334155" />
+                <line x1="20" y1="130" x2="100" y2="130" stroke="#334155" />
+                <circle cx="35" cy="35" r="3" fill="#10b981" />
+                <circle cx="35" cy="70" r="3" fill="#10b981" />
+                <circle cx="35" cy="110" r="3" fill="#ef4444" />
+
+                <g transform="translate(180, 90)">
+                  <motion.circle
+                    r="30"
+                    fill="none"
+                    stroke={decision === 'yes' ? '#3b82f6' : 'rgba(255,255,255,0.1)'}
+                    strokeWidth="2"
+                    animate={decision === 'yes' ? { scale: [1, 1.1, 1] } : {}}
+                    transition={{ repeat: Infinity, duration: 2.0 }}
+                  />
+                  <circle r="18" fill="#1e1b4b" stroke="#4f46e5" strokeWidth="2" />
+                  <path d="M -8,-4 L 8,-4 M -6,2 L 6,2 M -4,8 L 4,8" stroke="#818cf8" strokeWidth="2.5" />
+                  <text x="-25" y="-38" fill="var(--text-primary)" fontSize="8" fontWeight="bold">AI SCREENER</text>
+                </g>
+
+                <g transform="translate(290, 30)">
+                  <rect x="0" y="0" width="130" height="120" fill="#1e293b" stroke="#334155" strokeWidth="2" rx="3" />
+                  <text x="10" y="20" fill="#94a3b8" fontSize="7" fontWeight="bold">EFFICIENCY:</text>
+                  <text x="80" y="20" fill="#10b981" fontSize="8" fontWeight="900">
+                    {animationState === 'complete' && decision === 'yes' ? "98%" : "85%"}
+                  </text>
+                  <text x="10" y="45" fill="#94a3b8" fontSize="7" fontWeight="bold">BIAS DISTRIBUTION:</text>
+                  <text x="10" y="65" fill="#fff" fontSize="6">Group A</text>
+                  <rect x="50" y="60" width="70" height="6" fill="#3b82f6" rx="1" />
+                  <text x="10" y="85" fill="#fff" fontSize="6">Group B</text>
+                  <motion.rect
+                    x="50" y="80"
+                    height="6"
+                    fill="#ef4444"
+                    rx="1"
+                    animate={{ width: animationState === 'complete' && decision === 'yes' ? 18 : 60 }}
+                    transition={{ duration: 1.0 }}
+                    initial={{ width: 60 }}
+                  />
+                </g>
+              </svg>
+            )}
+
+            {currentScenario === 9 && (
+              <svg viewBox="0 0 450 180" width="100%" height="100%">
+                <rect x="0" y="0" width="450" height="180" fill="#1e252b" />
+                <rect x="0" y="130" width="450" height="50" fill="#424242" />
+                <line x1="0" y1="130" x2="450" y2="130" stroke="#616161" strokeWidth="3" />
+
+                <g transform="translate(360, 80)">
+                  <rect x="-12" y="0" width="24" height="50" fill="#1565c0" rx="3" />
+                  <rect x="-12" y="5" width="24" height="10" fill="#0d47a1" />
+                  <line x1="-12" y1="15" x2="12" y2="15" stroke="#fff" strokeWidth="1.5" />
+                  <text x="-16" y="-8" fill="#1565c0" fontSize="7" fontWeight="bold">MAILBOX</text>
+                </g>
+
+                {!(animationState === 'complete' || animationState === 'running') && (
+                  <g transform="translate(200, 120)">
+                    <rect x="-10" y="-6" width="20" height="12" fill="#5d4037" rx="1.5" />
+                    <line x1="-10" y1="0" x2="10" y2="0" stroke="#3e2723" strokeWidth="2.5" />
+                    <rect x="2" y="-9" width="6" height="5" fill="#4CAF50" />
                   </g>
+                )}
+
+                <motion.g
+                  initial={{ x: 60, y: 125.5 }}
+                  animate={
+                    animationState === 'running' && decision === 'yes'
+                      ? { x: [60, 200, 350, 280] }
+                      : animationState === 'complete' && decision === 'yes'
+                      ? { x: 280 }
+                      : animationState === 'running' && decision === 'no'
+                      ? { x: [60, 200, 120] }
+                      : animationState === 'complete' && decision === 'no'
+                      ? { x: 120 }
+                      : { x: 60 }
+                  }
+                  transition={{ duration: 2.2 }}
+                >
+                  <StickFigure x={0} y={0} color="#4CAF50" scale={0.9} />
+                  <text x="-8" y="-32" fill="#4CAF50" fontSize="7" fontWeight="800">YOU</text>
+                  <motion.rect
+                    x="8"
+                    y="-10"
+                    width="10"
+                    height="6"
+                    fill="#5d4037"
+                    initial={{ opacity: 0 }}
+                    animate={
+                      animationState === 'running' && decision === 'yes'
+                        ? { opacity: [0, 0, 1, 1, 0, 0] }
+                        : animationState === 'running' && decision === 'no'
+                        ? { opacity: [0, 0, 1, 0] }
+                        : { opacity: 0 }
+                    }
+                    transition={{
+                      duration: 2.2,
+                      times: decision === 'yes' ? [0, 0.25, 0.3, 0.65, 0.7, 1.0] : [0, 0.55, 0.6, 1.0]
+                    }}
+                  />
+                </motion.g>
+
+                {animationState === 'complete' && decision === 'no' && (
+                  <g transform="translate(130, 60)">
+                    <motion.text
+                      x="0" y="0" fill="#4CAF50" fontSize="12" fontWeight="bold"
+                      animate={{ y: [-10, -35], opacity: [1, 0] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    >
+                      $
+                    </motion.text>
+                    <motion.text
+                      x="15" y="-10" fill="#4CAF50" fontSize="12" fontWeight="bold"
+                      animate={{ y: [-20, -45], opacity: [1, 0] }}
+                      transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+                    >
+                      $
+                    </motion.text>
+                  </g>
+                )}
+              </svg>
+            )}
+
+            {currentScenario === 10 && (
+              <svg viewBox="0 0 450 180" width="100%" height="100%">
+                <rect x="0" y="0" width="450" height="180" fill="#2d1500" />
+                <rect x="0" y="140" width="450" height="40" fill="#1c0a00" />
+
+                <g transform="translate(60, 100)">
+                  {!(animationState === 'complete' && decision === 'no') && (
+                    <StickFigure x={0} y={35.75} color="#ff8a65" scale={0.85} />
+                  )}
+                  <path d="M -15,40 L -5,20 L 5,35 L 15,10 L 25,40 Z" fill="#e65100" opacity="0.6" />
+                  <text x="-25" y="8" fill="#ff8a65" fontSize="7" fontWeight="bold">STRANGER</text>
+                </g>
+
+                <g transform="translate(380, 100)">
+                  <rect x="-15" y="15" width="30" height="25" fill="#4e342e" />
+                  {!(animationState === 'complete' && decision === 'yes') && (
+                    <motion.path
+                      d="M -10,15 L -8,0 L -3,8 L 0,-2 L 3,8 L 8,0 L 10,15 Z"
+                      fill="#ffd54f"
+                      stroke="#ffb300"
+                      strokeWidth="1.5"
+                    />
+                  )}
+                  <text x="-22" y="-12" fill="#ffd54f" fontSize="7" fontWeight="bold">ARTIFACTS</text>
+                </g>
+
+                <motion.g
+                  initial={{ x: 220, y: 135.5 }}
+                  animate={
+                    animationState === 'running' && decision === 'yes'
+                      ? { x: [220, 70, 120] }
+                      : animationState === 'complete' && decision === 'yes'
+                      ? { x: 120 }
+                      : animationState === 'running' && decision === 'no'
+                      ? { x: [220, 370, 320] }
+                      : animationState === 'complete' && decision === 'no'
+                      ? { x: 320 }
+                      : { x: 220 }
+                  }
+                  transition={{ duration: 2.0 }}
+                >
+                  <StickFigure x={0} y={0} color="#4CAF50" scale={0.9} />
+                  <text x="-8" y="-32" fill="#4CAF50" fontSize="7" fontWeight="800">YOU</text>
+                  {animationState === 'complete' && decision === 'yes' && (
+                    <circle cx="8" cy="-5" r="4" fill="#ff8a65" />
+                  )}
+                  {animationState === 'complete' && decision === 'no' && (
+                    <path d="M 8,-4 L 14,-4 L 11,-10 L 8,-4 Z" fill="#ffd54f" />
+                  )}
+                </motion.g>
+
+                {animationState === 'complete' && decision === 'yes' && (
+                  <motion.g initial={{ opacity: 0 }} animate={{ opacity: 0.9 }}>
+                    <path d="M 350,140 L 360,50 L 375,100 L 390,20 L 410,110 L 420,40 L 430,140 Z" fill="#ff3d00" />
+                    <path d="M 360,140 L 370,80 L 385,110 L 395,60 L 415,140 Z" fill="#ffb300" />
+                  </motion.g>
+                )}
+                {animationState === 'complete' && decision === 'no' && (
+                  <motion.g initial={{ opacity: 0 }} animate={{ opacity: 0.9 }}>
+                    <path d="M 20,140 L 30,30 L 45,90 L 60,10 L 80,100 L 90,30 L 110,140 Z" fill="#ff3d00" />
+                    <path d="M 30,140 L 40,70 L 55,100 L 65,50 L 85,140 Z" fill="#ffb300" />
+                  </motion.g>
                 )}
               </svg>
             )}
@@ -1944,7 +2334,7 @@ export const TrolleyProblemWidget = () => {
                   textTransform: 'none'
                 }}
               >
-                {currentScenario < 3 ? "Continue to Next Scenario" : "Show Ethical Profile"}
+                {currentScenario < 10 ? "Continue to Next Scenario" : "Show Ethical Profile"}
               </Button>
             </motion.div>
           )}
@@ -1955,7 +2345,6 @@ export const TrolleyProblemWidget = () => {
             ✓ Ethical Profiling Complete!
           </Typography>
 
-          {/* Scores Gauges */}
           <Grid container spacing={2} style={{ marginBottom: '24px' }}>
             <Grid item xs={6}>
               <Box style={{ padding: '16px', background: 'rgba(28, 176, 246, 0.08)', borderRadius: '12px', border: '1px solid rgba(28,176,246,0.2)', textAlign: 'center' }}>
@@ -1975,53 +2364,99 @@ export const TrolleyProblemWidget = () => {
             </Grid>
           </Grid>
 
-          {/* Moral Balance Scale SVG (Tilts dynamically based on calculations) */}
-          <Box style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-            <svg viewBox="0 0 200 120" width="220" height="130">
-              {/* Stand */}
-              <rect x="96" y="90" width="8" height="20" fill="var(--text-secondary)" rx="1" />
-              <rect x="80" y="110" width="40" height="6" fill="var(--text-secondary)" rx="2" />
+          <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: '12px', fontFamily: '"Outfit", sans-serif' }}>
+            Scenario Choices Breakdown
+          </Typography>
+          <Grid container spacing={2} style={{ marginBottom: '24px' }}>
+            {scenarios.map((scen) => {
+              const answer = answers[scen.id];
+              const isYes = answer === 'yes';
+              let choiceText = isYes ? scen.yesLabel : scen.noLabel;
               
-              {/* Scale Beam & Plates Group */}
-              <motion.g
-                transform={`translate(100, 40)`}
-                animate={{ rotate: calculateProfile().utilitarianPct - 50 }}
-                transition={{ duration: 1.2, ease: "easeOut" }}
-              >
-                {/* Horizontal Beam */}
-                <line x1="-60" y1="0" x2="60" y2="0" stroke="var(--text-secondary)" strokeWidth="3" />
-                <circle cx="0" cy="0" r="4" fill="var(--primary-main)" />
-                
-                {/* Left side strings and plate (Utilitarian) */}
-                <g transform="translate(-60, 0)">
-                  <line x1="0" y1="0" x2="-14" y2="35" stroke="var(--text-secondary)" strokeWidth="1" opacity="0.6" />
-                  <line x1="0" y1="0" x2="14" y2="35" stroke="var(--text-secondary)" strokeWidth="1" opacity="0.6" />
-                  <rect x="-18" y="35" width="36" height="3" fill="var(--primary-main)" rx="1" />
-                  
-                  {/* Utilitarian Weights */}
-                  {Array.from({ length: Math.round(calculateProfile().utilitarianPct / 33.3) }).map((_, idx) => (
-                    <rect key={idx} x={-6 + idx * 5} y={25} width="6" height="10" fill="var(--primary-main)" stroke="rgba(255,255,255,0.2)" />
-                  ))}
-                  <text x="-25" y="50" fill="var(--primary-main)" fontSize="7" fontWeight="bold">UTIL</text>
-                </g>
+              let implication = '';
+              if (scen.id === 1) {
+                implication = isYes 
+                  ? "Utilitarian. Maximizes survivors (5 saved vs 1 lost) through indirect intervention."
+                  : "Deontological. Refused to actively pull a lever to cause a person's death.";
+              } else if (scen.id === 2) {
+                implication = isYes
+                  ? "Extreme Consequentialist. Willing to use direct physical force on a bystander to save 5."
+                  : "Deontological. Refused to violate bodily rights and push a person to their death.";
+              } else if (scen.id === 3) {
+                implication = isYes
+                  ? "Welfare Maximizer. Lied to protect an friend's life from an active threat."
+                  : "Absolute Kantian. Honored truth-telling rule regardless of mortal consequences.";
+              } else if (scen.id === 4) {
+                implication = isYes
+                  ? "Modern Consequentialist. Programmed machine to swerve and sacrifice 1 passenger to save 5 pedestrians."
+                  : "Deontological Passenger Priority. Refused to actively override protection of the car's occupant.";
+              } else if (scen.id === 5) {
+                implication = isYes
+                  ? "Need-based Consequentialist. Valued child's survival above legal property rights."
+                  : "Rule Follower. Refused to engage in illegal theft, respecting property codes.";
+              } else if (scen.id === 6) {
+                implication = isYes
+                  ? "Survival Pragmatist. Actively sacrificed one to prevent all passengers from drowning."
+                  : "Deontological Passive Observer. Refused active killing, letting natural forces decide.";
+              } else if (scen.id === 7) {
+                implication = isYes
+                  ? "Outcome-based Ethics. Broke promise to deceased person to prevent active harm to others."
+                  : "Duty / Fidelity Absolute. Upheld a sacred promise at the expense of public welfare.";
+              } else if (scen.id === 8) {
+                implication = isYes
+                  ? "Productivity Utilitarian. Deployed biased AI to maximize overall workforce efficiency."
+                  : "Equity Absolute. Prioritized demographic fairness and non-discrimination over efficiency.";
+              } else if (scen.id === 9) {
+                implication = isYes
+                  ? "Altruistic Trust. Returned the wallet to preserve community trust and owner welfare."
+                  : "Egoistic Consequentialist. Kept the cash for direct personal utility, discounting owner's loss.";
+              } else if (scen.id === 10) {
+                implication = isYes
+                  ? "Individual Duty of Care. Saved the immediate life of a single stranger in danger."
+                  : "Long-term Utilitarian. Saved a priceless collection to enrich the welfare of millions over generations.";
+              }
 
-                {/* Right side strings and plate (Deontology) */}
-                <g transform="translate(60, 0)">
-                  <line x1="0" y1="0" x2="-14" y2="35" stroke="var(--text-secondary)" strokeWidth="1" opacity="0.6" />
-                  <line x1="0" y1="0" x2="14" y2="35" stroke="var(--text-secondary)" strokeWidth="1" opacity="0.6" />
-                  <rect x="-18" y="35" width="36" height="3" fill="#FF5252" rx="1" />
+              return (
+                <Grid item xs={12} sm={6} md={4} key={scen.id}>
+                  <Box style={{
+                    padding: '16px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '12px',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                  }}>
+                    <Box>
+                      <Typography variant="caption" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+                        Scenario {scen.id}
+                      </Typography>
+                      <Typography variant="body2" style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px', fontSize: '0.85rem' }}>
+                        {scen.title.split(': ')[1]}
+                      </Typography>
+                      <Typography variant="caption" style={{
+                        display: 'inline-block',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        fontWeight: 800,
+                        background: isYes ? 'rgba(76, 175, 80, 0.12)' : 'rgba(255, 82, 82, 0.12)',
+                        color: isYes ? '#4CAF50' : '#FF5252',
+                        marginBottom: '10px',
+                        fontSize: '0.72rem'
+                      }}>
+                        {choiceText}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.76rem', fontStyle: 'italic', lineHeight: 1.35 }}>
+                      {implication}
+                    </Typography>
+                  </Box>
+                </Grid>
+              );
+            })}
+          </Grid>
 
-                  {/* Deontology Weights */}
-                  {Array.from({ length: Math.round(calculateProfile().deontologyPct / 33.3) }).map((_, idx) => (
-                    <rect key={idx} x={-6 + idx * 5} y={25} width="6" height="10" fill="#FF5252" stroke="rgba(255,255,255,0.2)" />
-                  ))}
-                  <text x="-22" y="50" fill="#FF5252" fontSize="7" fontWeight="bold">DEON</text>
-                </g>
-              </motion.g>
-            </svg>
-          </Box>
-
-          {/* Feedback */}
           <Box style={{ padding: '18px', background: 'rgba(128,128,128,0.02)', border: '1px dashed rgba(128,128,128,0.25)', borderRadius: '12px', marginBottom: '20px' }}>
             <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', marginBottom: '8px' }}>
               Your Moral Profile: {calculateProfile().profileTitle}
