@@ -142,7 +142,7 @@ export const SocraticDialogueWidget = () => {
         
         {/* Left: Socrates stage */}
         <Box style={{
-          width: '240px',
+          width: '450px',
           flexShrink: 0,
           background: 'linear-gradient(180deg, rgba(49, 35, 56, 0.95) 0%, rgba(22, 19, 24, 0.98) 100%)',
           borderRight: '1px solid rgba(255,255,255,0.06)',
@@ -182,7 +182,7 @@ export const SocraticDialogueWidget = () => {
           </Box>
 
           {/* Socrates Avatar SVG stage */}
-          <Box style={{ width: '100%', height: '280px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <Box style={{ width: '100%', height: '520px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
             <SocratesAvatar isTalking={isTalking} aiLoading={aiLoading} size="stretch" />
           </Box>
 
@@ -247,7 +247,7 @@ export const SocraticDialogueWidget = () => {
           </Box>
 
           {/* Chat log */}
-          <Box style={{ minHeight: '140px', maxHeight: '260px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', marginBottom: '14px' }}>
+          <Box style={{ minHeight: '280px', maxHeight: '520px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', marginBottom: '14px' }}>
             {messages.length === 0 ? (
               <Box style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '120px', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.88rem' }}>
                 The Socratic dialogue is quiet. Propose a definition to begin...
@@ -609,7 +609,7 @@ export const ShipOfTheseusWidget = () => {
       {replaceCount < 5 ? (
         <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '20px 0' }}>
           {/* SVG Greek Ship hull - uses theme compatible background & borders */}
-          <svg viewBox="0 0 400 180" width="100%" height="180" style={{ background: 'rgba(128,128,128,0.08)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)' }}>
+          <svg viewBox="0 0 400 180" width="100%" height="360" style={{ background: 'rgba(128,128,128,0.08)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)' }}>
             {/* Mast */}
             <line x1="200" y1="50" x2="200" y2="15" stroke="#795548" strokeWidth="5" strokeLinecap="round" />
             {/* Sail */}
@@ -737,7 +737,7 @@ export const ShipOfTheseusWidget = () => {
             <Grid item xs={12} sm={6}>
               <Box style={{ padding: '12px', background: 'rgba(128,128,128,0.04)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)', textAlign: 'center' }}>
                 <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>Ship A (Steel Hull)</Typography>
-                <svg viewBox="0 0 400 160" width="100%" height="110">
+                <svg viewBox="0 0 400 160" width="100%" height="220">
                   <line x1="200" y1="50" x2="200" y2="15" stroke="#795548" strokeWidth="4" />
                   <path d="M 200,15 Q 240,20 200,45 Q 175,32 200,15" fill="rgba(245,245,245,0.9)" stroke="var(--text-secondary)" />
                   {plankPaths.map((plank, idx) => (
@@ -754,7 +754,7 @@ export const ShipOfTheseusWidget = () => {
             <Grid item xs={12} sm={6}>
               <Box style={{ padding: '12px', background: 'rgba(128,128,128,0.04)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)', textAlign: 'center' }}>
                 <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>Ship B (Reconstructed Wood)</Typography>
-                <svg viewBox="0 0 400 160" width="100%" height="110">
+                <svg viewBox="0 0 400 160" width="100%" height="220">
                   <line x1="200" y1="50" x2="200" y2="15" stroke="#795548" strokeWidth="4" />
                   <path d="M 200,15 Q 240,20 200,45 Q 175,32 200,15" fill="rgba(245,245,245,0.9)" stroke="var(--text-secondary)" />
                   {plankPaths.map((plank, idx) => (
@@ -998,7 +998,7 @@ export const TrolleyProblemWidget = () => {
           </Typography>
 
           {/* SVG Visual Demonstration - Theme Responsive backgrounds & lines */}
-          <Box style={{ width: '100%', height: '200px', backgroundColor: 'rgba(128,128,128,0.08)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)', position: 'relative', overflow: 'hidden', marginBottom: '20px' }}>
+          <Box style={{ width: '100%', height: '400px', backgroundColor: 'rgba(128,128,128,0.08)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)', position: 'relative', overflow: 'hidden', marginBottom: '20px' }}>
             
             {/* Scenario 1: The Switch SVG */}
             {currentScenario === 1 && (
@@ -1361,7 +1361,7 @@ export const PlatosCaveWidget = () => {
         border: '1px solid rgba(128,128,128,0.2)',
         overflow: 'hidden',
         position: 'relative',
-        height: '240px',
+        height: '480px',
         marginBottom: '20px'
       }}>
         <svg viewBox="0 0 560 240" width="100%" height="100%">
@@ -1818,7 +1818,7 @@ export const PoliticalCompassWidget = () => {
       <Grid container spacing={3} alignItems="center">
         {/* Left Side: The 2D Compass Graph */}
         <Grid item xs={12} sm={5} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Box style={{ position: 'relative', width: '250px', height: '250px', background: 'transparent', borderRadius: '8px', overflow: 'visible', padding: '10px' }}>
+          <Box style={{ position: 'relative', width: '480px', height: '480px', background: 'transparent', borderRadius: '8px', overflow: 'visible', padding: '10px' }}>
             <svg viewBox="0 0 240 240" width="100%" height="100%">
               {/* Quadrant Backgrounds */}
               {/* Top-Left: Auth-Left (Red) */}
@@ -1990,7 +1990,7 @@ const PhilosophyLabPage = () => {
 
   return (
     <Box className="learning-content-page" style={{ minHeight: 'auto', padding: '24px 0', background: 'var(--background-default)' }}>
-      <Container maxWidth="md">
+      <Container style={{ maxWidth: '1600px', width: '95%' }}>
         
         {/* Header */}
         <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
