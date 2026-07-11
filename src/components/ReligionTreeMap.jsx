@@ -113,13 +113,13 @@ const countVisibleLeaves = (node, expandedNodes) => {
 const clampPan = (x, y, layoutMode) => {
   if (layoutMode === 'vertical') {
     return {
-      x: Math.min(Math.max(x, -1200), 1200),
-      y: Math.min(Math.max(y, -250), 950)
+      x: Math.min(Math.max(x, -3000), 3000),
+      y: Math.min(Math.max(y, -1000), 2500)
     };
   } else {
     return {
-      x: Math.min(Math.max(x, -1300), 1300),
-      y: Math.min(Math.max(y, -1300), 1300)
+      x: Math.min(Math.max(x, -3000), 3000),
+      y: Math.min(Math.max(y, -3000), 3000)
     };
   }
 };
