@@ -23,13 +23,14 @@ export const AuthProvider = ({ children }) => {
           'Authorization': `Bearer ${token}`
         }
       });
-      if (!regRes.ok) return { registeredCourses: [], quizScores: {} };
+      if (!regRes.ok) return { registeredCourses: [], quizScores: {}, courseLessons: {} };
 
       const registrations = await regRes.json();
       const registeredCourses = registrations.map(r => r.course.title);
 
       // 2. Fetch grades for each registration
       const quizScores = {};
+      const courseLessons = {};
       for (const reg of registrations) {
         try {
           const gradesRes = await fetch(`/courses/me/courses/${reg.course.id}/grades`, {
@@ -39,6 +40,7 @@ export const AuthProvider = ({ children }) => {
           });
           if (gradesRes.ok) {
             const grades = await gradesRes.json();
+            courseLessons[reg.course.title.toLowerCase()] = grades;
             grades.forEach(g => {
               if (g.done || g.grade !== null) {
                 // Map to frontend lessonId score structure
@@ -51,10 +53,10 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      return { registeredCourses, quizScores };
+      return { registeredCourses, quizScores, courseLessons };
     } catch (err) {
       console.error('Failed to fetch user progress:', err);
-      return { registeredCourses: [], quizScores: {} };
+      return { registeredCourses: [], quizScores: {}, courseLessons: {} };
     }
   };
 
@@ -304,6 +306,7 @@ export const AuthProvider = ({ children }) => {
             ...prev,
             registeredCourses: [...(prev.registeredCourses || []), courseTitle]
           }));
+          await refreshUser();
         }
       }
     } catch (err) {
@@ -340,6 +343,7 @@ export const AuthProvider = ({ children }) => {
               title => title.toLowerCase() !== courseTitle.toLowerCase()
             )
           }));
+          await refreshUser();
         }
       }
     } catch (err) {
@@ -472,6 +476,7 @@ export const AuthProvider = ({ children }) => {
       });
       if (res.ok) {
         const userData = await res.json();
+        const progress = await fetchUserProgress(savedToken);
         setUser(prev => {
           if (!prev) return null;
           return {
@@ -482,7 +487,8 @@ export const AuthProvider = ({ children }) => {
             name: userData.fullname || prev.name,
             tag: userData.tag || prev.tag,
             gender: userData.gender || prev.gender,
-            age: userData.age || prev.age
+            age: userData.age || prev.age,
+            ...progress
           };
         });
       }

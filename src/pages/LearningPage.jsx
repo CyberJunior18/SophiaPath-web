@@ -100,12 +100,41 @@ const LearningPage = () => {
   
   const courseProgress = useMemo(() => {
     const progress = {};
-    if (!user || !user.quizScores) return progress;
+    if (!user) return progress;
 
     courses.forEach(course => {
-      const lessonIds = course.sections.flatMap(s => s.lessons || []).map(l => l.id);
-      const completedCount = lessonIds.filter(id => user.quizScores[id] !== undefined).length;
-      progress[course.title] = completedCount;
+      const courseTitleLower = course.title.toLowerCase();
+      const loadedLessons = user.courseLessons?.[courseTitleLower];
+
+      if (loadedLessons && loadedLessons.length > 0) {
+        // Apply title-based deduplication to match LearningPathPage roadmap view
+        const uniqueLessons = [];
+        const seenTitles = new Set();
+        loadedLessons.forEach(l => {
+          const norm = (l.title || '').trim().toLowerCase();
+          const isCheatsheet = norm.startsWith('cheatsheet:') || norm.startsWith('cheatsheet ') || norm === 'cheatsheet';
+          if (norm && !isCheatsheet && !seenTitles.has(norm)) {
+            seenTitles.add(norm);
+            uniqueLessons.push(l);
+          }
+        });
+
+        const completedLessons = uniqueLessons.filter(l => {
+          const duplicates = loadedLessons.filter(dl => (dl.title || '').trim().toLowerCase() === (l.title || '').trim().toLowerCase());
+          return duplicates.some(dl => dl.done || (dl.grade !== null && Number(dl.grade) >= 70));
+        });
+
+        progress[course.title] = {
+          completed: completedLessons.length,
+          total: uniqueLessons.length
+        };
+      } else {
+        const fallbackTotal = course.sections?.flatMap(s => s.lessons || []).length || 0;
+        progress[course.title] = {
+          completed: 0,
+          total: course.totalLessons || fallbackTotal || 0
+        };
+      }
     });
     return progress;
   }, [user, courses]);
@@ -161,11 +190,9 @@ const LearningPage = () => {
 
   const dashboardStats = useMemo(() => {
     const activeCourses = registeredCourseTitles.length;
-    const totalLessonsCompleted = Object.values(courseProgress).reduce((sum, value) => sum + value, 0);
-    const totalCoursesCompleted = Object.entries(courseProgress).filter(([title, count]) => {
-      const course = courses.find(c => c.title === title);
-      const totalLessons = course?.sections.flatMap(s => s.lessons || []).length || 0;
-      return count > 0 && count === totalLessons;
+    const totalLessonsCompleted = Object.values(courseProgress).reduce((sum, value) => sum + (value.completed || 0), 0);
+    const totalCoursesCompleted = Object.entries(courseProgress).filter(([title, progressObj]) => {
+      return progressObj.total > 0 && progressObj.completed === progressObj.total;
     }).length;
 
     return [
@@ -173,19 +200,22 @@ const LearningPage = () => {
       { label: 'Lessons Cleared', value: String(totalLessonsCompleted).padStart(2, '0') },
       { label: 'Courses Completed', value: String(totalCoursesCompleted).padStart(2, '0') },
     ];
-  }, [courseProgress, registeredCourseTitles, courses]);
+  }, [courseProgress, registeredCourseTitles]);
 
   const isCourseRegistered = (courseTitle) => {
     return registeredCourseTitles.some(title => title.toLowerCase() === courseTitle.toLowerCase());
   };
 
   const getLessonsFinished = (courseTitle) => {
-    return courseProgress[courseTitle] || 0;
+    return courseProgress[courseTitle]?.completed || 0;
   };
 
   const getTotalLessons = (courseTitle) => {
+    if (courseProgress[courseTitle]) {
+      return courseProgress[courseTitle].total;
+    }
     const course = courses.find(c => c.title.toLowerCase() === courseTitle.toLowerCase());
-    return course ? course.sections.flatMap(s => s.lessons || []).length : 0;
+    return course ? (course.totalLessons || 0) : 0;
   };
 
   const handleCourseClick = (course) => {

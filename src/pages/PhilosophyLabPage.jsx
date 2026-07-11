@@ -2556,109 +2556,207 @@ export const PlatosCaveWidget = () => {
 
       {/* SVG Interactive Cave cross-section */}
       <Box style={{
-        background: 'rgba(0, 0, 0, 0.15)',
-        borderRadius: '12px',
-        border: '1px solid rgba(128,128,128,0.2)',
+        background: 'rgba(8, 12, 20, 0.75)',
+        borderRadius: '16px',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
         overflow: 'hidden',
         position: 'relative',
-        height: '480px',
+        height: '420px',
         marginBottom: '20px'
       }}>
         <svg viewBox="0 0 560 240" width="100%" height="100%">
-          {/* Gradients */}
+          {/* Gradients and Filters */}
           <defs>
-            <radialGradient id="fireGlow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#ff9800" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#ff5722" stopOpacity="0" />
+            {/* Soft Gaussian blur for realistic shadows */}
+            <filter id="shadowBlur" x="-10%" y="-10%" width="120%" height="120%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="0.4" />
+            </filter>
+
+            {/* Firelight Projection Glow on Left Wall */}
+            <radialGradient id="leftWallFireGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#ffb74d" stopOpacity="0.55" />
+              <stop offset="60%" stopColor="#f57c00" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#080c14" stopOpacity="0" />
             </radialGradient>
-            <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#fffde7" stopOpacity="1" />
-              <stop offset="25%" stopColor="#ffeb3b" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#ff9800" stopOpacity="0" />
+
+            {/* Fire glow gradient */}
+            <radialGradient id="fireLightGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#ffb74d" stopOpacity="0.7" />
+              <stop offset="50%" stopColor="#f57c00" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#080c14" stopOpacity="0" />
             </radialGradient>
-            <linearGradient id="caveWallGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#2c2c2c" />
-              <stop offset="100%" stopColor="#121212" />
+
+            {/* Sunlight rays */}
+            <linearGradient id="sunRaysGrad" x1="1" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#fffde7" stopOpacity="0.45" />
+              <stop offset="50%" stopColor="#fff59d" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#fff59d" stopOpacity="0" />
             </linearGradient>
+
+            {/* Outside Sky (Sunrise of Enlightenment) */}
+            <linearGradient id="outsideSkyGrad" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stopColor="#ffe082" stopOpacity="0.35" />
+              <stop offset="50%" stopColor="#90caf9" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#42a5f5" stopOpacity="0.1" />
+            </linearGradient>
+
+            {/* Cave rock gradient */}
+            <linearGradient id="rockGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#37474f" />
+              <stop offset="60%" stopColor="#263238" />
+              <stop offset="100%" stopColor="#1c2327" />
+            </linearGradient>
+
+            {/* Cave inner background shading */}
+            <linearGradient id="caveBgGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#040608" />
+              <stop offset="60%" stopColor="#0c0f15" />
+              <stop offset="100%" stopColor="#1a222c" />
+            </linearGradient>
+
+            {/* Glowing Sun (Form of the Good) */}
+            <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+              <stop offset="25%" stopColor="#fff59d" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#ffb74d" stopOpacity="0" />
+            </radialGradient>
           </defs>
 
           {/* Cave Background & Structure */}
-          {/* Cave Ceiling */}
-          <path d="M 0,0 L 560,0 L 560,30 Q 420,100 320,60 T 0,50 Z" fill="var(--background-default)" opacity="0.8" />
-          
-          {/* Outside Sky and Ground */}
-          <rect x="420" y="0" width="140" height="240" fill="rgba(3, 169, 244, 0.08)" />
-          {/* Sun */}
-          <circle cx="500" cy="50" r="28" fill="url(#sunGlow)" />
-          <circle cx="500" cy="50" r="8" fill="#fff" />
+          <rect x="0" y="0" width="410" height="240" fill="url(#caveBgGrad)" />
 
-          {/* Cave Ground Path */}
+          {/* Outside Sky */}
+          <rect x="410" y="0" width="150" height="240" fill="url(#outsideSkyGrad)" />
+          
+          {/* Sunlight rays streaming down the entrance */}
+          <polygon points="505,50 330,190 420,210" fill="url(#sunRaysGrad)" opacity="0.4" />
+
+          {/* Outside landscape: Grassy hill and river */}
+          <path d="M 410,240 L 410,110 Q 480,95 560,110 L 560,240 Z" fill="#2e7d32" opacity="0.85" />
+          <path d="M 410,180 Q 480,190 560,175 L 560,205 Q 480,220 410,210 Z" fill="#0288d1" opacity="0.85" />
+
+          {/* Outside tree */}
+          <g transform="translate(500, 60)" opacity={stage === 3 ? 1 : 0.35} style={{ transition: 'opacity 0.5s ease' }}>
+            <rect x="18" y="25" width="4" height="25" fill="#4e342e" />
+            <circle cx="20" cy="18" r="11" fill="#2e7d32" />
+            <circle cx="13" cy="12" r="8" fill="#4caf50" />
+            <circle cx="27" cy="12" r="8" fill="#4caf50" />
+          </g>
+
+          {/* Sun */}
+          <circle cx="505" cy="50" r="40" fill="url(#sunGlow)" />
+          <circle cx="505" cy="50" r="10" fill="#fff" />
+
+          {/* Left Vertical Cave Wall (Enclosed rock face) */}
+          <path d="M 0,0 L 15,0 Q 8,50 16,100 Q 6,150 14,200 L 0,200 Z" fill="url(#rockGrad)" />
+
+          {/* Cave Ceiling with Stalactites */}
+          <path d="M 0,0 L 420,0 Q 410,30 400,45 L 390,65 L 380,50 L 340,60 L 325,92 L 315,65 L 280,55 L 260,75 L 245,50 L 210,60 L 195,95 L 180,60 L 140,50 L 125,75 L 110,55 L 70,60 L 60,85 L 50,55 L 0,45 Z" fill="url(#rockGrad)" />
+          
+          {/* Cave Exit Arch (Mouth of the cave) */}
+          <path d="M 395,0 C 405,35 400,75 408,100 C 398,135 402,175 418,240 L 430,240 C 418,175 415,135 422,100 C 418,75 422,35 430,0 Z" fill="url(#rockGrad)" />
+
+          {/* Cave Floor Path with Stalagmites */}
           <path
-            d="M 0,200 L 200,200 L 200,160 L 210,160 L 210,200 L 280,200 L 420,100 L 560,100 L 560,240 L 0,240 Z"
-            fill="rgba(128, 128, 128, 0.12)"
-            stroke="var(--text-secondary)"
+            d="M 0,200 L 25,200 L 30,185 L 38,200 L 130,200 L 135,188 L 142,200 L 200,200 L 200,165 L 210,165 L 210,200 L 225,200 L 230,192 L 238,200 L 280,200 L 310,180 L 340,157 L 375,135 L 410,110 L 560,110 L 560,240 L 0,240 Z"
+            fill="#1b2024"
+            stroke="#2e3a40"
             strokeWidth="2"
-            opacity="0.75"
+          />
+          <path d="M 0,200 L 200,200" stroke="#37474f" strokeWidth="1" fill="none" />
+          <path d="M 210,200 L 280,200" stroke="#37474f" strokeWidth="1" fill="none" />
+          <path d="M 280,200 L 310,180 L 340,157 L 375,135 L 410,110" stroke="#37474f" strokeWidth="1" fill="none" />
+          <path d="M 410,110 L 560,110" stroke="#388e3c" strokeWidth="1.5" fill="none" />
+
+          {/* Rocky Textures & Cracks */}
+          <g stroke="#161c20" strokeWidth="0.75" fill="none" opacity="0.6">
+            <path d="M 45,25 L 48,40 L 45,50" />
+            <path d="M 160,20 L 163,35 Q 160,45 165,52" />
+            <path d="M 280,20 L 285,42 L 280,50" />
+            <path d="M 80,215 L 85,225" />
+            <path d="M 255,215 L 258,228" />
+            <path d="M 330,195 L 333,212" />
+          </g>
+
+          {/* Fire Light Glow */}
+          <motion.circle
+            cx="250" cy="180" r="80"
+            fill="url(#fireLightGlow)"
+            animate={{ opacity: stage >= 1 ? [0.85, 0.95, 0.8, 0.92, 0.85] : [0.35, 0.42, 0.38, 0.45, 0.35] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
           />
 
-          {/* Shadows on the left wall (x=10) */}
-          <g opacity={stage === 0 ? 0.8 : 0.15} style={{ transition: 'opacity 0.5s ease' }}>
-            {/* Shadow of a bird */}
-            <path d="M 15,100 C 10,95 5,102 12,105 C 5,108 10,115 18,110 C 18,105 18,95 15,100 Z" fill="#222" />
-            {/* Shadow of a vase/urn */}
-            <path d="M 12,130 L 20,130 L 22,145 L 10,145 Z" fill="#222" />
-            <path d="M 8,115 L 24,115 L 24,120 L 8,120 Z" fill="#222" />
-            <text x="30" y="125" fontSize="10" fill="var(--text-secondary)" opacity={stage === 0 ? 0.6 : 0}>"Reality"</text>
-          </g>
-
-          {/* Puppets held behind the wall */}
-          <g opacity={stage >= 1 ? 0.9 : 0.3} style={{ transition: 'opacity 0.5s ease' }}>
-            {/* Stick with bird puppet */}
-            <line x1="190" y1="175" x2="190" y2="140" stroke="#795548" strokeWidth="2" />
-            <path d="M 190,140 C 187,135 182,142 189,145 C 182,148 187,155 195,150 C 195,145 195,135 190,140 Z" fill="#a1887f" />
-            {/* Stick with vase puppet */}
-            <line x1="175" y1="180" x2="175" y2="150" stroke="#795548" strokeWidth="2" />
-            <path d="M 172,150 L 178,150 L 180,160 L 170,160 Z" fill="#a1887f" />
-          </g>
+          {/* Fire Pit (Stone barrier) */}
+          <path d="M 226,200 Q 250,210 274,200 Z" fill="#212529" stroke="#37474f" strokeWidth="1.5" />
 
           {/* The Fire */}
-          <g transform="translate(240, 175)">
-            <circle cx="10" cy="15" r="25" fill="url(#fireGlow)" opacity={stage >= 1 ? 0.9 : 0.4} />
+          <g transform="translate(240, 178)">
+            {/* Logs */}
+            <line x1="0" y1="20" x2="20" y2="12" stroke="#4e342e" strokeWidth="3" strokeLinecap="round" />
+            <line x1="20" y1="20" x2="0" y2="12" stroke="#3e2723" strokeWidth="3" strokeLinecap="round" />
+            {/* Flames */}
             <motion.path
-              d="M 5,25 Q 10,5 15,25 Q 20,10 10,30 Z"
+              d="M 5,18 Q 10, -2 15,18 Q 20,4 10,23 Z"
               fill="#ff5722"
-              animate={{ scaleY: [1, 1.2, 0.9, 1.1, 1], y: [0, -2, 1, -1, 0] }}
+              animate={{ scaleY: [1, 1.25, 0.9, 1.15, 1], y: [0, -2, 1, -1, 0] }}
               transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
             />
             <motion.path
-              d="M 8,25 Q 10,12 12,25 Q 14,15 10,28 Z"
+              d="M 8,18 Q 10,5 12,18 Q 14,8 10,21 Z"
               fill="#ffeb3b"
-              animate={{ scaleY: [1, 1.3, 0.8, 1.2, 1], y: [0, -3, 2, -1, 0] }}
+              animate={{ scaleY: [1, 1.35, 0.8, 1.25, 1], y: [0, -3, 2, -1, 0] }}
               transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut", delay: 0.2 }}
             />
           </g>
 
-          {/* Outside Tree (Realm of Forms) */}
-          <g opacity={stage === 3 ? 1 : 0.2} style={{ transition: 'opacity 0.5s ease' }} transform="translate(430, 60)">
-            <rect x="22" y="25" width="6" height="15" fill="#5d4037" />
-            <circle cx="25" cy="18" r="14" fill="#4caf50" />
-            <circle cx="17" cy="12" r="10" fill="#81c784" />
-            <circle cx="33" cy="14" r="10" fill="#81c784" />
+          {/* Firelight Projection Glow on Left Wall */}
+          <motion.ellipse
+            cx="28" cy="115" rx="20" ry="45"
+            fill="url(#leftWallFireGlow)"
+            animate={{ opacity: stage === 0 ? [0.8, 0.9, 0.75, 0.85, 0.8] : [0.15, 0.18, 0.14, 0.17, 0.15] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+          />
+
+          {/* Shadows on the left wall (x=20) */}
+          <g filter="url(#shadowBlur)" opacity={stage === 0 ? 0.95 : 0.15} style={{ transition: 'opacity 0.5s ease' }}>
+            {/* Bird Shadow - Clean Wings Spread Silhouette */}
+            <motion.path
+              d="M 28,82 Q 22,78 15,82 Q 22,86 25,90 Q 20,96 16,102 Q 24,96 28,92 Q 32,96 40,102 Q 36,96 31,90 Q 34,86 41,82 Q 34,78 28,82 Z"
+              fill="#000000"
+              animate={stage === 0 ? { y: [0, -3, 2, -1, 0], x: [0, 1, -1, 0, 0] } : {}}
+              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            />
+            {/* Vase Shadow - Unified Classical Urn Shape */}
+            <path d="M 22,118 C 22,114 25,113 28,113 C 31,113 34,114 34,118 C 34,123 38,127 38,136 C 38,142 34,145 28,145 C 22,145 18,142 18,136 C 18,127 22,123 22,118 Z" fill="#000000" />
           </g>
 
-          {/* The Chains */}
+          {/* Puppets held by Puppeteers behind the wall */}
+          <g opacity={stage >= 1 ? 0.95 : 0.35} style={{ transition: 'opacity 0.5s ease' }}>
+            {/* Puppeteer wall */}
+            <rect x="140" y="195" width="60" height="8" fill="#795548" rx="1.5" />
+            <line x1="150" y1="200" x2="150" y2="240" stroke="#795548" strokeWidth="1.5" />
+            <line x1="190" y1="200" x2="190" y2="240" stroke="#795548" strokeWidth="1.5" />
+
+            {/* Stick with bird puppet */}
+            <line x1="170" y1="185" x2="170" y2="145" stroke="#a1887f" strokeWidth="1.5" />
+            <path d="M 170,137 Q 164,133 157,137 Q 164,141 167,145 Q 162,151 158,157 Q 166,151 170,147 Q 174,151 182,157 Q 178,151 173,145 Q 176,141 183,137 Q 176,133 170,137 Z" fill="#8d6e63" stroke="#5d4037" strokeWidth="0.5" />
+            
+            {/* Stick with vase puppet */}
+            <line x1="185" y1="190" x2="185" y2="155" stroke="#a1887f" strokeWidth="1.5" />
+            <path d="M 179,128 C 179,124 182,123 185,123 C 188,123 191,124 191,128 C 191,133 195,137 195,146 C 195,152 191,155 185,155 C 179,155 175,152 175,146 C 175,137 179,133 179,128 Z" fill="#8d6e63" stroke="#5d4037" strokeWidth="0.5" />
+          </g>
+
+          {/* The Escapee's Chains */}
           {stage === 0 ? (
-            <g stroke="#9e9e9e" strokeWidth="1.5" fill="none" opacity="0.7">
+            <g stroke="#90a4ae" strokeWidth="1.5" fill="none" opacity="0.8">
               <path d="M 85,185 C 75,185 70,195 60,195" />
-              <circle cx="70" cy="190" r="3" />
-              <circle cx="78" cy="188" r="3" />
+              <circle cx="70" cy="190" r="2.5" />
+              <circle cx="78" cy="188" r="2.5" />
             </g>
           ) : stage === 1 ? (
-            <g stroke="#9e9e9e" strokeWidth="1.5" fill="none" opacity="0.4">
+            <g stroke="#90a4ae" strokeWidth="1.2" fill="none" opacity="0.4">
               <path d="M 60,198 Q 70,202 80,198" />
-              <path d="M 95,198 Q 105,202 115,198" />
-              <circle cx="70" cy="199" r="2.5" />
-              <circle cx="105" cy="199" r="2.5" />
+              <circle cx="70" cy="199" r="1.5" />
             </g>
           ) : null}
 
@@ -2671,27 +2769,67 @@ export const PlatosCaveWidget = () => {
             transition={{ type: 'spring', stiffness: 80, damping: 15 }}
           >
             {/* Glow effect */}
-            <circle cx="0" cy="0" r="12" fill={currentStage.chains ? "rgba(255, 152, 0, 0.2)" : "rgba(0, 230, 118, 0.3)"} />
+            <circle cx="0" cy="0" r="11" fill={currentStage.chains ? "rgba(255, 152, 0, 0.2)" : "rgba(0, 230, 118, 0.3)"} />
             
             {/* Person Figure */}
-            <circle cx="0" cy="-14" r="5" fill={currentStage.chains ? "#ffa726" : "#26a69a"} />
-            <line x1="0" y1="-9" x2="0" y2="2" stroke={currentStage.chains ? "#ffa726" : "#26a69a"} strokeWidth="3" strokeLinecap="round" />
+            <circle cx="0" cy="-14" r="4.5" fill={currentStage.chains ? "#ffa726" : "#26a69a"} />
+            <line x1="0" y1="-9" x2="0" y2="2" stroke={currentStage.chains ? "#ffa726" : "#26a69a"} strokeWidth="2.5" strokeLinecap="round" />
             {currentStage.facing === 'left' ? (
-              <path d="M -6,-7 Q -2,-5 0,-7" stroke={currentStage.chains ? "#ffa726" : "#26a69a"} strokeWidth="2.5" strokeLinecap="round" fill="none" />
+              <path d="M -6,-7 Q -2,-5 0,-7" stroke={currentStage.chains ? "#ffa726" : "#26a69a"} strokeWidth="2" strokeLinecap="round" fill="none" />
             ) : stage === 3 ? (
-              <path d="M -6,-18 L 0,-9 L 6,-18" stroke="#26a69a" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+              <path d="M -5,-17 L 0,-9 L 5,-17" stroke="#26a69a" strokeWidth="2" strokeLinecap="round" fill="none" />
+            ) : stage === 2 ? (
+              <path d="M -4,-9 L 1,-16 L 5,-12" stroke="#26a69a" strokeWidth="2" strokeLinecap="round" fill="none" />
             ) : (
-              <path d="M -4,-5 Q 0,-3 4,-5" stroke={currentStage.chains ? "#ffa726" : "#26a69a"} strokeWidth="2.5" strokeLinecap="round" fill="none" />
+              <path d="M -4,-5 Q 0,-3 4,-5" stroke={currentStage.chains ? "#ffa726" : "#26a69a"} strokeWidth="2" strokeLinecap="round" fill="none" />
             )}
-            <line x1="0" y1="2" x2="-4" y2="12" stroke={currentStage.chains ? "#ffa726" : "#26a69a"} strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="0" y1="2" x2="4" y2="12" stroke={currentStage.chains ? "#ffa726" : "#26a69a"} strokeWidth="2.5" strokeLinecap="round" />
+            <line x1="0" y1="2" x2="-4" y2="12" stroke={currentStage.chains ? "#ffa726" : "#26a69a"} strokeWidth="2" strokeLinecap="round" />
+            <line x1="0" y1="2" x2="4" y2="12" stroke={currentStage.chains ? "#ffa726" : "#26a69a"} strokeWidth="2" strokeLinecap="round" />
           </motion.g>
 
+          {/* Interactive Speech Bubbles */}
+          {stage === 0 && (
+            <g transform="translate(90, 125)">
+              <rect x="0" y="0" width="110" height="32" rx="5" fill="rgba(255, 255, 255, 0.95)" stroke="#ffa726" strokeWidth="1.5" />
+              <polygon points="15,32 10,38 20,32" fill="rgba(255, 255, 255, 0.95)" stroke="#ffa726" strokeWidth="1.5" />
+              <polygon points="14,31 11,37 19,31" fill="rgba(255, 255, 255, 0.95)" />
+              <text x="8" y="13" fill="#111" fontSize="8" fontWeight="bold">"A flying shadow!"</text>
+              <text x="8" y="24" fill="#e65100" fontSize="7" fontWeight="bold">Sensory Illusion (Eikasia)</text>
+            </g>
+          )}
+          {stage === 1 && (
+            <g transform="translate(40, 115)">
+              <rect x="0" y="0" width="120" height="32" rx="5" fill="rgba(255, 255, 255, 0.95)" stroke="#26a69a" strokeWidth="1.5" />
+              <polygon points="105,32 110,38 115,32" fill="rgba(255, 255, 255, 0.95)" stroke="#26a69a" strokeWidth="1.5" />
+              <polygon points="104,31 110,37 114,31" fill="rgba(255, 255, 255, 0.95)" />
+              <text x="8" y="13" fill="#111" fontSize="8" fontWeight="bold">"It's just wooden puppets!"</text>
+              <text x="8" y="24" fill="#00796b" fontSize="7" fontWeight="bold">Common Belief (Pistis)</text>
+            </g>
+          )}
+          {stage === 2 && (
+            <g transform="translate(225, 85)">
+              <rect x="0" y="0" width="110" height="32" rx="5" fill="rgba(255, 255, 255, 0.95)" stroke="#26a69a" strokeWidth="1.5" />
+              <polygon points="50,32 55,38 60,32" fill="rgba(255, 255, 255, 0.95)" stroke="#26a69a" strokeWidth="1.5" />
+              <polygon points="51,31 54,37 59,31" fill="rgba(255, 255, 255, 0.95)" />
+              <text x="8" y="13" fill="#111" fontSize="8" fontWeight="bold">"The light is blinding..."</text>
+              <text x="8" y="24" fill="#00796b" fontSize="7" fontWeight="bold">Reasoning (Dianoia)</text>
+            </g>
+          )}
+          {stage === 3 && (
+            <g transform="translate(415, 130)">
+              <rect x="0" y="0" width="120" height="32" rx="5" fill="rgba(255, 255, 255, 0.95)" stroke="#00e676" strokeWidth="1.5" />
+              <polygon points="55,32 60,38 65,32" fill="rgba(255, 255, 255, 0.95)" stroke="#00e676" strokeWidth="1.5" />
+              <polygon points="56,31 59,37 64,31" fill="rgba(255, 255, 255, 0.95)" />
+              <text x="8" y="13" fill="#111" fontSize="8" fontWeight="bold">"The Sun! The source!"</text>
+              <text x="8" y="24" fill="#00c853" fontSize="7" fontWeight="bold">Intellect (Noesis)</text>
+            </g>
+          )}
+
           {/* Explanatory Text Overlays */}
-          <text x="35" y="225" fontSize="10" fill="var(--text-secondary)" fontWeight="bold">1. Shadow Wall</text>
-          <text x="210" y="225" fontSize="10" fill="var(--text-secondary)" fontWeight="bold">2. Fire & Puppets</text>
-          <text x="320" y="225" fontSize="10" fill="var(--text-secondary)" fontWeight="bold">3. The Ascent</text>
-          <text x="460" y="225" fontSize="10" fill="var(--text-secondary)" fontWeight="bold">4. The Sun</text>
+          <text x="35" y="225" fontSize="9" fill="rgba(255,255,255,0.4)" fontWeight="bold">1. Shadows</text>
+          <text x="195" y="225" fontSize="9" fill="rgba(255,255,255,0.4)" fontWeight="bold">2. Puppets</text>
+          <text x="320" y="225" fontSize="9" fill="rgba(255,255,255,0.4)" fontWeight="bold">3. The Slope</text>
+          <text x="460" y="225" fontSize="9" fill="rgba(255,255,255,0.4)" fontWeight="bold">4. The Sun</text>
         </svg>
       </Box>
 
@@ -2835,7 +2973,11 @@ export const PlatosCaveWidget = () => {
 
 // 7. Political Compass Widget (Politics Test - 4 Quadrants & Live Plotting)
 export const PoliticalCompassWidget = () => {
-  const [answers, setAnswers] = useState({ 1: null, 2: null, 3: null, 4: null, 5: null, 6: null });
+  const [answers, setAnswers] = useState(() => {
+    const init = {};
+    for (let i = 1; i <= 15; i++) init[i] = null;
+    return init;
+  });
   const [currentIdx, setCurrentIdx] = useState(0);
   const [finished, setFinished] = useState(false);
 
@@ -2875,6 +3017,60 @@ export const PoliticalCompassWidget = () => {
       text: "National sovereignty, strict control of borders, and the preservation of traditional cultural values must be prioritized over cosmopolitan globalism.",
       axis: 'social',
       weight: 1 // Agree moves Authoritarian (+)
+    },
+    {
+      id: 7,
+      text: "Heavy inheritance taxes are necessary to prevent the concentration of wealth and ensure a fairer starting line for all citizens.",
+      axis: 'economic',
+      weight: -1 // Agree moves Left (-)
+    },
+    {
+      id: 8,
+      text: "Infrastructure such as highways, railways, and utility grids are more efficiently managed when owned and operated by private enterprises.",
+      axis: 'economic',
+      weight: 1 // Agree moves Right (+)
+    },
+    {
+      id: 9,
+      text: "Absolute freedom of speech must be protected, even for ideas that are widely considered offensive, sacrilegious, or dangerous.",
+      axis: 'social',
+      weight: -1 // Agree moves Libertarian (-)
+    },
+    {
+      id: 10,
+      text: "A government should have the authority to implement mandatory national or community service for young adults.",
+      axis: 'social',
+      weight: 1 // Agree moves Authoritarian (+)
+    },
+    {
+      id: 11,
+      text: "The primary goal of the criminal justice system should be rehabilitation rather than punitive retribution or deterrence.",
+      axis: 'social',
+      weight: -1 // Agree moves Libertarian (-)
+    },
+    {
+      id: 12,
+      text: "The state should actively promote moral and traditional family values in public school curriculums.",
+      axis: 'social',
+      weight: 1 // Agree moves Authoritarian (+)
+    },
+    {
+      id: 13,
+      text: "Strong labor unions are essential for balancing corporate power, and the state should legally protect and promote union membership.",
+      axis: 'economic',
+      weight: -1 // Agree moves Left (-)
+    },
+    {
+      id: 14,
+      text: "International trade barriers, protective tariffs, and economic protectionism should be abolished to maximize global market efficiency.",
+      axis: 'economic',
+      weight: 1 // Agree moves Right (+)
+    },
+    {
+      id: 15,
+      text: "In times of severe national crisis or emergency, individual rights and liberties must be temporarily suspended for the common good.",
+      axis: 'social',
+      weight: 1 // Agree moves Authoritarian (+)
     }
   ];
 
@@ -2895,7 +3091,11 @@ export const PoliticalCompassWidget = () => {
   };
 
   const handleReset = () => {
-    setAnswers({ 1: null, 2: null, 3: null, 4: null, 5: null, 6: null });
+    setAnswers(() => {
+      const init = {};
+      for (let i = 1; i <= 15; i++) init[i] = null;
+      return init;
+    });
     setCurrentIdx(0);
     setFinished(false);
   };
@@ -2921,6 +3121,7 @@ export const PoliticalCompassWidget = () => {
     });
 
     // Scale to -10 to +10 range
+    // val is in [-2, +2], max possible sum for a question is 2 * weight.
     const x = xCount > 0 ? (xSum / (xCount * 2)) * 10 : 0;
     const y = yCount > 0 ? (ySum / (yCount * 2)) * 10 : 0;
 
@@ -3012,23 +3213,28 @@ export const PoliticalCompassWidget = () => {
 
       <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: 1.4 }}>
         Philosophers have long debated the proper balance between **state authority vs. individual liberty** (Social) and 
-        **market capitalism vs. collective welfare** (Economic). Take the test to see your coordinates.
+        **market capitalism vs. collective welfare** (Economic). Take this enhanced 15-question test to plot your coordinates.
       </Typography>
 
       <Grid container spacing={3} alignItems="center">
         {/* Left Side: The 2D Compass Graph */}
         <Grid item xs={12} sm={5} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Box style={{ position: 'relative', width: '480px', height: '480px', background: 'transparent', borderRadius: '8px', overflow: 'visible', padding: '10px' }}>
+          <Box style={{ position: 'relative', width: '380px', height: '380px', background: 'transparent', borderRadius: '8px', overflow: 'visible', padding: '10px' }}>
             <svg viewBox="0 0 240 240" width="100%" height="100%">
               {/* Quadrant Backgrounds */}
               {/* Top-Left: Auth-Left (Red) */}
-              <rect x="10" y="10" width="110" height="110" fill="rgba(239, 83, 80, 0.12)" stroke="rgba(239, 83, 80, 0.3)" strokeWidth="0.75" />
+              <rect x="10" y="10" width="110" height="110" fill="rgba(239, 83, 80, 0.14)" stroke="rgba(239, 83, 80, 0.3)" strokeWidth="0.75" />
               {/* Top-Right: Auth-Right (Blue) */}
-              <rect x="120" y="10" width="110" height="110" fill="rgba(41, 182, 246, 0.12)" stroke="rgba(41, 182, 246, 0.3)" strokeWidth="0.75" />
+              <rect x="120" y="10" width="110" height="110" fill="rgba(41, 182, 246, 0.14)" stroke="rgba(41, 182, 246, 0.3)" strokeWidth="0.75" />
               {/* Bottom-Left: Lib-Left (Green) */}
-              <rect x="10" y="120" width="110" height="110" fill="rgba(102, 187, 106, 0.12)" stroke="rgba(102, 187, 106, 0.3)" strokeWidth="0.75" />
+              <rect x="10" y="120" width="110" height="110" fill="rgba(102, 187, 106, 0.14)" stroke="rgba(102, 187, 106, 0.3)" strokeWidth="0.75" />
               {/* Bottom-Right: Lib-Right (Purple) */}
-              <rect x="120" y="120" width="110" height="110" fill="rgba(171, 71, 188, 0.12)" stroke="rgba(171, 71, 188, 0.3)" strokeWidth="0.75" />
+              <rect x="120" y="120" width="110" height="110" fill="rgba(171, 71, 188, 0.14)" stroke="rgba(171, 71, 188, 0.3)" strokeWidth="0.75" />
+
+              {/* Concentric rings to make it look highly analytical */}
+              <circle cx="120" cy="120" r="33" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+              <circle cx="120" cy="120" r="66" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+              <circle cx="120" cy="120" r="99" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
 
               {/* Sub-grid lines */}
               <line x1="65" y1="10" x2="65" y2="230" stroke="rgba(255,255,255,0.04)" strokeWidth="1" strokeDasharray="2,2" />
@@ -3037,38 +3243,52 @@ export const PoliticalCompassWidget = () => {
               <line x1="10" y1="175" x2="230" y2="175" stroke="rgba(255,255,255,0.04)" strokeWidth="1" strokeDasharray="2,2" />
 
               {/* Major axes */}
-              <line x1="120" y1="10" x2="120" y2="230" stroke="rgba(255,255,255,0.3)" strokeWidth="2.0" />
-              <line x1="10" y1="120" x2="230" y2="120" stroke="rgba(255,255,255,0.3)" strokeWidth="2.0" />
+              <line x1="120" y1="10" x2="120" y2="230" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
+              <line x1="10" y1="120" x2="230" y2="120" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
 
               {/* Crosshair projections */}
               {(finished || currentIdx > 0) && (
                 <g>
-                  <line x1="120" y1={120 - (y / 10) * 110} x2={120 + (x / 10) * 110} y2={120 - (y / 10) * 110} stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeDasharray="3,3" />
-                  <line x1={120 + (x / 10) * 110} y1="120" x2={120 + (x / 10) * 110} y2={120 - (y / 10) * 110} stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeDasharray="3,3" />
+                  <line x1="120" y1={120 - (y / 10) * 110} x2={120 + (x / 10) * 110} y2={120 - (y / 10) * 110} stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" strokeDasharray="3,3" />
+                  <line x1={120 + (x / 10) * 110} y1="120" x2={120 + (x / 10) * 110} y2={120 - (y / 10) * 110} stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" strokeDasharray="3,3" />
                 </g>
+              )}
+
+              {/* Pulsing halo around the dot when finished */}
+              {finished && (
+                <motion.circle
+                  cx={120 + (x / 10) * 110}
+                  cy={120 - (y / 10) * 110}
+                  r="14"
+                  fill="none"
+                  stroke={alignment.color}
+                  strokeWidth="1.5"
+                  animate={{ scale: [1, 1.8, 1], opacity: [0.6, 0, 0.6] }}
+                  transition={{ repeat: Infinity, duration: 1.8, ease: "easeOut" }}
+                />
               )}
 
               {/* Current Plotted Dot */}
               <motion.circle
                 cx={120 + (x / 10) * 110}
                 cy={120 - (y / 10) * 110}
-                r="7"
-                fill="#FF5252"
+                r="6.5"
+                fill={finished ? alignment.color : "#FF5252"}
                 stroke="#fff"
-                strokeWidth="2"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 0.4 }}
-                style={{ filter: 'drop-shadow(0 0 5px #ff5252)' }}
+                strokeWidth="1.8"
+                animate={{ scale: [1, 1.25, 1] }}
+                transition={{ duration: 0.3 }}
+                style={{ filter: `drop-shadow(0 0 5px ${finished ? alignment.color : '#ff5252'})` }}
               />
 
               {/* Labels overlay inside SVG */}
-              <text x="120" y="8" fill="var(--text-secondary)" fontSize="6.5" fontWeight="800" textAnchor="middle">AUTHORITARIAN</text>
-              <text x="120" y="238" fill="var(--text-secondary)" fontSize="6.5" fontWeight="800" textAnchor="middle">LIBERTARIAN</text>
-              <text x="8" y="123" fill="var(--text-secondary)" fontSize="6.5" fontWeight="800" textAnchor="start">LEFT</text>
-              <text x="232" y="123" fill="var(--text-secondary)" fontSize="6.5" fontWeight="800" textAnchor="end">RIGHT</text>
+              <text x="120" y="8" fill="var(--text-secondary)" fontSize="6" fontWeight="900" textAnchor="middle">AUTHORITARIAN</text>
+              <text x="120" y="238" fill="var(--text-secondary)" fontSize="6" fontWeight="900" textAnchor="middle">LIBERTARIAN</text>
+              <text x="8" y="122" fill="var(--text-secondary)" fontSize="6" fontWeight="900" textAnchor="start">LEFT</text>
+              <text x="232" y="122" fill="var(--text-secondary)" fontSize="6" fontWeight="900" textAnchor="end">RIGHT</text>
             </svg>
           </Box>
-          <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, mt: 1.5 }}>
+          <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, marginTop: '8px' }}>
             Coordinates: X = {x > 0 ? `+${x}` : x} (Econ) | Y = {y > 0 ? `+${y}` : y} (Social)
           </Typography>
         </Grid>
@@ -3076,42 +3296,143 @@ export const PoliticalCompassWidget = () => {
         {/* Right Side: The Questions / Results */}
         <Grid item xs={12} sm={7}>
           {!finished ? (
-            <Box style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', minHeight: '190px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <Box style={{ padding: '18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', minHeight: '340px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <Box>
-                <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Statement {currentIdx + 1} of {questions.length}
-                </Typography>
-                <Typography variant="body2" style={{ fontWeight: 800, color: 'var(--text-primary)', mt: 0.5, mb: 2, lineHeight: 1.45 }}>
-                  "{questions[currentIdx].text}"
-                </Typography>
+                <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Statement {currentIdx + 1} of {questions.length}
+                  </Typography>
+                  <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>
+                    {Math.round((currentIdx / questions.length) * 100)}% Complete
+                  </Typography>
+                </Box>
+                
+                <LinearProgress 
+                  variant="determinate" 
+                  value={(currentIdx / questions.length) * 100} 
+                  sx={{ 
+                    height: 5, 
+                    borderRadius: 3, 
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    '& .MuiLinearProgress-bar': {
+                      background: 'linear-gradient(90deg, var(--primary-main) 0%, #26C6DA 100%)',
+                      borderRadius: 3,
+                    },
+                    mb: 2.5
+                  }} 
+                />
+
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentIdx}
+                    initial={{ opacity: 0, x: 15 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -15 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Typography variant="body2" style={{ fontWeight: 800, color: 'var(--text-primary)', minHeight: '54px', mb: 2.5, lineHeight: 1.5, fontSize: '0.94rem' }}>
+                      "{questions[currentIdx].text}"
+                    </Typography>
+                  </motion.div>
+                </AnimatePresence>
               </Box>
 
               <Box>
-                <Grid container spacing={1}>
-                  <Grid item xs={6}>
-                    <Button size="small" variant="outlined" onClick={() => handleAnswer(2)} style={{ width: '100%', textTransform: 'none', borderRadius: '8px', color: '#4CAF50', borderColor: 'rgba(76,175,80,0.3)', fontWeight: 800, fontSize: '0.74rem' }}>
-                      Strongly Agree
-                    </Button>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Button size="small" variant="outlined" onClick={() => handleAnswer(1)} style={{ width: '100%', textTransform: 'none', borderRadius: '8px', color: '#81C784', borderColor: 'rgba(129,199,132,0.3)', fontWeight: 800, fontSize: '0.74rem' }}>
-                      Agree
-                    </Button>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Button size="small" variant="outlined" onClick={() => handleAnswer(-1)} style={{ width: '100%', textTransform: 'none', borderRadius: '8px', color: '#E57373', borderColor: 'rgba(229,115,115,0.3)', fontWeight: 800, fontSize: '0.74rem' }}>
-                      Disagree
-                    </Button>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Button size="small" variant="outlined" onClick={() => handleAnswer(-2)} style={{ width: '100%', textTransform: 'none', borderRadius: '8px', color: '#FF5252', borderColor: 'rgba(255,82,82,0.3)', fontWeight: 800, fontSize: '0.74rem' }}>
-                      Strongly Disagree
-                    </Button>
-                  </Grid>
-                </Grid>
+                <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <Button 
+                    size="small"
+                    variant="outlined" 
+                    onClick={() => handleAnswer(2)} 
+                    style={{ 
+                      textTransform: 'none', 
+                      borderRadius: '10px', 
+                      color: '#4CAF50', 
+                      borderColor: 'rgba(76,175,80,0.3)', 
+                      background: 'rgba(76,175,80,0.03)',
+                      fontWeight: 800, 
+                      fontSize: '0.8rem',
+                      justifyContent: 'flex-start',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    🟢 Strongly Agree
+                  </Button>
+                  <Button 
+                    size="small"
+                    variant="outlined" 
+                    onClick={() => handleAnswer(1)} 
+                    style={{ 
+                      textTransform: 'none', 
+                      borderRadius: '10px', 
+                      color: '#81C784', 
+                      borderColor: 'rgba(129,199,132,0.3)', 
+                      background: 'rgba(129,199,132,0.03)',
+                      fontWeight: 800, 
+                      fontSize: '0.8rem',
+                      justifyContent: 'flex-start',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    ✅ Agree
+                  </Button>
+                  <Button 
+                    size="small"
+                    variant="outlined" 
+                    onClick={() => handleAnswer(0)} 
+                    style={{ 
+                      textTransform: 'none', 
+                      borderRadius: '10px', 
+                      color: '#90A4AE', 
+                      borderColor: 'rgba(144,164,174,0.3)', 
+                      background: 'rgba(144,164,174,0.03)',
+                      fontWeight: 800, 
+                      fontSize: '0.8rem',
+                      justifyContent: 'flex-start',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    ⚪ Neutral / Unsure
+                  </Button>
+                  <Button 
+                    size="small"
+                    variant="outlined" 
+                    onClick={() => handleAnswer(-1)} 
+                    style={{ 
+                      textTransform: 'none', 
+                      borderRadius: '10px', 
+                      color: '#E57373', 
+                      borderColor: 'rgba(229,115,115,0.3)', 
+                      background: 'rgba(229,115,115,0.03)',
+                      fontWeight: 800, 
+                      fontSize: '0.8rem',
+                      justifyContent: 'flex-start',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    ❌ Disagree
+                  </Button>
+                  <Button 
+                    size="small"
+                    variant="outlined" 
+                    onClick={() => handleAnswer(-2)} 
+                    style={{ 
+                      textTransform: 'none', 
+                      borderRadius: '10px', 
+                      color: '#FF5252', 
+                      borderColor: 'rgba(255,82,82,0.3)', 
+                      background: 'rgba(255,82,82,0.03)',
+                      fontWeight: 800, 
+                      fontSize: '0.8rem',
+                      justifyContent: 'flex-start',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    🛑 Strongly Disagree
+                  </Button>
+                </Box>
 
                 {currentIdx > 0 && (
-                  <Button size="small" onClick={handleBack} style={{ textTransform: 'none', color: 'var(--text-secondary)', mt: 1.5, display: 'block', margin: '10px auto 0 auto' }}>
+                  <Button size="small" onClick={handleBack} style={{ textTransform: 'none', color: 'var(--text-secondary)', marginTop: '12px', display: 'block', margin: '12px auto 0 auto', fontWeight: 800 }}>
                     ← Back to Previous Statement
                   </Button>
                 )}
@@ -3119,23 +3440,28 @@ export const PoliticalCompassWidget = () => {
             </Box>
           ) : (
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
-              <Box style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1.5px solid', borderColor: alignment.color, borderRadius: '12px', minHeight: '190px' }}>
-                <Typography variant="caption" style={{ color: alignment.color, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Your Political Philosophy Alignment
-                </Typography>
-                <Typography variant="subtitle1" style={{ fontWeight: 900, color: 'var(--text-primary)', mt: 0.5, mb: 1 }}>
-                  {alignment.title}
-                </Typography>
-                <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: 1.45, mb: 1.5 }}>
-                  {alignment.desc}
-                </Typography>
-                <Divider style={{ backgroundColor: 'rgba(255,255,255,0.06)', margin: '10px 0' }} />
-                <Typography variant="caption" style={{ color: 'var(--text-primary)', fontWeight: 800, display: 'block' }}>
-                  Associated Philosophers:
-                </Typography>
-                <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800 }}>
-                  {alignment.philosophers}
-                </Typography>
+              <Box style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', border: '1.5px solid', borderColor: alignment.color, borderRadius: '14px', minHeight: '340px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography variant="caption" style={{ color: alignment.color, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Your Political Philosophy Alignment
+                  </Typography>
+                  <Typography variant="subtitle1" style={{ fontWeight: 900, color: 'var(--text-primary)', marginTop: '4px', marginBottom: '8px', fontSize: '1.1rem' }}>
+                    {alignment.title}
+                  </Typography>
+                  <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.5, marginBottom: '16px' }}>
+                    {alignment.desc}
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Divider style={{ backgroundColor: 'rgba(255,255,255,0.06)', margin: '12px 0' }} />
+                  <Typography variant="caption" style={{ color: 'var(--text-primary)', fontWeight: 800, display: 'block', marginBottom: '4px' }}>
+                    Associated Philosophers:
+                  </Typography>
+                  <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800, fontSize: '0.84rem' }}>
+                    {alignment.philosophers}
+                  </Typography>
+                </Box>
               </Box>
               
               <Button
@@ -3146,9 +3472,10 @@ export const PoliticalCompassWidget = () => {
                   borderColor: 'rgba(255,255,255,0.15)',
                   color: 'var(--text-primary)',
                   fontWeight: 800,
-                  borderRadius: '8px',
+                  borderRadius: '10px',
                   textTransform: 'none',
-                  marginTop: '12px'
+                  marginTop: '14px',
+                  padding: '6px 16px'
                 }}
               >
                 Retake Compass Test
