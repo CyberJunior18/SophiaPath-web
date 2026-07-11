@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback, useDeferredValue } from 'react';
 import { ThemeContext } from '../context/ThemeContext';
 import {
   Dialog,
@@ -764,7 +764,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
 
   // Core Editor & Panel states
   const [activeTab, setActiveTab] = useState(0);
-  const [code, setCode] = useState(TEMPLATES.er);
+  const [editorCode, setCode] = useState(TEMPLATES.er);
+  const code = useDeferredValue(editorCode);
   const [error, setError] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -1309,7 +1310,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
   };
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(code);
+    navigator.clipboard.writeText(editorCode);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
@@ -1946,14 +1947,100 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     const UC_GAP_SECONDARY = 22;  // vertical gap between secondary UCs
     const UC_GROUP_GAP    = 18;   // extra gap between secondary UC groups
     const AC_H = 90;
-    const PRIMARY_COL_X   = 750;  // centre-X of the primary (centre) column
-    const SECONDARY_COL_X = 1150; // centre-X of the secondary (right) column
     const LEFT_X          = 80;   // left edge of the actor column
     const MARGIN_TOP      = 80;
+    const ACTOR_COL_WIDTH = 220;  // horizontal gap between actor columns in hierarchy
 
     const positions  = {};
     const actorIds   = new Set(actors.map(a => a.id));
     const ucIds      = new Set(usecases.map(u => u.id));
+
+    // ── Step 0: Determine Actor Hierarchy & Levels ───────────────────────
+    const inheritsLinks = links.filter(l => l.label === 'INHERITS');
+    
+    // Map actor ID to its parent ID
+    const parentMap = {};
+    inheritsLinks.forEach(l => {
+      parentMap[l.source] = l.target;
+    });
+
+    // Map actor ID to its children IDs
+    const childrenMap = {};
+    actors.forEach(a => {
+      childrenMap[a.id] = [];
+    });
+    inheritsLinks.forEach(l => {
+      if (childrenMap[l.target]) {
+        childrenMap[l.target].push(l.source);
+      }
+    });
+
+    // Compute levels (depths) safely
+    const actorLevels = {};
+    const getLevel = (actorId, visitedMap = new Set()) => {
+      if (actorLevels[actorId] !== undefined) return actorLevels[actorId];
+      if (visitedMap.has(actorId)) {
+        actorLevels[actorId] = 0;
+        return 0;
+      }
+      visitedMap.add(actorId);
+      const parentId = parentMap[actorId];
+      if (!parentId) {
+        actorLevels[actorId] = 0;
+        return 0;
+      }
+      actorLevels[actorId] = getLevel(parentId, visitedMap) + 1;
+      return actorLevels[actorId];
+    };
+    actors.forEach(a => getLevel(a.id));
+
+    // Group/traverse actors hierarchically so child actors are organized
+    const visited = new Set();
+    const sortedActors = [];
+
+    const traverseActor = (actorId) => {
+      if (visited.has(actorId)) return;
+      visited.add(actorId);
+      
+      const actorObj = actors.find(a => a.id === actorId);
+      if (actorObj) {
+        sortedActors.push(actorObj);
+      }
+      
+      const kids = childrenMap[actorId] || [];
+      kids.sort((a, b) => {
+        const idxA = actors.findIndex(x => x.id === a);
+        const idxB = actors.findIndex(x => x.id === b);
+        return idxA - idxB;
+      });
+      kids.forEach(traverseActor);
+    };
+
+    // Find all root actors (level 0)
+    const roots = actors.filter(a => actorLevels[a.id] === 0);
+
+    // Sort roots: those with children first, then those without
+    roots.sort((a, b) => {
+      const hasKidsA = (childrenMap[a.id] && childrenMap[a.id].length > 0) ? 1 : 0;
+      const hasKidsB = (childrenMap[b.id] && childrenMap[b.id].length > 0) ? 1 : 0;
+      if (hasKidsA !== hasKidsB) {
+        return hasKidsB - hasKidsA;
+      }
+      return actors.indexOf(a) - actors.indexOf(b);
+    });
+
+    // Traverse roots to construct the sorted actors list
+    roots.forEach(r => traverseActor(r.id));
+    actors.forEach(a => {
+      if (!visited.has(a.id)) {
+        sortedActors.push(a);
+      }
+    });
+
+    // Calculate maximum actor level to determine primary column X coordinate dynamically
+    const maxActorLevel = sortedActors.length > 0 ? Math.max(...sortedActors.map(a => actorLevels[a.id] || 0)) : 0;
+    const PRIMARY_COL_X   = Math.max(850, LEFT_X + maxActorLevel * ACTOR_COL_WIDTH + 500);
+    const SECONDARY_COL_X = PRIMARY_COL_X + 480;
 
     // ── Step 1: split links ──────────────────────────────────────────────
     const ucUcLinks    = links.filter(l => ucIds.has(l.source) && ucIds.has(l.target));
@@ -1974,8 +2061,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
 
     // ── Step 3: order primary UCs ────────────────────────────────────────
     // Each primary UC is tagged with the earliest actor-index that connects to it.
-    // This groups UCs under the actor that "owns" them, preserving declaration order.
-    const actorList = [...actors];
+    // This groups UCs under the actor that "owns" them, preserving declaration/hierarchical order.
     const ucFirstActorIdx = {};
     primaryUcs.forEach(uc => {
       let minIdx = Infinity;
@@ -1983,7 +2069,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
         const ucId     = actorIds.has(l.source) ? l.target  : l.source;
         const actorId  = actorIds.has(l.source) ? l.source  : l.target;
         if (ucId === uc.id) {
-          const aIdx = actorList.findIndex(a => a.id === actorId);
+          const aIdx = sortedActors.findIndex(a => a.id === actorId);
           if (aIdx !== -1 && aIdx < minIdx) minIdx = aIdx;
         }
       });
@@ -2077,8 +2163,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       prevGroupBottom = groupTop + groupH;
     });
 
-    // ── Step 7: position each actor at the Y-centre of its primary UCs ───
-    actors.forEach(actor => {
+    // ── Step 7: position each actor vertically & horizontally ───────────
+    sortedActors.forEach(actor => {
       const connectedYs = actorUcLinks
         .filter(l => l.source === actor.id || l.target === actor.id)
         .map(l => {
@@ -2087,11 +2173,21 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
         })
         .filter(y => y !== null);
 
-      const centerY = connectedYs.length > 0
-        ? connectedYs.reduce((a, b) => a + b, 0) / connectedYs.length
-        : MARGIN_TOP + (primaryEndY - MARGIN_TOP) / 2;
+      let centerY;
+      if (connectedYs.length > 0) {
+        centerY = connectedYs.reduce((a, b) => a + b, 0) / connectedYs.length;
+      } else {
+        // Fallback: place near parent if possible
+        const parentId = parentMap[actor.id];
+        if (parentId && positions[parentId]) {
+          centerY = positions[parentId].y + AC_H / 2 + 30;
+        } else {
+          centerY = MARGIN_TOP + (primaryEndY - MARGIN_TOP) / 2;
+        }
+      }
 
-      positions[actor.id] = { x: LEFT_X, y: centerY - AC_H / 2 };
+      const actorX = LEFT_X + (actorLevels[actor.id] || 0) * ACTOR_COL_WIDTH;
+      positions[actor.id] = { x: actorX, y: centerY - AC_H / 2 };
     });
 
     return positions;
@@ -3390,7 +3486,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                 height="100%"
                 language="markdown"
                 theme="vs-dark"
-                value={code}
+                value={editorCode}
                 onChange={(val) => setCode(val || '')}
                 options={{
                   minimap: { enabled: false },
@@ -3471,25 +3567,57 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
 
               <Box style={{ display: 'flex', gap: '4px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', padding: '2px', border: '1px solid rgba(255, 255, 255, 0.05)', zIndex: 5, alignItems: 'center' }}>
                 {activeTabKey === 'er' && (
-                  <Button
-                    variant="contained"
-                    size="small"
-                    color="primary"
-                    startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />}
-                    onClick={() => setIsAddEntityOpen(true)}
-                    style={{
-                      marginRight: '8px',
-                      marginLeft: '4px',
-                      borderRadius: '6px',
-                      textTransform: 'none',
-                      height: '28px',
-                      fontSize: '0.72rem',
-                      background: 'var(--primary-main)',
-                      fontWeight: 800,
-                    }}
-                  >
-                    Add Entity
-                  </Button>
+                  <>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      color="primary"
+                      startIcon={<AddIcon style={{ fontSize: '0.9rem' }} />}
+                      onClick={() => setIsAddEntityOpen(true)}
+                      style={{
+                        marginRight: '8px',
+                        marginLeft: '4px',
+                        borderRadius: '6px',
+                        textTransform: 'none',
+                        height: '28px',
+                        fontSize: '0.72rem',
+                        background: 'var(--primary-main)',
+                        fontWeight: 800,
+                      }}
+                    >
+                      Add Entity
+                    </Button>
+                    <Tooltip title="Auto-arrange all entities into a clean grid layout">
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => {
+                          const { entities } = parseER(code);
+                          const autoPositions = {};
+                          entities.forEach((entity, idx) => {
+                            autoPositions[entity.name] = {
+                              x: (idx % 3) * 320 + 80,
+                              y: Math.floor(idx / 3) * 260 + 80
+                            };
+                          });
+                          setNodePositions(prev => ({ ...prev, ...autoPositions }));
+                        }}
+                        style={{
+                          marginRight: '8px',
+                          borderRadius: '6px',
+                          textTransform: 'none',
+                          height: '28px',
+                          fontSize: '0.72rem',
+                          color: '#00FFCC',
+                          borderColor: '#00FFCC',
+                          fontWeight: 700,
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        ✦ Auto Layout
+                      </Button>
+                    </Tooltip>
+                  </>
                 )}
                 {activeTabKey === 'usecase' && (
                   <>
@@ -3858,7 +3986,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             userSelect: 'none'
                           }}
                         >
-                          <span style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: 0, padding: 0, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', transform: 'translateY(1px)' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: 0, padding: 0, lineHeight: 1.2, textAlign: 'center' }}>
                             {uc.label}
                           </span>
                         </div>
@@ -4368,7 +4496,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             userSelect: 'none'
                           }}
                         >
-                          <span style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: 0, padding: 0, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', transform: 'translateY(1px)' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: 0, padding: 0, lineHeight: 1.2, textAlign: 'center' }}>
                             {uc.label}
                           </span>
                         </div>
