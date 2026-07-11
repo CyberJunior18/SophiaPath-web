@@ -33,14 +33,22 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import './LearningContentPage.css'; // Reuses existing glassmorphic page styles
 import { ReligionTreeMap } from '../components/ReligionTreeMap';
+import SocratesAvatar from '../components/SocratesAvatar';
 
 // 1. Upgraded Socratic Dialogue Widget (AI Chat Only)
 export const SocraticDialogueWidget = () => {
   const [messages, setMessages] = useState([]);
   const [customInput, setCustomInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [isTalking, setIsTalking] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const audioRef = useRef(null);
+  const chatEndRef = useRef(null);
+
+  // Auto-scroll chat to bottom on new message
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, aiLoading]);
 
   const handleSendCustomMessage = async (e) => {
     if (e) e.preventDefault();
@@ -50,6 +58,7 @@ export const SocraticDialogueWidget = () => {
     setCustomInput('');
     setMessages(prev => [...prev, { sender: 'user', text: userText }]);
     setAiLoading(true);
+    setIsTalking(false);
 
     if (audioRef.current) {
       audioRef.current.pause();
@@ -59,24 +68,40 @@ export const SocraticDialogueWidget = () => {
     try {
       const res = await fetch('/ai/socrates', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          message: userText,
-          generateVoice: audioEnabled
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText, generateVoice: audioEnabled }),
       });
 
       if (res.ok) {
         const data = await res.json();
         setMessages(prev => [...prev, { sender: 'socrates', text: data.reply }]);
-        
+
         if (data.audio) {
           const audioObj = new Audio(data.audio);
           audioRef.current = audioObj;
-          audioObj.play().catch(err => console.error('Audio play failed:', err));
-        } else if (data.audioError) {
+          
+          // Animate only after the audio starts playing
+          audioObj.onplaying = () => {
+            setIsTalking(true);
+          };
+          
+          audioObj.play().catch(err => {
+            console.error('Audio play failed:', err);
+            // Fallback: start animation immediately if audio fails to load/play
+            setIsTalking(true);
+            const duration = Math.min(Math.max(data.reply.length * 50, 2000), 8000);
+            setTimeout(() => setIsTalking(false), duration);
+          });
+          
+          audioObj.onended = () => setIsTalking(false);
+        } else {
+          // No audio: animate mouth for a readable duration based on text length
+          setIsTalking(true);
+          const duration = Math.min(Math.max(data.reply.length * 50, 2000), 8000);
+          setTimeout(() => setIsTalking(false), duration);
+        }
+
+        if (data.audioError) {
           console.warn('Socratic Voice Error:', data.audioError);
           setMessages(prev => [
             ...prev,
@@ -88,6 +113,8 @@ export const SocraticDialogueWidget = () => {
           ...prev,
           { sender: 'socrates', text: 'Alas, my thoughts are clouded by a network disturbance. Please try asking again.' }
         ]);
+        setIsTalking(true);
+        setTimeout(() => setIsTalking(false), 3000);
       }
     } catch (err) {
       console.error('AI Socrates error:', err);
@@ -95,148 +122,203 @@ export const SocraticDialogueWidget = () => {
         ...prev,
         { sender: 'socrates', text: 'It seems the digital medium fails us. Let us attempt to speak again shortly.' }
       ]);
+      setIsTalking(true);
+      setTimeout(() => setIsTalking(false), 3000);
     } finally {
       setAiLoading(false);
     }
   };
 
   return (
-    <Paper className="glass-panel" style={{ padding: '24px', margin: '20px 0', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <Box style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '14px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '14px' }}>
-        <Box style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Avatar style={{ background: 'var(--primary-main)', color: '#fff', fontSize: '1.2rem', fontWeight: 800 }}>S</Avatar>
-          <Box>
-            <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>Socratic Dialogue Simulator</Typography>
-            <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Dialogue on Philosophical Definitions</Typography>
+    <Paper className="glass-panel" style={{
+      padding: '0',
+      margin: '20px 0',
+      borderRadius: '16px',
+      border: '1px solid rgba(255,255,255,0.08)',
+      overflow: 'hidden',
+    }}>
+      {/* ── Flex container for Socrates (left) and Chat (right) ── */}
+      <Box style={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch' }}>
+        
+        {/* Left: Socrates stage */}
+        <Box style={{
+          width: '240px',
+          flexShrink: 0,
+          background: 'linear-gradient(180deg, rgba(49, 35, 56, 0.95) 0%, rgba(22, 19, 24, 0.98) 100%)',
+          borderRight: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          position: 'relative',
+          overflow: 'hidden',
+          paddingBottom: '20px'
+        }}>
+          {/* Decorative columns */}
+          <Box style={{ position: 'absolute', left: 0, bottom: 0, top: 0, width: '10px', background: 'rgba(255,255,255,0.02)', borderRight: '1px solid rgba(255,255,255,0.04)' }} />
+          <Box style={{ position: 'absolute', right: 0, bottom: 0, top: 0, width: '10px', background: 'rgba(255,255,255,0.02)', borderLeft: '1px solid rgba(255,255,255,0.04)' }} />
+
+          {/* Name badge */}
+          <Box style={{
+            position: 'absolute',
+            top: 14,
+            display: 'flex',
+            justifyContent: 'center',
+            width: '100%'
+          }}>
+            <Box style={{
+              background: 'rgba(213,164,41,0.1)',
+              border: '1px solid rgba(213,164,41,0.2)',
+              borderRadius: '12px',
+              padding: '3px 10px',
+              fontSize: '0.65rem',
+              fontWeight: 800,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#D5A429'
+            }}>
+              ✦ Socrates
+            </Box>
+          </Box>
+
+          {/* Socrates Avatar SVG stage */}
+          <Box style={{ width: '100%', height: '280px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+            <SocratesAvatar isTalking={isTalking} aiLoading={aiLoading} size="stretch" />
+          </Box>
+
+          {/* Status Indicator */}
+          <Box style={{
+            marginTop: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '0.7rem',
+            color: 'var(--text-secondary)',
+            fontStyle: 'italic',
+            zIndex: 2
+          }}>
+            {aiLoading ? (
+              <><span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#FF9F43', animation: 'pulse 1s infinite' }} /> Contemplating...</>
+            ) : isTalking ? (
+              <><span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#3DDC97' }} /> Speaking</>
+            ) : (
+              <><span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--text-disabled)' }} /> Awaiting question</>
+            )}
           </Box>
         </Box>
 
-        <FormControlLabel
-          control={
-            <Switch
-              checked={audioEnabled}
-              onChange={(e) => {
-                setAudioEnabled(e.target.checked);
-                if (!e.target.checked && audioRef.current) {
-                  audioRef.current.pause();
-                  audioRef.current = null;
-                }
-              }}
-              color="primary"
+        {/* Right: Socratic dialogue simulator controls + chat */}
+        <Box style={{ flex: 1, padding: '20px 24px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          {/* Header row */}
+          <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+            <Box>
+              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>Socratic Dialogue Simulator</Typography>
+              <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Dialogue on Philosophical Definitions</Typography>
+            </Box>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={audioEnabled}
+                  onChange={(e) => {
+                    setAudioEnabled(e.target.checked);
+                    if (!e.target.checked && audioRef.current) {
+                      audioRef.current.pause();
+                      audioRef.current = null;
+                      setIsTalking(false);
+                    }
+                  }}
+                  color="primary"
+                  sx={{
+                    '& .MuiSwitch-switchBase.Mui-checked': { color: 'var(--primary-main)' },
+                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: 'var(--primary-main)' }
+                  }}
+                />
+              }
+              label={
+                <Box style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
+                  {audioEnabled ? <VolumeUpIcon sx={{ fontSize: 18, color: 'var(--primary-main)' }} /> : <VolumeOffIcon sx={{ fontSize: 18, color: 'var(--text-secondary)' }} />}
+                  <Typography variant="caption" style={{ fontWeight: 800, fontSize: '0.75rem' }}>
+                    {audioEnabled ? 'Voice On' : 'Voice Off'}
+                  </Typography>
+                </Box>
+              }
+            />
+          </Box>
+
+          {/* Chat log */}
+          <Box style={{ minHeight: '140px', maxHeight: '260px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', marginBottom: '14px' }}>
+            {messages.length === 0 ? (
+              <Box style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '120px', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.88rem' }}>
+                The Socratic dialogue is quiet. Propose a definition to begin...
+              </Box>
+            ) : (
+              messages.map((msg, i) => {
+                const isSystemError = msg.sender === 'system-error';
+                return (
+                  <Box key={i} style={{ display: 'flex', justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
+                    <Box style={{
+                      maxWidth: '85%',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      fontSize: '0.84rem',
+                      lineHeight: 1.4,
+                      backgroundColor: isSystemError ? 'rgba(244, 67, 54, 0.08)' : (msg.sender === 'user' ? 'rgba(28, 176, 246, 0.15)' : 'rgba(255, 255, 255, 0.04)'),
+                      border: isSystemError ? '1px solid rgba(244, 67, 54, 0.3)' : (msg.sender === 'user' ? '1px solid rgba(28, 176, 246, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)'),
+                      color: isSystemError ? '#f44336' : 'var(--text-primary)'
+                    }}>
+                      <Typography variant="caption" style={{ display: 'block', fontWeight: 800, color: isSystemError ? '#f44336' : (msg.sender === 'user' ? '#1CB0F6' : 'var(--primary-main)'), marginBottom: '2px', textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: '0.05em' }}>
+                        {isSystemError ? 'System Notice' : (msg.sender === 'user' ? 'You' : 'Socrates')}
+                      </Typography>
+                      {msg.text}
+                    </Box>
+                  </Box>
+                );
+              })
+            )}
+            {aiLoading && (
+              <Box style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <Box style={{ padding: '10px 14px', borderRadius: '12px', fontSize: '0.84rem', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                  Socrates is contemplating...
+                </Box>
+              </Box>
+            )}
+            <div ref={chatEndRef} />
+          </Box>
+
+          {/* Input form */}
+          <form onSubmit={handleSendCustomMessage} style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
+            <TextField
+              fullWidth
+              size="small"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              placeholder="Propose a definition or ask Socrates a question..."
+              disabled={aiLoading}
+              variant="outlined"
               sx={{
-                '& .MuiSwitch-switchBase.Mui-checked': {
-                  color: 'var(--primary-main)',
-                },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                  backgroundColor: 'var(--primary-main)',
+                '& .MuiOutlinedInput-root': {
+                  color: 'var(--text-primary)',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(255,255,255,0.01)',
+                  '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
+                  '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.25)' },
+                  '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' },
                 }
               }}
             />
-          }
-          label={
-            <Box style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
-              {audioEnabled ? <VolumeUpIcon sx={{ fontSize: 18, color: 'var(--primary-main)' }} /> : <VolumeOffIcon sx={{ fontSize: 18, color: 'var(--text-secondary)' }} />}
-              <Typography variant="caption" style={{ fontWeight: 800, fontSize: '0.75rem' }}>
-                {audioEnabled ? 'Voice Enabled' : 'Voice Disabled'}
-              </Typography>
-            </Box>
-          }
-        />
-      </Box>
+            <Button
+              type="submit"
+              disabled={aiLoading || !customInput.trim()}
+              variant="contained"
+              style={{ borderRadius: '10px', textTransform: 'none', fontWeight: 800, padding: '0 20px', background: 'var(--primary-main)', color: '#fff', whiteSpace: 'nowrap' }}
+            >
+              Ask
+            </Button>
+          </form>
+        </Box>
 
-      {/* Chat logs */}
-      <Box style={{ minHeight: '220px', maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', padding: '12px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', marginBottom: '16px' }}>
-        {messages.length === 0 ? (
-          <Box style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.9rem' }}>
-            The Socratic dialogue is quiet. Propose a definition to begin...
-          </Box>
-        ) : (
-          messages.map((msg, i) => {
-            const isSystemError = msg.sender === 'system-error';
-            return (
-              <Box key={i} style={{ display: 'flex', justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
-                <Box style={{
-                  maxWidth: '85%',
-                  padding: '10px 14px',
-                  borderRadius: '12px',
-                  fontSize: '0.86rem',
-                  lineHeight: 1.4,
-                  backgroundColor: isSystemError ? 'rgba(244, 67, 54, 0.08)' : (msg.sender === 'user' ? 'rgba(28, 176, 246, 0.15)' : 'rgba(255, 255, 255, 0.04)'),
-                  border: isSystemError ? '1px solid rgba(244, 67, 54, 0.3)' : (msg.sender === 'user' ? '1px solid rgba(28, 176, 246, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)'),
-                  color: isSystemError ? '#f44336' : 'var(--text-primary)'
-                }}>
-                  <Typography variant="caption" style={{ display: 'block', fontWeight: 800, color: isSystemError ? '#f44336' : (msg.sender === 'user' ? '#1CB0F6' : 'var(--primary-main)'), marginBottom: '2px', textTransform: 'uppercase', fontSize: '0.62rem', letterSpacing: '0.05em' }}>
-                    {isSystemError ? 'System Notice' : (msg.sender === 'user' ? 'You' : 'Socrates')}
-                  </Typography>
-                  {msg.text}
-                </Box>
-              </Box>
-            );
-          })
-        )}
-        {aiLoading && (
-          <Box style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <Box style={{
-              maxWidth: '85%',
-              padding: '10px 14px',
-              borderRadius: '12px',
-              fontSize: '0.86rem',
-              lineHeight: 1.4,
-              backgroundColor: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              color: 'var(--text-secondary)',
-              fontStyle: 'italic'
-            }}>
-              Socrates is contemplating...
-            </Box>
-          </Box>
-        )}
       </Box>
-
-      {/* User Input Form */}
-      <form onSubmit={handleSendCustomMessage} style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-        <TextField
-          fullWidth
-          size="small"
-          value={customInput}
-          onChange={(e) => setCustomInput(e.target.value)}
-          placeholder="Propose a definition or ask Socrates a question..."
-          disabled={aiLoading}
-          variant="outlined"
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              color: 'var(--text-primary)',
-              borderRadius: '10px',
-              borderColor: 'rgba(255,255,255,0.15)',
-              backgroundColor: 'rgba(255,255,255,0.01)',
-              '& fieldset': {
-                borderColor: 'rgba(255,255,255,0.12)',
-              },
-              '&:hover fieldset': {
-                borderColor: 'rgba(255,255,255,0.25)',
-              },
-              '&.Mui-focused fieldset': {
-                borderColor: 'var(--primary-main)',
-              },
-            }
-          }}
-        />
-        <Button
-          type="submit"
-          disabled={aiLoading || !customInput.trim()}
-          variant="contained"
-          style={{
-            borderRadius: '10px',
-            textTransform: 'none',
-            fontWeight: 800,
-            padding: '0 20px',
-            background: 'var(--hero-gradient)',
-            color: '#fff'
-          }}
-        >
-          Ask
-        </Button>
-      </form>
     </Paper>
   );
 };

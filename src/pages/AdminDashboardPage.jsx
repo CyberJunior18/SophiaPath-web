@@ -2364,41 +2364,14 @@ const AdminDashboardPage = () => {
                 <BookIcon />
               </Avatar>
               <Box>
-                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block', fontSize: '0.65rem', letterSpacing: '0.5px' }}>PUBLISHED SPECIALIZATIONS</Typography>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block', fontSize: '0.65rem', letterSpacing: '0.5px' }}>PUBLISHED COURSES</Typography>
                 <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>{courses.length}</Typography>
-                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Database synced</Typography>
+                
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card className="glass-panel" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)' }}>
-            <CardContent style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <Avatar style={{ background: 'rgba(76, 175, 80, 0.15)', color: '#4caf50' }}>
-                <VerifiedIcon />
-              </Avatar>
-              <Box>
-                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block', fontSize: '0.65rem', letterSpacing: '0.5px' }}>COURSE RETENTION RATE</Typography>
-                <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>84.5%</Typography>
-                <Typography variant="caption" style={{ color: '#4caf50', fontWeight: 800 }}>+1.8% vs last month</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card className="glass-panel" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)' }}>
-            <CardContent style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <Avatar style={{ background: 'rgba(255, 152, 0, 0.15)', color: '#ff9800' }}>
-                <SettingsIcon />
-              </Avatar>
-              <Box>
-                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block', fontSize: '0.65rem', letterSpacing: '0.5px' }}>CORE API GATEWAY HEALTH</Typography>
-                <Typography variant="h5" style={{ fontWeight: 900, color: '#4caf50', fontFamily: '"Outfit", sans-serif' }}>Optimal</Typography>
-                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>API latency: 42ms</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+        
       </Grid>
 
       {/* Sub-tab selection bar */}
@@ -2421,8 +2394,7 @@ const AdminDashboardPage = () => {
         >
           <Tab value="courses" label="Curriculum Designer" />
           <Tab value="users" label="User Access Control" />
-          <Tab value="logs" label="Security Audit Trail" />
-          <Tab value="settings" label="Platform Configurations" />
+          <Tab value="logs" label="Security Logs" />
         </Tabs>
       </Paper>
 
@@ -2621,128 +2593,7 @@ const AdminDashboardPage = () => {
         </Paper>
       )}
 
-      {adminTab === 'settings' && (
-        <Paper className="glass-panel" style={{ padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)' }}>
-          <Box style={{ marginBottom: '24px' }}>
-            <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>Platform Configurations</Typography>
-            <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Global feature flags, security layers, and simulated system modes</Typography>
-          </Box>
-
-          <Grid container spacing={4}>
-            <Grid item xs={12} md={6} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>Platform Feature Flags</Typography>
-              
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={systemSettings.maintenanceMode}
-                    onChange={(e) => {
-                      setSystemSettings(prev => ({ ...prev, maintenanceMode: e.target.checked }));
-                      addLog('Maintenance mode toggled to: ' + e.target.checked, 'system');
-                    }}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>System-Wide Maintenance Overlay</Typography>
-                    <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Enables a simulated offline screen for students</Typography>
-                  </Box>
-                }
-              />
-
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={systemSettings.publicRegistrations}
-                    onChange={(e) => {
-                      setSystemSettings(prev => ({ ...prev, publicRegistrations: e.target.checked }));
-                      addLog('Public user registrations toggled to: ' + e.target.checked, 'system');
-                    }}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Open Enrolment (Public Signups)</Typography>
-                    <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Allows new signups from the login portal</Typography>
-                  </Box>
-                }
-              />
-
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={systemSettings.strictSsl}
-                    onChange={(e) => {
-                      setSystemSettings(prev => ({ ...prev, strictSsl: e.target.checked }));
-                      addLog('Strict SSL verification toggled to: ' + e.target.checked, 'system');
-                    }}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Enforce TLS 1.3 Security Headers</Typography>
-                    <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Terminates unencrypted browser traffic automatically</Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>AI Model Configurations</Typography>
-
-              <Box>
-                <Typography variant="body2" style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>Socrates AI Reasoning Depth</Typography>
-                <Select
-                  fullWidth
-                  value={systemSettings.socratesThinkingMode}
-                  onChange={(e) => {
-                    setSystemSettings(prev => ({ ...prev, socratesThinkingMode: e.target.value }));
-                    addLog('Socratic AI reasoning setting updated to: ' + e.target.value, 'system');
-                  }}
-                  sx={{
-                    color: 'var(--text-primary)',
-                    borderRadius: '10px',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.25)' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }
-                  }}
-                >
-                  <MenuItem value="Non-Thinking (Standard)">Standard (Speed Optimized)</MenuItem>
-                  <MenuItem value="Thinking (Reasoning)">Balanced Think Mode (Recommended)</MenuItem>
-                  <MenuItem value="Deep Reasoning (V4 Pro)">Deep Cognitive Search (V4 Core)</MenuItem>
-                </Select>
-              </Box>
-
-              <Box>
-                <Typography variant="body2" style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>Global Voice Synthesis Model (ElevenLabs)</Typography>
-                <Select
-                  fullWidth
-                  value={systemSettings.defaultTtsVoice}
-                  onChange={(e) => {
-                    setSystemSettings(prev => ({ ...prev, defaultTtsVoice: e.target.value }));
-                    addLog('Global ElevenLabs voice channel mapped to: ' + e.target.value, 'system');
-                  }}
-                  sx={{
-                    color: 'var(--text-primary)',
-                    borderRadius: '10px',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.25)' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }
-                  }}
-                >
-                  <MenuItem value="Antoni">Antoni (ErXwobaYiN019PkySvjV)</MenuItem>
-                  <MenuItem value="Clyde">Clyde (ThT50A1aJnNZ1Ems30hg)</MenuItem>
-                  <MenuItem value="Rachel">Rachel (21m00Tcm4TlvDq8ikWAM)</MenuItem>
-                </Select>
-              </Box>
-            </Grid>
-          </Grid>
-        </Paper>
-      )}
-
+     
       {/* Course Creation Modal Dialog */}
       <Dialog 
         open={courseDialogOpen} 
