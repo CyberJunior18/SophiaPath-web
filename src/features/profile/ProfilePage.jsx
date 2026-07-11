@@ -64,7 +64,7 @@ const ProfilePage = () => {
   useEffect(() => {
     const loadCourses = async () => {
       try {
-        const res = await fetch('/courses/export/all');
+        const res = await fetch('/courses');
         if (res.ok) {
           const list = await res.json();
           setCourses(list);

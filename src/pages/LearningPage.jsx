@@ -59,7 +59,7 @@ const LearningPage = () => {
   useEffect(() => {
     const loadCourses = async () => {
       try {
-        const res = await fetch('/courses/export/all');
+        const res = await fetch('/courses');
         if (res.ok) {
           const backendCourses = await res.json();
           if (backendCourses && backendCourses.length > 0) {
@@ -88,7 +88,7 @@ const LearningPage = () => {
           }
         }
       } catch (err) {
-        console.error('Failed to load courses from backend export/all:', err);
+        console.error('Failed to load courses from backend /courses:', err);
       }
     };
     loadCourses();

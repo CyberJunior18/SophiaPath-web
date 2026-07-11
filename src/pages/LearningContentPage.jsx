@@ -1740,7 +1740,7 @@ const LearningContentPage = () => {
         let targetSectionId = sectionId;
 
         // Query the database to find which course and section this lesson ID actually belongs to
-        const exportRes = await fetch('/courses/export/all');
+        const exportRes = await fetch('/courses');
         if (exportRes.ok) {
           const allCourses = await exportRes.json();
           let found = false;
