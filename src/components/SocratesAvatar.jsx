@@ -253,7 +253,7 @@ export default function SocratesAvatar({ isTalking = false, aiLoading = false, s
   }, [stopMonologue]);
 
   const activePose = size === 'full' ? poseName : currentPose;
-  const p = POSES[activePose];
+  const p = POSES[activePose] || POSES.idle;
 
   const renderHand = (type) => {
     switch(type) {
@@ -405,58 +405,9 @@ export default function SocratesAvatar({ isTalking = false, aiLoading = false, s
       <path d="M 0,610 L 240,500 L 430,590 L 700,460 L 930,570 L 1000,530 L 1000,800 L 0,800 Z" fill="#432043" style={{ opacity: cycleData.sunsetOpacity }} />
       <path d="M 0,610 L 240,500 L 430,590 L 700,460 L 930,570 L 1000,530 L 1000,800 L 0,800 Z" fill="#4a72a1" style={{ opacity: cycleData.dayOpacity }} />
 
-      {/* Right rounded Olive Tree (Layered for Day, Sunset, Night transitions) */}
-      {/* Night tree (base) */}
-      <g transform="translate(860, 895)" className="tree-sway-slow">
-        <path d="M -10,215 Q -15,175 -5,150 Q 10,140 5,125 L 12,95 Q 18,145 12,215 Z" fill="#0c0a10" />
-        <circle cx="0" cy="90" r="48" fill="#131e15" />
-        <circle cx="-35" cy="100" r="38" fill="#0f1510" />
-        <circle cx="35" cy="95" r="34" fill="#182519" />
-        <circle cx="5" cy="65" r="36" fill="#1e2c1f" opacity="0.85" />
-      </g>
 
-      {/* Sunset tree overlay */}
-      <g transform="translate(860, 895)" className="tree-sway-slow" style={{ opacity: cycleData.sunsetOpacity }}>
-        <path d="M -10,215 Q -15,175 -5,150 Q 10,140 5,125 L 12,95 Q 18,145 12,215 Z" fill="#382110" />
-        <circle cx="0" cy="90" r="48" fill="#384a37" />
-        <circle cx="-35" cy="100" r="38" fill="#2d3a2e" />
-        <circle cx="35" cy="95" r="34" fill="#435544" />
-        <circle cx="5" cy="65" r="36" fill="#4c674e" opacity="0.85" />
-      </g>
 
-      {/* Day tree overlay */}
-      <g transform="translate(860, 895)" className="tree-sway-slow" style={{ opacity: cycleData.dayOpacity }}>
-        <path d="M -10,215 Q -15,175 -5,150 Q 10,140 5,125 L 12,95 Q 18,145 12,215 Z" fill="#24190f" />
-        <circle cx="0" cy="90" r="48" fill="#283a2a" />
-        <circle cx="-35" cy="100" r="38" fill="#1e2c20" />
-        <circle cx="35" cy="95" r="34" fill="#354a37" />
-        <circle cx="5" cy="65" r="36" fill="#3e5941" opacity="0.85" />
-      </g>
 
-      {/* Foreground decorative olive branch frame (Layered for Day, Sunset, Night transitions) */}
-      {/* Night branch (base) */}
-      <g id="olive-branches-night" className="foliage-sway" transform="translate(40, 240)">
-        <path d="M 0,150 Q 120,230 180,330" stroke="#000000" strokeWidth="10" fill="none" />
-        <ellipse cx="80" cy="200" rx="15" ry="32" transform="rotate(-30 80 200)" fill="#050a07" />
-        <ellipse cx="140" cy="260" rx="12" ry="28" transform="rotate(-45 140 260)" fill="#070c09" />
-        <ellipse cx="170" cy="315" rx="10" ry="24" transform="rotate(-60 170 315)" fill="#050a07" />
-      </g>
-
-      {/* Sunset branch overlay */}
-      <g id="olive-branches-sunset" className="foliage-sway" transform="translate(40, 240)" style={{ opacity: cycleData.sunsetOpacity }}>
-        <path d="M 0,150 Q 120,230 180,330" stroke="#120615" strokeWidth="10" fill="none" />
-        <ellipse cx="80" cy="200" rx="15" ry="32" transform="rotate(-30 80 200)" fill="#201524" />
-        <ellipse cx="140" cy="260" rx="12" ry="28" transform="rotate(-45 140 260)" fill="#2a1b30" />
-        <ellipse cx="170" cy="315" rx="10" ry="24" transform="rotate(-60 170 315)" fill="#201524" />
-      </g>
-
-      {/* Day branch overlay */}
-      <g id="olive-branches-day" className="foliage-sway" transform="translate(40, 240)" style={{ opacity: cycleData.dayOpacity }}>
-        <path d="M 0,150 Q 120,230 180,330" stroke="#04050a" strokeWidth="10" fill="none" />
-        <ellipse cx="80" cy="200" rx="15" ry="32" transform="rotate(-30 80 200)" fill="#101913" />
-        <ellipse cx="140" cy="260" rx="12" ry="28" transform="rotate(-45 140 260)" fill="#152119" />
-        <ellipse cx="170" cy="315" rx="10" ry="24" transform="rotate(-60 170 315)" fill="#101913" />
-      </g>
 
       {/* Temple Platform Floor Base (Layered for Day, Sunset, Night transitions) */}
       {/* Night floor (base) */}

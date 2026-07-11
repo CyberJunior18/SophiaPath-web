@@ -34,6 +34,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './LearningContentPage.css'; // Reuses existing glassmorphic page styles
 import { ReligionTreeMap } from '../components/ReligionTreeMap';
 import SocratesAvatar from '../components/SocratesAvatar';
+import logoImg from '../assets/sp-logo.png';
 
 // 1. Upgraded Socratic Dialogue Widget (AI Chat Only)
 export const SocraticDialogueWidget = () => {
@@ -324,218 +325,650 @@ export const SocraticDialogueWidget = () => {
 };
 
 // 3. Fallacy Matcher Widget
+// 3. Fallacy Encyclopedia & Quiz Widget
+const FALLACIES_DATABASE = [
+  { name: "Ad hominem", desc: "Attacking the opponent's character instead of their argument.", ex: "Don't listen to his economic plan; he was fired from his last job." },
+  { name: "Abusive ad hominem", desc: "Directly insulting the opponent to discredit them.", ex: "Her proposal is ridiculous because she is a known liar and a fool." },
+  { name: "Circumstantial ad hominem", desc: "Arguing that the opponent's position is motivated by their personal circumstances.", ex: "Of course the car salesman says we need a new car; he gets a commission." },
+  { name: "Tu quoque", desc: "Claiming an argument is invalid because the speaker's own actions don't align with it.", ex: "You tell me to eat healthy, but yesterday I saw you eating a double cheeseburger." },
+  { name: "Poisoning the well", desc: "Presenting adverse information about an opponent beforehand to discredit anything they say.", ex: "Before my opponent takes the stage, keep in mind he has a history of cheating." },
+  { name: "Genetic fallacy", desc: "Judging an argument based solely on its origin rather than its current merit.", ex: "This idea comes from a fringe website, so it must be completely false." },
+  { name: "Straw man", desc: "Misrepresenting or exaggerating an opponent's argument to make it easier to attack.", ex: "She wants to reduce defense spending, so she wants our country to be completely defenseless!" },
+  { name: "Weak man", desc: "Attacking the weakest or easiest-to-refute version of an opponent's arguments.", ex: "Some people oppose the project because of the color of the signs; that's a silly reason." },
+  { name: "Steel man", desc: "Representing the opponent's argument in its strongest, most logical form before addressing it.", ex: "Let's assume the proposed policy aims to prevent fraud in the most efficient way..." },
+  { name: "Red herring", desc: "Introducing an irrelevant topic to divert attention from the original issue.", ex: "Why worry about the environment when we have so many unemployed people?" },
+  { name: "False dilemma", desc: "Presenting only two options when multiple alternatives exist.", ex: "Either we build a new highway, or the city's economy will collapse." },
+  { name: "False dichotomy", desc: "Dividing a spectrum of options into two mutually exclusive choices.", ex: "You're either a hard worker who supports this, or you are lazy and oppose it." },
+  { name: "False trilemma", desc: "Presenting only three options when more options exist.", ex: "A leader is either a hero, a villain, or a coward." },
+  { name: "Slippery slope", desc: "Claiming a relatively small step will inevitably lead to a chain of drastic, negative events.", ex: "If we ban plastic straws, they will eventually ban all plastics and destroy the economy." },
+  { name: "Hasty generalization", desc: "Drawing a broad conclusion from a very small or unrepresentative sample size.", ex: "My two friends didn't like the movie, so it must be a flop." },
+  { name: "Overgeneralization", desc: "Applying a general rule too broadly or to cases where it does not fit.", ex: "All birds can fly, so this penguin must be able to fly too." },
+  { name: "Cherry picking", desc: "Selecting only data that supports one's position while ignoring contradictory evidence.", ex: "This study showed a benefit in two people, ignoring the 98 others who had no change." },
+  { name: "Texas sharpshooter", desc: "Clustering data points together to create a pattern where none exists.", ex: "He shot at the wall, then drew a bullseye around the cluster of bullet holes." },
+  { name: "Confirmation bias", desc: "Favoring information that confirms existing beliefs while ignoring disconfirming facts.", ex: "I only read news articles that agree with my political views." },
+  { name: "Anecdotal fallacy", desc: "Using a personal story or isolated example instead of a sound argument or statistics.", ex: "Smoking isn't bad for you; my grandfather smoked daily and lived to be 95." },
+  { name: "Appeal to emotion", desc: "Manipulating emotions to win an argument in the absence of factual evidence.", ex: "Think of the poor children who will suffer if we don't pass this tax." },
+  { name: "Appeal to fear", desc: "Using fear or scare tactics to influence an audience's opinion.", ex: "If we don't elect her, crime rates will skyrocket and destroy our neighborhoods." },
+  { name: "Appeal to pity", desc: "Exploiting feelings of pity or guilt to gain support for an argument.", ex: "I deserve a passing grade because I worked night shifts and slept very little." },
+  { name: "Appeal to ridicule", desc: "Presenting the opponent's argument in a mocking or ridiculous way to make it look foolish.", ex: "He thinks humans evolved from rocks! How absurd is that?" },
+  { name: "Appeal to spite", desc: "Dismissing a claim out of malice or spite toward the person making it.", ex: "Why support his charity? He didn't invite us to his party last year." },
+  { name: "Appeal to flattery", desc: "Using praise or flattery to gain agreement with a claim.", ex: "An intelligent person like you will easily see that my proposal is correct." },
+  { name: "Appeal to consequences", desc: "Arguing a claim is true or false based on whether its truth leads to desirable or undesirable outcomes.", ex: "God must exist, because without Him, life would have no meaning." },
+  { name: "Appeal to nature", desc: "Arguing that something is good because it is natural, or bad because it is unnatural.", ex: "Herbal medicine is always better because it comes directly from the earth." },
+  { name: "Appeal to tradition", desc: "Arguing that a practice is correct simply because it has been done that way for a long time.", ex: "We must keep this voting system because we have used it for two centuries." },
+  { name: "Appeal to novelty", desc: "Arguing that something is superior simply because it is new or modern.", ex: "This software must be better because it was released just yesterday." },
+  { name: "Appeal to popularity", desc: "Arguing a claim is true because many people believe it.", ex: "Everyone is buying this stock, so it must be a safe and smart investment." },
+  { name: "Bandwagon", desc: "Encouraging someone to do or believe something because 'everyone else is doing it'.", ex: "Join our movement; millions of people have already signed up!" },
+  { name: "Appeal to authority", desc: "Claiming a statement is true solely because an authority figure said it.", ex: "The president said this medicine works, so it must be 100% safe." },
+  { name: "False authority", desc: "Using an authority figure's opinion on a topic outside their area of expertise.", ex: "A famous actor says this diet cures cancer, so I'm going to try it." },
+  { name: "Appeal to ignorance", desc: "Arguing a claim is true because it hasn't been proven false (or vice versa).", ex: "No one has proven aliens don't exist, so they must exist." },
+  { name: "Burden of proof", desc: "Placing the responsibility to prove a claim on the skeptic rather than the claimant.", ex: "I believe in ghosts; if you don't, prove that they don't exist!" },
+  { name: "Begging the question", desc: "An argument's premises assume the truth of the conclusion it is trying to prove.", ex: "Freedom of speech is important because people should be allowed to speak freely." },
+  { name: "Circular reasoning", desc: "A reasoning path where the beginning is the same as the end.", ex: "The Bible is the word of God because God wrote it, and God wouldn't lie." },
+  { name: "Loaded question", desc: "Asking a question that contains a controversial or unjustified assumption built in.", ex: "Have you stopped stealing money from your parents yet?" },
+  { name: "Complex question", desc: "A question that presupposes several facts and demands a single, simple answer.", ex: "Why did you sabotage the project, and when will you resign?" },
+  { name: "Equivocation", desc: "Using a word with multiple meanings in different parts of an argument to mislead.", ex: "Feathers are light. Light is not dark. Therefore, feathers are not dark." },
+  { name: "Amphiboly", desc: "Using ambiguous grammatical structures to create multiple interpretations.", ex: "Save washing machine and dry yourself." },
+  { name: "Accent fallacy", desc: "Changing the meaning of an argument by placing stress on specific words.", ex: "We should not speak *ill* of our friends (implying we can speak ill of others)." },
+  { name: "Composition", desc: "Arguing that what is true of the parts must be true of the whole.", ex: "Each player on the team is excellent, so the team must be unbeatable." },
+  { name: "Division", desc: "Arguing that what is true of the whole must be true of the parts.", ex: "The company is extremely profitable, so every employee must be rich." },
+  { name: "False cause", desc: "Assuming a cause-and-effect relationship between two events without proof.", ex: "I wore my lucky socks and won the game; the socks caused the victory." },
+  { name: "Post hoc ergo propter hoc", desc: "Assuming that because event B followed event A, event A caused event B.", ex: "The rooster crows right before sunrise, so the rooster causes the sun to rise." },
+  { name: "Cum hoc ergo propter hoc", desc: "Assuming correlation implies causation because two events occur together.", ex: "Ice cream sales and drowning rates increase together, so ice cream causes drowning." },
+  { name: "Non sequitur", desc: "A conclusion that does not logically follow from the previous arguments or premises.", ex: "She drives a red sports car, so she must be a great cook." },
+  { name: "Affirming the consequent", desc: "Invalid formal argument: If A then B; B, therefore A.", ex: "If it rains, the street gets wet. The street is wet, so it must have rained." },
+  { name: "Denying the antecedent", desc: "Invalid formal argument: If A then B; not A, therefore not B.", ex: "If you are a doctor, you went to college. You are not a doctor, so you didn't go to college." },
+  { name: "Middle ground", desc: "Arguing that a compromise or middle position between two extremes is always correct.", ex: "One person says the sky is blue, another says it's yellow; therefore, it must be green." },
+  { name: "No true Scotsman", desc: "Redefining a term to exclude counterexamples and protect a generalization.", ex: "No Scotsman puts sugar on his porridge. But Angus does! Well, no *true* Scotsman does." },
+  { name: "Special pleading", desc: "Applying standards or rules to others while demanding an exception for oneself without justification.", ex: "Everyone must wait in line, but I am too busy and should go first." },
+  { name: "Moving the goalposts", desc: "Changing the criteria of a challenge or argument after the opponent has met the original criteria.", ex: "You proved it works in a lab, but now you must prove it works in space." },
+  { name: "Nirvana fallacy", desc: "Comparing a realistic, messy solution with an idealized, perfect alternative.", ex: "Seatbelts are useless because people still die in car crashes even while wearing them." },
+  { name: "Perfect solution fallacy", desc: "Rejecting a solution because it does not solve the entire problem perfectly.", ex: "Why fund cancer research? It won't stop people from getting other diseases." },
+  { name: "False analogy", desc: "Comparing two situations that are not similar enough to warrant the comparison.", ex: "Employees are like cogs in a machine; they don't need breaks or wages, just oil." },
+  { name: "Faulty analogy", desc: "Drawing conclusions based on superficial similarities between two distinct things.", ex: "Medical clinics are like auto shops; both just swap out broken parts." },
+  { name: "Gambler's fallacy", desc: "Believing that past random events influence the probability of future independent events.", ex: "The coin landed on heads five times in a row, so tails is 'due' on the next flip." },
+  { name: "Hot hand fallacy", desc: "Believing a person who has experienced success has a greater chance of success in subsequent attempts.", ex: "He made three baskets in a row; he cannot miss his next shot." },
+  { name: "Sunk cost fallacy", desc: "Continuing an endeavor because of past invested resources, even when stopping is better.", ex: "I hate this movie, but I paid $15 for the ticket, so I'm going to stay until the end." },
+  { name: "Appeal to probability", desc: "Assuming that because something *can* happen, it *will* happen.", ex: "There is a minor chance of a meteor strike today, so I am staying in my bunker." },
+  { name: "Appeal to wealth", desc: "Assuming someone is correct or superior because they are rich.", ex: "He is a billionaire, so his advice on parenting must be excellent." },
+  { name: "Appeal to poverty", desc: "Assuming someone is correct or morally superior because they are poor.", ex: "He lives in a humble hut, so he must possess deep spiritual wisdom." },
+  { name: "Appeal to force", desc: "Using threats of force or negative consequences to compel agreement.", ex: "Agree with my decision, or you will find yourself looking for another job." },
+  { name: "Argument from silence", desc: "Drawing a conclusion based on the absence of statements or silence of an opponent.", ex: "He didn't reply to my email, which proves he has no defense and is guilty." },
+  { name: "Argument from incredulity", desc: "Dismissing a claim because it is difficult to understand or believe.", ex: "I cannot fathom how space is curved, so Einstein's theory must be wrong." },
+  { name: "Personal incredulity", desc: "Arguing that a claim is false because you personally cannot understand or explain it.", ex: "I don't see how cells evolved, so creationism must be true." },
+  { name: "Appeal to motive", desc: "Challenging an argument by questioning the motives of the person proposing it.", ex: "She supports green energy only because she owns stock in solar companies." },
+  { name: "Moralistic fallacy", desc: "Assuming that because something is morally undesirable, it cannot be natural or true.", ex: "War is evil, so violence cannot be part of human nature." },
+  { name: "Naturalistic fallacy", desc: "Arguing that because something is natural, it must be morally good or acceptable.", ex: "Animals eat each other in nature, so it is morally right for us to eat meat." },
+  { name: "Is-ought fallacy", desc: "Arguing that because things *are* a certain way, they *should* be that way.", ex: "Slavery was practiced for thousands of years, so it's a natural social order." },
+  { name: "Ecological fallacy", desc: "Deducing information about an individual based solely on group-level statistics.", ex: "This city has a high crime rate; therefore, John, who lives there, must be a criminal." },
+  { name: "Masked man fallacy", desc: "Invalid substitution of terms in modal logic.", ex: "I know my father. I do not know the masked man. Therefore, the masked man is not my father." },
+  { name: "Undistributed middle", desc: "Formal fallacy: All A are B; C is B; therefore, C is A.", ex: "All dogs have four legs. Cats have four legs. Therefore, cats are dogs." },
+  { name: "Four-term fallacy", desc: "Formal fallacy occurring in a syllogism that has four terms instead of three.", ex: "All fish swim. Some pools are fishy. Therefore, pools swim." },
+  { name: "Illicit major", desc: "Formal fallacy where the major term is distributed in the conclusion but not in the major premise.", ex: "All dogs are mammals. No cats are dogs. Therefore, no cats are mammals." },
+  { name: "Illicit minor", desc: "Formal fallacy where the minor term is distributed in the conclusion but not in the minor premise.", ex: "All dogs are mammals. All dogs are friendly. Therefore, all mammals are friendly." },
+  { name: "Exclusive premises", desc: "Categorical syllogism that is invalid because both of its premises are negative.", ex: "No dogs are cats. No cats are fish. Therefore, no dogs are fish." },
+  { name: "Existential fallacy", desc: "Syllogism that assumes a class has members when it has not been established.", ex: "All unicorns are magical. Therefore, some magical things are unicorns." },
+  { name: "Accident", desc: "Applying a general rule to an exceptional case where it does not apply.", ex: "Cutting people with knives is a crime. Surgeons cut people; they are criminals." },
+  { name: "Converse accident", desc: "Generalizing from an atypical, exceptional case to all cases.", ex: "Since morphine is given to patients in pain, everyone should be allowed to use it." },
+  { name: "Suppressing evidence", desc: "Intentionally omitting relevant facts that contradict one's position.", ex: "Our sales doubled this month (omitting that they fell 90% the previous month)." },
+  { name: "False equivalence", desc: "Arguing that two completely different things are equal or comparable.", ex: "Both rain and hurricanes are just water falling from the sky; they are the same." },
+  { name: "Tokenism", desc: "Offering a superficial or symbolic gesture instead of meaningful action.", ex: "We hired one minority worker, so our company is completely diverse now." },
+  { name: "Whataboutism", desc: "Responding to criticism by accusing the opponent of a similar or worse offense.", ex: "Why are you calling me out for lying? What about when you lied last year?" },
+  { name: "Appeal to hypocrisy", desc: "Rejecting criticism because the critic is also guilty of the behavior.", ex: "How can you tell me to drive slower when you got a speeding ticket last week?" },
+  { name: "Argument by repetition", desc: "Repeating a claim constantly instead of providing evidence for it.", ex: "I am right. I am right. As I've said before, I am absolutely right." },
+  { name: "Proof by assertion", desc: "Declaring a statement is true repeatedly without proving it.", ex: "This product works. It just does. Believe me, it works." },
+  { name: "Ipse dixit", desc: "A dogmatic statement of opinion presented as an established fact without proof.", ex: "It is true simply because I say it is true." },
+  { name: "Appeal to common practice", desc: "Arguing a behavior is correct because 'everyone does it'.", ex: "It's fine to cheat on taxes; everyone does it to save a little cash." },
+  { name: "Appeal to common belief", desc: "Claiming an idea is true because a large number of people believe it.", ex: "Most people once believed the Earth was flat, so it must have been flat." },
+  { name: "Appeal to coincidence", desc: "Arguing that a clear cause-and-effect relationship is just a coincidence.", ex: "He got sick right after drinking poison, but it was just a coincidence." },
+  { name: "Regression fallacy", desc: "Failing to account for natural fluctuations and attributing a change to an intervention.", ex: "I had a bad cold, drank tea, and got better. The tea cured my cold!" },
+  { name: "Base rate fallacy", desc: "Ignoring general probability statistics in favor of specific, anecdotal cases.", ex: "The test is 99% accurate, but in a rare population, positive results are mostly false." },
+  { name: "Availability heuristic", desc: "Overestimating the likelihood of events based on how easily they are recalled.", ex: "I saw a shark attack on the news, so I am never swimming in the ocean again." },
+  { name: "Survivorship bias", desc: "Focusing on successful outcomes while ignoring failures in a data set.", ex: "He dropped out of college and became a billionaire, so college is a waste of time." },
+  { name: "False balance", desc: "Presenting two opposing views as equally valid when one is overwhelmingly supported by evidence.", ex: "Giving equal broadcast time to a climate scientist and a flat-Earther." },
+  { name: "Relative privation", desc: "Dismissing a problem because 'others have it worse'.", ex: "Don't complain about your broken leg; there are children starving in the world." },
+  { name: "Appeal to envy", desc: "Dismissing an argument based on jealousy or envy of the opponent.", ex: "She only supports that policy because she is jealous of my success." },
+  { name: "Appeal to heaven", desc: "Claiming an action is justified because it is God's will.", ex: "We were commanded by heaven to take this land, so we are justified." },
+  { name: "Historian's fallacy", desc: "Judging past decisions based on information that was only available later.", ex: "They should have known the stock market would crash in 1929; it was obvious." },
+  { name: "McNamara fallacy", desc: "Making decisions based solely on quantitative metrics and ignoring qualitative factors.", ex: "Our student test scores are up, so our school must be teaching beautifully." },
+  { name: "Ludic fallacy", desc: "Applying simple game-like probability models to complex, unpredictable real-world situations.", ex: "The math model says this bank collapse is impossible, so we are 100% safe." },
+  { name: "Fallacy of gray", desc: "Arguing that because no position is perfect, all positions are equally valid or flawed.", ex: "Both political parties have corrupt members, so they are exactly the same." },
+  { name: "Continuum fallacy", desc: "Rejecting a claim because there is no clear line separating two states.", ex: "Losing one hair doesn't make you bald, so you can never truly become bald." },
+  { name: "Line-drawing fallacy", desc: "Arguing that because no precise line can be drawn, no difference exists.", ex: "Since we can't define exactly when night becomes day, night and day are the same." },
+  { name: "Reification", desc: "Treating an abstract concept or idea as if it were a physical, concrete thing.", ex: "Justice demanded that he be punished (treating justice as a sentient being)." },
+  { name: "Hypostatization", desc: "An alternate name for reification; treating abstractions as real agents.", ex: "Nature knows exactly what is best for our bodies." },
+  { name: "Category mistake", desc: "Ascribing a property to something that belongs to a completely different category.", ex: "I saw the libraries, classrooms, and students, but where is the 'University'?" },
+  { name: "Package deal", desc: "Assuming that items grouped together by tradition or culture must always go together.", ex: "If you support environmental laws, you must also support tax hikes." },
+  { name: "Wishful thinking", desc: "Assuming a claim is true simply because you want it to be true.", ex: "I am going to win the lottery today because I really need the money." },
+  { name: "Argument from adverse consequences", desc: "Arguing a statement is false because its truth would lead to bad outcomes.", ex: "Climate change can't be real because fixing it would bankrupt my business." },
+  { name: "Appeal to accomplishment", desc: "Evaluating an argument based on the credentials or success of the speaker.", ex: "Write a best-selling book first, then criticize my writing style." },
+  { name: "Courtier's reply", desc: "Dismissing criticism by claiming the critic lacks deep, specialized knowledge of the subject.", ex: "You cannot criticize this religion because you haven't read all 80 volumes." },
+  { name: "Bulverism", desc: "Assuming an opponent is wrong and explaining why they hold that belief, without addressing the argument.", ex: "You only say the budget needs cuts because you are a frugal accountant." },
+  { name: "Psychologist's fallacy", desc: "Assuming that one's own subjective interpretations are objective facts for everyone.", ex: "I found this exam incredibly easy, so anyone who failed must be lazy." },
+  { name: "Historicism", desc: "Assuming historical patterns dictate future human choices and events inevitably.", ex: "History shows empires always collapse, so our country will fall by next decade." },
+  { name: "Halo effect", desc: "Letting overall positive feelings about a person influence judgments of their arguments.", ex: "He is a handsome and kind actor, so his views on nuclear physics must be right." },
+  { name: "Argument from verbosity", desc: "Making an argument so incredibly long and complex that opponents cannot refute it.", ex: "This 900-page document proves my point; read it if you want to debate me." },
+  { name: "Argument from personal experience", desc: "Declaring a claim is true or false based solely on one's own experiences.", ex: "I've never experienced racism, so racism does not exist in our city." },
+  { name: "Appeal to luck", desc: "Attributing success or failure to luck rather than effort or skill.", ex: "She only got the promotion because she was lucky; her work had nothing to do with it." },
+  { name: "Divine fallacy", desc: "Attributing a phenomenon to a supernatural cause because it is amazing or mysterious.", ex: "I don't know how this magician levitated, so it must be real magic." },
+  { name: "Just-world fallacy", desc: "Assuming that the world is inherently fair and people get what they deserve.", ex: "He got scammed because he must have done something bad in his past." },
+  { name: "Worldview defense", desc: "Rejecting evidence that threatens one's core beliefs to protect cognitive comfort.", ex: "I refuse to look at those fossils because they contradict my belief in creation." },
+  { name: "False attribution", desc: "Attributing a quote or claim to an unreliable source, or fabricating it.", ex: "Einstein once said that reading books makes you a genius." },
+  { name: "Intentional fallacy", desc: "Judging the meaning of a work of art solely by the creator's intent.", ex: "The painter meant to show joy, so this painting cannot be interpreted as sad." },
+  { name: "One true cause", desc: "Attributing a complex outcome to a single, simple cause.", ex: "The fall of the empire was caused entirely by high taxes." },
+  { name: "Single cause fallacy", desc: "Assuming there is only one cause for an event when multiple causes exist.", ex: "School grades fell this year solely because of screen time." },
+  { name: "Oversimplification", desc: "Reducing a complex issue to a simple statement that ignores crucial details.", ex: "Solving poverty is easy: just print more money and give it to everyone." },
+  { name: "Causal reductionism", desc: "Explaining an event by focusing on only one of many contributing causes.", ex: "The accident happened because the driver was tired (ignoring bad weather)." },
+  { name: "Correlation implies causation", desc: "Assuming that because two variables move together, one causes the other.", ex: "Ice cream sales and sunglasses sales are correlated, so ice cream sales cause sunglasses purchases." },
+  { name: "Argumentum ad baculum", desc: "An argument that relies on force or the threat of force to compel agreement.", ex: "Accept this budget proposal, or we will cut your department's funding completely." },
+  { name: "Argumentum ad misericordiam", desc: "An appeal to pity or misery to win support for a claim.", ex: "Please give me a loan; my car broke down and my cat is sick." },
+  { name: "Argumentum ad populum", desc: "Arguing a claim is correct because it is popular or favored by the public.", ex: "This brand is the most popular in the country, so it must be the best." },
+  { name: "Argumentum ad verecundiam", desc: "An appeal to inappropriate authority or reverence for a figure.", ex: "Aristotle said heavy objects fall faster, so it must be true." },
+  { name: "Argumentum ad ignorantiam", desc: "Arguing a claim is true simply because it hasn't been proven false.", ex: "No one has proven that ghosts aren't real, so they exist." },
+  { name: "Ignoratio elenchi", desc: "An argument that reaches a conclusion other than the one intended.", ex: "We need more housing. Therefore, we should build a giant shopping mall." },
+  { name: "Dicto simpliciter", desc: "Applying a general rule or statement to all cases without considering exceptions.", ex: "Exercise is good for everyone. Therefore, my friend with a broken back should go jogging." },
+  { name: "Secundum quid", desc: "An argument that ignores qualifications or context, leading to a hasty generalization.", ex: "You said you shouldn't lie, but you lied to save her life! You are a hypocrite." },
+  { name: "False precision", desc: "Presenting data with a level of precision that is not justified by the measurements.", ex: "The dinosaur fossil is exactly 65,000,003 years old (because I found it 3 years ago)." },
+  { name: "Incomplete comparison", desc: "Making a comparison without providing enough information to evaluate it.", ex: "This new detergent cleans clothes up to 50% better!" },
+  { name: "Appeal to moderation", desc: "Arguing that the middle ground or moderate position is always correct.", ex: "One person wants to poison the water, another doesn't. Let's compromise and add a little poison." },
+  { name: "Decision-point fallacy", desc: "Arguing that because there is no clear transition point, no difference exists.", ex: "Since we can't say exactly when a pile of sand becomes a heap, heaps don't exist." },
+  { name: "Excluded middle misuse", desc: "Incorrectly applying binary choices when multiple outcomes are possible.", ex: "You either love football, or you hate all sports." },
+  { name: "Conjunction fallacy", desc: "Assuming that a specific combination of events is more probable than a single general one.", ex: "Linda is a bank teller. Linda is a bank teller and is active in the feminist movement." },
+  { name: "Denialism", desc: "Rejecting established scientific consensus in favor of unsupported beliefs.", ex: "I don't believe in gravity; it's just a conspiracy created by physics professors." },
+  { name: "Thought-terminating cliche", desc: "Using a common phrase or cliché to end debate and bypass thinking.", ex: "At the end of the day, it is what it is." }
+];
+
+const QUIZ_LIBRARY = [
+  {
+    arg: "My opponent says we should reduce the city's police budget. Well, apparently he wants to abolish all laws, release every violent criminal from jail, and let chaos rule our streets!",
+    fallacy: "Straw man",
+    explanation: "This exaggerates the opponent's moderate budget proposal into a cartoonish extreme of abolishing all laws."
+  },
+  {
+    arg: "I don't think you can trust Dr. Harris's recommendations on heart health. I heard he was recently divorced and has terrible relationships with his kids.",
+    fallacy: "Ad hominem",
+    explanation: "Attacks Dr. Harris's personal relationship struggles, which are completely unrelated to his medical expertise on heart health."
+  },
+  {
+    arg: "If we allow the city to install bike lanes on this street, next they'll ban cars from the neighborhood, then they'll outlaw personal vehicles entirely, and we'll all be forced to ride government buses!",
+    fallacy: "Slippery slope",
+    explanation: "Assumes a chain of extreme consequences (banning all cars) from a small initial step (installing bike lanes) without any supporting evidence."
+  },
+  {
+    arg: "You either support this new security surveillance system 100%, or you're on the side of the criminals. Which one is it?",
+    fallacy: "False dilemma",
+    explanation: "Presents only two extreme options when many middle-ground views actually exist (such as supporting security but wanting privacy protections)."
+  },
+  {
+    arg: "Why should we listen to your complaints about our factory's pollution? You drive a gas-powered car every day, so you're just as guilty!",
+    fallacy: "Tu quoque",
+    explanation: "Attempts to discredit the argument by pointing out that the speaker's own behavior is hypocritical, which doesn't address the validity of the pollution concern."
+  },
+  {
+    arg: "Organic apples must be superior. After all, they grow naturally in the wild without any human chemicals, and nature is always the best guide for health.",
+    fallacy: "Appeal to nature",
+    explanation: "Assumes that anything 'natural' is automatically healthy or superior, which is a fallacy since many natural things (like poison ivy or snake venom) are harmful."
+  },
+  {
+    arg: "Professor Jenkins is a world-renowned expert on ancient Greek history, so when he writes articles saying that nuclear energy is too dangerous to use, we should believe him.",
+    fallacy: "False authority",
+    explanation: "Relies on Jenkins' prestige in history to validate his claims about nuclear physics, which is far outside his field of expertise."
+  },
+  {
+    arg: "No one has ever been able to prove beyond a doubt that psychic powers don't exist. Therefore, it's highly likely that some people have telepathic abilities.",
+    fallacy: "Appeal to ignorance",
+    explanation: "Claims a statement must be true simply because it hasn't been proven false."
+  },
+  {
+    arg: "The coin has landed on heads 8 times in a row! I am going to bet all my money on tails next, because it's statistically due to land on tails now.",
+    fallacy: "Gambler's fallacy",
+    explanation: "Believes that past random events influence the probability of a future coin toss, when each flip is completely independent."
+  },
+  {
+    arg: "Smoking isn't nearly as dangerous as scientists say. My uncle smoked a pack of cigarettes every day from age 15 and lived to be a healthy 98 years old!",
+    fallacy: "Anecdotal fallacy",
+    explanation: "Uses a single personal story to counter broad scientific and statistical consensus."
+  },
+  {
+    arg: "I've already spent $5,000 repairing this old car. If I sell it now, all that money is wasted, so I need to spend another $2,000 to fix the transmission today.",
+    fallacy: "Sunk cost fallacy",
+    explanation: "Forces a decision based on past non-refundable investments, ignoring that spending more money on a failing asset is a poor financial choice."
+  },
+  {
+    arg: "I drank this organic tea, and the very next morning my cold was completely cured! This tea is a miracle cure for viruses.",
+    fallacy: "Post hoc ergo propter hoc",
+    explanation: "Assumes that because the cold went away after drinking the tea, the tea must have caused the recovery (ignoring natural immune system recovery)."
+  },
+  {
+    arg: "Everyone at school is wearing this brand of shoes. If you don't buy a pair, you'll be the only outsider left behind.",
+    fallacy: "Bandwagon",
+    explanation: "Urges conformity based on the popularity of an action, rather than its objective merits."
+  },
+  {
+    arg: "How can you criticize our nation's human rights record? What about the massive labor strikes and police violence happening in your own country right now?",
+    fallacy: "Whataboutism",
+    explanation: "Deflects criticism by accusing the opponent of a similar or worse offense instead of addressing the original point."
+  },
+  {
+    arg: "He is a highly charismatic, handsome, and successful tech CEO, so when he says that remote work is bad for your brain, he must be speaking the absolute truth.",
+    fallacy: "Halo effect",
+    explanation: "Allows overall positive feelings about a person's appearance and success to bias the evaluation of their claims on neuroscience."
+  },
+  {
+    arg: "Don't bother listening to her proposal for the new community park. She only supports it because she wants to boost the value of her nearby house.",
+    fallacy: "Appeal to motive",
+    explanation: "Dismisses an argument by attacking the speaker's potential self-interest rather than evaluating the park proposal itself."
+  },
+  {
+    arg: "Every single brick in this building is extremely light and weighs less than a pound. Therefore, the entire building must be light and weigh less than a pound.",
+    fallacy: "Composition",
+    explanation: "Incorrectly assumes that what is true of the parts (individual bricks) must be true of the whole (the entire building)."
+  },
+  {
+    arg: "That country has an extremely rich economy with a high GDP. Therefore, every single citizen who lives in that country must be wealthy.",
+    fallacy: "Division",
+    explanation: "Incorrectly assumes that what is true of the whole group must be true of every individual member."
+  },
+  {
+    arg: "We shouldn't try to reduce carbon emissions because even if we do, some pollution will still exist. If we can't solve it completely, why bother?",
+    fallacy: "Perfect solution fallacy",
+    explanation: "Rejects a helpful but partial solution simply because it doesn't solve the entire problem perfectly."
+  },
+  {
+    arg: "There's no point in debating whether this project is a good idea. At the end of the day, it is what it is.",
+    fallacy: "Thought-terminating cliche",
+    explanation: "Uses a common cliché to shut down discussion and avoid critical reasoning."
+  },
+  {
+    arg: "Before you hear my opponent's argument on tax reform, I should warn you that he has twice been accused of embezzling funds from his former clients.",
+    fallacy: "Poisoning the well",
+    explanation: "Primes the audience with negative information to discredit the speaker before they even get a chance to speak."
+  },
+  {
+    arg: "My opponent says we should improve the school lunch menu. Well, apparently she wants to cater to spoiled kids and turn our public school into a five-star luxury restaurant!",
+    fallacy: "Straw man",
+    explanation: "Misrepresents a simple lunch improvement request as a ridiculous proposal to build a luxury restaurant."
+  },
+  {
+    arg: "I've never personally experienced any issues with our public transit system, so all these complaints in the news about train delays are completely fabricated.",
+    fallacy: "Argument from personal experience",
+    explanation: "Assumes one's own subjective experience constitutes the absolute reality for everyone."
+  },
+  {
+    arg: "If we don't pass this strict curfew law right now, our streets will become overrun by gangs, and your children won't be safe stepping outside their front door.",
+    fallacy: "Appeal to fear",
+    explanation: "Uses extreme fear-mongering and scary scenarios to force agreement rather than presenting evidence for the curfew's effectiveness."
+  },
+  {
+    arg: "Please do not convict my client of this burglary. He has three young kids at home, and if he goes to jail, his family will be devastated and have no source of income.",
+    fallacy: "Appeal to pity",
+    explanation: "Appeals to the audience's sympathy for the client's family instead of presenting evidence that he didn't commit the crime."
+  }
+];
+
 export const FallacySorterWidget = () => {
-  const cards = [
-    {
-      id: 1,
-      arg: "We cannot trust Dr. Smith's study on healthy eating because he was recently seen eating a double cheeseburger.",
-      fallacy: 'ad_hominem',
-      fallacyName: 'Ad Hominem',
-      explanation: "Attacks the person's character or actions rather than their argument."
-    },
-    {
-      id: 2,
-      arg: "If we allow the school to change the dress code, soon they will ban all self-expression, force us to wear matching jumpsuits, and turn the school into a prison camp.",
-      fallacy: 'slippery_slope',
-      fallacyName: 'Slippery Slope',
-      explanation: "Claims that a relatively small first step will lead to a chain of negative events without proving the connection."
-    },
-    {
-      id: 3,
-      arg: "Either you support this war completely, or you hate our country and want our enemies to win.",
-      fallacy: 'false_dilemma',
-      fallacyName: 'False Dilemma',
-      explanation: "Presents only two choices when many more alternatives exist."
-    },
-    {
-      id: 4,
-      arg: "My opponent says we should invest in renewable energy; clearly, they want to shut down all our power grids and throw us back into the dark ages!",
-      fallacy: 'straw_man',
-      fallacyName: 'Straw Man',
-      explanation: "Misrepresents an opponent's argument to make it easier to attack."
+  const [activeTab, setActiveTab] = useState('encyclopedia'); // 'encyclopedia' | 'quiz'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedIndex, setExpandedIndex] = useState(null);
+
+  // Quiz States
+  const [quizState, setQuizState] = useState('idle'); // 'idle' | 'active' | 'complete'
+  const [quizQuestions, setQuizQuestions] = useState([]);
+  const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
+  const [selectedQuizAnswer, setSelectedQuizAnswer] = useState(null);
+  const [quizRevealed, setQuizRevealed] = useState(false);
+  const [quizScore, setQuizScore] = useState(0);
+
+  // Filtered Fallacies
+  const filteredFallacies = FALLACIES_DATABASE.filter(f =>
+    f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    f.desc.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const startQuiz = () => {
+    // 1. Shuffle QUIZ_LIBRARY
+    const shuffledLib = [...QUIZ_LIBRARY].sort(() => Math.random() - 0.5);
+    // 2. Select first 10
+    const selected = shuffledLib.slice(0, 10);
+    // 3. Construct questions with 4 unique options (1 correct, 3 distractors)
+    const formattedQuestions = selected.map(q => {
+      const correct = q.fallacy;
+      // Get all other fallacy names from DB
+      const otherNames = FALLACIES_DATABASE
+        .map(fd => fd.name)
+        .filter(n => n.toLowerCase() !== correct.toLowerCase());
+      
+      // Shuffle other names and take 3
+      const shuffledOthers = otherNames.sort(() => Math.random() - 0.5);
+      const distractors = shuffledOthers.slice(0, 3);
+      
+      // Combine and shuffle options
+      const options = [correct, ...distractors].sort(() => Math.random() - 0.5);
+      
+      return {
+        ...q,
+        options
+      };
+    });
+
+    setQuizQuestions(formattedQuestions);
+    setCurrentQuizIndex(0);
+    setSelectedQuizAnswer(null);
+    setQuizRevealed(false);
+    setQuizScore(0);
+    setQuizState('active');
+  };
+
+  const handleQuizAnswer = (option) => {
+    if (quizRevealed) return;
+    setSelectedQuizAnswer(option);
+    setQuizRevealed(true);
+    if (option.toLowerCase() === quizQuestions[currentQuizIndex].fallacy.toLowerCase()) {
+      setQuizScore(prev => prev + 1);
     }
-  ];
-
-  const [selections, setSelections] = useState({ 1: '', 2: '', 3: '', 4: '' });
-  const [checked, setChecked] = useState(false);
-
-  const handleSelect = (id, value) => {
-    if (checked) return;
-    setSelections(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleCheck = () => {
-    setChecked(true);
+  const handleNextQuiz = () => {
+    if (currentQuizIndex < 9) {
+      setCurrentQuizIndex(prev => prev + 1);
+      setSelectedQuizAnswer(null);
+      setQuizRevealed(false);
+    } else {
+      setQuizState('complete');
+    }
   };
 
-  const handleReset = () => {
-    setSelections({ 1: '', 2: '', 3: '', 4: '' });
-    setChecked(false);
+  const resetQuiz = () => {
+    setQuizState('idle');
   };
 
-  const fallacies = [
-    { id: 'ad_hominem', name: 'Ad Hominem' },
-    { id: 'straw_man', name: 'Straw Man' },
-    { id: 'false_dilemma', name: 'False Dilemma' },
-    { id: 'slippery_slope', name: 'Slippery Slope' }
-  ];
+  const getQuizRank = (s) => {
+    if (s === 10) return { title: 'GRAND MASTER LOGICIAN', color: '#FFD700', icon: '🏆' };
+    if (s >= 8) return { title: 'RATIONALIST EXCELLENCE', color: '#29b6f6', icon: '🥇' };
+    if (s >= 5) return { title: 'CRITICAL DISCIPLIAN', color: '#ab47bc', icon: '🥈' };
+    return { title: 'FALLACY APPRENTICE', color: '#ef9a9a', icon: '📚' };
+  };
+
+  const currentQ = quizQuestions[currentQuizIndex];
+  const rank = getQuizRank(quizScore);
 
   return (
     <Paper className="glass-panel" style={{ padding: '24px', margin: '20px 0', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: '"Outfit", sans-serif' }}>
-        Logic Lab: Fallacy Matcher
-      </Typography>
+      {/* Header Tabs */}
+      <Box style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px', marginBottom: '20px', gap: '16px' }}>
+        <Button
+          onClick={() => setActiveTab('encyclopedia')}
+          style={{
+            textTransform: 'none',
+            fontWeight: 800,
+            fontSize: '0.88rem',
+            color: activeTab === 'encyclopedia' ? 'var(--primary-main)' : 'var(--text-secondary)',
+            fontFamily: '"Outfit", sans-serif',
+            background: activeTab === 'encyclopedia' ? 'rgba(41,182,246,0.1)' : 'transparent',
+            borderRadius: '8px',
+            padding: '6px 14px'
+          }}
+        >
+          Fallacy Encyclopedia ({FALLACIES_DATABASE.length})
+        </Button>
+        <Button
+          onClick={() => setActiveTab('quiz')}
+          style={{
+            textTransform: 'none',
+            fontWeight: 800,
+            fontSize: '0.88rem',
+            color: activeTab === 'quiz' ? 'var(--primary-main)' : 'var(--text-secondary)',
+            fontFamily: '"Outfit", sans-serif',
+            background: activeTab === 'quiz' ? 'rgba(41,182,246,0.1)' : 'transparent',
+            borderRadius: '8px',
+            padding: '6px 14px'
+          }}
+        >
+          Practice Quiz (10 Qs)
+        </Button>
+      </Box>
 
-      <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginBottom: '20px', fontSize: '0.88rem' }}>
-        Analyze each of the arguments below and select the informal fallacy it commits by clicking the corresponding option.
-      </Typography>
+      {activeTab === 'encyclopedia' ? (
+        /* ── ENCYCLOPEDIA TAB ── */
+        <Box>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search among 149 logical fallacies..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setExpandedIndex(null);
+            }}
+            InputProps={{
+              style: {
+                color: 'var(--text-primary)',
+                background: 'rgba(255,255,255,0.02)',
+                borderRadius: '10px',
+                fontFamily: '"Outfit", sans-serif',
+                fontSize: '0.88rem'
+              }
+            }}
+            style={{ marginBottom: '16px' }}
+          />
 
-      <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-        {cards.map(c => {
-          const userVal = selections[c.id];
-          const isCorrect = userVal === c.fallacy;
-          
-          return (
-            <Box 
-              key={c.id} 
-              style={{ 
-                padding: '20px', 
-                borderRadius: '16px', 
-                background: 'rgba(255,255,255,0.01)', 
-                border: checked 
-                  ? (isCorrect ? '1.5px solid rgba(76, 175, 80, 0.4)' : '1.5px solid rgba(244, 67, 54, 0.4)') 
-                  : '1px solid rgba(255,255,255,0.06)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '14px',
-                transition: 'border-color 0.3s ease'
-              }}
-            >
-              <Typography variant="body1" style={{ fontStyle: 'italic', color: 'var(--text-primary)', lineHeight: 1.5, fontSize: '0.92rem', fontWeight: 500 }}>
-                "{c.arg}"
+          <Box style={{ maxHeight: '420px', overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {filteredFallacies.length === 0 ? (
+              <Typography variant="body2" style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
+                No fallacies match your search.
               </Typography>
-              
-              <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <Box style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {fallacies.map(f => {
-                    const isSelected = userVal === f.id;
-                    
-                    let chipBg = 'rgba(255, 255, 255, 0.03)';
-                    let chipBorder = '1px solid rgba(255, 255, 255, 0.06)';
-                    let chipColor = 'var(--text-secondary)';
-                    
-                    if (isSelected) {
-                      chipBg = 'rgba(28, 176, 246, 0.12)';
-                      chipBorder = '1.5px solid var(--primary-main)';
-                      chipColor = 'var(--primary-main)';
-                    }
-                    
-                    if (checked) {
-                      const isChoiceCorrect = f.id === c.fallacy;
-                      if (isChoiceCorrect) {
-                        chipBg = 'rgba(76, 175, 80, 0.15)';
-                        chipBorder = '1.5px solid #4CAF50';
-                        chipColor = '#4CAF50';
-                      } else if (isSelected) {
-                        chipBg = 'rgba(244, 67, 54, 0.15)';
-                        chipBorder = '1.5px solid #f44336';
-                        chipColor = '#f44336';
-                      }
-                    }
-                    
-                    return (
-                      <motion.button
-                        key={f.id}
-                        disabled={checked}
-                        whileHover={!checked ? { scale: 1.03 } : {}}
-                        whileTap={!checked ? { scale: 0.97 } : {}}
-                        onClick={() => handleSelect(c.id, f.id)}
-                        style={{
-                          padding: '6px 14px',
-                          borderRadius: '16px',
-                          background: chipBg,
-                          border: chipBorder,
-                          color: chipColor,
-                          fontWeight: 800,
-                          fontSize: '0.74rem',
-                          cursor: checked ? 'default' : 'pointer',
-                          fontFamily: '"Outfit", sans-serif',
-                          transition: 'background-color 0.2s, border-color 0.2s, color 0.2s'
-                        }}
-                      >
-                        {f.name}
-                      </motion.button>
-                    );
-                  })}
-                </Box>
-
-                {checked && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25 }}
+            ) : (
+              filteredFallacies.map((item, idx) => {
+                const isExpanded = expandedIndex === idx;
+                return (
+                  <Box
+                    key={idx}
+                    onClick={() => setExpandedIndex(isExpanded ? null : idx)}
                     style={{
-                      marginTop: '4px',
+                      background: isExpanded ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.01)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '10px',
                       padding: '12px 16px',
-                      background: isCorrect ? 'rgba(76, 175, 80, 0.05)' : 'rgba(244, 67, 54, 0.05)',
-                      borderLeft: isCorrect ? '3px solid #4CAF50' : '3px solid #f44336',
-                      borderRadius: '0 8px 8px 0',
-                      textAlign: 'left'
+                      cursor: 'pointer',
+                      transition: 'background 0.25s, transform 0.2s',
                     }}
                   >
-                    <Typography variant="subtitle2" style={{ fontWeight: 850, color: isCorrect ? '#4CAF50' : '#f44336', fontSize: '0.8rem', marginBottom: '4px', fontFamily: '"Outfit", sans-serif' }}>
-                      {isCorrect ? '✓ Correct Identification' : `✗ Incorrect (Expected: ${c.fallacyName})`}
+                    <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
+                        {idx + 1}. {item.name}
+                      </Typography>
+                      <Typography style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                        ▶
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', display: isExpanded ? 'none' : '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
+                      {item.desc}
                     </Typography>
-                    <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', lineHeight: 1.45 }}>
-                      {c.explanation}
-                    </Typography>
-                  </motion.div>
-                )}
-              </Box>
-            </Box>
-          );
-        })}
-      </Box>
 
-      <Box style={{ display: 'flex', gap: '10px' }}>
-        {!checked ? (
-          <Button
-            variant="contained"
-            onClick={handleCheck}
-            disabled={Object.values(selections).some(v => v === '')}
-            style={{
-              background: 'var(--hero-gradient)',
-              color: '#fff',
-              fontWeight: 800,
-              borderRadius: '12px',
-              textTransform: 'none',
-              fontFamily: '"Outfit", sans-serif',
-              boxShadow: 'var(--shadow-button)'
-            }}
-          >
-            Check Fallacies
-          </Button>
-        ) : (
-          <Button
-            variant="outlined"
-            onClick={handleReset}
-            style={{
-              borderColor: 'rgba(255,255,255,0.12)',
-              color: 'var(--text-primary)',
-              fontWeight: 800,
-              borderRadius: '12px',
-              textTransform: 'none',
-              fontFamily: '"Outfit", sans-serif',
-              background: 'rgba(255,255,255,0.01)'
-            }}
-          >
-            Reset Quiz
-          </Button>
-        )}
-      </Box>
+                    {isExpanded && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ marginTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                        <Typography variant="body2" style={{ color: 'var(--text-primary)', fontSize: '0.82rem', marginBottom: '8px', lineHeight: 1.4 }}>
+                          <b>Definition:</b> {item.desc}
+                        </Typography>
+                        <Box style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', borderLeft: '3px solid var(--primary-main)' }}>
+                          <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', fontWeight: 800, textTransform: 'uppercase', marginBottom: '2px' }}>Example:</Typography>
+                          <Typography variant="body2" style={{ color: 'var(--text-primary)', fontStyle: 'italic', fontSize: '0.8rem' }}>
+                            "{item.ex}"
+                          </Typography>
+                        </Box>
+                      </motion.div>
+                    )}
+                  </Box>
+                );
+              })
+            )}
+          </Box>
+        </Box>
+      ) : (
+        /* ── QUIZ TAB ── */
+        <Box>
+          {quizState === 'idle' && (
+            <Box style={{ textAlign: 'center', padding: '24px 10px' }}>
+              <Typography style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🧠</Typography>
+              <Typography variant="subtitle1" style={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif', marginBottom: '8px' }}>
+                The Fallacy Master Challenge
+              </Typography>
+              <Typography variant="body2" style={{ color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '20px', fontSize: '0.85rem' }}>
+                Test your logical deduction. We will pick 10 random arguments from the database.
+                For each, diagnose the correct fallacy. Distractors are generated dynamically!
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={startQuiz}
+                style={{ background: 'var(--hero-gradient)', color: '#fff', fontWeight: 800, borderRadius: '12px', textTransform: 'none', fontFamily: '"Outfit", sans-serif', padding: '8px 24px' }}
+              >
+                Start Practice Quiz
+              </Button>
+            </Box>
+          )}
+
+          {quizState === 'active' && (
+            <motion.div key={currentQuizIndex} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
+              {/* Progress */}
+              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>
+                  QUESTION {currentQuizIndex + 1} OF 10
+                </Typography>
+                <Box style={{ width: '80px', height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                  <Box style={{ width: `${((currentQuizIndex + (quizRevealed ? 1 : 0)) / 10) * 100}%`, height: '100%', background: 'var(--primary-main)', borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                </Box>
+              </Box>
+
+              {/* Argument Card */}
+              <Box style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', marginBottom: '16px' }}>
+                <Typography variant="body2" style={{ fontStyle: 'italic', color: 'var(--text-primary)', lineHeight: 1.5, fontSize: '0.9rem' }}>
+                  "{currentQ.arg}"
+                </Typography>
+              </Box>
+
+              {/* Multi-choice options */}
+              <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                {currentQ.options.map((opt, i) => {
+                  const labels = ['A', 'B', 'C', 'D'];
+                  const isSelected = selectedQuizAnswer === opt;
+                  const isCorrect = opt.toLowerCase() === currentQ.fallacy.toLowerCase();
+
+                  let bg = 'rgba(255,255,255,0.02)';
+                  let border = '1px solid rgba(255,255,255,0.08)';
+                  let color = 'var(--text-primary)';
+                  let labelBg = 'rgba(255,255,255,0.06)';
+
+                  if (quizRevealed) {
+                    if (isCorrect) {
+                      bg = 'rgba(76,175,80,0.10)'; border = '1.5px solid #4CAF50'; color = '#4CAF50'; labelBg = 'rgba(76,175,80,0.25)';
+                    } else if (isSelected) {
+                      bg = 'rgba(244,67,54,0.10)'; border = '1.5px solid #f44336'; color = '#f44336'; labelBg = 'rgba(244,67,54,0.25)';
+                    }
+                  } else if (isSelected) {
+                    bg = 'rgba(28,176,246,0.10)'; border = '1.5px solid var(--primary-main)'; color = 'var(--primary-main)'; labelBg = 'rgba(28,176,246,0.25)';
+                  }
+
+                  return (
+                    <motion.button
+                      key={opt}
+                      disabled={quizRevealed}
+                      whileHover={!quizRevealed ? { x: 4 } : {}}
+                      onClick={() => handleQuizAnswer(opt)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '10px 14px', borderRadius: '10px',
+                        background: bg, border, color,
+                        cursor: quizRevealed ? 'default' : 'pointer',
+                        fontFamily: '"Outfit", sans-serif', textAlign: 'left',
+                        transition: 'background 0.2s, border-color 0.2s, color 0.2s'
+                      }}
+                    >
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: '24px', height: '24px', borderRadius: '6px',
+                        background: labelBg, fontWeight: 900, fontSize: '0.75rem',
+                        flexShrink: 0
+                      }}>{labels[i]}</span>
+                      <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>{opt}</span>
+                      {quizRevealed && isCorrect && <span style={{ marginLeft: 'auto', fontSize: '1rem' }}>✓</span>}
+                      {quizRevealed && isSelected && !isCorrect && <span style={{ marginLeft: 'auto', fontSize: '1rem' }}>✗</span>}
+                    </motion.button>
+                  );
+                })}
+              </Box>
+
+              {/* Explanatory notes */}
+              {quizRevealed && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+                  <Box style={{
+                    padding: '12px 16px', borderRadius: '10px', marginBottom: '14px',
+                    background: selectedQuizAnswer.toLowerCase() === currentQ.fallacy.toLowerCase() ? 'rgba(76,175,80,0.06)' : 'rgba(244,67,54,0.06)',
+                    borderLeft: `3px solid ${selectedQuizAnswer.toLowerCase() === currentQ.fallacy.toLowerCase() ? '#4CAF50' : '#f44336'}`
+                  }}>
+                    <Typography variant="subtitle2" style={{ fontWeight: 800, color: selectedQuizAnswer.toLowerCase() === currentQ.fallacy.toLowerCase() ? '#4CAF50' : '#f44336', marginBottom: '2px', fontSize: '0.8rem' }}>
+                      {selectedQuizAnswer.toLowerCase() === currentQ.fallacy.toLowerCase() ? `✓ Correct — This is a ${currentQ.fallacy}` : `✗ Incorrect — This is a ${currentQ.fallacy}`}
+                    </Typography>
+                    <Typography variant="body2" style={{ color: 'var(--text-secondary)', lineHeight: 1.4, fontSize: '0.78rem' }}>
+                      {currentQ.explanation}
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    onClick={handleNextQuiz}
+                    style={{ background: 'var(--hero-gradient)', color: '#fff', fontWeight: 800, borderRadius: '10px', textTransform: 'none', fontFamily: '"Outfit", sans-serif', padding: '6px 18px' }}
+                  >
+                    {currentQuizIndex < 9 ? 'Next Question →' : 'See Score Card'}
+                  </Button>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+
+          {quizState === 'complete' && (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+              <Box style={{ textAlign: 'center', padding: '24px 10px' }}>
+                <Typography style={{ fontSize: '2.5rem', marginBottom: '4px' }}>{rank.icon}</Typography>
+                <Typography variant="subtitle1" style={{ fontWeight: 900, color: rank.color, letterSpacing: '0.05em', fontFamily: '"Outfit", sans-serif', marginBottom: '4px' }}>
+                  {rank.title}
+                </Typography>
+                <Typography variant="body1" style={{ color: 'var(--text-primary)', fontWeight: 700, marginBottom: '14px' }}>
+                  You scored <span style={{ color: rank.color }}>{quizScore}</span> out of 10
+                </Typography>
+
+                <Box style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: '20px' }}>
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(quizScore / 10) * 100}%` }}
+                    transition={{ duration: 0.8 }}
+                    style={{ height: '100%', background: rank.color, borderRadius: '4px' }}
+                  />
+                </Box>
+
+                <Box style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+                  <Button
+                    variant="contained"
+                    onClick={startQuiz}
+                    style={{ background: 'var(--hero-gradient)', color: '#fff', fontWeight: 800, borderRadius: '10px', textTransform: 'none', fontFamily: '"Outfit", sans-serif', padding: '6px 18px' }}
+                  >
+                    Retake Challenge
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={resetQuiz}
+                    style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.2)', fontWeight: 800, borderRadius: '10px', textTransform: 'none', fontFamily: '"Outfit", sans-serif', padding: '6px 18px' }}
+                  >
+                    Exit Quiz
+                  </Button>
+                </Box>
+              </Box>
+            </motion.div>
+          )}
+        </Box>
+      )}
     </Paper>
   );
 };
+
 
 // 4. Ship of Theseus Widget (Advanced Visual SVG)
 export const ShipOfTheseusWidget = () => {
@@ -546,12 +979,13 @@ export const ShipOfTheseusWidget = () => {
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [particles, setParticles] = useState([]);
 
+  // ViewBox: 0 0 500 290 | Deck: y=125 | Keel/waterline: y=195 | Mast top: y=22
   const plankPaths = [
-    { d: "M 100,50 Q 200,53 300,50 L 295,62 Q 200,65 105,62 Z", label: "Deck Plank" },
-    { d: "M 105,62 Q 200,65 295,62 L 290,74 Q 200,77 110,74 Z", label: "Upper Hull Plank" },
-    { d: "M 110,74 Q 200,77 290,74 L 284,86 Q 200,89 116,86 Z", label: "Middle Hull Plank" },
-    { d: "M 116,86 Q 200,89 284,86 L 277,98 Q 200,101 123,98 Z", label: "Lower Hull Plank" },
-    { d: "M 123,98 Q 200,101 277,98 L 268,110 Q 200,113 132,110 Z", label: "Keel Plank" }
+    { d: "M 100,125 Q 250,129 400,125 L 392,141 Q 250,145 108,141 Z", label: "Deck Plank" },
+    { d: "M 108,141 Q 250,145 392,141 L 383,157 Q 250,161 117,157 Z", label: "Upper Hull Plank" },
+    { d: "M 117,157 Q 250,161 383,157 L 374,171 Q 250,175 126,171 Z", label: "Middle Hull Plank" },
+    { d: "M 126,171 Q 250,175 374,171 L 365,183 Q 250,187 135,183 Z", label: "Lower Hull Plank" },
+    { d: "M 135,183 Q 250,187 365,183 L 357,195 Q 250,198 143,195 Z", label: "Keel Plank" }
   ];
 
   const handlePlankClick = (index) => {
@@ -564,9 +998,9 @@ export const ShipOfTheseusWidget = () => {
       return next;
     });
 
-    // Spark particle effect centered at the plank
-    const startX = 130 + index * 25 + Math.random() * 15;
-    const startY = 60 + index * 10 + Math.random() * 5;
+    // Spark particles spawn near hull center (adjusted for wider ship)
+    const startX = 140 + index * 32 + Math.random() * 20;
+    const startY = 133 + index * 14 + Math.random() * 6;
     const newParticles = Array.from({ length: 12 }).map((_, i) => ({
       id: Math.random() + i,
       x: startX,
@@ -608,90 +1042,167 @@ export const ShipOfTheseusWidget = () => {
 
       {replaceCount < 5 ? (
         <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '20px 0' }}>
-          {/* SVG Greek Ship hull - uses theme compatible background & borders */}
-          <svg viewBox="0 0 400 180" width="100%" height="360" style={{ background: 'rgba(128,128,128,0.08)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)' }}>
-            {/* Mast */}
-            <line x1="200" y1="50" x2="200" y2="15" stroke="#795548" strokeWidth="5" strokeLinecap="round" />
-            {/* Sail */}
-            <path d="M 200,15 Q 240,20 200,45 Q 175,32 200,15" fill="rgba(245,245,245,0.95)" stroke="var(--text-secondary)" strokeWidth="1" opacity="0.9" />
+          {/* Simplified Elegant Greek Trireme SVG */}
+          <svg viewBox="0 0 500 290" width="100%" height="420" style={{ background: 'linear-gradient(to bottom, #a0c4ff 0%, #c4e0e5 55%, #e0f7fa 100%)', borderRadius: '14px', border: '1px solid rgba(41,182,246,0.15)', overflow: 'hidden' }}>
             
-            {/* Planks */}
-            {plankPaths.map((plank, idx) => {
-              const material = planks[idx];
-              const isInteractable = replaceCount === 0 || identityResponses.length >= replaceCount;
-              return (
-                <path
-                  key={idx}
-                  d={plank.d}
-                  fill={material === 'wood' ? '#8d5a2b' : '#b0bec5'}
-                  stroke={material === 'wood' ? '#5d4037' : '#78909c'}
-                  strokeWidth="1.5"
-                  style={{
-                    cursor: material === 'wood' && isInteractable ? 'pointer' : 'default',
-                    transition: 'fill 0.4s, filter 0.2s',
-                    filter: material === 'wood' && isInteractable ? 'brightness(0.95)' : 'none'
-                  }}
-                  onClick={() => {
-                    if (isInteractable) handlePlankClick(idx);
-                  }}
-                  onMouseEnter={(e) => {
-                    if (material === 'wood' && isInteractable) {
-                      e.currentTarget.style.filter = 'brightness(1.2) drop-shadow(0 0 4px #8d5a2b)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (material === 'wood' && isInteractable) {
-                      e.currentTarget.style.filter = 'brightness(0.95)';
-                    }
-                  }}
-                />
-              );
-            })}
+            {/* ── MOVING CLOUDS IN THE BACKGROUND ── */}
+            <g opacity="0.8">
+              {/* Cloud 1 - Slow speed */}
+              <motion.g
+                animate={{ x: [-250, 750] }}
+                transition={{ repeat: Infinity, duration: 60, ease: "linear" }}
+              >
+                <path d="M -40,60 C -30,45 -10,45 0,55 C 10,45 30,45 40,60 C 50,55 65,65 60,75 C 55,85 -30,85 -35,75 C -40,65 -45,60 -40,60 Z" fill="#ffffff" />
+                <circle cx="-38" cy="68" r="9" fill="#ffffff" />
+              </motion.g>
+              
+              {/* Cloud 2 - Medium speed */}
+              <motion.g
+                animate={{ x: [-280, 750] }}
+                transition={{ repeat: Infinity, duration: 78, ease: "linear" }}
+              >
+                <path d="M -50,50 C -40,35 -20,35 -10,45 C 0,35 20,35 30,50 C 40,45 55,55 50,65 C 45,75 -40,75 -45,65 C -50,55 -55,50 -50,50 Z" fill="#ffffff" opacity="0.85" />
+                <circle cx="-48" cy="58" r="9" fill="#ffffff" opacity="0.85" />
+              </motion.g>
+              
+              {/* Cloud 3 - Fast speed */}
+              <motion.g
+                animate={{ x: [-320, 750] }}
+                transition={{ repeat: Infinity, duration: 42, ease: "linear" }}
+              >
+                <path d="M -40,40 C -30,30 -15,30 -7,38 C 0,30 15,30 23,40 C 30,36 40,44 37,52 C 33,60 -35,60 -38,52 C -42,44 -46,40 -40,40 Z" fill="#ffffff" opacity="0.6" />
+                <circle cx="-38" cy="48" r="7.5" fill="#ffffff" opacity="0.6" />
+              </motion.g>
+            </g>
 
-            {/* Waves */}
-            <path d="M 50,113 C 90,105 130,121 170,113 C 210,105 250,121 290,113 C 330,105 350,115 370,113" fill="none" stroke="#29b6f6" strokeWidth="3" opacity="0.65" strokeLinecap="round" />
+            {/* ── WATER LAYER 1 (Back Waving Water) ── */}
+            <motion.path
+              d="M -200,185 C 0,175 150,195 300,185 C 450,175 550,195 700,185 L 700,320 L -200,320 Z"
+              fill="#1d5e9b"
+              animate={{ d: [
+                "M -200,185 C 0,175 150,195 300,185 C 450,175 550,195 700,185 L 700,320 L -200,320 Z",
+                "M -200,192 C 0,182 150,202 300,192 C 450,182 550,202 700,192 L 700,320 L -200,320 Z",
+                "M -200,180 C 0,170 150,190 300,180 C 450,170 550,190 700,180 L 700,320 L -200,320 Z",
+                "M -200,185 C 0,175 150,195 300,185 C 450,175 550,195 700,185 L 700,320 L -200,320 Z"
+              ]}}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+            />
 
-            {/* Discarded planks pile */}
+            {/* ── WATER LAYER 2 (Front Waving Water) ── */}
+            <motion.path
+              d="M -200,195 C -50,205 100,185 250,195 C 400,205 550,185 700,195 L 700,320 L -200,320 Z"
+              fill="#124675"
+              animate={{ d: [
+                "M -200,195 C -50,205 100,185 250,195 C 400,205 550,185 700,195 L 700,320 L -200,320 Z",
+                "M -200,188 C -50,198 100,178 250,188 C 400,198 550,178 700,188 L 700,320 L -200,320 Z",
+                "M -200,200 C -50,210 100,190 250,200 C 400,210 550,190 700,200 L 700,320 L -200,320 Z",
+                "M -200,195 C -50,205 100,185 250,195 C 400,205 550,185 700,195 L 700,320 L -200,320 Z"
+              ]}}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            />
+
+            {/* ── ROCKING SHIP GROUP (Drawn in front of the water) ── */}
+            <motion.g
+              animate={{
+                y: [0, -3, 2, -3, 0],
+                rotate: [0, -1, 1, -1, 0]
+              }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              style={{ transformOrigin: "250px 160px" }}
+            >
+              {/* Rigging Stays (drawn behind mast and sail) */}
+              <line x1="250" y1="25" x2="105" y2="125" stroke="#a1887f" strokeWidth="1.5" opacity="0.5" />
+              <line x1="250" y1="25" x2="395" y2="125" stroke="#a1887f" strokeWidth="1.5" opacity="0.5" />
+
+              {/* Mast (wooden vertical support - rendered behind the sail) */}
+              <line x1="250" y1="125" x2="250" y2="25" stroke="#5d4037" strokeWidth="6" strokeLinecap="round" />
+
+              {/* Yard (horizontal spar holding sail - rendered behind the sail) */}
+              <line x1="125" y1="32" x2="375" y2="32" stroke="#5d4037" strokeWidth="4" strokeLinecap="round" />
+
+              {/* Billowing Sail (rendered in front of mast & yard - billowing to the right) */}
+              <path d="M 150,32 Q 250,42 350,32 Q 380,72 345,112 Q 250,122 155,112 Q 180,72 150,32 Z"
+                fill="rgba(248, 245, 235, 0.95)" stroke="#d4c5a1" strokeWidth="1.5" />
+              
+              {/* Brand Logo printed on sail (rendered on top of sail) */}
+              <image
+                href={logoImg}
+                x="225"
+                y="52"
+                width="50"
+                height="50"
+                style={{ filter: 'brightness(0)', opacity: 0.35 }}
+              />
+
+              {/* Deck Rail */}
+              <line x1="100" y1="125" x2="400" y2="125" stroke="#5d4037" strokeWidth="3" strokeLinecap="round" />
+
+              {/* Clickable Planks */}
+              {plankPaths.map((plank, idx) => {
+                const material = planks[idx];
+                const isInteractable = replaceCount === 0 || identityResponses.length >= replaceCount;
+                return (
+                  <path
+                    key={idx}
+                    d={plank.d}
+                    fill={material === 'wood' ? (idx % 2 === 0 ? '#8d5a2b' : '#7a4f26') : (idx % 2 === 0 ? '#b0bec5' : '#9eadb5')}
+                    stroke={material === 'wood' ? '#5d4037' : '#78909c'}
+                    strokeWidth="1.2"
+                    style={{
+                      cursor: material === 'wood' && isInteractable ? 'pointer' : 'default',
+                      transition: 'fill 0.4s ease, filter 0.2s ease',
+                      filter: material === 'wood' && isInteractable ? 'brightness(0.95)' : 'none'
+                    }}
+                    onClick={() => { if (isInteractable) handlePlankClick(idx); }}
+                    onMouseEnter={e => {
+                      if (material === 'wood' && isInteractable)
+                        e.currentTarget.style.filter = 'brightness(1.25) drop-shadow(0 0 6px #a0632e)';
+                    }}
+                    onMouseLeave={e => {
+                      if (material === 'wood' && isInteractable)
+                        e.currentTarget.style.filter = 'brightness(0.95)';
+                    }}
+                  />
+                );
+              })}
+
+              {/* Oars (sticks centered inside wider hull) */}
+              {[0,1,2,3,4,5].map(i => {
+                const pivotX = 145 + i * 38;
+                const mat = planks[Math.min(i, 4)];
+                const clr = mat === 'wood' ? '#a1887f' : '#90a4ae';
+                return (
+                  <g key={i}>
+                    <line x1={pivotX} y1="178" x2={pivotX - 10} y2="215" stroke={clr} strokeWidth="2.2" strokeLinecap="round" opacity="0.85" />
+                    <ellipse cx={pivotX - 11} cy="217" rx="5.5" ry="2.5" fill={clr} opacity="0.85" transform={`rotate(-15,${pivotX - 11},217)`} />
+                  </g>
+                );
+              })}
+            </motion.g>
+
+            {/* ── DISCARDED PLANKS PILE ── */}
             {replaceCount >= 1 && (
-              <g opacity="0.85">
-                <text x="35" y="140" fill="var(--text-secondary)" fontSize="9" fontWeight="800">DISCARDED WOOD</text>
-                {Array.from({ length: replaceCount }).map((_, idx) => {
-                  const rotations = [12, -15, 6, 28, -8];
-                  const yOffsets = [150, 155, 148, 158, 152];
+              <g opacity="0.9">
+                <text x="20" y="243" fill="rgba(255,255,255,0.6)" fontSize="8" fontWeight="800" fontFamily="monospace">DISCARDED</text>
+                <text x="20" y="252" fill="rgba(255,255,255,0.6)" fontSize="8" fontWeight="800" fontFamily="monospace">WOOD</text>
+                {Array.from({ length: replaceCount }).map((_, i) => {
+                  const rots = [10, -14, 5, 25, -8];
+                  const ys = [258, 264, 256, 268, 261];
                   return (
-                    <rect
-                      key={idx}
-                      x="40"
-                      y={yOffsets[idx]}
-                      width="45"
-                      height="5"
-                      rx="1"
-                      fill="#8d5a2b"
-                      stroke="#5d4037"
-                      strokeWidth="1"
-                      transform={`rotate(${rotations[idx]}, ${40 + 22}, ${yOffsets[idx] + 2.5})`}
-                    />
+                    <rect key={i} x="16" y={ys[i]} width="54" height="5.5" rx="1.5"
+                      fill="#8d5a2b" stroke="#5d4037" strokeWidth="1"
+                      transform={`rotate(${rots[i]},${16+27},${ys[i]+2.75})`} />
                   );
                 })}
               </g>
             )}
 
-            {/* Particles */}
+            {/* ── SPARK PARTICLES ── */}
             {particles.map(p => (
-              <motion.circle
-                key={p.id}
-                cx={p.x}
-                cy={p.y}
-                r={2.5}
-                fill="#ffeb3b"
+              <motion.circle key={p.id} cx={p.x} cy={p.y} r={2.5} fill="#ffeb3b"
                 initial={{ opacity: 1, scale: 1 }}
-                animate={{
-                  cx: p.x + Math.cos(p.angle) * p.distance,
-                  cy: p.y + Math.sin(p.angle) * p.distance,
-                  opacity: 0,
-                  scale: 0.2
-                }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
+                animate={{ cx: p.x + Math.cos(p.angle) * p.distance, cy: p.y + Math.sin(p.angle) * p.distance, opacity: 0, scale: 0.2 }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
               />
             ))}
           </svg>
@@ -706,64 +1217,197 @@ export const ShipOfTheseusWidget = () => {
                 Question: With {replaceCount} steel plank(s) installed, is this still the <i>original</i> Ship of Theseus?
               </Typography>
               <Box style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => handleResponse(true)}
-                  style={{ textTransform: 'none', borderRadius: '8px', fontWeight: 800, color: 'var(--text-primary)', borderColor: 'rgba(128,128,128,0.25)' }}
-                >
+                <Button size="small" variant="outlined" onClick={() => handleResponse(true)}
+                  style={{ textTransform: 'none', borderRadius: '8px', fontWeight: 800, color: 'var(--text-primary)', borderColor: 'rgba(128,128,128,0.25)' }}>
                   Yes, it is
                 </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => handleResponse(false)}
-                  style={{ textTransform: 'none', borderRadius: '8px', fontWeight: 800, color: 'var(--text-primary)', borderColor: 'rgba(128,128,128,0.25)' }}
-                >
+                <Button size="small" variant="outlined" onClick={() => handleResponse(false)}
+                  style={{ textTransform: 'none', borderRadius: '8px', fontWeight: 800, color: 'var(--text-primary)', borderColor: 'rgba(128,128,128,0.25)' }}>
                   No, it has changed
                 </Button>
               </Box>
             </motion.div>
           )}
         </Box>
+
       ) : (
         <Box>
           <Typography variant="body2" style={{ color: '#4CAF50', fontWeight: 800, textAlign: 'center', marginBottom: '16px' }}>
             ✓ All planks replaced! We now have two ships to compare in the harbor.
           </Typography>
-
-          {/* Side by side rendering */}
           <Grid container spacing={3} style={{ marginBottom: '20px' }}>
             <Grid item xs={12} sm={6}>
-              <Box style={{ padding: '12px', background: 'rgba(128,128,128,0.04)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)', textAlign: 'center' }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>Ship A (Steel Hull)</Typography>
-                <svg viewBox="0 0 400 160" width="100%" height="220">
-                  <line x1="200" y1="50" x2="200" y2="15" stroke="#795548" strokeWidth="4" />
-                  <path d="M 200,15 Q 240,20 200,45 Q 175,32 200,15" fill="rgba(245,245,245,0.9)" stroke="var(--text-secondary)" />
-                  {plankPaths.map((plank, idx) => (
-                    <path key={idx} d={plank.d} fill="#b0bec5" stroke="#78909c" strokeWidth="1" />
-                  ))}
-                  <path d="M 50,113 C 90,105 130,121 170,113 C 210,105 250,121 290,113 C 330,105 350,115 370,113" fill="none" stroke="#29b6f6" strokeWidth="2.5" opacity="0.5" />
+              <Box style={{ padding: '12px', background: 'rgba(10,25,50,0.3)', borderRadius: '12px', border: '1px solid rgba(41,182,246,0.15)', textAlign: 'center' }}>
+                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>Ship A — Steel Hull</Typography>
+                <svg viewBox="0 0 500 230" width="100%" height="195" style={{ background: 'linear-gradient(to bottom, #a0c4ff 0%, #c4e0e5 55%, #e0f7fa 100%)', overflow: 'hidden' }}>
+                  {/* Moving Clouds */}
+                  <g opacity="0.6">
+                    <motion.g
+                      animate={{ x: [-250, 750] }}
+                      transition={{ repeat: Infinity, duration: 60, ease: "linear" }}
+                    >
+                      <path d="M -40,40 C -30,28 -10,28 0,36 C 10,28 30,28 40,40 C 50,36 65,44 60,52 C 55,60 -30,60 -35,52 C -40,44 -45,40 -40,40 Z" fill="#ffffff" />
+                      <circle cx="-38" cy="48" r="7.5" fill="#ffffff" />
+                    </motion.g>
+                    <motion.g
+                      animate={{ x: [-280, 750] }}
+                      transition={{ repeat: Infinity, duration: 78, ease: "linear" }}
+                    >
+                      <path d="M -50,35 C -40,23 -20,23 -10,31 C 0,23 20,23 30,35 C 40,31 55,39 50,47 C 45,55 -40,55 -45,47 C -50,39 -55,35 -50,35 Z" fill="#ffffff" opacity="0.8" />
+                      <circle cx="-48" cy="43" r="7.5" fill="#ffffff" opacity="0.8" />
+                    </motion.g>
+                  </g>
+                  {/* Water Layer 1 (Back Water) */}
+                  <path d="M -200,160 C 0,152 150,168 300,160 C 450,152 550,168 700,160 L 700,240 L -200,240 Z" fill="#1d5e9b" opacity="0.9" />
+                  {/* Water Layer 2 (Front Water) */}
+                  <path d="M -200,168 C -50,176 100,160 250,168 C 400,176 550,160 700,168 L 700,240 L -200,240 Z" fill="#124675" />
+
+                  {/* Rocking Ship Group */}
+                  <motion.g
+                    animate={{
+                      y: [0, -2, 1, -2, 0],
+                      rotate: [0, -0.8, 0.8, -0.8, 0]
+                    }}
+                    transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                    style={{ transformOrigin: "250px 130px" }}
+                  >
+                    {/* Rigging (background) */}
+                    <line x1="250" y1="20" x2="105" y2="110" stroke="#a1887f" strokeWidth="1.2" opacity="0.5" />
+                    <line x1="250" y1="20" x2="395" y2="110" stroke="#a1887f" strokeWidth="1.2" opacity="0.5" />
+                    
+                    {/* Mast (wooden support - rendered behind sail) */}
+                    <line x1="250" y1="110" x2="250" y2="20" stroke="#5d4037" strokeWidth="5" strokeLinecap="round" />
+                    
+                    {/* Yard (horizontal spar - rendered behind sail) */}
+                    <line x1="125" y1="26" x2="375" y2="26" stroke="#5d4037" strokeWidth="3.5" strokeLinecap="round" />
+
+                    {/* Sail (rendered in front of mast/yard - billowing to the right) */}
+                    <path d="M 150,26 Q 250,34 350,26 Q 380,63 345,100 Q 250,109 155,100 Q 180,63 150,26 Z" fill="rgba(248, 245, 235, 0.9)" stroke="#d4c5a1" strokeWidth="1" />
+                    
+                    {/* Brand Logo printed on sail (rendered on top of sail) */}
+                    <image
+                      href={logoImg}
+                      x="229"
+                      y="44"
+                      width="42"
+                      height="42"
+                      style={{ filter: 'brightness(0)', opacity: 0.35 }}
+                    />
+
+                    {/* Deck rail */}
+                    <line x1="100" y1="110" x2="400" y2="110" stroke="#5d4037" strokeWidth="2.5" strokeLinecap="round" />
+                    {/* Planks (Steel) */}
+                    {[
+                      "M 100,110 Q 252,114 400,110 L 392,123 Q 252,127 108,123 Z",
+                      "M 108,123 Q 252,127 392,123 L 383,136 Q 252,140 117,136 Z",
+                      "M 117,136 Q 252,140 383,136 L 374,148 Q 252,152 126,148 Z",
+                      "M 126,148 Q 252,152 374,148 L 365,158 Q 252,161 135,158 Z",
+                      "M 175,158 Q 252,161 329,158 L 323,168 Q 252,171 181,168 Z"
+                    ].map((d, i) => (
+                      <path key={i} d={d} fill={i % 2 === 0 ? '#b0bec5' : '#9eadb5'} stroke="#78909c" strokeWidth="1" />
+                    ))}
+                    {/* Oars */}
+                    {[0,1,2,3,4,5].map(i => {
+                      const pivotX = 145 + i * 38;
+                      return (
+                        <g key={i}>
+                          <line x1={pivotX} y1="153" x2={pivotX - 8} y2="185" stroke="#90a4ae" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+                          <ellipse cx={pivotX - 9} cy="187" rx="4.5" ry="2" fill="#90a4ae" opacity="0.8" />
+                        </g>
+                      );
+                    })}
+                  </motion.g>
                 </svg>
-                <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', mt: 1 }}>
-                  The continuously repaired ship in the water. Continuous form and function.
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '6px' }}>
+                  Continuously repaired in the harbor — same form, same function.
                 </Typography>
               </Box>
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <Box style={{ padding: '12px', background: 'rgba(128,128,128,0.04)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)', textAlign: 'center' }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>Ship B (Reconstructed Wood)</Typography>
-                <svg viewBox="0 0 400 160" width="100%" height="220">
-                  <line x1="200" y1="50" x2="200" y2="15" stroke="#795548" strokeWidth="4" />
-                  <path d="M 200,15 Q 240,20 200,45 Q 175,32 200,15" fill="rgba(245,245,245,0.9)" stroke="var(--text-secondary)" />
-                  {plankPaths.map((plank, idx) => (
-                    <path key={idx} d={plank.d} fill="#8d5a2b" stroke="#5d4037" strokeWidth="1" />
-                  ))}
-                  <path d="M 50,113 C 90,105 130,121 170,113 C 210,105 250,121 290,113 C 330,105 350,115 370,113" fill="none" stroke="#29b6f6" strokeWidth="2.5" opacity="0.5" />
+              <Box style={{ padding: '12px', background: 'rgba(10,25,50,0.3)', borderRadius: '12px', border: '1px solid rgba(41,182,246,0.15)', textAlign: 'center' }}>
+                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>Ship B — Original Wood</Typography>
+                <svg viewBox="0 0 500 230" width="100%" height="195" style={{ background: 'linear-gradient(to bottom, #a0c4ff 0%, #c4e0e5 55%, #e0f7fa 100%)', overflow: 'hidden' }}>
+                  {/* Moving Clouds */}
+                  <g opacity="0.6">
+                    <motion.g
+                      animate={{ x: [-250, 750] }}
+                      transition={{ repeat: Infinity, duration: 60, ease: "linear" }}
+                    >
+                      <path d="M -40,40 C -30,28 -10,28 0,36 C 10,28 30,28 40,40 C 50,36 65,44 60,52 C 55,60 -30,60 -35,52 C -40,44 -45,40 -40,40 Z" fill="#ffffff" />
+                      <circle cx="-38" cy="48" r="7.5" fill="#ffffff" />
+                    </motion.g>
+                    <motion.g
+                      animate={{ x: [-280, 750] }}
+                      transition={{ repeat: Infinity, duration: 78, ease: "linear" }}
+                    >
+                      <path d="M -50,35 C -40,23 -20,23 -10,31 C 0,23 20,23 30,35 C 40,31 55,39 50,47 C 45,55 -40,55 -45,47 C -50,39 -55,35 -50,35 Z" fill="#ffffff" opacity="0.8" />
+                      <circle cx="-48" cy="43" r="7.5" fill="#ffffff" opacity="0.8" />
+                    </motion.g>
+                  </g>
+                  {/* Water Layer 1 (Back Water) */}
+                  <path d="M -200,160 C 0,152 150,168 300,160 C 450,152 550,168 700,160 L 700,240 L -200,240 Z" fill="#1d5e9b" opacity="0.9" />
+                  {/* Water Layer 2 (Front Water) */}
+                  <path d="M -200,168 C -50,176 100,160 250,168 C 400,176 550,160 700,168 L 700,240 L -200,240 Z" fill="#124675" />
+
+                  {/* Rocking Ship Group */}
+                  <motion.g
+                    animate={{
+                      y: [0, -2, 1, -2, 0],
+                      rotate: [0, -0.8, 0.8, -0.8, 0]
+                    }}
+                    transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                    style={{ transformOrigin: "250px 130px" }}
+                  >
+                    {/* Rigging (background) */}
+                    <line x1="250" y1="20" x2="105" y2="110" stroke="#a1887f" strokeWidth="1.2" opacity="0.5" />
+                    <line x1="250" y1="20" x2="395" y2="110" stroke="#a1887f" strokeWidth="1.2" opacity="0.5" />
+
+                    {/* Mast (wooden support - rendered behind sail) */}
+                    <line x1="250" y1="110" x2="250" y2="20" stroke="#5d4037" strokeWidth="5" strokeLinecap="round" />
+                    
+                    {/* Yard (horizontal spar - rendered behind sail) */}
+                    <line x1="125" y1="26" x2="375" y2="26" stroke="#5d4037" strokeWidth="3.5" strokeLinecap="round" />
+
+                    {/* Sail (rendered in front of mast/yard - billowing to the right) */}
+                    <path d="M 150,26 Q 250,34 350,26 Q 380,63 345,100 Q 250,109 155,100 Q 180,63 150,26 Z" fill="rgba(248, 245, 235, 0.9)" stroke="#d4c5a1" strokeWidth="1" />
+                    
+                    {/* Brand Logo printed on sail (rendered on top of sail) */}
+                    <image
+                      href={logoImg}
+                      x="229"
+                      y="44"
+                      width="42"
+                      height="42"
+                      style={{ filter: 'brightness(0)', opacity: 0.35 }}
+                    />
+
+                    {/* Deck rail */}
+                    <line x1="100" y1="110" x2="400" y2="110" stroke="#5d4037" strokeWidth="2.5" strokeLinecap="round" />
+                    {/* Planks (Wood) */}
+                    {[
+                      "M 100,110 Q 252,114 400,110 L 392,123 Q 252,127 108,123 Z",
+                      "M 108,123 Q 252,127 392,123 L 383,136 Q 252,140 117,136 Z",
+                      "M 117,136 Q 252,140 383,136 L 374,148 Q 252,152 126,148 Z",
+                      "M 126,148 Q 252,152 374,148 L 365,158 Q 252,161 135,158 Z",
+                      "M 175,158 Q 252,161 329,158 L 323,168 Q 252,171 181,168 Z"
+                    ].map((d, i) => (
+                      <path key={i} d={d} fill={i % 2 === 0 ? '#8d5a2b' : '#7a4f26'} stroke="#5d4037" strokeWidth="1" />
+                    ))}
+                    {/* Oars */}
+                    {[0,1,2,3,4,5].map(i => {
+                      const pivotX = 145 + i * 38;
+                      return (
+                        <g key={i}>
+                          <line x1={pivotX} y1="153" x2={pivotX - 8} y2="185" stroke="#a1887f" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+                          <ellipse cx={pivotX - 9} cy="187" rx="4.5" ry="2" fill="#a1887f" opacity="0.8" />
+                        </g>
+                      );
+                    })}
+                  </motion.g>
                 </svg>
-                <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', mt: 1 }}>
-                  Built in the dry dock using all the discarded wooden planks. Original substance.
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '6px' }}>
+                  Rebuilt in dry dock from all the discarded planks — original substance.
                 </Typography>
               </Box>
             </Grid>
@@ -875,6 +1519,70 @@ const StickFigure = ({ x, y, color = "var(--text-primary)", scale = 1, isDead = 
   );
 };
 
+// Advanced Trolley Vector Drawing
+const AdvancedTrolleySVG = () => (
+  <g>
+    {/* Body Shadow */}
+    <rect x="-24" y="-8" width="48" height="20" rx="3" fill="rgba(0,0,0,0.3)" />
+    {/* Metallic Main Body */}
+    <rect x="-22" y="-12" width="44" height="22" rx="4" fill="#d32f2f" stroke="#b71c1c" strokeWidth="1.5" />
+    {/* Rivet Details */}
+    <circle cx="-18" cy="-8" r="0.8" fill="#ff8a80" />
+    <circle cx="18" cy="-8" r="0.8" fill="#ff8a80" />
+    <circle cx="-18" cy="6" r="0.8" fill="#ff8a80" />
+    <circle cx="18" cy="6" r="0.8" fill="#ff8a80" />
+    {/* Windows */}
+    <rect x="-14" y="-7" width="8" height="7" rx="1" fill="#e0f7fa" stroke="#b71c1c" strokeWidth="1" />
+    <rect x="-2" y="-7" width="8" height="7" rx="1" fill="#e0f7fa" stroke="#b71c1c" strokeWidth="1" />
+    {/* Window Glare Reflection */}
+    <line x1="-12" y1="-5" x2="-8" y2="-2" stroke="#fff" strokeWidth="1" opacity="0.6" />
+    <line x1="0" y1="-5" x2="4" y2="-2" stroke="#fff" strokeWidth="1" opacity="0.6" />
+    {/* Heavy Wheels */}
+    <circle cx="-12" cy="12" r="5" fill="#37474f" stroke="#263238" strokeWidth="1.5" />
+    <circle cx="-12" cy="12" r="2.5" fill="#cfd8dc" />
+    <circle cx="12" cy="12" r="5" fill="#37474f" stroke="#263238" strokeWidth="1.5" />
+    <circle cx="12" cy="12" r="2.5" fill="#cfd8dc" />
+    {/* Headlight cone */}
+    <polygon points="22,-6 50,-18 50,6 22,0" fill="rgba(255, 235, 59, 0.15)" />
+    <circle cx="22" cy="-3" r="2" fill="#ffeb3b" />
+  </g>
+);
+
+// Advanced Railroad Tracks Drawing
+const RailroadTracksSVG = ({ startX, startY, endX, endY, tiesCount = 12 }) => {
+  const ties = [];
+  for (let i = 0; i <= tiesCount; i++) {
+    const ratio = i / tiesCount;
+    const x = startX + (endX - startX) * ratio;
+    const y = startY + (endY - startY) * ratio;
+    ties.push({ x, y });
+  }
+
+  return (
+    <g>
+      {/* Wood Cross-Ties (Sleepers) */}
+      {ties.map((t, idx) => (
+        <line
+          key={idx}
+          x1={t.x}
+          y1={t.y - 12}
+          x2={t.x}
+          y2={t.y + 12}
+          stroke="#5d4037"
+          strokeWidth="4.5"
+          strokeLinecap="round"
+          opacity="0.9"
+        />
+      ))}
+      {/* Metal Rails */}
+      <line x1={startX} y1={startY - 6} x2={endX} y2={endY - 6} stroke="#cfd8dc" strokeWidth="2.5" />
+      <line x1={startX} y1={startY + 6} x2={endX} y2={endY + 6} stroke="#cfd8dc" strokeWidth="2.5" />
+      <line x1={startX} y1={startY - 6} x2={endX} y2={endY - 6} stroke="#90a4ae" strokeWidth="1.2" />
+      <line x1={startX} y1={startY + 6} x2={endX} y2={endY + 6} stroke="#90a4ae" strokeWidth="1.2" />
+    </g>
+  );
+};
+
 // 5. Upgraded Trolley Problem Widget (SVG Track & Animation System)
 export const TrolleyProblemWidget = () => {
   const [currentScenario, setCurrentScenario] = useState(1);
@@ -943,7 +1651,7 @@ export const TrolleyProblemWidget = () => {
       profileTitle = 'Pragmatic Deontologist (Most Common)';
       profileDesc = 'You favor utilitarian outcomes when harm is indirect (pulling a lever), but refuse to violate moral rules when it requires direct physical contact (pushing the man) or violates professional trust (surgeon). You follow the Doctrine of Double Effect: foreseen side-effects are permissible, but directly using a person as a means to an end is not.';
     } else if (answers[1] === 'yes' && answers[2] === 'yes' && answers[3] === 'yes') {
-      profileTitle = 'Pure Utilitarian / Consequentialist';
+      profileTitle = 'Pure Consequentialist / Utilitarian';
       profileDesc = 'You believe that the moral worth of an action is determined solely by its consequences. Maximizing the number of survivors (5 vs 1) is always the right action, regardless of direct contact or professional rules. You agree with Jeremy Bentham: "Each to count for one, and none for more than one."';
     } else if (answers[1] === 'no' && answers[2] === 'no' && answers[3] === 'no') {
       profileTitle = 'Pure Deontologist / Kantian';
@@ -998,40 +1706,49 @@ export const TrolleyProblemWidget = () => {
           </Typography>
 
           {/* SVG Visual Demonstration - Theme Responsive backgrounds & lines */}
-          <Box style={{ width: '100%', height: '400px', backgroundColor: 'rgba(128,128,128,0.08)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)', position: 'relative', overflow: 'hidden', marginBottom: '20px' }}>
+          <Box style={{ width: '100%', height: '280px', backgroundColor: 'rgba(128,128,128,0.08)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)', position: 'relative', overflow: 'hidden', marginBottom: '20px' }}>
             
             {/* Scenario 1: The Switch SVG */}
             {currentScenario === 1 && (
               <svg viewBox="0 0 450 180" width="100%" height="100%">
-                {/* Main tracks */}
-                <line x1="20" y1="100" x2="430" y2="100" stroke="var(--text-secondary)" strokeWidth="6" opacity="0.25" />
-                <line x1="20" y1="100" x2="430" y2="100" stroke="#78909c" strokeWidth="4" strokeDasharray="3,6" />
+                {/* Main tracks sleepers & rails */}
+                <RailroadTracksSVG startX={20} startY={90} endX={430} endY={90} tiesCount={16} />
                 
-                {/* Side track fork */}
-                <path d="M 180,100 Q 260,100 320,140 L 430,140" fill="none" stroke="var(--text-secondary)" strokeWidth="6" opacity="0.25" />
-                <path d="M 180,100 Q 260,100 320,140 L 430,140" fill="none" stroke="#78909c" strokeWidth="4" strokeDasharray="3,6" />
+                {/* Side track fork sleepers & rails */}
+                <path d="M 180,90 Q 260,90 320,130 L 430,130" fill="none" stroke="#5d4037" strokeWidth="5.5" strokeLinecap="round" opacity="0.6" />
+                <path d="M 180,90 Q 260,90 320,130 L 430,130" fill="none" stroke="#cfd8dc" strokeWidth="2.5" />
+                
+                {/* Switch point representation */}
+                <motion.line
+                  x1="180" y1="90" x2="220" y2={decision === 'yes' ? 98 : 90}
+                  stroke="#cfd8dc"
+                  strokeWidth="3.5"
+                  animate={{ y2: decision === 'yes' ? 98 : 90 }}
+                  transition={{ duration: 0.5 }}
+                />
 
                 {/* 5 Workers */}
-                <StickFigure x={380} y={100} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                <StickFigure x={395} y={85} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                <StickFigure x={395} y={115} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                <StickFigure x={410} y={93} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                <StickFigure x={410} y={107} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
+                <StickFigure x={380} y={90} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
+                <StickFigure x={395} y={75} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
+                <StickFigure x={395} y={105} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
+                <StickFigure x={410} y={83} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
+                <StickFigure x={410} y={97} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
 
                 {/* 1 Worker */}
-                <StickFigure x={380} y={140} color={animationState === 'complete' && decision === 'yes' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'yes'} scale={0.6} />
+                <StickFigure x={380} y={130} color={animationState === 'complete' && decision === 'yes' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'yes'} scale={0.6} />
 
-                {/* Switch lever */}
-                <g transform="translate(180, 70)">
-                  <circle cx="0" cy="10" r="4" fill="var(--text-primary)" opacity="0.8" />
+                {/* Tactical Lever mechanism */}
+                <g transform="translate(180, 50)" style={{ cursor: 'pointer' }} onClick={() => { if (animationState === 'idle') handleChoice('yes'); }}>
+                  <rect x="-14" y="-2" width="28" height="12" rx="3" fill="#37474f" stroke="#263238" strokeWidth="1" />
                   <motion.line
-                    x1="0" y1="10" x2={decision === 'yes' ? 12 : -12} y2="-5"
+                    x1="0" y1="4" x2={decision === 'yes' ? 14 : -14} y2="-12"
                     stroke={decision === null ? "var(--text-secondary)" : decision === 'yes' ? "#4CAF50" : "#ff5252"}
-                    strokeWidth="3.5"
+                    strokeWidth="4"
                     strokeLinecap="round"
-                    animate={animationState === 'running' ? { x2: decision === 'yes' ? 12 : -12, y2: -5 } : {}}
+                    animate={animationState === 'running' ? { x2: decision === 'yes' ? 14 : -14, y2: -12 } : {}}
                   />
-                  <text x="-15" y="-12" fill="var(--text-secondary)" fontSize="8" fontWeight="800">LEVER</text>
+                  <circle cx={decision === 'yes' ? 14 : -14} cy="-12" r="5" fill={decision === 'yes' ? '#4CAF50' : '#cfd8dc'} />
+                  <text x="-12" y="-18" fill="var(--text-secondary)" fontSize="8" fontWeight="800">PULL LEVER</text>
                 </g>
 
                 {/* Trolley */}
@@ -1040,10 +1757,7 @@ export const TrolleyProblemWidget = () => {
                   animate={animationState === 'running' ? { x: trolleyX, y: trolleyY } : { x: 30, y: 90 }}
                   transition={{ duration: 2.0, ease: "easeInOut" }}
                 >
-                  <rect x="-16" y="-10" width="32" height="18" rx="2" fill="#D32F2F" stroke="#7f0000" strokeWidth="1" />
-                  <circle cx="-10" cy="10" r="4" fill="#424242" />
-                  <circle cx="10" cy="10" r="4" fill="#424242" />
-                  <polygon points="12,-5 16,-5 16,5 12,5" fill="#ffeb3b" /> {/* Headlight */}
+                  <AdvancedTrolleySVG />
                 </motion.g>
               </svg>
             )}
@@ -1051,28 +1765,31 @@ export const TrolleyProblemWidget = () => {
             {/* Scenario 2: The Footbridge SVG */}
             {currentScenario === 2 && (
               <svg viewBox="0 0 450 180" width="100%" height="100%">
-                {/* Tracks */}
-                <line x1="20" y1="140" x2="430" y2="140" stroke="var(--text-secondary)" strokeWidth="6" opacity="0.25" />
-                <line x1="20" y1="140" x2="430" y2="140" stroke="#78909c" strokeWidth="4" strokeDasharray="3,6" />
+                {/* Railroad tracks */}
+                <RailroadTracksSVG startX={20} startY={140} endX={430} endY={140} tiesCount={16} />
 
-                {/* Bridge */}
-                <rect x="180" y="65" width="100" height="8" fill="#546e7a" />
-                <line x1="180" y1="65" x2="180" y2="140" stroke="#546e7a" strokeWidth="4" />
-                <line x1="280" y1="65" x2="280" y2="140" stroke="#546e7a" strokeWidth="4" />
+                {/* Stone Bridge Pillars and Arch */}
+                <rect x="180" y="55" width="100" height="10" fill="#78909c" rx="2" />
+                <path d="M 180,65 L 180,140 L 195,140 L 195,75 Q 230,70 265,75 L 265,140 L 280,140 L 280,65 Z" fill="#546e7a" />
+                <line x1="180" y1="55" x2="280" y2="55" stroke="#b0bec5" strokeWidth="2.5" />
 
-                {/* Bystander & Player on Bridge */}
                 {/* Large Bystander */}
                 <motion.g
-                  initial={{ x: 215, y: 65 }}
-                  animate={animationState === 'running' && decision === 'yes' ? { y: [65, 65, 140], x: [215, 215, 215] } : { x: 215, y: 65 }}
+                  initial={{ x: 215, y: 55 }}
+                  animate={animationState === 'running' && decision === 'yes' ? { y: [55, 55, 140], x: [215, 215, 215], rotate: [0, 90, 180] } : { x: 215, y: 55 }}
                   transition={{ duration: 2.0, times: [0, 0.4, 0.75], ease: "easeInOut" }}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => { if (animationState === 'idle') handleChoice('yes'); }}
                 >
                   <StickFigure x={0} y={0} color={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#2196F3'} isDead={animationState === 'complete' && decision === 'yes'} scale={1.1} />
+                  {animationState === 'idle' && (
+                    <text x="-15" y="-34" fill="#2196F3" fontSize="8" fontWeight="800">PUSH</text>
+                  )}
                 </motion.g>
 
                 {/* Player */}
-                <StickFigure x={255} y={65} color="#4CAF50" scale={0.8} />
-                <text x="245" y="45" fill="#4CAF50" fontSize="8" fontWeight="800">YOU</text>
+                <StickFigure x={255} y={55} color="#4CAF50" scale={0.8} />
+                <text x="248" y="32" fill="#4CAF50" fontSize="8" fontWeight="800">YOU</text>
 
                 {/* 5 Workers */}
                 <StickFigure x={380} y={140} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
@@ -1084,13 +1801,10 @@ export const TrolleyProblemWidget = () => {
                 {/* Trolley */}
                 <motion.g
                   initial={{ x: 30, y: 130 }}
-                  animate={animationState === 'running' ? { x: decision === 'yes' ? [30, 205] : [30, 360] } : { x: 30 }}
+                  animate={animationState === 'running' ? { x: decision === 'yes' ? [30, 205] : [30, 360] } : { x: 30, y: 130 }}
                   transition={{ duration: 2.0, ease: "easeInOut" }}
                 >
-                  <rect x="-16" y="-10" width="32" height="18" rx="2" fill="#D32F2F" stroke="#7f0000" strokeWidth="1" />
-                  <circle cx="-10" cy="10" r="4" fill="#424242" />
-                  <circle cx="10" cy="10" r="4" fill="#424242" />
-                  <polygon points="12,-5 16,-5 16,5 12,5" fill="#ffeb3b" />
+                  <AdvancedTrolleySVG />
                 </motion.g>
               </svg>
             )}
@@ -1098,60 +1812,65 @@ export const TrolleyProblemWidget = () => {
             {/* Scenario 3: Organ Transplant SVG */}
             {currentScenario === 3 && (
               <svg viewBox="0 0 450 180" width="100%" height="100%">
-                {/* Ward division line */}
-                <line x1="300" y1="20" x2="300" y2="160" stroke="var(--text-secondary)" strokeWidth="2" strokeDasharray="5,5" opacity="0.2" />
+                {/* futuristic grid lines */}
+                <path d="M 0,20 L 450,20 M 0,50 L 450,50 M 0,80 L 450,80 M 0,110 L 450,110 M 0,140 L 450,140 M 0,170 L 450,170" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
                 
-                {/* 5 Patients Beds & Pulses */}
+                {/* 5 Patients Futuristic Pods */}
                 {Array.from({ length: 5 }).map((_, idx) => {
                   const yVal = 30 + idx * 30;
                   const isSaved = animationState === 'complete' && decision === 'yes';
                   const isDead = animationState === 'complete' && decision === 'no';
                   return (
-                    <g key={idx} transform={`translate(50, ${yVal})`}>
-                      {/* Bed */}
-                      <rect x="0" y="-8" width="40" height="16" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" opacity="0.35" />
-                      <line x1="5" y1="0" x2="35" y2="0" stroke={isSaved ? '#4CAF50' : isDead ? 'var(--text-secondary)' : 'var(--text-primary)'} strokeWidth="3" />
-                      {/* Heart Pulse */}
+                    <g key={idx} transform={`translate(40, ${yVal})`}>
+                      {/* Pod outline */}
+                      <rect x="0" y="-12" width="60" height="24" rx="4" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" opacity="0.3" />
+                      {/* Scanning glow */}
+                      <rect x="2" y="-10" width="56" height="20" rx="2" fill={isSaved ? 'rgba(76, 175, 80, 0.05)' : 'rgba(255, 82, 82, 0.03)'} />
+                      <line x1="5" y1="0" x2="55" y2="0" stroke={isSaved ? '#4CAF50' : isDead ? 'rgba(255,255,255,0.2)' : 'var(--text-primary)'} strokeWidth="3" />
+                      {/* Hologram pulse */}
                       <motion.path
-                        d="M 50,-5 L 53,-5 L 55,-10 L 57,5 L 59,-7 L 61,-5 L 70,-5"
+                        d="M 68,-3 L 73,-3 L 75,-12 L 78,8 L 81,-8 L 83,-3 L 95,-3"
                         fill="none"
-                        stroke={isSaved ? '#4CAF50' : isDead ? 'var(--text-secondary)' : '#ff5252'}
-                        strokeWidth="1.5"
+                        stroke={isSaved ? '#4CAF50' : isDead ? 'rgba(255,255,255,0.15)' : '#ff5252'}
+                        strokeWidth="1.8"
                         animate={!isDead && !isSaved ? { strokeDashoffset: [0, 20] } : {}}
-                        transition={{ repeat: Infinity, duration: 1.2, ease: "linear" }}
-                        strokeDasharray="5,15"
+                        transition={{ repeat: Infinity, duration: 1.0, ease: "linear" }}
+                        strokeDasharray="4,8"
                       />
                     </g>
                   );
                 })}
 
-                {/* Surgeon */}
-                <StickFigure x={200} y={90} color="#2196F3" scale={0.9} />
-                <text x="180" y="65" fill="#2196F3" fontSize="8" fontWeight="800">SURGEON</text>
+                {/* Surgeon Station */}
+                <StickFigure x={220} y={90} color="#2196F3" scale={0.9} />
+                {/* Hologram Ring */}
+                <ellipse cx="220" cy="95" rx="14" ry="4" fill="none" stroke="#2196F3" strokeWidth="1.5" strokeDasharray="3,3" />
+                <text x="195" y="65" fill="#2196F3" fontSize="8" fontWeight="800">SURGEON</text>
 
-                {/* Healthy Traveler */}
+                {/* Healthy Traveler Pod */}
                 <motion.g
-                  initial={{ x: 380, y: 90 }}
+                  initial={{ x: 360, y: 90 }}
                   animate={
                     animationState === 'running' && decision === 'yes'
-                      ? { x: [380, 200], y: [90, 130], rotate: [0, 90] }
+                      ? { x: [360, 220], y: [90, 130], rotate: [0, 90] }
                       : animationState === 'complete' && decision === 'yes'
-                      ? { x: 200, y: 130, rotate: 90 }
+                      ? { x: 220, y: 130, rotate: 90 }
                       : animationState === 'running' && decision === 'no'
-                      ? { x: [380, 440], opacity: [1, 0] }
+                      ? { x: [360, 420], opacity: [1, 0] }
                       : animationState === 'complete' && decision === 'no'
-                      ? { x: 440, opacity: 0 }
-                      : { x: 380, y: 90 }
+                      ? { x: 420, opacity: 0 }
+                      : { x: 360, y: 90 }
                   }
                   transition={{ duration: 1.8, ease: "easeInOut" }}
                 >
-                  <StickFigure x={0} y={0} color={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#4CAF50'} isDead={animationState === 'complete' && decision === 'yes'} scale={0.9} />
+                  <rect x="-10" y="-20" width="20" height="40" rx="3" fill="none" stroke="#4CAF50" strokeWidth="1.5" opacity="0.4" />
+                  <StickFigure x={0} y={10} color={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#4CAF50'} isDead={animationState === 'complete' && decision === 'yes'} scale={0.9} />
                 </motion.g>
                 {animationState === 'idle' && (
-                  <text x="350" y="65" fill="#4CAF50" fontSize="8" fontWeight="800">TRAVELER</text>
+                  <text x="340" y="60" fill="#4CAF50" fontSize="8" fontWeight="800">TRAVELER</text>
                 )}
 
-                {/* Healing beams shooting from center to beds */}
+                {/* laser harvest beams */}
                 {animationState === 'running' && decision === 'yes' && (
                   <g>
                     {Array.from({ length: 5 }).map((_, idx) => {
@@ -1159,7 +1878,7 @@ export const TrolleyProblemWidget = () => {
                       return (
                         <motion.line
                           key={idx}
-                          x1="200" y1="130" x2="120" y2={yVal}
+                          x1="220" y1="130" x2="100" y2={yVal}
                           stroke="#ffeb3b"
                           strokeWidth="2.5"
                           strokeDasharray="4,10"
@@ -1237,7 +1956,7 @@ export const TrolleyProblemWidget = () => {
           </Typography>
 
           {/* Scores Gauges */}
-          <Grid container spacing={2} style={{ marginBottom: '20px' }}>
+          <Grid container spacing={2} style={{ marginBottom: '24px' }}>
             <Grid item xs={6}>
               <Box style={{ padding: '16px', background: 'rgba(28, 176, 246, 0.08)', borderRadius: '12px', border: '1px solid rgba(28,176,246,0.2)', textAlign: 'center' }}>
                 <Typography variant="caption" style={{ display: 'block', color: 'var(--text-secondary)', fontWeight: 800 }}>Utilitarian Index</Typography>
@@ -1255,6 +1974,52 @@ export const TrolleyProblemWidget = () => {
               </Box>
             </Grid>
           </Grid>
+
+          {/* Moral Balance Scale SVG (Tilts dynamically based on calculations) */}
+          <Box style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+            <svg viewBox="0 0 200 120" width="220" height="130">
+              {/* Stand */}
+              <rect x="96" y="90" width="8" height="20" fill="var(--text-secondary)" rx="1" />
+              <rect x="80" y="110" width="40" height="6" fill="var(--text-secondary)" rx="2" />
+              
+              {/* Scale Beam & Plates Group */}
+              <motion.g
+                transform={`translate(100, 40)`}
+                animate={{ rotate: calculateProfile().utilitarianPct - 50 }}
+                transition={{ duration: 1.2, ease: "easeOut" }}
+              >
+                {/* Horizontal Beam */}
+                <line x1="-60" y1="0" x2="60" y2="0" stroke="var(--text-secondary)" strokeWidth="3" />
+                <circle cx="0" cy="0" r="4" fill="var(--primary-main)" />
+                
+                {/* Left side strings and plate (Utilitarian) */}
+                <g transform="translate(-60, 0)">
+                  <line x1="0" y1="0" x2="-14" y2="35" stroke="var(--text-secondary)" strokeWidth="1" opacity="0.6" />
+                  <line x1="0" y1="0" x2="14" y2="35" stroke="var(--text-secondary)" strokeWidth="1" opacity="0.6" />
+                  <rect x="-18" y="35" width="36" height="3" fill="var(--primary-main)" rx="1" />
+                  
+                  {/* Utilitarian Weights */}
+                  {Array.from({ length: Math.round(calculateProfile().utilitarianPct / 33.3) }).map((_, idx) => (
+                    <rect key={idx} x={-6 + idx * 5} y={25} width="6" height="10" fill="var(--primary-main)" stroke="rgba(255,255,255,0.2)" />
+                  ))}
+                  <text x="-25" y="50" fill="var(--primary-main)" fontSize="7" fontWeight="bold">UTIL</text>
+                </g>
+
+                {/* Right side strings and plate (Deontology) */}
+                <g transform="translate(60, 0)">
+                  <line x1="0" y1="0" x2="-14" y2="35" stroke="var(--text-secondary)" strokeWidth="1" opacity="0.6" />
+                  <line x1="0" y1="0" x2="14" y2="35" stroke="var(--text-secondary)" strokeWidth="1" opacity="0.6" />
+                  <rect x="-18" y="35" width="36" height="3" fill="#FF5252" rx="1" />
+
+                  {/* Deontology Weights */}
+                  {Array.from({ length: Math.round(calculateProfile().deontologyPct / 33.3) }).map((_, idx) => (
+                    <rect key={idx} x={-6 + idx * 5} y={25} width="6" height="10" fill="#FF5252" stroke="rgba(255,255,255,0.2)" />
+                  ))}
+                  <text x="-22" y="50" fill="#FF5252" fontSize="7" fontWeight="bold">DEON</text>
+                </g>
+              </motion.g>
+            </svg>
+          </Box>
 
           {/* Feedback */}
           <Box style={{ padding: '18px', background: 'rgba(128,128,128,0.02)', border: '1px dashed rgba(128,128,128,0.25)', borderRadius: '12px', marginBottom: '20px' }}>
