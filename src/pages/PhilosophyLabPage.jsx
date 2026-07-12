@@ -1565,9 +1565,9 @@ const RailroadTracksSVG = ({ startX, startY, endX, endY, tiesCount = 12 }) => {
         <line
           key={idx}
           x1={t.x}
-          y1={t.y - 12}
+          y1={t.y - 8}
           x2={t.x}
-          y2={t.y + 12}
+          y2={t.y + 8}
           stroke="#5d4037"
           strokeWidth="4.5"
           strokeLinecap="round"
@@ -1579,6 +1579,93 @@ const RailroadTracksSVG = ({ startX, startY, endX, endY, tiesCount = 12 }) => {
       <line x1={startX} y1={startY + 6} x2={endX} y2={endY + 6} stroke="#cfd8dc" strokeWidth="2.5" />
       <line x1={startX} y1={startY - 6} x2={endX} y2={endY - 6} stroke="#90a4ae" strokeWidth="1.2" />
       <line x1={startX} y1={startY + 6} x2={endX} y2={endY + 6} stroke="#90a4ae" strokeWidth="1.2" />
+    </g>
+  );
+};
+
+// Curved Railroad Tracks Drawing for Scenario 1
+const CurvedRailroadTracksSVG = () => {
+  const ties = [];
+  
+  // Segment 1: Bezier curve t = 0.42 to 1 (starts at x = 247 to avoid clutter at switch intersection)
+  const curveTiesCount = 12;
+  for (let i = 5; i <= curveTiesCount; i++) {
+    const t = i / curveTiesCount;
+    const x = (1 - t) * (1 - t) * 180 + 2 * (1 - t) * t * 260 + t * t * 320;
+    const y = (1 - t) * (1 - t) * 90 + 2 * (1 - t) * t * 90 + t * t * 130;
+    
+    const dx = 160 - 40 * t;
+    const dy = 80 * t;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    
+    const nx = (-dy / length) * 8;
+    const ny = (dx / length) * 8;
+    
+    ties.push({ x1: x - nx, y1: y - ny, x2: x + nx, y2: y + ny });
+  }
+  
+  // Segment 2: Straight segment x = 320 to 430
+  const straightTiesCount = 8;
+  const startX = 320;
+  const endX = 430;
+  for (let i = 1; i <= straightTiesCount; i++) {
+    const ratio = i / straightTiesCount;
+    const x = startX + (endX - startX) * ratio;
+    const y = 130;
+    
+    ties.push({ x1: x, y1: y - 8, x2: x, y2: y + 8 });
+  }
+  
+  // Metal rails parallel curve coordinates (starts at t = 0.25 / sample 6 to merge smoothly with switch blade)
+  const railPointsLeft = [];
+  const railPointsRight = [];
+  const samples = 24;
+  for (let i = 6; i <= samples; i++) {
+    const t = i / samples;
+    const x = (1 - t) * (1 - t) * 180 + 2 * (1 - t) * t * 260 + t * t * 320;
+    const y = (1 - t) * (1 - t) * 90 + 2 * (1 - t) * t * 90 + t * t * 130;
+    
+    const dx = 160 - 40 * t;
+    const dy = 80 * t;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    
+    const nx = (-dy / length) * 6;
+    const ny = (dx / length) * 6;
+    
+    railPointsLeft.push(`${x - nx},${y - ny}`);
+    railPointsRight.push(`${x + nx},${y + ny}`);
+  }
+  
+  railPointsLeft.push("430,124");
+  railPointsRight.push("430,136");
+  
+  const railPathLeft = "M " + railPointsLeft.join(" L ");
+  const railPathRight = "M " + railPointsRight.join(" L ");
+  
+  return (
+    <g>
+      {/* Wooden Cross-Ties (Sleepers) */}
+      {ties.map((t, idx) => (
+        <line
+          key={idx}
+          x1={t.x1}
+          y1={t.y1}
+          x2={t.x2}
+          y2={t.y2}
+          stroke="#5d4037"
+          strokeWidth="4.5"
+          strokeLinecap="round"
+          opacity="0.9"
+        />
+      ))}
+      {/* Rail base shadows */}
+      <path d={railPathLeft} fill="none" stroke="#5d4037" strokeWidth="5.5" strokeLinecap="round" opacity="0.4" />
+      <path d={railPathRight} fill="none" stroke="#5d4037" strokeWidth="5.5" strokeLinecap="round" opacity="0.4" />
+      {/* Metal Rails */}
+      <path d={railPathLeft} fill="none" stroke="#cfd8dc" strokeWidth="2.5" />
+      <path d={railPathRight} fill="none" stroke="#cfd8dc" strokeWidth="2.5" />
+      <path d={railPathLeft} fill="none" stroke="#90a4ae" strokeWidth="1.2" />
+      <path d={railPathRight} fill="none" stroke="#90a4ae" strokeWidth="1.2" />
     </g>
   );
 };
@@ -1725,8 +1812,16 @@ export const TrolleyProblemWidget = () => {
     setDecision(null);
   };
 
-  const trolleyX = decision === 'yes' ? [50, 200, 360] : [50, 360];
-  const trolleyY = decision === 'yes' ? [90, 90, 130] : [90, 90];
+  const trolleyX = decision === 'yes' 
+    ? [30, 60, 90, 120, 150, 180, 215, 250, 285, 320, 350, 380] 
+    : [30, 60, 90, 120, 150, 180, 215, 250, 285, 320, 350, 380];
+  const trolleyY = decision === 'yes' 
+    ? [90, 90, 90, 90, 90, 90, 92, 99, 111, 130, 130, 130] 
+    : [90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90];
+  const trolleyRotate = decision === 'yes' 
+    ? [0, 0, 0, 0, 0, 0, 7, 15, 24, 34, 15, 0] 
+    : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  const trolleyTimes = [0, 0.084, 0.169, 0.253, 0.337, 0.422, 0.521, 0.620, 0.723, 0.831, 0.916, 1.0];
 
   return (
     <Paper className="glass-panel" style={{ padding: '24px', margin: '20px 0', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -1771,8 +1866,7 @@ export const TrolleyProblemWidget = () => {
             {currentScenario === 1 && (
               <svg viewBox="0 0 450 180" width="100%" height="100%">
                 <RailroadTracksSVG startX={20} startY={90} endX={430} endY={90} tiesCount={16} />
-                <path d="M 180,90 Q 260,90 320,130 L 430,130" fill="none" stroke="#5d4037" strokeWidth="5.5" strokeLinecap="round" opacity="0.6" />
-                <path d="M 180,90 Q 260,90 320,130 L 430,130" fill="none" stroke="#cfd8dc" strokeWidth="2.5" />
+                <CurvedRailroadTracksSVG />
                 <motion.line
                   x1="180" y1="90" x2="220" y2={decision === 'yes' ? 98 : 90}
                   stroke="#cfd8dc"
@@ -1801,9 +1895,15 @@ export const TrolleyProblemWidget = () => {
                 </g>
 
                 <motion.g
-                  initial={{ x: 30, y: 90 }}
-                  animate={animationState === 'running' ? { x: trolleyX, y: trolleyY } : { x: 30, y: 90 }}
-                  transition={{ duration: 2.0, ease: "easeInOut" }}
+                  initial={{ x: 30, y: 90, rotate: 0 }}
+                  animate={
+                    animationState === 'running'
+                      ? { x: trolleyX, y: trolleyY, rotate: trolleyRotate }
+                      : animationState === 'complete'
+                      ? { x: 380, y: decision === 'yes' ? 130 : 90, rotate: 0 }
+                      : { x: 30, y: 90, rotate: 0 }
+                  }
+                  transition={{ duration: 2.0, ease: "linear", times: trolleyTimes }}
                 >
                   <AdvancedTrolleySVG />
                 </motion.g>

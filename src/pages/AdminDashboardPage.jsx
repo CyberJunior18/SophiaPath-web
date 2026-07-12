@@ -69,6 +69,18 @@ const CYBER_LABS = [
   { value: 'insider', label: 'Insider Threat Data Exfiltration' }
 ];
 
+// Helper for authenticated requests in admin dashboard
+const adminFetch = (url, options = {}) => {
+  const token = localStorage.getItem('token');
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    }
+  });
+};
+
 const AdminDashboardPage = () => {
   const { user } = useAuth();
   
@@ -78,6 +90,7 @@ const AdminDashboardPage = () => {
   });
   
   const [courses, setCourses] = useState(coursesData);
+  const [loadError, setLoadError] = useState(null);
   
   // Navigation State inside Admin Page
   const [editingCourseDetails, setEditingCourseDetails] = useState(null); // Course currently editing sections/lessons
@@ -188,9 +201,10 @@ const AdminDashboardPage = () => {
   // Load all courses from database
   const loadCourses = async () => {
     try {
-      const res = await fetch('/courses/export/all');
+      const res = await adminFetch('/courses/export/all');
       if (res.ok) {
         const backendCourses = await res.json();
+        setLoadError(null);
         if (backendCourses && backendCourses.length > 0) {
           const sorted = backendCourses.sort((a, b) => a.id - b.id);
           setCourses(sorted);
@@ -204,9 +218,16 @@ const AdminDashboardPage = () => {
             }
           }
         }
+      } else {
+        if (res.status === 401 || res.status === 403) {
+          setLoadError('Session Unauthorized: If you recently changed roles, please logout and log back in to refresh your admin credentials.');
+        } else {
+          setLoadError(`Failed to load courses from database (Status: ${res.status}).`);
+        }
       }
     } catch (err) {
       console.error('Failed to load courses:', err);
+      setLoadError('Failed to load courses: Network error or server offline.');
     }
   };
 
@@ -256,7 +277,7 @@ const AdminDashboardPage = () => {
       if (courseForm.id === null) {
         // Create Course (requires unique integer ID)
         const nextId = courses.length > 0 ? Math.max(...courses.map(c => c.id)) + 1 : 1;
-        const res = await fetch('/courses', {
+        const res = await adminFetch('/courses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -277,7 +298,7 @@ const AdminDashboardPage = () => {
         }
       } else {
         // Update Course Metadata
-        const res = await fetch('/courses/' + courseForm.id, {
+        const res = await adminFetch('/courses/' + courseForm.id, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(courseForm)
@@ -296,7 +317,7 @@ const AdminDashboardPage = () => {
   const handleDeleteCourse = async (courseId, courseTitle) => {
     if (window.confirm('WARNING: Are you sure you want to permanently delete the course "' + courseTitle + '"? This will delete all its sections and lessons.')) {
       try {
-        const res = await fetch('/courses/' + courseId, {
+        const res = await adminFetch('/courses/' + courseId, {
           method: 'DELETE'
         });
         if (res.ok) {
@@ -344,7 +365,7 @@ const AdminDashboardPage = () => {
     try {
       if (sectionForm.isNew) {
         const nextSecId = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 100);
-        const res = await fetch('/courses/' + courseId + '/sections', {
+        const res = await adminFetch('/courses/' + courseId + '/sections', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -362,7 +383,7 @@ const AdminDashboardPage = () => {
           alert('Failed to save section to database');
         }
       } else {
-        const res = await fetch('/courses/' + courseId + '/sections/' + sectionForm.id, {
+        const res = await adminFetch('/courses/' + courseId + '/sections/' + sectionForm.id, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -388,7 +409,7 @@ const AdminDashboardPage = () => {
     if (window.confirm('Are you sure you want to permanently delete the section "' + sectionTitle + '" and all its lessons?')) {
       const courseId = editingCourseDetails.id;
       try {
-        const res = await fetch('/courses/' + courseId + '/sections/' + sectionId, {
+        const res = await adminFetch('/courses/' + courseId + '/sections/' + sectionId, {
           method: 'DELETE'
         });
         if (res.ok) {
@@ -461,7 +482,7 @@ const AdminDashboardPage = () => {
 
     try {
       if (isNew) {
-        const res = await fetch('/courses/' + courseId + '/sections/' + sectionId + '/lessons', {
+        const res = await adminFetch('/courses/' + courseId + '/sections/' + sectionId + '/lessons', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -481,7 +502,7 @@ const AdminDashboardPage = () => {
           alert('Failed to save lesson: ' + (errData.message || res.statusText));
         }
       } else {
-        const res = await fetch('/courses/' + courseId + '/sections/' + sectionId + '/lessons/' + lessonId, {
+        const res = await adminFetch('/courses/' + courseId + '/sections/' + sectionId + '/lessons/' + lessonId, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -510,7 +531,7 @@ const AdminDashboardPage = () => {
     if (window.confirm('Are you sure you want to permanently delete the lesson "' + lessonTitle + '"?')) {
       const courseId = editingCourseDetails.id;
       try {
-        const res = await fetch('/courses/' + courseId + '/sections/' + sectionId + '/lessons/' + lessonId, {
+        const res = await adminFetch('/courses/' + courseId + '/sections/' + sectionId + '/lessons/' + lessonId, {
           method: 'DELETE'
         });
         if (res.ok) {
@@ -2341,6 +2362,27 @@ const AdminDashboardPage = () => {
   // Otherwise, render core Admin Control Panel (Tab switcher: Manage Courses list, Manage Users list, Audit logs)
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '16px' }}>
+      {loadError && (
+        <Paper 
+          className="glass-panel" 
+          style={{ 
+            padding: '16px', 
+            borderRadius: '12px', 
+            border: '1px solid rgba(255, 152, 0, 0.25)', 
+            background: 'rgba(255, 152, 0, 0.1)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px',
+            color: '#ff9800'
+          }}
+        >
+          <WarningIcon />
+          <Typography variant="body2" style={{ fontWeight: 800 }}>
+            {loadError}
+          </Typography>
+        </Paper>
+      )}
+
       {/* Admin Stats Grid */}
       <Grid container spacing={3}>
         <Grid item xs={12} sm={6} md={3}>
