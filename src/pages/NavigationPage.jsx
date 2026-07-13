@@ -1230,83 +1230,51 @@ const NavigationPage = () => {
         </motion.div>
 
         {!sidebarCollapsed ? (
-          <motion.div className="nav-profile-card" variants={itemVariants}>
-            <Avatar
-              src={user?.avatar || "https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"}
-              sx={{ width: 56, height: 56 }}
-            />
-            <div className="nav-profile-copy">
-              <Typography className="nav-profile-name">{userName}</Typography>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
-                {!user ? (
-                  <div style={{ margin: '2px 0 4px 0' }}>
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      fontSize: '0.68rem',
-                      fontWeight: 800,
-                      fontFamily: '"Outfit", sans-serif',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      background: 'var(--action-hover)',
-                      color: 'var(--text-secondary)',
-                      border: '1px solid var(--divider)'
-                    }}>
-                      Guest
-                    </span>
-                  </div>
-                ) : user?.roleID !== undefined && Number(user.roleID) > 0 && (
-                  <div style={{ margin: '2px 0 4px 0' }}>
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      fontSize: '0.68rem',
-                      fontWeight: 800,
-                      fontFamily: '"Outfit", sans-serif',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      background: Number(user.roleID) === 3 ? 'rgba(255, 193, 7, 0.15)' : Number(user.roleID) === 2 ? 'rgba(156, 39, 176, 0.15)' : 'rgba(76, 175, 80, 0.15)',
-                      color: Number(user.roleID) === 3 ? '#ffc107' : Number(user.roleID) === 2 ? '#e040fb' : '#4caf50'
-                    }}>
-                      {Number(user.roleID) === 3 ? 'Admin' : Number(user.roleID) === 2 ? 'Moderator' : 'Expert'}
-                    </span>
-                  </div>
-                )}
+          <motion.div className="nav-profile-card" variants={itemVariants} style={{ padding: '0.65rem' }}>
+            <div className="nav-profile-copy" style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flexGrow: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', flexWrap: 'nowrap' }}>
+                <Typography className="nav-profile-name" style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                  {userName}
+                </Typography>
+                <span style={{
+                  fontSize: '0.56rem',
+                  fontWeight: 900,
+                  padding: '1px 5px',
+                  borderRadius: '4px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  background: !user ? 'rgba(255,255,255,0.08)' : Number(user.roleID) === 3 ? 'rgba(255, 193, 7, 0.15)' : Number(user.roleID) === 2 ? 'rgba(156, 39, 176, 0.15)' : Number(user.roleID) === 1 ? 'rgba(76, 175, 80, 0.15)' : 'rgba(255,255,255,0.06)',
+                  color: !user ? 'var(--text-secondary)' : Number(user.roleID) === 3 ? '#ffc107' : Number(user.roleID) === 2 ? '#e040fb' : Number(user.roleID) === 1 ? '#4caf50' : 'var(--text-secondary)',
+                  border: '1px solid var(--divider)',
+                  flexShrink: 0
+                }}>
+                  {!user ? 'Guest' : Number(user.roleID) === 3 ? 'Admin' : Number(user.roleID) === 2 ? 'Moderator' : Number(user.roleID) === 1 ? 'Expert' : 'Student'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', width: '100%', flexWrap: 'nowrap' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {!user ? 'Novice Seeker' : (user?.levelName || 'Beginner')}
+                </span>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-disabled)' }}>•</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                  {!user ? 0 : (user?.xp || 0)} XP
+                </span>
                 {user && (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {user?.levelName || 'Beginner'}
-                      </span>
-                      <Tooltip title="View Level Guide">
-                        <IconButton
-                          size="small"
-                          onClick={handleLevelInfoClick}
-                          style={{ padding: '2px', color: 'rgba(255, 255, 255, 0.45)' }}
-                          className="interactive"
-                        >
-                          <InfoIcon style={{ fontSize: '0.88rem' }} />
-                        </IconButton>
-                      </Tooltip>
-                    </div>
-                    <span style={{ fontSize: '0.74rem', opacity: 0.65, color: 'var(--text-secondary)' }}>
-                      xp: {user?.xp || 0}
-                    </span>
-                  </>
+                  <Tooltip title="View Level Guide">
+                    <IconButton
+                      size="small"
+                      onClick={handleLevelInfoClick}
+                      style={{ padding: '0 2px', color: 'rgba(255, 255, 255, 0.35)', marginLeft: '2px' }}
+                      className="interactive"
+                    >
+                      <InfoIcon style={{ fontSize: '0.8rem' }} />
+                    </IconButton>
+                  </Tooltip>
                 )}
               </div>
             </div>
           </motion.div>
-        ) : (
-          <motion.div className="nav-profile-card collapsed" variants={itemVariants} style={{ justifyContent: 'center', padding: '0.5rem' }}>
-            <Avatar
-              src={user?.avatar || "https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"}
-              sx={{ width: 40, height: 40 }}
-            />
-          </motion.div>
-        )}
+        ) : null}
 
         <Popover
           open={isPopoverOpen}
@@ -1764,11 +1732,13 @@ const NavigationPage = () => {
                     <LogoutIcon />
                   </IconButton>
                   <Avatar
-                    src={user?.avatar || "https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"}
+                    src={user?.avatar || ''}
                     sx={{ width: 48, height: 48 }}
                     onClick={() => navigate('/profile')}
                     style={{ cursor: 'pointer' }}
-                  />
+                  >
+                    {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
+                  </Avatar>
                 </>
               )}
             </div>

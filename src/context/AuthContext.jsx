@@ -98,13 +98,8 @@ export const AuthProvider = ({ children }) => {
             const userData = await res.json();
             const progress = await fetchUserProgress(savedToken);
 
-            const storedRoles = JSON.parse(localStorage.getItem('sophiapath_admin_user_roles') || '{}');
-            const overriddenRoleId = storedRoles[userData.id];
-            const finalRoleId = overriddenRoleId !== undefined ? Number(overriddenRoleId) : (userData.roleID ?? 0);
-
-            const storedCourses = JSON.parse(localStorage.getItem('sophiapath_admin_user_courses') || '{}');
-            const overriddenCourses = storedCourses[userData.id];
-            const finalCourses = overriddenCourses !== undefined ? overriddenCourses : (userData.assignedCourseIds ? userData.assignedCourseIds.map(Number) : []);
+            const finalRoleId = userData.roleID ?? 0;
+            const finalCourses = userData.assignedCourseIds ? userData.assignedCourseIds.map(Number) : [];
 
             setUser({
               id: userData.id,
@@ -120,7 +115,7 @@ export const AuthProvider = ({ children }) => {
               level: userData.level ?? 1,
               levelName: userData.levelName ?? 'Beginner',
               joinedDate: userData.dateTime,
-              avatar: localStorage.getItem(`avatar_${userData.id}`) || userData.avatar || 'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
+              avatar: localStorage.getItem(`avatar_${userData.id}`) || userData.avatar || '',
               achievements: [],
               streak: 0,
               ...progress
@@ -196,13 +191,8 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem(`pending_avatar_${userData.email}`);
         }
 
-        const storedRoles = JSON.parse(localStorage.getItem('sophiapath_admin_user_roles') || '{}');
-        const overriddenRoleId = storedRoles[userData.id];
-        const finalRoleId = overriddenRoleId !== undefined ? Number(overriddenRoleId) : (userData.roleID ?? 0);
-
-        const storedCourses = JSON.parse(localStorage.getItem('sophiapath_admin_user_courses') || '{}');
-        const overriddenCourses = storedCourses[userData.id];
-        const finalCourses = overriddenCourses !== undefined ? overriddenCourses : (userData.assignedCourseIds ? userData.assignedCourseIds.map(Number) : []);
+        const finalRoleId = userData.roleID ?? 0;
+        const finalCourses = userData.assignedCourseIds ? userData.assignedCourseIds.map(Number) : [];
 
         setUser({
           id: userData.id,
@@ -218,7 +208,7 @@ export const AuthProvider = ({ children }) => {
           level: userData.level ?? 1,
           levelName: userData.levelName ?? 'Beginner',
           joinedDate: userData.dateTime,
-          avatar: localStorage.getItem(`avatar_${userData.id}`) || userData.avatar || 'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg',
+          avatar: localStorage.getItem(`avatar_${userData.id}`) || userData.avatar || '',
           achievements: [],
           streak: 0,
           ...progress
@@ -528,21 +518,35 @@ export const AuthProvider = ({ children }) => {
     const savedToken = getStoredToken();
     if (!savedToken) return;
     try {
+      // 1. Silently refresh the token to catch any database-side role changes
+      let currentToken = savedToken;
+      try {
+        const refreshRes = await fetch('/auth/refresh', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${savedToken}`
+          }
+        });
+        if (refreshRes.ok) {
+          const { accessToken } = await refreshRes.json();
+          setStoredToken(accessToken);
+          currentToken = accessToken;
+        }
+      } catch (err) {
+        console.warn('Silent token refresh failed:', err);
+      }
+
+      // 2. Fetch the latest user profile details
       const res = await fetch('/users/me', {
         headers: {
-          'Authorization': `Bearer ${savedToken}`
+          'Authorization': `Bearer ${currentToken}`
         }
       });
       if (res.ok) {
         const userData = await res.json();
-        const progress = await fetchUserProgress(savedToken);
-        const storedRoles = JSON.parse(localStorage.getItem('sophiapath_admin_user_roles') || '{}');
-        const overriddenRoleId = storedRoles[userData.id];
-        const finalRoleId = overriddenRoleId !== undefined ? Number(overriddenRoleId) : (userData.roleID ?? prev.roleID);
-
-        const storedCourses = JSON.parse(localStorage.getItem('sophiapath_admin_user_courses') || '{}');
-        const overriddenCourses = storedCourses[userData.id];
-        const finalCourses = overriddenCourses !== undefined ? overriddenCourses : (userData.assignedCourseIds ? userData.assignedCourseIds.map(Number) : prev.assignedCourseIds || []);
+        const progress = await fetchUserProgress(currentToken);
+        const finalRoleId = userData.roleID ?? 0;
+        const finalCourses = userData.assignedCourseIds ? userData.assignedCourseIds.map(Number) : [];
 
         setUser(prev => {
           if (!prev) return null;

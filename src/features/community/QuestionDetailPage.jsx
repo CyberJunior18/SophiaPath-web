@@ -13,6 +13,7 @@ import {
   FormControlLabel,
   Switch,
   MenuItem,
+  Menu,
   Select,
   InputLabel,
   FormControl,
@@ -25,7 +26,8 @@ import {
   ListItemAvatar,
   ListItemText,
   ListItemButton,
-  CircularProgress
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -40,7 +42,12 @@ import {
   PhotoCamera as CameraIcon,
   Bookmark as BookmarkIcon,
   BookmarkBorder as BookmarkBorderIcon,
-  Share as ShareIcon
+  Share as ShareIcon,
+  MoreVert as MoreVertIcon,
+  Fingerprint as FingerprintIcon,
+  Person as PersonIcon,
+  CalendarToday as CalendarIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -103,7 +110,8 @@ const RenderReplyNode = ({
   collapsedReplyIds,
   toggleReplyCollapse,
   canDeleteContent,
-  cooldownMs
+  cooldownMs,
+  isMyStatusTimedOut
 }) => {
   if (!reply) return null;
   const isReplyAuthor = Number(reply.authorId) === Number(user?.id);
@@ -162,11 +170,18 @@ const RenderReplyNode = ({
               {canDeleteContent && canDeleteContent(reply.authorId) && (
                 <IconButton 
                   size="small" 
-                  onClick={() => handleDeleteReply(reply.id)}
-                  color="error"
+                  onClick={(e) => {
+                    setCommentMenuAnchor(e.currentTarget);
+                    setMenuTarget({
+                      id: reply.id,
+                      authorId: reply.authorId,
+                      authorName: reply.authorName || 'user',
+                      isReply: true
+                    });
+                  }}
                   sx={{ p: 0.5 }}
                 >
-                  <DeleteIcon sx={{ fontSize: 14 }} />
+                  <MoreVertIcon sx={{ fontSize: 14 }} />
                 </IconButton>
               )}
             </>
@@ -218,6 +233,7 @@ const RenderReplyNode = ({
                     setReplyText('');
                   }
                 }}
+                disabled={isMyStatusTimedOut}
                 sx={{ minWidth: 0, p: 0, textTransform: 'none', fontSize: '0.72rem', color: 'var(--text-secondary)' }}
               >
                 Reply
@@ -237,6 +253,7 @@ const RenderReplyNode = ({
                   minRows={1}
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
+                  disabled={isMyStatusTimedOut}
                   InputProps={{ sx: { borderRadius: 1.5 } }}
                   inputProps={{ maxLength: 1000 }}
                 />
@@ -244,7 +261,7 @@ const RenderReplyNode = ({
                   onClick={(e) => handlePostReplySubmit(e, reply.commentId, reply.id)}
                   variant="contained" 
                   size="small"
-                  disabled={!replyText.trim() || cooldownMs > 0}
+                  disabled={!replyText.trim() || cooldownMs > 0 || isMyStatusTimedOut}
                   sx={{ borderRadius: 2, textTransform: 'none' }}
                   startIcon={cooldownMs > 0 ? (
                     <CircularProgress 
@@ -299,6 +316,7 @@ const RenderReplyNode = ({
                     toggleReplyCollapse={toggleReplyCollapse}
                     canDeleteContent={canDeleteContent}
                     cooldownMs={cooldownMs}
+                    isMyStatusTimedOut={isMyStatusTimedOut}
                   />
                 ))
               )}
@@ -442,6 +460,17 @@ const QuestionDetailPage = () => {
   
   const [cooldownMs, setCooldownMs] = useState(0);
   const cooldownTimerRef = useRef(null);
+  const [isMyStatusTimedOut, setIsMyStatusTimedOut] = useState(false);
+  const [openProfileDialog, setOpenProfileDialog] = useState(false);
+  const [profileMember, setProfileMember] = useState(null);
+
+  // Comment/Reply Action Menu States
+  const [commentMenuAnchor, setCommentMenuAnchor] = useState(null);
+  const [menuTarget, setMenuTarget] = useState(null); // { id, authorId, authorName, isReply }
+  const [timeoutDialogOpen, setTimeoutDialogOpen] = useState(false);
+  const [timeoutTargetUserId, setTimeoutTargetUserId] = useState(null);
+  const [timeoutTargetUsername, setTimeoutTargetUsername] = useState('');
+  const [timeoutDuration, setTimeoutDuration] = useState(5);
 
   const startCooldown = () => {
     const duration = 5000;
@@ -620,7 +649,17 @@ const QuestionDetailPage = () => {
         const cId = qData.room?.communityId || communityId;
         if (cId) {
           const cData = await socialStore.getCommunityById(cId);
-          if (cData) setCommunity(cData);
+          if (cData) {
+            setCommunity(cData);
+            if (user) {
+              try {
+                const status = await socialStore.getMyStatus(cId);
+                setIsMyStatusTimedOut(status?.isTimedOut || false);
+              } catch (e) {
+                console.error("Failed to load user status:", e);
+              }
+            }
+          }
         }
       } else {
         setQuestion(null);
@@ -802,6 +841,20 @@ const QuestionDetailPage = () => {
     }
     if (!newCommentText.trim()) return;
 
+    const cId = question?.room?.communityId || communityId;
+    if (cId) {
+      try {
+        const status = await socialStore.getMyStatus(cId);
+        if (status?.isTimedOut) {
+          setIsMyStatusTimedOut(true);
+          showCustomAlert("Action Denied", "You are temporarily timed out in this community and cannot comment.");
+          return;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
     await socialStore.addComment(questionId, newCommentText, user);
     setNewCommentText('');
     startCooldown();
@@ -815,6 +868,21 @@ const QuestionDetailPage = () => {
       return;
     }
     if (!replyText.trim()) return;
+
+    const cId = question?.room?.communityId || communityId;
+    if (cId) {
+      try {
+        const status = await socialStore.getMyStatus(cId);
+        if (status?.isTimedOut) {
+          setIsMyStatusTimedOut(true);
+          showCustomAlert("Action Denied", "You are temporarily timed out in this community and cannot reply.");
+          setActiveReplyId(null);
+          return;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
 
     await socialStore.addReply(questionId, commentId, replyText, user, parentReplyId);
     setReplyText('');
@@ -943,6 +1011,22 @@ const QuestionDetailPage = () => {
         }
       }
     );
+  };
+
+  const handleTimeoutSubmit = async () => {
+    if (!timeoutTargetUserId) return;
+    const cId = community?.id || communityId;
+    if (!cId) { showCustomAlert("Error", "Could not determine community."); return; }
+    try {
+      await socialStore.timeoutUser(cId, timeoutTargetUserId, timeoutDuration);
+      showToast(`Placed @${timeoutTargetUsername} on timeout for ${timeoutDuration} minutes.`);
+      setTimeoutDialogOpen(false);
+      setTimeoutTargetUserId(null);
+      setTimeoutTargetUsername('');
+      loadQuestionAndComments();
+    } catch (err) {
+      showCustomAlert("Action Failed", err.message);
+    }
   };
 
   const highlightCode = (code) => {
@@ -1570,6 +1654,23 @@ const QuestionDetailPage = () => {
         </Typography>
 
         {/* Write Top-level Comment */}
+        {isMyStatusTimedOut && (
+          <Alert 
+            severity="warning" 
+            variant="filled"
+            sx={{ 
+              mb: 3, 
+              borderRadius: 2, 
+              fontWeight: 600, 
+              background: 'linear-gradient(135deg, #ff9800 0%, #ed6c02 100%)',
+              color: '#fff',
+              boxShadow: '0 4px 12px rgba(237, 108, 2, 0.2)'
+            }}
+          >
+            You are temporarily timed out in this community. You are blocked from creating rooms, posting questions, commenting, or replying.
+          </Alert>
+        )}
+
         {!user ? (
           <Box sx={{ p: 2.5, border: '1px dashed var(--divider)', borderRadius: 3, bgcolor: 'var(--action-hover)', textAlign: 'center', mb: 2 }}>
             <Typography variant="body2" sx={{ color: 'var(--text-secondary)', fontWeight: 600, mb: 1.5 }}>
@@ -1594,6 +1695,7 @@ const QuestionDetailPage = () => {
               fullWidth
               value={newCommentText}
               onChange={(e) => setNewCommentText(e.target.value)}
+              disabled={isMyStatusTimedOut}
               InputProps={{
                 sx: { borderRadius: 1.5 }
               }}
@@ -1603,7 +1705,7 @@ const QuestionDetailPage = () => {
               className="question-send-btn"
               onClick={handlePostCommentSubmit}
               variant="contained"
-              disabled={!newCommentText.trim() || cooldownMs > 0}
+              disabled={!newCommentText.trim() || cooldownMs > 0 || isMyStatusTimedOut}
               sx={{ alignSelf: 'flex-end', textTransform: 'none', borderRadius: 2 }}
               startIcon={cooldownMs > 0 ? (
                 <CircularProgress 
@@ -1732,6 +1834,7 @@ const QuestionDetailPage = () => {
                             setReplyText('');
                           }
                         }}
+                        disabled={isMyStatusTimedOut}
                         sx={{ textTransform: 'none', fontSize: '0.75rem', color: 'var(--text-secondary)' }}
                       >
                         Reply
@@ -1749,6 +1852,7 @@ const QuestionDetailPage = () => {
                             minRows={1}
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
+                            disabled={isMyStatusTimedOut}
                             InputProps={{ sx: { borderRadius: 1.5 } }}
                             inputProps={{ maxLength: 1000 }}
                           />
@@ -1756,7 +1860,7 @@ const QuestionDetailPage = () => {
                             onClick={(e) => handlePostReplySubmit(e, focusedReply.commentId, focusedReply.id)}
                             variant="contained" 
                             size="small"
-                            disabled={!replyText.trim() || cooldownMs > 0}
+                            disabled={!replyText.trim() || cooldownMs > 0 || isMyStatusTimedOut}
                             sx={{ borderRadius: 2, textTransform: 'none' }}
                             startIcon={cooldownMs > 0 ? (
                               <CircularProgress 
@@ -1807,6 +1911,7 @@ const QuestionDetailPage = () => {
                     toggleReplyCollapse={toggleReplyCollapse}
                     canDeleteContent={canDeleteContent}
                     cooldownMs={cooldownMs}
+                    isMyStatusTimedOut={isMyStatusTimedOut}
                   />
                 ))}
               </Box>
@@ -1871,11 +1976,18 @@ const QuestionDetailPage = () => {
                           {canDeleteContent(comment.authorId) && (
                             <IconButton 
                               size="small" 
-                              onClick={() => handleDeleteComment(comment.id)}
-                              color="error"
+                              onClick={(e) => {
+                                setCommentMenuAnchor(e.currentTarget);
+                                setMenuTarget({
+                                  id: comment.id,
+                                  authorId: comment.authorId,
+                                  authorName: comment.authorName || 'user',
+                                  isReply: false
+                                });
+                              }}
                               sx={{ p: 0.5 }}
                             >
-                              <DeleteIcon sx={{ fontSize: 14 }} />
+                              <MoreVertIcon sx={{ fontSize: 14 }} />
                             </IconButton>
                           )}
                         </>
@@ -1966,6 +2078,7 @@ const QuestionDetailPage = () => {
                               minRows={1}
                               value={replyText}
                               onChange={(e) => setReplyText(e.target.value)}
+                              disabled={isMyStatusTimedOut}
                               InputProps={{ sx: { borderRadius: 1.5 } }}
                               inputProps={{ maxLength: 1000 }}
                             />
@@ -1973,7 +2086,7 @@ const QuestionDetailPage = () => {
                               onClick={(e) => handlePostReplySubmit(e, comment.id)}
                               variant="contained" 
                               size="small"
-                              disabled={!replyText.trim() || cooldownMs > 0}
+                              disabled={!replyText.trim() || cooldownMs > 0 || isMyStatusTimedOut}
                               sx={{ borderRadius: 2, textTransform: 'none' }}
                               startIcon={cooldownMs > 0 ? (
                                 <CircularProgress 
@@ -2024,6 +2137,7 @@ const QuestionDetailPage = () => {
                               toggleReplyCollapse={toggleReplyCollapse}
                               canDeleteContent={canDeleteContent}
                               cooldownMs={cooldownMs}
+                              isMyStatusTimedOut={isMyStatusTimedOut}
                             />
                           ))}
                         </Box>
@@ -2048,6 +2162,258 @@ const QuestionDetailPage = () => {
           </Box>
         )}
       </Paper>
+
+      {/* COMMENT / REPLY ACTIONS MENU */}
+      <Menu
+        anchorEl={commentMenuAnchor}
+        open={Boolean(commentMenuAnchor)}
+        onClose={() => {
+          setCommentMenuAnchor(null);
+          setMenuTarget(null);
+        }}
+        PaperProps={{ sx: { borderRadius: 1.5, minWidth: 150 } }}
+      >
+        {menuTarget && (
+          <>
+            {/* View Profile */}
+            <MenuItem onClick={async () => {
+              setCommentMenuAnchor(null);
+              try {
+                const uProfile = await socialStore.getUserProfile(menuTarget.authorId);
+                setProfileMember(uProfile);
+                setOpenProfileDialog(true);
+              } catch (err) {
+                showCustomAlert("Action Failed", err.message);
+              }
+              setMenuTarget(null);
+            }}>
+              View Profile
+            </MenuItem>
+
+            {/* Delete option */}
+            {canDeleteContent(menuTarget.authorId) && (
+              <MenuItem onClick={() => {
+                setCommentMenuAnchor(null);
+                if (menuTarget.isReply) {
+                  handleDeleteReply(menuTarget.id);
+                } else {
+                  handleDeleteComment(menuTarget.id);
+                }
+                setMenuTarget(null);
+              }} sx={{ color: 'error.main' }}>
+                Delete
+              </MenuItem>
+            )}
+
+            {/* Timeout Option */}
+            {isMod && Number(menuTarget.authorId) !== Number(user?.id) && Number(menuTarget.authorId) !== Number(community?.ownerId) && (Number(community?.ownerId) === Number(user?.id) || !community?.moderatorIds?.includes(String(menuTarget.authorId))) && (
+              <MenuItem onClick={() => {
+                setCommentMenuAnchor(null);
+                setTimeoutTargetUserId(menuTarget.authorId);
+                setTimeoutTargetUsername(menuTarget.authorName);
+                setTimeoutDuration(5);
+                setTimeoutDialogOpen(true);
+              }}>
+                Timeout User
+              </MenuItem>
+            )}
+
+            {/* Ban Option */}
+            {isMod && Number(menuTarget.authorId) !== Number(user?.id) && Number(menuTarget.authorId) !== Number(community?.ownerId) && (Number(community?.ownerId) === Number(user?.id) || !community?.moderatorIds?.includes(String(menuTarget.authorId))) && (
+              <MenuItem onClick={async () => {
+                setCommentMenuAnchor(null);
+                showConfirmDialog(
+                  "Ban User?",
+                  `Are you sure you want to ban @${menuTarget.authorName} from this community?`,
+                  async () => {
+                    try {
+                      await socialStore.banUser(community.id, menuTarget.authorId);
+                      showToast(`Successfully banned @${menuTarget.authorName}`);
+                      loadQuestionAndComments();
+                    } catch (err) {
+                      showCustomAlert("Action Failed", err.message);
+                    }
+                  }
+                );
+                setMenuTarget(null);
+              }} sx={{ color: 'error.main' }}>
+                Ban User
+              </MenuItem>
+            )}
+          </>
+        )}
+      </Menu>
+
+      {/* TIMEOUT DURATION DIALOG */}
+      <Dialog
+        open={timeoutDialogOpen}
+        onClose={() => {
+          setTimeoutDialogOpen(false);
+          setTimeoutTargetUserId(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2.5, p: 2, background: 'var(--background-paper)', color: 'var(--text-primary)', border: '1px solid var(--divider)' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, textAlign: 'center', fontFamily: '"Outfit", sans-serif' }}>
+          Timeout @{timeoutTargetUsername}
+        </DialogTitle>
+        <DialogContent sx={{ py: 2, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            Choose a duration or specify custom minutes. While timed out, the user will be blocked from posting, commenting, and replying in this community.
+          </Typography>
+          
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, justifyContent: 'center' }}>
+            {[
+              { label: '5m', val: 5 },
+              { label: '1h', val: 60 },
+              { label: '24h', val: 1440 },
+              { label: '7d', val: 10080 }
+            ].map((dur) => (
+              <Button
+                key={dur.val}
+                variant={timeoutDuration === dur.val ? "contained" : "outlined"}
+                size="small"
+                onClick={() => setTimeoutDuration(dur.val)}
+                sx={{ borderRadius: 1.5, textTransform: 'none', minWidth: 60, fontWeight: 700 }}
+              >
+                {dur.label}
+              </Button>
+            ))}
+          </Stack>
+
+          <TextField
+            label="Custom Duration (minutes)"
+            type="number"
+            size="small"
+            fullWidth
+            value={timeoutDuration}
+            onChange={(e) => setTimeoutDuration(Math.max(1, Number(e.target.value)))}
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 1, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            fullWidth 
+            onClick={() => {
+              setTimeoutDialogOpen(false);
+              setTimeoutTargetUserId(null);
+            }}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            fullWidth 
+            onClick={handleTimeoutSubmit}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 800, background: 'var(--hero-gradient)', color: '#fff' }}
+          >
+            Timeout
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Member Profile Dialog */}
+      <Dialog 
+        open={openProfileDialog} 
+        onClose={() => {
+          setOpenProfileDialog(false);
+          setProfileMember(null);
+        }} 
+        maxWidth="xs" 
+        fullWidth 
+        PaperProps={{ sx: { borderRadius: 2, position: 'relative', background: 'var(--background-paper)', color: 'var(--text-primary)', border: '1px solid var(--divider)' } }}
+      >
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', pt: 3, pr: 7, fontFamily: '"Outfit", sans-serif' }}>
+          <IconButton
+            onClick={() => {
+              setOpenProfileDialog(false);
+              setProfileMember(null);
+            }}
+            sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          Learner Profile
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pb: 3 }}>
+          {(() => {
+            if (!profileMember) return null;
+            const avatarUrl = localStorage.getItem(`avatar_${profileMember.id}`) || profileMember.avatar || '';
+            const initials = profileMember.fullname?.charAt(0).toUpperCase() || profileMember.username?.charAt(0).toUpperCase() || '?';
+            
+            const isMOwner = Number(community?.ownerId) === Number(profileMember.id);
+            const isMMod = community?.moderatorIds?.includes(String(profileMember.id));
+            let roleTag = 'Member';
+            let roleColor = 'var(--text-secondary)';
+            let roleBg = 'rgba(0,0,0,0.05)';
+            if (isMOwner) {
+              roleTag = 'Owner';
+              roleColor = '#F59E0B';
+              roleBg = 'rgba(245, 158, 11, 0.15)';
+            } else if (isMMod) {
+              roleTag = 'Moderator';
+              roleColor = '#3D5CFF';
+              roleBg = 'rgba(61, 92, 255, 0.15)';
+            }
+
+            return (
+              <>
+                <Avatar
+                  src={avatarUrl}
+                  sx={{ width: 100, height: 100, mb: 2, bgcolor: 'primary.main', fontSize: '2.5rem', fontWeight: 'bold' }}
+                >
+                  {!avatarUrl && initials}
+                </Avatar>
+                
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                  {profileMember.fullname || profileMember.username}
+                </Typography>
+                
+                <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', color: roleColor, backgroundColor: roleBg, marginBottom: '24px' }}>
+                  {roleTag}
+                </span>
+
+                <Divider sx={{ width: '100%', mb: 3 }} />
+
+                <Stack spacing={2} sx={{ width: '100%', px: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <FingerprintIcon color="action" />
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Username</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        @{profileMember.username || 'learner'}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <PersonIcon color="action" />
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Gender / Age</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {profileMember.gender || 'Rather Not Say'} • {profileMember.age || 20} years old
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <CalendarIcon color="action" />
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Joined Platform</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {profileMember.dateTime ? new Date(profileMember.dateTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Recently'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Stack>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Themed Confirmation Dialog */}
       <Dialog

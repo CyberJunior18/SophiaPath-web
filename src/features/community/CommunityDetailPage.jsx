@@ -28,7 +28,8 @@ import {
   Switch,
   FormControlLabel,
   ListItem,
-  Snackbar
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -170,6 +171,20 @@ const CommunityDetailPage = () => {
   const [ageWarningOpen, setAgeWarningOpen] = useState(false);
   const [consentedNSFW, setConsentedNSFW] = useState(false);
 
+  // Rules dialog states
+  const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
+  const [rulesAccepted, setRulesAccepted] = useState(false);
+
+  // Moderation States
+  const [blacklistOpen, setBlacklistOpen] = useState(false);
+  const [blacklistUsers, setBlacklistUsers] = useState([]);
+  const [blacklistSearchQuery, setBlacklistSearchQuery] = useState('');
+  const [timeoutDialogOpen, setTimeoutDialogOpen] = useState(false);
+  const [timeoutTargetUserId, setTimeoutTargetUserId] = useState(null);
+  const [timeoutTargetUsername, setTimeoutTargetUsername] = useState('');
+  const [timeoutDuration, setTimeoutDuration] = useState(5);
+  const [isMyStatusTimedOut, setIsMyStatusTimedOut] = useState(false);
+
   // Visibility states for optional attachment fields
   const [showCodeField, setShowCodeField] = useState(false);
   const [showImageField, setShowImageField] = useState(false);
@@ -202,6 +217,14 @@ const CommunityDetailPage = () => {
         return;
       }
       setCommunity(data);
+      if (user) {
+        try {
+          const status = await socialStore.getMyStatus(communityId);
+          setIsMyStatusTimedOut(status?.isTimedOut || false);
+        } catch (e) {
+          console.error("Failed to load user status:", e);
+        }
+      }
       // Track last visited
       try {
         const visits = JSON.parse(localStorage.getItem('sophiapath_community_visits') || '{}');
@@ -329,6 +352,18 @@ const CommunityDetailPage = () => {
 
   const handleAskQuestionSubmit = async () => {
     if (!postTitle.trim() || !postContent.trim() || !activeRoomId) return;
+
+    try {
+      const status = await socialStore.getMyStatus(communityId);
+      if (status?.isTimedOut) {
+        setIsMyStatusTimedOut(true);
+        showCustomAlert("Action Denied", "You are temporarily timed out in this community and cannot post.");
+        setOpenAskQuestion(false);
+        return;
+      }
+    } catch (e) {
+      console.error(e);
+    }
     
     // Combine content and optional code/image/link attachments
     let fullContent = postContent;
@@ -406,6 +441,54 @@ const CommunityDetailPage = () => {
       }));
       setOpenSettings(false);
       loadCommunity();
+    }
+  };
+
+  const handleRulesJoinSubmit = async () => {
+    if (!rulesAccepted || !community) return;
+    try {
+      await socialStore.toggleJoinCommunity(community.id);
+      setRulesDialogOpen(false);
+      setRulesAccepted(false);
+      loadCommunity();
+    } catch (err) {
+      showCustomAlert("Action Failed", err.message);
+    }
+  };
+
+  const loadBlacklist = async () => {
+    const cId = community?.id || communityId;
+    try {
+      const data = await socialStore.getBlacklist(cId);
+      setBlacklistUsers(data || []);
+    } catch (err) {
+      console.error("Failed to load blacklist:", err);
+    }
+  };
+
+  const handleUnbanUser = async (targetUserId, username) => {
+    if (!community) return;
+    try {
+      await socialStore.unbanUser(community.id, targetUserId);
+      showToast(`Successfully unbanned @${username}`);
+      loadBlacklist();
+      loadCommunity();
+    } catch (err) {
+      showCustomAlert("Action Failed", err.message);
+    }
+  };
+
+  const handleTimeoutSubmit = async () => {
+    if (!timeoutTargetUserId || !community) return;
+    try {
+      await socialStore.timeoutUser(community.id, timeoutTargetUserId, timeoutDuration);
+      showToast(`Placed @${timeoutTargetUsername} on timeout for ${timeoutDuration} minutes.`);
+      setTimeoutDialogOpen(false);
+      setTimeoutTargetUserId(null);
+      setTimeoutTargetUsername('');
+      loadCommunity();
+    } catch (err) {
+      showCustomAlert("Action Failed", err.message);
     }
   };
 
@@ -631,6 +714,22 @@ const CommunityDetailPage = () => {
 
       {/* RIGHT SIDEBAR: Questions Feed */}
       <Box className="community-feed">
+        {isMyStatusTimedOut && (
+          <Alert 
+            severity="warning" 
+            variant="filled"
+            sx={{ 
+              mb: 2, 
+              borderRadius: 2, 
+              fontWeight: 600, 
+              background: 'linear-gradient(135deg, #ff9800 0%, #ed6c02 100%)',
+              color: '#fff',
+              boxShadow: '0 4px 12px rgba(237, 108, 2, 0.2)'
+            }}
+          >
+            You are temporarily timed out in this community. You are blocked from creating rooms, posting questions, commenting, or replying.
+          </Alert>
+        )}
         
         {/* Room Header Controls */}
         <Box className="community-feed-header">
@@ -698,7 +797,7 @@ const CommunityDetailPage = () => {
                 e.currentTarget.blur();
                 setOpenAskQuestion(true);
               }}
-              disabled={!community.isJoined}
+              disabled={!community.isJoined || isMyStatusTimedOut}
               sx={{ borderRadius: 3, textTransform: 'none', fontWeight: 600 }}
             >
               Ask Post
@@ -1366,6 +1465,15 @@ const CommunityDetailPage = () => {
             Settings
           </MenuItem>
         )}
+        {isMod && (
+          <MenuItem onClick={() => {
+            setCommunityMenuAnchor(null);
+            loadBlacklist();
+            setBlacklistOpen(true);
+          }}>
+            Blacklist
+          </MenuItem>
+        )}
         {isOwner && (
           <MenuItem onClick={() => {
             setCommunityMenuAnchor(null);
@@ -1389,8 +1497,13 @@ const CommunityDetailPage = () => {
               return;
             }
             try {
-              await socialStore.toggleJoinCommunity(community.id);
-              loadCommunity();
+              if (community?.rules && community.rules.length > 0) {
+                setRulesAccepted(false);
+                setRulesDialogOpen(true);
+              } else {
+                await socialStore.toggleJoinCommunity(community.id);
+                loadCommunity();
+              }
             } catch (err) {
               showCustomAlert("Action Failed", err.message);
             }
@@ -1431,6 +1544,43 @@ const CommunityDetailPage = () => {
           }}>
             {community.moderatorIds?.includes(String(selectedMember.id)) ? 'Demote to Member' : 'Promote to Moderator'}
           </MenuItem>
+        )}
+        {isMod && selectedMember && Number(selectedMember.id) !== Number(user?.id) && Number(selectedMember.id) !== Number(community.ownerId) && (Number(community.ownerId) === Number(user?.id) || !community.moderatorIds?.includes(String(selectedMember.id))) && (
+          <>
+            <MenuItem 
+              onClick={() => {
+                setMemberMenuAnchor(null);
+                setTimeoutTargetUserId(selectedMember.id);
+                setTimeoutTargetUsername(selectedMember.fullname || selectedMember.username || 'user');
+                setTimeoutDuration(5);
+                setTimeoutDialogOpen(true);
+              }}
+            >
+              Timeout User
+            </MenuItem>
+            <MenuItem 
+              onClick={async () => {
+                setMemberMenuAnchor(null);
+                showConfirmDialog(
+                  "Ban User?",
+                  `Are you sure you want to ban @${selectedMember.fullname || selectedMember.username || 'user'} from this community?`,
+                  async () => {
+                    try {
+                      await socialStore.banUser(community.id, selectedMember.id);
+                      showToast(`Successfully banned @${selectedMember.fullname || selectedMember.username || 'user'}`);
+                      loadCommunity();
+                    } catch (err) {
+                      showCustomAlert("Action Failed", err.message);
+                    }
+                  }
+                );
+                setSelectedMember(null);
+              }} 
+              sx={{ color: 'error.main' }}
+            >
+              Ban User
+            </MenuItem>
+          </>
         )}
       </Menu>
 
@@ -1698,6 +1848,225 @@ const CommunityDetailPage = () => {
             Go Back
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* RULES DIALOG FOR JOINING (FR-S-48) */}
+      <Dialog 
+        open={rulesDialogOpen} 
+        onClose={() => {
+          setRulesDialogOpen(false);
+          setRulesAccepted(false);
+        }}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2.5, p: 2, background: 'var(--background-paper)', color: 'var(--text-primary)', border: '1px solid var(--divider)' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, textAlign: 'center', fontFamily: '"Outfit", sans-serif' }}>
+          Community Rules & Guidelines
+        </DialogTitle>
+        <DialogContent dividers sx={{ py: 2, borderColor: 'var(--divider)' }}>
+          {community?.rules && community.rules.length > 0 ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {community.rules.map((rule, idx) => (
+                <Box key={idx} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                  <span style={{ fontWeight: 800, color: 'var(--primary-main)' }}>{idx + 1}.</span>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{rule}</Typography>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Typography variant="body2" sx={{ fontStyle: 'italic', textAlign: 'center' }}>
+              No rules provided. Follow platform terms of service.
+            </Typography>
+          )}
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', mt: 3, gap: 1 }}>
+            <Checkbox 
+              checked={rulesAccepted} 
+              onChange={(e) => setRulesAccepted(e.target.checked)} 
+              color="primary"
+              sx={{ color: 'var(--text-secondary)' }}
+            />
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              I agree to abide by these rules
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 1, pt: 2 }}>
+          <Button 
+            variant="contained" 
+            fullWidth 
+            disabled={!rulesAccepted}
+            onClick={handleRulesJoinSubmit}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 800, background: 'var(--hero-gradient)', color: '#fff' }}
+          >
+            Join Community
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* TIMEOUT DURATION DIALOG */}
+      <Dialog
+        open={timeoutDialogOpen}
+        onClose={() => {
+          setTimeoutDialogOpen(false);
+          setTimeoutTargetUserId(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2.5, p: 2, background: 'var(--background-paper)', color: 'var(--text-primary)', border: '1px solid var(--divider)' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, textAlign: 'center', fontFamily: '"Outfit", sans-serif' }}>
+          Timeout @{timeoutTargetUsername}
+        </DialogTitle>
+        <DialogContent sx={{ py: 2, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            Choose a duration or specify custom minutes. While timed out, the user will be blocked from posting, commenting, and replying in this community.
+          </Typography>
+          
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, justifyContent: 'center' }}>
+            {[
+              { label: '5m', val: 5 },
+              { label: '1h', val: 60 },
+              { label: '24h', val: 1440 },
+              { label: '7d', val: 10080 }
+            ].map((dur) => (
+              <Button
+                key={dur.val}
+                variant={timeoutDuration === dur.val ? "contained" : "outlined"}
+                size="small"
+                onClick={() => setTimeoutDuration(dur.val)}
+                sx={{ borderRadius: 1.5, textTransform: 'none', minWidth: 60, fontWeight: 700 }}
+              >
+                {dur.label}
+              </Button>
+            ))}
+          </Stack>
+
+          <TextField
+            label="Custom Duration (minutes)"
+            type="number"
+            size="small"
+            fullWidth
+            value={timeoutDuration}
+            onChange={(e) => setTimeoutDuration(Math.max(1, Number(e.target.value)))}
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 1, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            fullWidth 
+            onClick={() => {
+              setTimeoutDialogOpen(false);
+              setTimeoutTargetUserId(null);
+            }}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            fullWidth 
+            onClick={handleTimeoutSubmit}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 800, background: 'var(--hero-gradient)', color: '#fff' }}
+          >
+            Timeout
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* BLACKLIST DIALOG */}
+      <Dialog
+        open={blacklistOpen}
+        onClose={() => setBlacklistOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2.5, position: 'relative', p: 2, background: 'var(--background-paper)', color: 'var(--text-primary)', border: '1px solid var(--divider)' },
+          elevation: 6
+        }}
+      >
+        <IconButton
+          onClick={() => setBlacklistOpen(false)}
+          sx={{ position: 'absolute', right: 16, top: 16, color: 'text.secondary' }}
+        >
+          <CloseIcon />
+        </IconButton>
+        <DialogTitle sx={{ fontWeight: 800, fontFamily: '"Outfit", sans-serif' }}>
+          Banned Users Blacklist
+        </DialogTitle>
+        <DialogContent sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            placeholder="Search banned users..."
+            size="small"
+            variant="outlined"
+            fullWidth
+            value={blacklistSearchQuery}
+            onChange={(e) => setBlacklistSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+              sx: { borderRadius: 1.5 }
+            }}
+          />
+
+          <List sx={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {blacklistUsers.filter(u => {
+              const q = blacklistSearchQuery.trim().toLowerCase();
+              if (!q) return true;
+              return (
+                (u.fullname || '').toLowerCase().includes(q) ||
+                (u.username || '').toLowerCase().includes(q) ||
+                (u.email || '').toLowerCase().includes(q)
+              );
+            }).map((u) => {
+              return (
+                <Box 
+                  key={u.id} 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    py: 1, 
+                    px: 1, 
+                    borderRadius: 1.5,
+                    border: '1px solid var(--divider)',
+                    bgcolor: 'rgba(255,255,255,0.01)'
+                  }}
+                >
+                  <Avatar src={localStorage.getItem(`avatar_${u.id}`) || u.avatar || ''} sx={{ width: 32, height: 32, fontSize: '0.85rem', mr: 1.5 }}>
+                    {!(localStorage.getItem(`avatar_${u.id}`) || u.avatar) && (u.fullname?.charAt(0).toUpperCase() || u.username?.charAt(0).toUpperCase())}
+                  </Avatar>
+                  <Box sx={{ flexGrow: 1, minWidth: 0, mr: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, noWrap: true }}>
+                      {u.fullname || u.username}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', noWrap: true }}>
+                      @{u.username}
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => handleUnbanUser(u.id, u.username || u.fullname)}
+                    sx={{ textTransform: 'none', borderRadius: 1.5, fontWeight: 700 }}
+                  >
+                    Unban
+                  </Button>
+                </Box>
+              );
+            })}
+            {blacklistUsers.length === 0 && (
+              <Typography variant="body2" sx={{ textAlign: 'center', opacity: 0.6, py: 4, fontStyle: 'italic' }}>
+                No banned users found in this community.
+              </Typography>
+            )}
+          </List>
+        </DialogContent>
       </Dialog>
 
       {/* Custom Theme Alert Dialog */}

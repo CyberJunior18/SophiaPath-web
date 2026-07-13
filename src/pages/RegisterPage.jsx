@@ -60,7 +60,7 @@ const RegisterPage = () => {
     const { confirmPassword, ...registerData } = formData;
     const result = await register({
       ...registerData,
-      avatar: 'https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg' // Default avatar fallback
+      avatar: ''
     });
     
     if (result.success) {

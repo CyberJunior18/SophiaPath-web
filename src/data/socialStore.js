@@ -745,6 +745,93 @@ export const socialStore = {
     return res.json();
   },
 
+  removeMember: async (communityId, memberId) => {
+    const res = await fetch(`/api/communities/${communityId}/remove-member`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ memberId: Number(memberId) })
+    });
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || "Failed to remove member.");
+    }
+    return res.json();
+  },
+
+  timeoutUser: async (communityId, targetUserId, durationMinutes) => {
+    const res = await fetch(`/api/communities/${communityId}/timeout`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ targetUserId: Number(targetUserId), durationMinutes: Number(durationMinutes) })
+    });
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || "Failed to timeout user.");
+    }
+    return res.json();
+  },
+
+  banUser: async (communityId, targetUserId) => {
+    const res = await fetch(`/api/communities/${communityId}/ban`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ targetUserId: Number(targetUserId) })
+    });
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || "Failed to ban user.");
+    }
+    return res.json();
+  },
+
+  unbanUser: async (communityId, targetUserId) => {
+    const res = await fetch(`/api/communities/${communityId}/unban`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ targetUserId: Number(targetUserId) })
+    });
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || "Failed to unban user.");
+    }
+    return res.json();
+  },
+
+  getBlacklist: async (communityId) => {
+    const res = await fetch(`/api/communities/${communityId}/blacklist`, {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || "Failed to get blacklist.");
+    }
+    return res.json();
+  },
+
+  getMyStatus: async (communityId) => {
+    const res = await fetch(`/api/communities/${communityId}/my-status`, {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    if (!res.ok) {
+      return { isTimedOut: false, isBanned: false };
+    }
+    return res.json();
+  },
+
+  getUserProfile: async (userId) => {
+    const res = await fetch(`/users/${userId}/profile`, {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || "Failed to fetch user profile.");
+    }
+    return res.json();
+  },
+
   updateCommunity: async (communityId, name, description, icon, isPrivate, isNSFW, rules, category, maxMembers, nsfwAgeLimit, ownerId = undefined) => {
     const res = await fetch(`/api/communities/${communityId}/update`, {
       method: 'POST',

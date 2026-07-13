@@ -92,7 +92,7 @@ import { AllowedFor } from '../../components/AllowedFor';
 import './Community.css';
 
 const CommunityListPage = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState(() => localStorage.getItem('sophiapath_community_search_query') || '');
   const [communities, setCommunities] = useState([]);
 
@@ -288,6 +288,7 @@ const CommunityListPage = () => {
   };
 
   useEffect(() => {
+    refreshUser();
     loadCommunities();
     loadSavedPosts();
   }, []);
@@ -328,6 +329,7 @@ const CommunityListPage = () => {
         } else {
           await socialStore.toggleJoinCommunity(community.id);
           loadCommunities();
+          navigate(`/communities/${community.id}`);
         }
       }
     } catch (err) {
@@ -338,11 +340,13 @@ const CommunityListPage = () => {
   const handleRulesJoinSubmit = async () => {
     if (!rulesCommunity || !rulesAccepted) return;
     try {
-      await socialStore.toggleJoinCommunity(rulesCommunity.id);
+      const communityId = rulesCommunity.id;
+      await socialStore.toggleJoinCommunity(communityId);
       setRulesDialogOpen(false);
       setRulesCommunity(null);
       setRulesAccepted(false);
       loadCommunities();
+      navigate(`/communities/${communityId}`);
     } catch (err) {
       showCustomAlert("Action Failed", err.message);
     }
@@ -465,8 +469,9 @@ const CommunityListPage = () => {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.currentTarget.blur();
+                await refreshUser();
                 setOpenCreate(true);
               }}
               sx={{
@@ -768,8 +773,10 @@ const CommunityListPage = () => {
                     setRulesAccepted(false);
                     setRulesDialogOpen(true);
                   } else {
-                    await socialStore.toggleJoinCommunity(nsfwCommunityToJoin.id);
+                    const communityId = nsfwCommunityToJoin.id;
+                    await socialStore.toggleJoinCommunity(communityId);
                     loadCommunities();
+                    navigate(`/communities/${communityId}`);
                   }
                 } catch (err) {
                   showCustomAlert("Action Failed", err.message);

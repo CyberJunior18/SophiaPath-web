@@ -239,13 +239,9 @@ const AdminDashboardPage = () => {
       fetch('/users')
         .then(res => res.ok ? res.json() : [])
         .then(data => {
-          const storedRoles = JSON.parse(localStorage.getItem('sophiapath_admin_user_roles') || '{}');
-          const storedCourses = JSON.parse(localStorage.getItem('sophiapath_admin_user_courses') || '{}');
           const mapped = (data || []).map(u => {
-            const overriddenRoleId = storedRoles[u.id];
-            const finalRoleId = overriddenRoleId !== undefined ? overriddenRoleId : (u.roleID ?? 0);
-            const overriddenCourses = storedCourses[u.id];
-            const finalCourses = overriddenCourses !== undefined ? overriddenCourses : (u.assignedCourseIds || []);
+            const finalRoleId = u.roleID ?? 0;
+            const finalCourses = u.assignedCourseIds || [];
             return {
               id: u.id,
               name: u.fullname || u.username || 'Unknown',
@@ -2766,13 +2762,9 @@ const AdminDashboardPage = () => {
                 fetch('/users')
                   .then(res => res.ok ? res.json() : [])
                   .then(data => {
-                    const storedRoles = JSON.parse(localStorage.getItem('sophiapath_admin_user_roles') || '{}');
-                    const storedCourses = JSON.parse(localStorage.getItem('sophiapath_admin_user_courses') || '{}');
                     setUsers((data || []).map(u => {
-                      const overriddenRoleId = storedRoles[u.id];
-                      const finalRoleId = overriddenRoleId !== undefined ? overriddenRoleId : (u.roleID ?? 0);
-                      const overriddenCourses = storedCourses[u.id];
-                      const finalCourses = overriddenCourses !== undefined ? overriddenCourses : (u.assignedCourseIds || []);
+                      const finalRoleId = u.roleID ?? 0;
+                      const finalCourses = u.assignedCourseIds || [];
                       return {
                         id: u.id,
                         name: u.fullname || u.username || 'Unknown',
