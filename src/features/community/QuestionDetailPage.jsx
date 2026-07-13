@@ -652,6 +652,10 @@ const QuestionDetailPage = () => {
 
 
   const handleToggleSavePost = () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     let list = JSON.parse(localStorage.getItem('saved_posts_list') || '[]');
     const idNum = Number(questionId);
     if (list.includes(idNum)) {
@@ -665,6 +669,10 @@ const QuestionDetailPage = () => {
   };
 
   const handleOpenShareDialog = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     setShareDialogOpen(true);
     const chats = await socialStore.getUserConversations();
     const groups = await socialStore.getGroups(user?.id);
@@ -706,6 +714,10 @@ const QuestionDetailPage = () => {
   };
 
   const handlePollVote = async (optionIndex) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     if (!question) return;
     const updated = await socialStore.votePostPoll(questionId, optionIndex);
     if (updated) {
@@ -717,6 +729,10 @@ const QuestionDetailPage = () => {
   };
 
   const handlePostUpvote = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     if (!question) return;
     const updated = await socialStore.upvoteQuestion(questionId, user.id);
     if (updated) {
@@ -730,6 +746,10 @@ const QuestionDetailPage = () => {
   };
 
   const handlePostDownvote = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     if (!question) return;
     const updated = await socialStore.downvoteQuestion(questionId, user.id);
     if (updated) {
@@ -743,6 +763,10 @@ const QuestionDetailPage = () => {
   };
 
   const handleCommentUpvote = async (commentId) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     const updated = await socialStore.upvoteComment(questionId, commentId, user.id);
     if (updated) {
       setComments(prev => prev.map(c => c.id === commentId ? {
@@ -755,6 +779,10 @@ const QuestionDetailPage = () => {
   };
 
   const handleCommentDownvote = async (commentId) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     const updated = await socialStore.downvoteComment(questionId, commentId, user.id);
     if (updated) {
       setComments(prev => prev.map(c => c.id === commentId ? {
@@ -768,6 +796,10 @@ const QuestionDetailPage = () => {
 
   const handlePostCommentSubmit = async (e) => {
     e?.preventDefault();
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     if (!newCommentText.trim()) return;
 
     await socialStore.addComment(questionId, newCommentText, user);
@@ -778,6 +810,10 @@ const QuestionDetailPage = () => {
 
   const handlePostReplySubmit = async (e, commentId, parentReplyId) => {
     e?.preventDefault();
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     if (!replyText.trim()) return;
 
     await socialStore.addReply(questionId, commentId, replyText, user, parentReplyId);
@@ -1534,7 +1570,21 @@ const QuestionDetailPage = () => {
         </Typography>
 
         {/* Write Top-level Comment */}
-        {isJoinedMember ? (
+        {!user ? (
+          <Box sx={{ p: 2.5, border: '1px dashed var(--divider)', borderRadius: 3, bgcolor: 'var(--action-hover)', textAlign: 'center', mb: 2 }}>
+            <Typography variant="body2" sx={{ color: 'var(--text-secondary)', fontWeight: 600, mb: 1.5 }}>
+              Sign up or log in to join this community and participate in discussions!
+            </Typography>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => navigate('/login')}
+              sx={{ textTransform: 'none', borderRadius: 2 }}
+            >
+              Sign In
+            </Button>
+          </Box>
+        ) : isJoinedMember ? (
           <Box className="comment-input-wrapper">
             <TextField
               className="question-comment-input"
@@ -1568,8 +1618,8 @@ const QuestionDetailPage = () => {
             </Button>
           </Box>
         ) : (
-          <Box sx={{ p: 2, border: '1px dashed var(--divider)', borderRadius: 3, bgcolor: 'action.hover', textAlign: 'center', mb: 2 }}>
-            <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+          <Box sx={{ p: 2, border: '1px dashed var(--divider)', borderRadius: 3, bgcolor: 'var(--action-hover)', textAlign: 'center', mb: 2 }}>
+            <Typography variant="body2" sx={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
               Only members who have joined this community can post comments or replies. Join the community to participate!
             </Typography>
           </Box>

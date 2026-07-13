@@ -156,6 +156,10 @@ const CourseDetailPage = () => {
   );
 
   const handleEnroll = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     if (!isRegistered) {
       await registerCourse(course.title);
     }
@@ -293,13 +297,15 @@ const CourseDetailPage = () => {
               <div className="course-sidebar-decoration"></div>
 
               <Typography variant="h5" className="course-sidebar-title">
-                {isRegistered ? "Ready to resume?" : "Ready to begin?"}
+                {!user ? "Sign up to learn!" : isRegistered ? "Ready to resume?" : "Ready to begin?"}
               </Typography>
               <div style={{ height: "10px" }}></div>
               <Typography className="course-sidebar-description">
-                {isRegistered
-                  ? `Pick up right where you left off and complete your mastery of ${course.title}.`
-                  : `Join thousands of students and start your journey in ${course.title} today.`
+                {!user
+                  ? `Create an account or sign in to enroll in courses, track your learning journey, and participate in interactive playgrounds.`
+                  : isRegistered
+                    ? `Pick up right where you left off and complete your mastery of ${course.title}.`
+                    : `Join thousands of students and start your journey in ${course.title} today.`
                 }
               </Typography>
               <div style={{ height: "20px" }}></div>
@@ -310,7 +316,7 @@ const CourseDetailPage = () => {
                 onClick={handleEnroll}
                 className="course-enroll-button"
               >
-                {isRegistered ? "Continue Learning" : "Register Now"}
+                {!user ? "Sign In to Register" : isRegistered ? "Continue Learning" : "Register Now"}
               </Button>
 
               {isRegistered && (

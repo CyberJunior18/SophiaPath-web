@@ -254,8 +254,9 @@ const ChatPage = () => {
         const res = await fetch('/users');
         if (res.ok) {
           const usersList = await res.json();
-          setAllUsers(usersList);
-          const found = usersList.find(u => Number(u.id) === Number(userId));
+          const nonAdmins = (usersList || []).filter(u => u.roleID !== 3);
+          setAllUsers(nonAdmins);
+          const found = nonAdmins.find(u => Number(u.id) === Number(userId));
           if (found) {
             setTargetUserDetails(found);
           }

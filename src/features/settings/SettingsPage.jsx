@@ -40,7 +40,6 @@ const SettingsPage = () => {
   const { themeMode, setThemeMode, customColors, updateCustomColors } = useTheme();
   const { user, deleteAccount } = useAuth();
   const [notifications, setNotifications] = useState(true);
-  const [emailUpdates, setEmailUpdates] = useState(false);
   const [logoGradient, setLogoGradient] = useState(() => {
     return localStorage.getItem('sophiapath_logo_style') === 'gradient';
   });
@@ -182,13 +181,13 @@ const SettingsPage = () => {
         </Box>
 
         <Box className="settings-sections">
-          <section>
+           <section style={{ opacity: !user ? 0.35 : 1 }}>
             <Typography variant="overline" className="settings-section-label">
-              Account
+              Account {!user && "(Sign in to access)"}
             </Typography>
-            <Paper className="settings-card glass-panel" elevation={0}>
+            <Paper className="settings-card glass-panel" elevation={0} style={{ pointerEvents: !user ? 'none' : 'auto' }}>
               <List disablePadding>
-                <ListItem className="settings-row interactive">
+                <ListItem className="settings-row interactive" disabled={!user}>
                   <ListItemIcon className="settings-row-icon">
                     <Avatar sx={{ bgcolor: 'primary.main' }}>
                       <EmailIcon />
@@ -202,7 +201,7 @@ const SettingsPage = () => {
 
                 </ListItem>
                 <Divider />
-                <ListItem className="settings-row interactive">
+                <ListItem className="settings-row interactive" disabled={!user}>
                   <ListItemIcon className="settings-row-icon">
                     <Avatar sx={{ bgcolor: 'primary.main' }}>
                       <VpnKeyIcon />
@@ -541,28 +540,17 @@ const SettingsPage = () => {
                   />
                   <Switch checked={notifications} onChange={(e) => setNotifications(e.target.checked)} color="primary" />
                 </ListItem>
-                <Divider />
-                <ListItem className="settings-row">
-                  <ListItemIcon className="settings-row-icon">
-                    <EmailIcon className="settings-primary-icon" />
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={<Typography className="settings-row-title">Email Marketing</Typography>}
-                    secondary="Receive news and special offers"
-                  />
-                  <Switch checked={emailUpdates} onChange={(e) => setEmailUpdates(e.target.checked)} color="primary" />
-                </ListItem>
               </List>
             </Paper>
           </section>
 
-          <section>
+          <section style={{ opacity: !user ? 0.35 : 1 }}>
             <Typography variant="overline" className="settings-section-label">
-              Data & Privacy
+              Data & Privacy {!user && "(Sign in to access)"}
             </Typography>
-            <Paper className="settings-card glass-panel" elevation={0}>
+            <Paper className="settings-card glass-panel" elevation={0} style={{ pointerEvents: !user ? 'none' : 'auto' }}>
               <List disablePadding>
-                <ListItem className="settings-row interactive">
+                <ListItem className="settings-row interactive" disabled={!user}>
                   <ListItemIcon className="settings-row-icon">
                     <CloudIcon className="settings-primary-icon" />
                   </ListItemIcon>
@@ -570,12 +558,13 @@ const SettingsPage = () => {
                     primary={<Typography className="settings-row-title">Export Learning Data</Typography>}
                     secondary="Download a copy of your progress"
                   />
-                  <Button variant="outlined" size="small" className="settings-action-button">Export</Button>
+                  <Button variant="outlined" size="small" className="settings-action-button" disabled={!user}>Export</Button>
                 </ListItem>
                 <Divider />
                 <ListItem 
                   className="settings-row interactive settings-danger-row"
-                  onClick={handleDeleteAccount}
+                  onClick={!user ? undefined : handleDeleteAccount}
+                  disabled={!user}
                 >
                   <ListItemIcon className="settings-row-icon">
                     <DeleteIcon className="settings-danger-icon" />

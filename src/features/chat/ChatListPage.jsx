@@ -203,8 +203,8 @@ const ChatListPage = () => {
       }));
       setDmUnseenCounts(dmUnseenCountsObj);
 
-      // Exclude current user
-      const filteredUsers = usersList.filter(u => u.id !== user.id);
+      // Exclude current user and admins (roleID === 3)
+      const filteredUsers = usersList.filter(u => u.id !== user.id && u.roleID !== 3);
 
       setAllUsers(filteredUsers);
       setLastMessages(msgPreviews);

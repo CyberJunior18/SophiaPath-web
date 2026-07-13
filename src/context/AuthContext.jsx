@@ -14,6 +14,30 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const getStoredToken = () => {
+    return localStorage.getItem('auth_token') || localStorage.getItem('token');
+  };
+
+  const setStoredToken = (token) => {
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem('token', token);
+  };
+
+  const removeStoredToken = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('token');
+  };
+
+  const hasRole = (allowedRoles) => {
+    if (!user) return false;
+    return allowedRoles.includes(Number(user.roleID));
+  };
+
+  const handleAuthError = () => {
+    removeStoredToken();
+    setUser(null);
+  };
+
   // Helper to fetch user courses and grades from backend
   const fetchUserProgress = async (token) => {
     try {
@@ -62,7 +86,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const initAuth = async () => {
-      const savedToken = localStorage.getItem('token');
+      const savedToken = getStoredToken();
       if (savedToken) {
         try {
           const res = await fetch('/users/me', {
@@ -74,12 +98,21 @@ export const AuthProvider = ({ children }) => {
             const userData = await res.json();
             const progress = await fetchUserProgress(savedToken);
 
+            const storedRoles = JSON.parse(localStorage.getItem('sophiapath_admin_user_roles') || '{}');
+            const overriddenRoleId = storedRoles[userData.id];
+            const finalRoleId = overriddenRoleId !== undefined ? Number(overriddenRoleId) : (userData.roleID ?? 0);
+
+            const storedCourses = JSON.parse(localStorage.getItem('sophiapath_admin_user_courses') || '{}');
+            const overriddenCourses = storedCourses[userData.id];
+            const finalCourses = overriddenCourses !== undefined ? overriddenCourses : (userData.assignedCourseIds ? userData.assignedCourseIds.map(Number) : []);
+
             setUser({
               id: userData.id,
               email: userData.email,
               name: userData.fullname,
               username: userData.username,
-              roleID: userData.roleID,
+              roleID: finalRoleId,
+              assignedCourseIds: finalCourses,
               age: userData.age,
               gender: userData.gender,
               tag: userData.tag,
@@ -94,11 +127,11 @@ export const AuthProvider = ({ children }) => {
             });
           } else {
             // Token expired or invalid
-            localStorage.removeItem('token');
+            handleAuthError();
           }
         } catch (err) {
           console.error('Init auth error:', err);
-          localStorage.removeItem('token');
+          handleAuthError();
         }
       }
       setLoading(false);
@@ -143,7 +176,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       const { accessToken } = await res.json();
-      localStorage.setItem('token', accessToken);
+      setStoredToken(accessToken);
 
       // Fetch user profile info
       const meRes = await fetch('/users/me', {
@@ -163,12 +196,21 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem(`pending_avatar_${userData.email}`);
         }
 
+        const storedRoles = JSON.parse(localStorage.getItem('sophiapath_admin_user_roles') || '{}');
+        const overriddenRoleId = storedRoles[userData.id];
+        const finalRoleId = overriddenRoleId !== undefined ? Number(overriddenRoleId) : (userData.roleID ?? 0);
+
+        const storedCourses = JSON.parse(localStorage.getItem('sophiapath_admin_user_courses') || '{}');
+        const overriddenCourses = storedCourses[userData.id];
+        const finalCourses = overriddenCourses !== undefined ? overriddenCourses : (userData.assignedCourseIds ? userData.assignedCourseIds.map(Number) : []);
+
         setUser({
           id: userData.id,
           email: userData.email,
           name: userData.fullname,
           username: userData.username,
-          roleID: userData.roleID,
+          roleID: finalRoleId,
+          assignedCourseIds: finalCourses,
           age: userData.age,
           gender: userData.gender,
           tag: userData.tag,
@@ -236,7 +278,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('token');
+    removeStoredToken();
   };
 
   const deleteAccount = () => {
@@ -246,7 +288,7 @@ export const AuthProvider = ({ children }) => {
 
   const updateQuizScore = async (lessonId, score) => {
     if (!user) return;
-    const token = localStorage.getItem('token');
+    const token = getStoredToken();
     if (!token) return;
 
     try {
@@ -275,6 +317,8 @@ export const AuthProvider = ({ children }) => {
           return prev;
         });
         await refreshUser();
+      } else if (res.status === 401) {
+        handleAuthError();
       }
     } catch (err) {
       console.error('updateQuizScore error:', err);
@@ -283,13 +327,16 @@ export const AuthProvider = ({ children }) => {
 
   const registerCourse = async (courseTitle) => {
     if (!user) return;
-    const token = localStorage.getItem('token');
+    const token = getStoredToken();
     if (!token) return;
 
     try {
       // 1. Fetch courses to match the title
       const coursesRes = await fetch('/courses');
-      if (!coursesRes.ok) return;
+      if (!coursesRes.ok) {
+        if (coursesRes.status === 401) handleAuthError();
+        return;
+      }
 
       const coursesList = await coursesRes.json();
       const course = coursesList.find(c => c.title.toLowerCase() === courseTitle.toLowerCase());
@@ -309,6 +356,8 @@ export const AuthProvider = ({ children }) => {
             registeredCourses: [...(prev.registeredCourses || []), courseTitle]
           }));
           await refreshUser();
+        } else if (regRes.status === 401) {
+          handleAuthError();
         }
       }
     } catch (err) {
@@ -318,13 +367,16 @@ export const AuthProvider = ({ children }) => {
   
   const unregisterCourse = async (courseTitle) => {
     if (!user) return;
-    const token = localStorage.getItem('token');
+    const token = getStoredToken();
     if (!token) return;
 
     try {
       // 1. Fetch courses to match the title
       const coursesRes = await fetch('/courses');
-      if (!coursesRes.ok) return;
+      if (!coursesRes.ok) {
+        if (coursesRes.status === 401) handleAuthError();
+        return;
+      }
 
       const coursesList = await coursesRes.json();
       const course = coursesList.find(c => c.title.toLowerCase() === courseTitle.toLowerCase());
@@ -346,6 +398,8 @@ export const AuthProvider = ({ children }) => {
             )
           }));
           await refreshUser();
+        } else if (regRes.status === 401) {
+          handleAuthError();
         }
       }
     } catch (err) {
@@ -355,7 +409,7 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (profileData) => {
     if (!user) return { success: false, message: 'Not logged in' };
-    const token = localStorage.getItem('token');
+    const token = getStoredToken();
     if (!token) return { success: false, message: 'No token' };
 
     try {
@@ -377,6 +431,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!res.ok) {
+        if (res.status === 401) handleAuthError();
         const err = await res.json();
         return { success: false, message: err.message || 'Update failed' };
       }
@@ -409,7 +464,7 @@ export const AuthProvider = ({ children }) => {
 
   const blockUser = async (targetUserId) => {
     if (!user) return { success: false, message: 'Not logged in' };
-    const token = localStorage.getItem('token');
+    const token = getStoredToken();
     if (!token) return { success: false, message: 'No token' };
 
     try {
@@ -421,6 +476,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!res.ok) {
+        if (res.status === 401) handleAuthError();
         const err = await res.json();
         return { success: false, message: err.message || 'Block failed' };
       }
@@ -439,7 +495,7 @@ export const AuthProvider = ({ children }) => {
 
   const unblockUser = async (targetUserId) => {
     if (!user) return { success: false, message: 'Not logged in' };
-    const token = localStorage.getItem('token');
+    const token = getStoredToken();
     if (!token) return { success: false, message: 'No token' };
 
     try {
@@ -451,6 +507,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!res.ok) {
+        if (res.status === 401) handleAuthError();
         const err = await res.json();
         return { success: false, message: err.message || 'Unblock failed' };
       }
@@ -468,7 +525,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const refreshUser = async () => {
-    const savedToken = localStorage.getItem('token');
+    const savedToken = getStoredToken();
     if (!savedToken) return;
     try {
       const res = await fetch('/users/me', {
@@ -479,6 +536,14 @@ export const AuthProvider = ({ children }) => {
       if (res.ok) {
         const userData = await res.json();
         const progress = await fetchUserProgress(savedToken);
+        const storedRoles = JSON.parse(localStorage.getItem('sophiapath_admin_user_roles') || '{}');
+        const overriddenRoleId = storedRoles[userData.id];
+        const finalRoleId = overriddenRoleId !== undefined ? Number(overriddenRoleId) : (userData.roleID ?? prev.roleID);
+
+        const storedCourses = JSON.parse(localStorage.getItem('sophiapath_admin_user_courses') || '{}');
+        const overriddenCourses = storedCourses[userData.id];
+        const finalCourses = overriddenCourses !== undefined ? overriddenCourses : (userData.assignedCourseIds ? userData.assignedCourseIds.map(Number) : prev.assignedCourseIds || []);
+
         setUser(prev => {
           if (!prev) return null;
           return {
@@ -487,13 +552,16 @@ export const AuthProvider = ({ children }) => {
             level: userData.level ?? 1,
             levelName: userData.levelName ?? 'Beginner',
             name: userData.fullname || prev.name,
-            roleID: userData.roleID ?? prev.roleID,
+            roleID: finalRoleId,
+            assignedCourseIds: finalCourses,
             tag: userData.tag || prev.tag,
             gender: userData.gender || prev.gender,
             age: userData.age || prev.age,
             ...progress
           };
         });
+      } else if (res.status === 401) {
+        handleAuthError();
       }
     } catch (err) {
       console.error('refreshUser error:', err);
@@ -501,7 +569,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, deleteAccount, updateQuizScore, registerCourse, unregisterCourse, updateProfile, blockUser, unblockUser, refreshUser, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, deleteAccount, updateQuizScore, registerCourse, unregisterCourse, updateProfile, blockUser, unblockUser, refreshUser, loading, hasRole }}>
       {!loading && children}
     </AuthContext.Provider>
   );

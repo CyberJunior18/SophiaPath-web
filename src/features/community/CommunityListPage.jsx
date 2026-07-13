@@ -7,6 +7,7 @@ import {
   Button,
   Avatar,
   Card,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -23,7 +24,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Menu
 } from '@mui/material';
 
 export const COMMUNITY_CATEGORIES = [
@@ -80,17 +82,119 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Close as CloseIcon,
-  Bookmark as BookmarkIcon
+  Bookmark as BookmarkIcon,
+  MoreVert as MoreVertIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { socialStore } from '../../data/socialStore';
 import { useAuth } from '../../context/AuthContext';
+import { AllowedFor } from '../../components/AllowedFor';
 import './Community.css';
 
 const CommunityListPage = () => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState(() => localStorage.getItem('sophiapath_community_search_query') || '');
   const [communities, setCommunities] = useState([]);
+
+  // Role Application State (FR-S-46)
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [appEmail, setAppEmail] = useState(user?.email || '');
+  const [appPhone, setAppPhone] = useState('');
+  const [appDescription, setAppDescription] = useState('');
+  const [cvFile, setCvFile] = useState(null); // { name, base64 }
+  
+  const [appSubmitting, setAppSubmitting] = useState(false);
+  const [appError, setAppError] = useState('');
+  const [appSuccess, setAppSuccess] = useState('');
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCvFile({
+        name: file.name,
+        base64: reader.result
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAppSubmit = async (e) => {
+    e.preventDefault();
+    setAppError('');
+    setAppSuccess('');
+    setAppSubmitting(true);
+
+    if (!appEmail.trim()) {
+      setAppError('Email is required.');
+      setAppSubmitting(false);
+      return;
+    }
+    if (!cvFile) {
+      setAppError('Please upload your CV (file).');
+      setAppSubmitting(false);
+      return;
+    }
+
+    const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+    if (!token) {
+      setAppError('You must be logged in to apply.');
+      setAppSubmitting(false);
+      return;
+    }
+
+    try {
+      // Build custom JSON string to fit in reasons field
+      const reasonsPayload = JSON.stringify({
+        email: appEmail,
+        phone: appPhone || '',
+        cvFileName: cvFile.name,
+        cvBase64: cvFile.base64,
+        reasons: appDescription
+      });
+
+      const payload = {
+        title: "Moderator Position Application",
+        fullName: user?.name || user?.username || "Anonymous Applicant",
+        description: `Moderator candidacy request.`,
+        requestedRole: 2, // Moderator
+        reasons: reasonsPayload,
+        reasonableQuestions: "Not Applicable",
+        courseId: null
+      };
+
+      const res = await fetch('/users/apply', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        setAppSuccess('Your application has been submitted successfully!');
+        setAppEmail(user?.email || '');
+        setAppPhone('');
+        setAppDescription('');
+        setCvFile(null);
+        setTimeout(() => {
+          setDialogOpen(false);
+          setAppSuccess('');
+        }, 1500);
+      } else {
+        const err = await res.json();
+        setAppError(err.message || 'Failed to submit application.');
+      }
+    } catch (err) {
+      console.error(err);
+      setAppError('Network error, please try again.');
+    } finally {
+      setAppSubmitting(false);
+    }
+  };
   
   // Tabs & Lists
   const [activeTab, setActiveTab] = useState(() => Number(localStorage.getItem('sophiapath_community_active_tab') || '0'));
@@ -200,6 +304,10 @@ const CommunityListPage = () => {
 
   const handleToggleJoin = async (e, community) => {
     e.stopPropagation();
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     
     try {
       if (community.isJoined) {
@@ -337,23 +445,39 @@ const CommunityListPage = () => {
               sx: { borderRadius: 3, bgcolor: 'background.paper' }
             }}
           />
+
+          {Number(user?.roleID) !== 2 && Number(user?.roleID) !== 3 && (
+            <IconButton
+              sx={{
+                bgcolor: 'rgba(255,255,255,0.05)',
+                color: 'var(--text-secondary)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+              }}
+              onClick={(e) => setMenuAnchor(e.currentTarget)}
+              title="More Options"
+            >
+              <MoreVertIcon />
+            </IconButton>
+          )}
           
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={(e) => {
-              e.currentTarget.blur();
-              setOpenCreate(true);
-            }}
-            sx={{
-              borderRadius: 4,
-              textTransform: 'none',
-              boxShadow: '0 4px 14px rgba(61, 92, 255, 0.25)',
-              fontWeight: 600
-            }}
-          >
-            Create Community
-          </Button>
+          <AllowedFor roles={[2, 3]}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={(e) => {
+                e.currentTarget.blur();
+                setOpenCreate(true);
+              }}
+              sx={{
+                borderRadius: 4,
+                textTransform: 'none',
+                fontWeight: 600
+              }}
+            >
+              Create Community
+            </Button>
+          </AllowedFor>
         </Box>
 
         <Tabs
@@ -1069,6 +1193,143 @@ const CommunityListPage = () => {
             </Button>
           )}
         </DialogActions>
+      </Dialog>
+      {/* Community Options Menu */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={() => setMenuAnchor(null)}
+        PaperProps={{
+          style: {
+            background: 'var(--background-paper)',
+            color: 'var(--text-primary)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }
+        }}
+      >
+        <MenuItem
+          onClick={() => {
+            setMenuAnchor(null);
+            setDialogOpen(true);
+          }}
+          style={{ fontWeight: 700 }}
+        >
+          Apply for moderator position
+        </MenuItem>
+      </Menu>
+
+      {/* Moderator Application Dialog */}
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        PaperProps={{
+          style: {
+            background: 'var(--background-paper)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--divider)',
+            borderRadius: '16px',
+            maxWidth: '480px',
+            width: '100%',
+            padding: '12px'
+          }
+        }}
+      >
+        <DialogTitle style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif' }}>
+          Apply for Moderator Position
+        </DialogTitle>
+        <form onSubmit={handleAppSubmit}>
+          <DialogContent>
+            <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+              You are applying to become a Community Moderator. Please upload your CV and fill in the contact details.
+            </Typography>
+
+            {appError && <Chip label={appError} color="error" style={{ marginBottom: '16px', width: '100%', fontWeight: 700 }} />}
+            {appSuccess && <Chip label={appSuccess} color="success" style={{ marginBottom: '16px', width: '100%', fontWeight: 700 }} />}
+
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <TextField
+                fullWidth
+                label="Email Address"
+                value={appEmail}
+                onChange={(e) => setAppEmail(e.target.value)}
+                required
+                size="small"
+                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' } }}
+                InputProps={{ style: { color: 'var(--text-primary)' } }}
+                InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
+              />
+
+              <TextField
+                fullWidth
+                label="Phone Number (Optional)"
+                value={appPhone}
+                onChange={(e) => setAppPhone(e.target.value)}
+                size="small"
+                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' } }}
+                InputProps={{ style: { color: 'var(--text-primary)' } }}
+                InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
+              />
+
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Qualifications & Motivation"
+                value={appDescription}
+                onChange={(e) => setAppDescription(e.target.value)}
+                required
+                size="small"
+                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' } }}
+                InputProps={{ style: { color: 'var(--text-primary)' } }}
+                InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
+              />
+
+              <Box>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontWeight: 700 }}>
+                  Upload CV (Required)
+                </Typography>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  fullWidth
+                  style={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    borderRadius: '8px',
+                    borderColor: 'var(--divider)',
+                    color: 'var(--text-primary)',
+                    padding: '8px 12px'
+                  }}
+                >
+                  {cvFile ? `✓ ${cvFile.name}` : '📁 Choose CV File'}
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt"
+                    hidden
+                    onChange={handleFileChange}
+                  />
+                </Button>
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions style={{ padding: '16px', gap: '8px' }}>
+            <Button
+              variant="outlined"
+              onClick={() => setDialogOpen(false)}
+              style={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px', color: 'var(--text-primary)', borderColor: 'var(--divider)' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={appSubmitting}
+              style={{ background: 'var(--hero-gradient)', color: '#fff', textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
+            >
+              {appSubmitting ? 'Sending...' : 'Send Application'}
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </Box>
   );

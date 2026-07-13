@@ -7,7 +7,17 @@ import {
   Paper,
   TextField,
   Typography,
+  IconButton,
+  Menu,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button
 } from '@mui/material';
+import SettingsIcon from '@mui/icons-material/Settings';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SearchIcon from '@mui/icons-material/Search';
 import SecurityIcon from '@mui/icons-material/Security';
 import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroid';
@@ -55,6 +65,108 @@ const LearningPage = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [courses, setCourses] = useState(coursesData);
   const navigate = useNavigate();
+
+  // Role Application State (FR-S-46)
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [selectedCourse, setSelectedCourse] = useState(null);
+  
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [appEmail, setAppEmail] = useState(user?.email || '');
+  const [appPhone, setAppPhone] = useState('');
+  const [appDescription, setAppDescription] = useState('');
+  const [cvFile, setCvFile] = useState(null); // { name, base64 }
+  
+  const [appSubmitting, setAppSubmitting] = useState(false);
+  const [appError, setAppError] = useState('');
+  const [appSuccess, setAppSuccess] = useState('');
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCvFile({
+        name: file.name,
+        base64: reader.result
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAppSubmit = async (e) => {
+    e.preventDefault();
+    setAppError('');
+    setAppSuccess('');
+    setAppSubmitting(true);
+
+    if (!appEmail.trim()) {
+      setAppError('Email is required.');
+      setAppSubmitting(false);
+      return;
+    }
+    if (!cvFile) {
+      setAppError('Please upload your CV (file).');
+      setAppSubmitting(false);
+      return;
+    }
+
+    const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+    if (!token) {
+      setAppError('You must be logged in to apply.');
+      setAppSubmitting(false);
+      return;
+    }
+
+    try {
+      // Build custom JSON string to fit in reasons field
+      const reasonsPayload = JSON.stringify({
+        email: appEmail,
+        phone: appPhone || '',
+        cvFileName: cvFile.name,
+        cvBase64: cvFile.base64,
+        reasons: appDescription
+      });
+
+      const payload = {
+        title: "Expert Position Application",
+        fullName: user?.name || user?.username || "Anonymous Applicant",
+        description: `Expert candidacy request for course ID ${selectedCourse?.id}.`,
+        requestedRole: 1, // Expert
+        reasons: reasonsPayload,
+        reasonableQuestions: "Not Applicable",
+        courseId: selectedCourse?.id
+      };
+
+      const res = await fetch('/users/apply', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        setAppSuccess('Your application has been submitted successfully!');
+        setAppEmail(user?.email || '');
+        setAppPhone('');
+        setAppDescription('');
+        setCvFile(null);
+        setTimeout(() => {
+          setDialogOpen(false);
+          setAppSuccess('');
+        }, 1500);
+      } else {
+        const err = await res.json();
+        setAppError(err.message || 'Failed to submit application.');
+      }
+    } catch (err) {
+      console.error(err);
+      setAppError('Network error, please try again.');
+    } finally {
+      setAppSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     const loadCourses = async () => {
@@ -222,6 +334,13 @@ const LearningPage = () => {
     const freshCourse = courses.find(c => c.title.toLowerCase() === course.title.toLowerCase()) || course;
     const courseUrlSlug = course.title.toLowerCase().replace(/\s+/g, '-');
 
+    if (!user) {
+      navigate(`/course/${courseUrlSlug}`, {
+        state: { course: freshCourse }
+      });
+      return;
+    }
+
     if (isCourseRegistered(course.title)) {
       navigate(`/course/${courseUrlSlug}`, {
         state: { course: freshCourse }
@@ -301,7 +420,53 @@ const LearningPage = () => {
                   className="learning-course-card glass-panel"
                   elevation={0}
                   onClick={() => handleCourseClick(course)}
+                  style={{ position: 'relative' }}
                 >
+                  {/* Expert settings edit button overlay */}
+                  {(Number(user?.roleID) === 3 || (Number(user?.roleID) === 1 && user.assignedCourseIds?.map(Number).includes(Number(course.id)))) ? (
+                    <IconButton
+                      size="small"
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        background: 'rgba(28, 176, 246, 0.15)',
+                        color: 'var(--primary-main)',
+                        border: '1px solid rgba(28, 176, 246, 0.3)',
+                        zIndex: 10
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Navigate to Dashboard with editCourse state
+                        navigate('/', { state: { editCourse: course } });
+                      }}
+                      title="Manage Course Syllabus"
+                    >
+                      <SettingsIcon style={{ fontSize: '1.15rem' }} />
+                    </IconButton>
+                  ) : (
+                    <IconButton
+                      size="small"
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        background: 'var(--action-hover)',
+                        color: 'var(--text-secondary)',
+                        border: '1px solid var(--divider)',
+                        zIndex: 10
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCourse(course);
+                        setMenuAnchor(e.currentTarget);
+                      }}
+                      title="More Options"
+                    >
+                      <MoreVertIcon style={{ fontSize: '1.15rem' }} />
+                    </IconButton>
+                  )}
+
                   <div className="learning-course-card-top">
                     <div className="learning-course-icon">
                       {getCourseIcon(course.title)}
@@ -386,6 +551,144 @@ const LearningPage = () => {
           ))}
         </Box>
       </section>
+
+      {/* Course Options Menu */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={() => setMenuAnchor(null)}
+        PaperProps={{
+          style: {
+            background: 'var(--background-paper)',
+            color: 'var(--text-primary)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }
+        }}
+      >
+        <MenuItem
+          onClick={() => {
+            setMenuAnchor(null);
+            setDialogOpen(true);
+          }}
+          style={{ fontWeight: 700 }}
+        >
+          Apply for expert position
+        </MenuItem>
+      </Menu>
+
+      {/* Expert Application Dialog */}
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        PaperProps={{
+          style: {
+            background: 'var(--background-paper)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--divider)',
+            borderRadius: '16px',
+            maxWidth: '480px',
+            width: '100%',
+            padding: '12px'
+          }
+        }}
+      >
+        <DialogTitle style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif' }}>
+          Apply for Expert Position
+        </DialogTitle>
+        <form onSubmit={handleAppSubmit}>
+          <DialogContent>
+            <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+              You are applying to become the Course Expert for: <strong>{selectedCourse?.title}</strong>. Please upload your CV and fill in the contact details.
+            </Typography>
+
+            {appError && <Chip label={appError} color="error" style={{ marginBottom: '16px', width: '100%', fontWeight: 700 }} />}
+            {appSuccess && <Chip label={appSuccess} color="success" style={{ marginBottom: '16px', width: '100%', fontWeight: 700 }} />}
+
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <TextField
+                fullWidth
+                label="Email Address"
+                value={appEmail}
+                onChange={(e) => setAppEmail(e.target.value)}
+                required
+                size="small"
+                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' } }}
+                InputProps={{ style: { color: 'var(--text-primary)' } }}
+                InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
+              />
+
+              <TextField
+                fullWidth
+                label="Phone Number (Optional)"
+                value={appPhone}
+                onChange={(e) => setAppPhone(e.target.value)}
+                size="small"
+                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' } }}
+                InputProps={{ style: { color: 'var(--text-primary)' } }}
+                InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
+              />
+
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Qualifications & Motivation"
+                value={appDescription}
+                onChange={(e) => setAppDescription(e.target.value)}
+                required
+                size="small"
+                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' } }}
+                InputProps={{ style: { color: 'var(--text-primary)' } }}
+                InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
+              />
+
+              <Box>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontWeight: 700 }}>
+                  Upload CV (Required)
+                </Typography>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  fullWidth
+                  style={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    borderRadius: '8px',
+                    borderColor: 'var(--divider)',
+                    color: 'var(--text-primary)',
+                    padding: '8px 12px'
+                  }}
+                >
+                  {cvFile ? `✓ ${cvFile.name}` : '📁 Choose CV File'}
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt"
+                    hidden
+                    onChange={handleFileChange}
+                  />
+                </Button>
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions style={{ padding: '16px', gap: '8px' }}>
+            <Button
+              variant="outlined"
+              onClick={() => setDialogOpen(false)}
+              style={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px', color: 'var(--text-primary)', borderColor: 'var(--divider)' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={appSubmitting}
+              style={{ background: 'var(--hero-gradient)', color: '#fff', textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
+            >
+              {appSubmitting ? 'Sending...' : 'Send Application'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
     </Box>
   );
 };

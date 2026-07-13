@@ -36,7 +36,6 @@ import {
   School as SchoolIcon,
   Science as ScienceIcon,
   InfoOutlined as InfoIcon,
-  SportsKabaddi as ArenaIcon,
 } from '@mui/icons-material';
 
 
@@ -61,7 +60,6 @@ import CommunityListPage from '../features/community/CommunityListPage';
 import CommunityDetailPage from '../features/community/CommunityDetailPage';
 import QuestionDetailPage from '../features/community/QuestionDetailPage';
 import LabsPage from './LabsPage';
-import ArenaPage from './ArenaPage';
 
 
 import { useNavigate, Routes, Route, useLocation, Navigate, useParams } from 'react-router-dom';
@@ -74,6 +72,7 @@ import LoginPage from './LoginPage';
 import RegisterPage from './RegisterPage';
 import ConstellationBackground from '../components/ConstellationBackground';
 import { coursesData } from '../data/courses';
+import { ProtectedRoute } from '../components/ProtectedRoute';
 
 
 const AnimatedPage = ({ children }) => (
@@ -162,7 +161,7 @@ const TUTORIAL_STEPS = [
 ];
 
 const NavigationPage = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, hasRole } = useAuth();
   const { toggleTheme, isDarkMode } = useAppTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -1091,17 +1090,16 @@ const NavigationPage = () => {
     }
   }, [location.pathname]);
 
-  const userName = user?.name || 'Learner';
+  const userName = user?.name || (user ? 'Learner' : 'Guest User');
 
 
   const navigationItems = React.useMemo(() => {
     const items = [];
-    if (user?.roleID === 2 || true) { // Temporarily bypassed for testing
+    if (hasRole([1, 3])) { // Admin (3) or Expert (1)
       items.push({ label: 'Dashboard', path: '/', icon: <DashboardRoundedIcon /> });
     }
     items.push({ label: 'Courses', path: '/courses', icon: <SchoolIcon /> });
     items.push({ label: 'Labs', path: '/labs', icon: <ScienceIcon /> });
-    items.push({ label: 'Arena', path: '/arena', icon: <ArenaIcon /> });
     items.push({ label: 'Achievements', path: '/achievements', icon: <EmojiEventsIcon /> });
     items.push({ label: 'Chats', path: '/chats', icon: <ChatIcon /> });
     items.push({ label: 'Communities', path: '/communities', icon: <GroupsIcon /> });
@@ -1111,7 +1109,7 @@ const NavigationPage = () => {
   }, [user]);
 
   const pageTitles = {
-    '/': 'Admin Dashboard',
+    '/': Number(user?.roleID) === 1 ? 'Syllabus Editor' : 'Dashboard',
     '/courses': 'Your Courses',
     '/labs': 'Interactive Labs',
     '/learning-path': 'Your Roadmap',
@@ -1124,7 +1122,9 @@ const NavigationPage = () => {
   };
 
   const pageDescriptions = {
-    '/': 'Manage your platform, users, courses, and system settings.',
+    '/': Number(user?.roleID) === 1
+      ? 'Manage and edit course sections, lessons, and content.'
+      : 'Manage your platform, users, courses, and system settings.',
     '/courses': 'Browse courses, continue learning, and track your progress.',
     '/labs': 'Practice through interactive labs.',
     '/learning-path': 'Follow your personalized learning journey and unlock new milestones.',
@@ -1238,24 +1238,64 @@ const NavigationPage = () => {
             <div className="nav-profile-copy">
               <Typography className="nav-profile-name">{userName}</Typography>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {user?.levelName || 'Beginner'}
-                  </span>
-                  <Tooltip title="View Level Guide">
-                    <IconButton
-                      size="small"
-                      onClick={handleLevelInfoClick}
-                      style={{ padding: '2px', color: 'rgba(255, 255, 255, 0.45)' }}
-                      className="interactive"
-                    >
-                      <InfoIcon style={{ fontSize: '0.88rem' }} />
-                    </IconButton>
-                  </Tooltip>
-                </div>
-                <span style={{ fontSize: '0.74rem', opacity: 0.65, color: 'var(--text-secondary)' }}>
-                  xp: {user?.xp || 0}
-                </span>
+                {!user ? (
+                  <div style={{ margin: '2px 0 4px 0' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      fontFamily: '"Outfit", sans-serif',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      background: 'var(--action-hover)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--divider)'
+                    }}>
+                      Guest
+                    </span>
+                  </div>
+                ) : user?.roleID !== undefined && Number(user.roleID) > 0 && (
+                  <div style={{ margin: '2px 0 4px 0' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      fontFamily: '"Outfit", sans-serif',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      background: Number(user.roleID) === 3 ? 'rgba(255, 193, 7, 0.15)' : Number(user.roleID) === 2 ? 'rgba(156, 39, 176, 0.15)' : 'rgba(76, 175, 80, 0.15)',
+                      color: Number(user.roleID) === 3 ? '#ffc107' : Number(user.roleID) === 2 ? '#e040fb' : '#4caf50'
+                    }}>
+                      {Number(user.roleID) === 3 ? 'Admin' : Number(user.roleID) === 2 ? 'Moderator' : 'Expert'}
+                    </span>
+                  </div>
+                )}
+                {user && (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {user?.levelName || 'Beginner'}
+                      </span>
+                      <Tooltip title="View Level Guide">
+                        <IconButton
+                          size="small"
+                          onClick={handleLevelInfoClick}
+                          style={{ padding: '2px', color: 'rgba(255, 255, 255, 0.45)' }}
+                          className="interactive"
+                        >
+                          <InfoIcon style={{ fontSize: '0.88rem' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </div>
+                    <span style={{ fontSize: '0.74rem', opacity: 0.65, color: 'var(--text-secondary)' }}>
+                      xp: {user?.xp || 0}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
@@ -1357,15 +1397,25 @@ const NavigationPage = () => {
         <List className="nav-menu-list">
           {navigationItems.map((item) => {
             const active = location.pathname === item.path;
+            const isGuestAccessible =
+              item.path === '/courses' ||
+              item.path === '/communities' ||
+              item.path === '/labs' ||
+              item.path === '/settings';
+            const isDisabled = !user && !isGuestAccessible;
+
             return (
               <motion.div key={item.path} variants={itemVariants}>
                 <ListItemButton
-                  selected={active}
-                  className={`nav-menu-item ${active ? 'is-active' : ''}`}
-                  onClick={() => handleNavigation(item.path)}
+                  selected={active && !isDisabled}
+                  className={`nav-menu-item ${active ? 'is-active' : ''} ${isDisabled ? 'is-disabled' : ''}`}
+                  onClick={isDisabled ? undefined : () => handleNavigation(item.path)}
+                  disabled={isDisabled}
                   sx={{
                     justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                     px: sidebarCollapsed ? 1 : 2,
+                    color: isDisabled ? 'var(--text-disabled)' : 'inherit',
+                    opacity: isDisabled ? 0.35 : 1,
                   }}
                 >
                   <ListItemIcon
@@ -1374,12 +1424,20 @@ const NavigationPage = () => {
                       minWidth: sidebarCollapsed ? 0 : 42,
                       display: 'flex',
                       justifyContent: 'center',
-                      color: active ? 'var(--primary-main)' : 'inherit'
+                      color: isDisabled ? 'var(--text-disabled)' : active ? 'var(--primary-main)' : 'inherit',
+                      opacity: isDisabled ? 0.5 : 1
                     }}
                   >
                     {item.icon}
                   </ListItemIcon>
-                  {!sidebarCollapsed && <ListItemText primary={item.label} />}
+                  {!sidebarCollapsed && (
+                    <ListItemText 
+                      primary={item.label} 
+                      primaryTypographyProps={{
+                        sx: { color: isDisabled ? 'var(--text-disabled)' : 'inherit' }
+                      }}
+                    />
+                  )}
                 </ListItemButton>
               </motion.div>
             );
@@ -1539,8 +1597,22 @@ const NavigationPage = () => {
     location.pathname.startsWith('/cyber-lab') ||
     location.pathname.startsWith('/challenge');
 
-  if (!user && !isAuthPage) {
-    return <Navigate to="/login" />;
+  if (!user) {
+    if (location.pathname === '/') {
+      return <Navigate to="/courses" replace />;
+    }
+    const isGuestAccessible =
+      location.pathname === '/courses' ||
+      location.pathname.startsWith('/course/') ||
+      location.pathname.startsWith('/communities') ||
+      location.pathname === '/labs' ||
+      location.pathname === '/philosophy-lab' ||
+      location.pathname === '/cyber-lab' ||
+      location.pathname === '/settings';
+
+    if (!isGuestAccessible && !isAuthPage) {
+      return <Navigate to="/login" replace />;
+    }
   }
 
   if (isAuthPage) {
@@ -1678,15 +1750,27 @@ const NavigationPage = () => {
               >
                 {isDarkMode ? 'Light Mode' : 'Dark Mode'}
               </Button>
-              <IconButton onClick={handleLogout} className="nav-logout-btn" title="Logout">
-                <LogoutIcon />
-              </IconButton>
-              <Avatar
-                src={user?.avatar || "https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"}
-                sx={{ width: 48, height: 48 }}
-                onClick={() => navigate('/profile')}
-                style={{ cursor: 'pointer' }}
-              />
+              {!user ? (
+                <Button
+                  variant="contained"
+                  onClick={() => navigate('/login')}
+                  style={{ borderRadius: '8px', textTransform: 'none', background: 'var(--primary-main)', fontWeight: 800 }}
+                >
+                  Sign In
+                </Button>
+              ) : (
+                <>
+                  <IconButton onClick={handleLogout} className="nav-logout-btn" title="Logout">
+                    <LogoutIcon />
+                  </IconButton>
+                  <Avatar
+                    src={user?.avatar || "https://cdn.wallpapersafari.com/95/19/uFaSYI.jpg"}
+                    sx={{ width: 48, height: 48 }}
+                    onClick={() => navigate('/profile')}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </>
+              )}
             </div>
           </header>
         )}
@@ -1694,16 +1778,11 @@ const NavigationPage = () => {
         <section className="nav-content">
           <AnimatePresence mode="wait">
             <Routes location={location} key={getRouteKey(location.pathname)}>
-              <Route path="/" element={
-                (user?.roleID === 2 || true) ? ( // Temporarily bypassed for testing
-                  <AnimatedPage><AdminDashboardPage /></AnimatedPage>
-                ) : (
-                  <Navigate to="/courses" replace />
-                )
-              } />
+              <Route element={<ProtectedRoute allowedRoles={[1, 3]} />}>
+                <Route path="/" element={<AnimatedPage><AdminDashboardPage /></AnimatedPage>} />
+              </Route>
               <Route path="/courses" element={<AnimatedPage><LearningPage /></AnimatedPage>} />
               <Route path="/labs" element={<AnimatedPage><LabsPage /></AnimatedPage>} />
-              <Route path="/arena" element={<AnimatedPage><ArenaPage /></AnimatedPage>} />
               <Route path="/challenge" element={<AnimatedPage><ChallengePage /></AnimatedPage>} />
               <Route path="/profile" element={<AnimatedPage><ProfilePage /></AnimatedPage>} />
               <Route path="/achievements" element={<AnimatedPage><AchievementsPage /></AnimatedPage>} />

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Chip,
@@ -22,8 +23,10 @@ import {
   Select,
   MenuItem,
   Switch,
+  Checkbox,
   FormControlLabel,
   Card,
+  Stack,
   CardContent,
   Grid,
   Avatar,
@@ -49,7 +52,8 @@ import {
   Info as InfoIcon,
   Code as CodeIcon,
   Lock as LockIcon,
-  Storage as DatabaseIcon
+  Storage as DatabaseIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 import { coursesData } from '../data/courses';
 import { useAuth } from '../context/AuthContext';
@@ -83,6 +87,8 @@ const adminFetch = (url, options = {}) => {
 
 const AdminDashboardPage = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   
   // Tab and Editing States initialized from LocalStorage to survive page refreshes
   const [adminTab, setAdminTab] = useState(() => {
@@ -116,14 +122,45 @@ const AdminDashboardPage = () => {
   const [draggedBlockIdx, setDraggedBlockIdx] = useState(null);
   const [dragOverBlockIdx, setDragOverBlockIdx] = useState(null);
   
-  const [users, setUsers] = useState([
-    { id: 1, name: 'Alice Smith', email: 'alice@sophiapath.edu', roleID: 0, roleName: 'Student', xp: 450, status: 'Active' },
-    { id: 2, name: 'Bob Johnson', email: 'bob@sophiapath.edu', roleID: 1, roleName: 'Expert', xp: 1200, status: 'Active' },
-    { id: 3, name: 'Mostafa Capstone', email: 'mostafa@sophiapath.edu', roleID: 2, roleName: 'Admin', xp: 2400, status: 'Active' },
-    { id: 4, name: 'Charlie Brown', email: 'charlie@gmail.com', roleID: 0, roleName: 'Student', xp: 80, status: 'Suspended' },
-    { id: 5, name: 'David Lee', email: 'david@outlook.com', roleID: 0, roleName: 'Student', xp: 320, status: 'Active' }
-  ]);
-  
+  // Role constants matching backend UserRole enum
+  const ROLE_NAMES = { 0: 'Student', 1: 'Expert', 2: 'Moderator', 3: 'Admin' };
+  const ROLE_COLORS = {
+    0: { bg: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' },
+    1: { bg: 'rgba(76, 175, 80, 0.15)', color: '#4caf50' },
+    2: { bg: 'rgba(156, 39, 176, 0.15)', color: '#e040fb' },
+    3: { bg: 'rgba(255, 193, 7, 0.15)', color: '#ffc107' }
+  };
+
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+
+  const [applications, setApplications] = useState([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(false);
+  const [selectedAppForView, setSelectedAppForView] = useState(null);
+
+  const parseAppDetails = (app) => {
+    try {
+      if (app.reasons && (app.reasons.startsWith('{') || app.reasons.startsWith('['))) {
+        const parsed = JSON.parse(app.reasons);
+        return {
+          isCustom: true,
+          email: parsed.email,
+          phone: parsed.phone,
+          cvFileName: parsed.cvFileName,
+          cvBase64: parsed.cvBase64,
+          reasonsText: parsed.reasons
+        };
+      }
+    } catch (e) {
+      console.warn("Failed to parse app reasons:", e);
+    }
+    return {
+      isCustom: false,
+      reasonsText: app.reasons
+    };
+  };
+
   const [logs, setLogs] = useState([
     { id: 1, timestamp: '2026-07-04 14:32:00', event: 'ElevenLabs Socratic Voice generated for slide completion', level: 'info' },
     { id: 2, timestamp: '2026-07-04 12:15:12', event: 'New user registration: David Lee (david@outlook.com)', level: 'info' },
@@ -167,12 +204,74 @@ const AdminDashboardPage = () => {
     id: null,
     name: '',
     roleID: 0,
-    status: 'Active'
+    assignedCourseIds: []
   });
 
   // Persist tab state
   useEffect(() => {
     localStorage.setItem('sophiapath_admin_tab', adminTab);
+  }, [adminTab]);
+
+  // Force Expert user to courses tab only
+  useEffect(() => {
+    if (Number(user?.roleID) === 1 && adminTab !== 'courses') {
+      setAdminTab('courses');
+    }
+  }, [user, adminTab]);
+
+  // Open editor directly if coming from Courses page edit action (Expert settings icon)
+  useEffect(() => {
+    if (location.state?.editCourse && courses.length > 0) {
+      const match = courses.find(c => String(c.id) === String(location.state.editCourse.id));
+      if (match) {
+        setAdminTab('courses');
+        setEditingCourseDetails(match);
+        // Clear state to avoid reopening on refresh
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    }
+  }, [location.state, courses]);
+
+  // Load real users from backend when Users tab is active
+  useEffect(() => {
+    if (adminTab === 'users') {
+      setUsersLoading(true);
+      fetch('/users')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => {
+          const storedRoles = JSON.parse(localStorage.getItem('sophiapath_admin_user_roles') || '{}');
+          const storedCourses = JSON.parse(localStorage.getItem('sophiapath_admin_user_courses') || '{}');
+          const mapped = (data || []).map(u => {
+            const overriddenRoleId = storedRoles[u.id];
+            const finalRoleId = overriddenRoleId !== undefined ? overriddenRoleId : (u.roleID ?? 0);
+            const overriddenCourses = storedCourses[u.id];
+            const finalCourses = overriddenCourses !== undefined ? overriddenCourses : (u.assignedCourseIds || []);
+            return {
+              id: u.id,
+              name: u.fullname || u.username || 'Unknown',
+              email: u.email,
+              username: u.username,
+              roleID: finalRoleId,
+              roleName: ROLE_NAMES[finalRoleId] || 'Student',
+              xp: u.xp ?? 0,
+              level: u.level ?? 1,
+              levelName: u.levelName ?? 'Beginner',
+              assignedCourseIds: finalCourses
+            };
+          });
+          setUsers(mapped);
+        })
+        .catch(err => console.error('Failed to load users:', err))
+        .finally(() => setUsersLoading(false));
+    }
+    if (adminTab === 'applications') {
+      setApplicationsLoading(true);
+      adminFetch('/users/applications')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => setApplications(data || []))
+        .catch(err => console.error('Failed to load applications:', err))
+        .finally(() => setApplicationsLoading(false));
+    }
   }, [adminTab]);
 
   // Persist editing course details state (store the course ID)
@@ -215,6 +314,16 @@ const AdminDashboardPage = () => {
             const courseObj = sorted.find(c => String(c.id) === String(savedCourseId));
             if (courseObj) {
               setEditingCourseDetails(courseObj);
+              return;
+            }
+          }
+
+          // If Expert has no active course, auto-assign first assigned course
+          if (Number(user?.roleID) === 1) {
+            const expertCourses = user.assignedCourseIds ? user.assignedCourseIds.map(Number) : [];
+            const firstCourse = sorted.find(c => expertCourses.includes(Number(c.id)));
+            if (firstCourse) {
+              setEditingCourseDetails(firstCourse);
             }
           }
         }
@@ -235,14 +344,48 @@ const AdminDashboardPage = () => {
     loadCourses();
   }, []);
 
+  // Log database helpers
+  const loadLogs = useCallback(async () => {
+    try {
+      const res = await adminFetch('/users/logs');
+      if (res.ok) {
+        const data = await res.json();
+        // Convert timestamp to clean format
+        const formatted = (data || []).map(item => ({
+          ...item,
+          timestamp: new Date(item.timestamp).toISOString().replace('T', ' ').substring(0, 19)
+        }));
+        setLogs(formatted);
+      }
+    } catch (err) {
+      console.error("Failed to load security logs:", err);
+    }
+  }, [adminFetch]);
+
+  useEffect(() => {
+    if (adminTab === 'logs') {
+      loadLogs();
+    }
+  }, [adminTab, loadLogs]);
+
   // Log simple helper
-  const addLog = (event, level = 'info') => {
+  const addLog = async (event, level = 'info') => {
     setLogs(prev => [{
       id: Date.now(),
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
       event,
       level
     }, ...prev]);
+
+    try {
+      await adminFetch('/users/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event, level })
+      });
+    } catch (err) {
+      console.error("Failed to save log to DB:", err);
+    }
   };
 
   // Course CRUD handlers
@@ -742,22 +885,73 @@ const AdminDashboardPage = () => {
       id: u.id,
       name: u.name,
       roleID: u.roleID,
-      status: u.status
+      assignedCourseIds: u.assignedCourseIds || []
     });
     setUserDialogOpen(true);
   };
 
-  const handleSaveUser = () => {
-    const rolesMap = { 0: 'Student', 1: 'Expert', 2: 'Admin' };
-    setUsers(prev => prev.map(u => u.id === userForm.id ? { 
-      ...u, 
-      roleID: userForm.roleID, 
-      roleName: rolesMap[userForm.roleID],
-      status: userForm.status 
-    } : u));
+  const handleSaveUser = async () => {
+    try {
+      // 1. Save role update to backend database
+      const roleRes = await adminFetch(`/users/${userForm.id}/role`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roleID: Number(userForm.roleID) })
+      });
+      if (!roleRes.ok) {
+        const err = await roleRes.json();
+        console.error('Role update error:', err);
+        alert('Failed to update user role in database: ' + (err.message || roleRes.statusText));
+        return;
+      }
 
-    addLog('User account settings updated for ' + userForm.name, 'action');
-    setUserDialogOpen(false);
+      // 2. If Expert, save course assignments to backend database
+      if (Number(userForm.roleID) === 1) {
+        const res = await adminFetch(`/users/${userForm.id}/assign-courses`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ courseIds: userForm.assignedCourseIds.map(Number) })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          console.warn('Assign courses warning:', err);
+        }
+      }
+
+      // Update local state to reflect changes instantly in the admin view
+      setUsers(prev => prev.map(u => u.id === userForm.id ? { 
+        ...u, 
+        roleID: Number(userForm.roleID), 
+        roleName: ROLE_NAMES[userForm.roleID] || 'Student',
+        assignedCourseIds: userForm.assignedCourseIds
+      } : u));
+
+      addLog(`User ${userForm.name} became a ${ROLE_NAMES[userForm.roleID] || 'Student'}`, 'action');
+      setUserDialogOpen(false);
+    } catch (err) {
+      console.error('Failed to update user roles/courses:', err);
+      alert('An error occurred while saving user edits.');
+    }
+  };
+
+  const handleApplicationStatus = async (appId, status, applicantName) => {
+    try {
+      const res = await adminFetch(`/users/applications/${appId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        setApplications(prev => prev.filter(a => a.id !== appId));
+        addLog(`Application ${status === 'accepted' ? 'approved' : 'removed'} for ${applicantName}`, status === 'accepted' ? 'action' : 'warning');
+      } else {
+        const err = await res.json();
+        alert('Failed to update application: ' + (err.message || res.statusText));
+      }
+    } catch (err) {
+      console.error('handleApplicationStatus error:', err);
+      alert('Network error updating application status');
+    }
   };
 
   // Conditional WYSIWYG Mode rendering
@@ -1947,15 +2141,23 @@ const AdminDashboardPage = () => {
         {/* Header */}
         <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <Box style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <IconButton onClick={() => setEditingCourseDetails(null)} style={{ color: 'var(--text-secondary)' }}>
-              <ArrowBackIcon />
-            </IconButton>
+            {Number(user?.roleID) !== 1 && (
+              <IconButton onClick={() => setEditingCourseDetails(null)} style={{ color: 'var(--text-secondary)' }}>
+                <ArrowBackIcon />
+              </IconButton>
+            )}
             <Box>
               <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
-                Curriculum Designer: {editingCourseDetails.title}
+                {Number(user?.roleID) === 1 
+                  ? `${editingCourseDetails.title}` 
+                  : `Syllabus Editor: ${editingCourseDetails.title}`
+                }
               </Typography>
               <Typography variant="body2" style={{ color: 'var(--text-secondary)' }}>
-                {editingCourseDetails.description}
+                {Number(user?.roleID) === 1 
+                  ? 'As an assigned Course Expert, you can manage the syllabus sections, lessons, and content for this course.'
+                  : editingCourseDetails.description
+                }
               </Typography>
             </Box>
           </Box>
@@ -1974,20 +2176,22 @@ const AdminDashboardPage = () => {
             >
               Add Section
             </Button>
-            <Button
-              variant="contained"
-              onClick={() => handleOpenCourseEditMetadata(editingCourseDetails)}
-              startIcon={<SettingsIcon />}
-              style={{
-                background: 'var(--hero-gradient)',
-                textTransform: 'none',
-                fontWeight: 800,
-                borderRadius: '8px',
-                color: '#fff'
-              }}
-            >
-              Edit Course Metadata
-            </Button>
+            {Number(user?.roleID) !== 1 && (
+              <Button
+                variant="contained"
+                onClick={() => handleOpenCourseEditMetadata(editingCourseDetails)}
+                startIcon={<SettingsIcon />}
+                style={{
+                  background: 'var(--hero-gradient)',
+                  textTransform: 'none',
+                  fontWeight: 800,
+                  borderRadius: '8px',
+                  color: '#fff'
+                }}
+              >
+                Edit Course Metadata
+              </Button>
+            )}
           </Box>
         </Box>
 
@@ -2359,6 +2563,10 @@ const AdminDashboardPage = () => {
     );
   }
 
+  const visibleCourses = user?.roleID === 1
+    ? courses.filter(c => user.assignedCourseIds?.map(Number).includes(Number(c.id)))
+    : courses;
+
   // Otherwise, render core Admin Control Panel (Tab switcher: Manage Courses list, Manage Users list, Audit logs)
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '16px' }}>
@@ -2407,8 +2615,7 @@ const AdminDashboardPage = () => {
               </Avatar>
               <Box>
                 <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block', fontSize: '0.65rem', letterSpacing: '0.5px' }}>PUBLISHED COURSES</Typography>
-                <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>{courses.length}</Typography>
-                
+                <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>{visibleCourses.length}</Typography>
               </Box>
             </CardContent>
           </Card>
@@ -2420,7 +2627,10 @@ const AdminDashboardPage = () => {
       <Paper className="glass-panel" style={{ padding: '8px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)' }}>
         <Tabs
           value={adminTab}
-          onChange={(e, val) => setAdminTab(val)}
+          onChange={(e, val) => {
+            if (user?.roleID === 1 && val !== 'courses') return;
+            setAdminTab(val);
+          }}
           sx={{
             '& .MuiTabs-indicator': { backgroundColor: 'var(--primary-main)' },
             '& .MuiTab-root': {
@@ -2434,9 +2644,10 @@ const AdminDashboardPage = () => {
             }
           }}
         >
-          <Tab value="courses" label="Curriculum Designer" />
-          <Tab value="users" label="User Access Control" />
-          <Tab value="logs" label="Security Logs" />
+          <Tab value="courses" label="Syllabus Editor" />
+          {user?.roleID !== 1 && <Tab value="users" label="User Access Control" />}
+          {user?.roleID !== 1 && <Tab value="applications" label="Role Applications" />}
+          {user?.roleID !== 1 && <Tab value="logs" label="Security Logs" />}
         </Tabs>
       </Paper>
 
@@ -2448,20 +2659,22 @@ const AdminDashboardPage = () => {
               <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>Courses Directory</Typography>
               <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Configure courses, sections, lessons, and custom slide components</Typography>
             </Box>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleOpenCourseCreate}
-              style={{
-                background: 'var(--hero-gradient)',
-                textTransform: 'none',
-                fontWeight: 800,
-                borderRadius: '8px',
-                color: '#fff'
-              }}
-            >
-              Create Course
-            </Button>
+            {user?.roleID !== 1 && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleOpenCourseCreate}
+                style={{
+                  background: 'var(--hero-gradient)',
+                  textTransform: 'none',
+                  fontWeight: 800,
+                  borderRadius: '8px',
+                  color: '#fff'
+                }}
+              >
+                Create Course
+              </Button>
+            )}
           </Box>
 
           <TableContainer style={{ overflowX: 'auto' }}>
@@ -2476,7 +2689,7 @@ const AdminDashboardPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {courses.map((course) => (
+                {visibleCourses.map((course) => (
                   <TableRow key={course.id || course.title} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800 }}>{course.title}</TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{course.id}</TableCell>
@@ -2519,12 +2732,16 @@ const AdminDashboardPage = () => {
                       >
                         Edit Syllabus
                       </Button>
-                      <IconButton onClick={() => handleOpenCourseEditMetadata(course)} style={{ color: 'var(--text-secondary)' }}>
-                        <SettingsIcon />
-                      </IconButton>
-                      <IconButton onClick={() => handleDeleteCourse(course.id, course.title)} style={{ color: '#f44336' }}>
-                        <DeleteIcon />
-                      </IconButton>
+                      {user?.roleID !== 1 && (
+                        <>
+                          <IconButton onClick={() => handleOpenCourseEditMetadata(course)} style={{ color: 'var(--text-secondary)' }}>
+                            <SettingsIcon />
+                          </IconButton>
+                          <IconButton onClick={() => handleDeleteCourse(course.id, course.title)} style={{ color: '#f44336' }}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -2536,63 +2753,395 @@ const AdminDashboardPage = () => {
 
       {adminTab === 'users' && (
         <Paper className="glass-panel" style={{ padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)' }}>
-          <Box style={{ marginBottom: '16px' }}>
-            <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>User Access Directory</Typography>
-            <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Manage student and instructor roles and access levels</Typography>
+          <Box style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+            <Box>
+              <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>User Access Directory</Typography>
+              <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Live users from backend. Roles: Student, Expert, Moderator, Admin.</Typography>
+            </Box>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setUsersLoading(true);
+                fetch('/users')
+                  .then(res => res.ok ? res.json() : [])
+                  .then(data => {
+                    const storedRoles = JSON.parse(localStorage.getItem('sophiapath_admin_user_roles') || '{}');
+                    const storedCourses = JSON.parse(localStorage.getItem('sophiapath_admin_user_courses') || '{}');
+                    setUsers((data || []).map(u => {
+                      const overriddenRoleId = storedRoles[u.id];
+                      const finalRoleId = overriddenRoleId !== undefined ? overriddenRoleId : (u.roleID ?? 0);
+                      const overriddenCourses = storedCourses[u.id];
+                      const finalCourses = overriddenCourses !== undefined ? overriddenCourses : (u.assignedCourseIds || []);
+                      return {
+                        id: u.id,
+                        name: u.fullname || u.username || 'Unknown',
+                        email: u.email,
+                        username: u.username,
+                        roleID: finalRoleId,
+                        roleName: ROLE_NAMES[finalRoleId] || 'Student',
+                        xp: u.xp ?? 0,
+                        level: u.level ?? 1,
+                        levelName: u.levelName ?? 'Beginner',
+                        assignedCourseIds: finalCourses
+                      };
+                    }));
+                  })
+                  .catch(console.error)
+                  .finally(() => setUsersLoading(false));
+              }}
+              style={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px', color: 'var(--primary-main)', borderColor: 'rgba(28,176,246,0.3)' }}
+            >
+              {usersLoading ? 'Refreshing…' : '↻ Refresh'}
+            </Button>
           </Box>
 
-          <TableContainer style={{ overflowX: 'auto' }}>
-            <Table>
-              <TableHead>
-                <TableRow style={{ borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
-                  <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Name</TableCell>
-                  <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Email</TableCell>
-                  <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Role</TableCell>
-                  <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>XP Progress</TableCell>
-                  <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Status</TableCell>
-                  <TableCell align="right" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {users.map((u) => (
-                  <TableRow key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800 }}>{u.name}</TableCell>
-                    <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{u.email}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={u.roleName} 
-                        size="small" 
-                        style={{ 
-                          background: u.roleID === 2 ? 'rgba(156, 39, 176, 0.15)' : (u.roleID === 1 ? 'rgba(76, 175, 80, 0.15)' : 'rgba(255,255,255,0.05)'), 
-                          color: u.roleID === 2 ? '#e040fb' : (u.roleID === 1 ? '#4caf50' : 'var(--text-primary)'), 
-                          fontWeight: 800 
-                        }} 
-                      />
-                    </TableCell>
-                    <TableCell style={{ color: 'var(--primary-main)', fontWeight: 800 }}>{u.xp} XP</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={u.status} 
-                        size="small" 
-                        style={{ 
-                          background: u.status === 'Active' ? 'rgba(76, 175, 80, 0.12)' : 'rgba(244, 67, 54, 0.12)', 
-                          color: u.status === 'Active' ? '#4caf50' : '#f44336', 
-                          fontWeight: 800 
-                        }} 
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton onClick={() => handleOpenUserEdit(u)} style={{ color: '#1CB0F6' }}>
-                        <EditIcon />
-                      </IconButton>
-                    </TableCell>
+          {/* Search bar with start-of-word username filter */}
+          <Box style={{ marginBottom: '20px', maxWidth: '360px' }}>
+            <TextField
+              fullWidth
+              placeholder="Search by username..."
+              value={userSearchQuery}
+              onChange={(e) => setUserSearchQuery(e.target.value)}
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <SearchIcon style={{ color: 'var(--text-secondary)', marginRight: '8px', fontSize: '1.15rem' }} />
+                ),
+                style: { color: 'var(--text-primary)', borderRadius: '10px', background: 'rgba(255,255,255,0.02)' }
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
+                  '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
+                  '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' }
+                }
+              }}
+            />
+          </Box>
+
+          {usersLoading && users.length === 0 ? (
+            <Typography style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '40px 0', fontStyle: 'italic' }}>Loading users from backend…</Typography>
+          ) : (
+            <TableContainer style={{ overflowX: 'auto' }}>
+              <Table>
+                <TableHead>
+                  <TableRow style={{ borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
+                    <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Name</TableCell>
+                    <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Username</TableCell>
+                    <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Email</TableCell>
+                    <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Role</TableCell>
+                    <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>XP / Level</TableCell>
+                    <TableCell align="right" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Actions</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {users
+                    .filter(u => {
+                      if (u.roleID === 3) return false; // Exclude Admin users from lists/search results
+                      if (!userSearchQuery) return true;
+                      const queryLower = userSearchQuery.toLowerCase().trim();
+                      // Compare the query to the beginning of any word in the username
+                      const words = u.username.toLowerCase().split(/[^a-zA-Z0-9]/);
+                      return words.some(word => word.startsWith(queryLower));
+                    })
+                    .sort((a, b) => b.roleID - a.roleID) // Sort users by role descending
+                    .map((u) => {
+                      const roleStyle = ROLE_COLORS[u.roleID] || ROLE_COLORS[0];
+                      return (
+                        <TableRow key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800 }}>{u.name}</TableCell>
+                          <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>@{u.username}</TableCell>
+                          <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{u.email}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={u.roleName}
+                              size="small"
+                              style={{ background: roleStyle.bg, color: roleStyle.color, fontWeight: 800 }}
+                            />
+                          </TableCell>
+                          <TableCell style={{ color: 'var(--primary-main)', fontWeight: 800 }}>{u.xp} XP · Lv.{u.level}</TableCell>
+                          <TableCell align="right">
+                            <IconButton onClick={() => handleOpenUserEdit(u)} style={{ color: '#1CB0F6' }} title="Edit user">
+                              <EditIcon />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  {users.length === 0 && !usersLoading && (
+                    <TableRow>
+                      <TableCell colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', padding: '32px' }}>No users found</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </Paper>
       )}
+
+      {adminTab === 'applications' && (
+        <Paper className="glass-panel" style={{ padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)' }}>
+          <Box style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+            <Box>
+              <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>Role Applications</Typography>
+              <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Review requests from users applying to become Expert or Moderator</Typography>
+            </Box>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setApplicationsLoading(true);
+                adminFetch('/users/applications')
+                  .then(res => res.ok ? res.json() : [])
+                  .then(data => setApplications(data || []))
+                  .catch(console.error)
+                  .finally(() => setApplicationsLoading(false));
+              }}
+              style={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px', color: 'var(--primary-main)', borderColor: 'rgba(28,176,246,0.3)' }}
+            >
+              {applicationsLoading ? 'Loading…' : '↻ Refresh'}
+            </Button>
+          </Box>
+
+          {applicationsLoading && applications.length === 0 ? (
+            <Typography style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '40px 0', fontStyle: 'italic' }}>Loading applications…</Typography>
+          ) : applications.length === 0 ? (
+            <Typography style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '40px 0', fontStyle: 'italic' }}>No role applications found</Typography>
+          ) : (
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {applications.map((app) => {
+                const reqRoleStyle = ROLE_COLORS[app.requestedRole] || ROLE_COLORS[1];
+                const statusColor = app.status === 'accepted' ? '#4caf50' : app.status === 'rejected' ? '#f44336' : '#ff9800';
+                const statusBg = app.status === 'accepted' ? 'rgba(76,175,80,0.12)' : app.status === 'rejected' ? 'rgba(244,67,54,0.12)' : 'rgba(255,152,0,0.12)';
+                const isPending = !app.status || app.status === 'pending';
+                const applicantName = app.user?.fullname || app.user?.username || 'Unknown User';
+                const appTitle = app.requestedRole === 1 ? 'Expert Position Application' : 'Moderator Position Application';
+                return (
+                  <Card key={app.id} className="glass-panel" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', overflow: 'visible' }}>
+                    <CardContent style={{ padding: '20px 24px' }}>
+                      <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
+                        <Box style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                          <Avatar 
+                            src={app.user?.avatar}
+                            style={{ background: 'rgba(28,176,246,0.15)', color: '#1CB0F6', width: 40, height: 40, fontWeight: 900 }}
+                          >
+                            {!app.user?.avatar && applicantName.charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box>
+                            <Typography style={{ fontWeight: 900, color: 'var(--text-primary)', fontSize: '1rem' }}>
+                              {applicantName}
+                            </Typography>
+                            <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                              {appTitle} · Application #{app.id}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={`Requesting: ${ROLE_NAMES[app.requestedRole] || 'Expert'}`}
+                            size="small"
+                            style={{ background: reqRoleStyle.bg, color: reqRoleStyle.color, fontWeight: 800 }}
+                          />
+                          {app.courseId && (() => {
+                            const targetC = courses.find(c => Number(c.id) === Number(app.courseId));
+                            const courseName = targetC ? targetC.title : `Course #${app.courseId}`;
+                            return (
+                              <Chip label={`Target Course: ${courseName}`} size="small" style={{ background: 'rgba(28,176,246,0.1)', color: '#1CB0F6', fontWeight: 800 }} />
+                            );
+                          })()}
+                        </Box>
+                        <Chip
+                          label={(app.status || 'pending').toUpperCase()}
+                          size="small"
+                          style={{ background: statusBg, color: statusColor, fontWeight: 900, border: `1px solid ${statusColor}40` }}
+                        />
+                      </Box>
+
+                      {app.description && (
+                        <Typography variant="body2" style={{ color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, marginBottom: '10px', fontStyle: 'italic' }}>
+                          "{app.description}"
+                        </Typography>
+                      )}
+                      {app.reasons && (() => {
+                        const parsed = parseAppDetails(app);
+                        return (
+                          <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                            <strong>Reasons:</strong> {parsed.reasonsText || 'No reasons provided.'}
+                          </Typography>
+                        );
+                      })()}
+
+                      {isPending && (
+                        <Box style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => setSelectedAppForView(app)}
+                            style={{ background: 'var(--primary-main)', color: '#fff', textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
+                          >
+                            View Info
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => handleApplicationStatus(app.id, 'rejected', applicantName)}
+                            style={{ color: '#f44336', borderColor: 'rgba(244,67,54,0.3)', textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
+                          >
+                            Remove Application
+                          </Button>
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Box>
+          )}
+        </Paper>
+      )}
+
+      {/* View Application Info Dialog */}
+      {selectedAppForView && (() => {
+        const details = parseAppDetails(selectedAppForView);
+        const reqRoleStyle = ROLE_COLORS[selectedAppForView.requestedRole] || ROLE_COLORS[1];
+        
+        return (
+          <Dialog
+            open={!!selectedAppForView}
+            onClose={() => setSelectedAppForView(null)}
+            PaperProps={{
+              style: {
+                background: 'var(--background-paper)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--divider)',
+                borderRadius: '16px',
+                padding: '12px'
+              }
+            }}
+          >
+            <DialogTitle style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif' }}>
+              Application Details
+            </DialogTitle>
+            <DialogContent>
+              <Stack spacing={2.5} style={{ marginTop: '12px' }}>
+                <Box style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <Avatar 
+                    src={selectedAppForView.user?.avatar}
+                    style={{ background: 'rgba(28,176,246,0.15)', color: '#1CB0F6', width: 48, height: 48, fontWeight: 900 }}
+                  >
+                    {!selectedAppForView.user?.avatar && (selectedAppForView.user?.fullname || selectedAppForView.user?.username || 'U').charAt(0).toUpperCase()}
+                  </Avatar>
+                  <Box>
+                    <Typography style={{ fontWeight: 900, color: 'var(--text-primary)', fontSize: '1.1rem' }}>
+                      {selectedAppForView.user?.fullname || 'Unknown User'}
+                    </Typography>
+                    <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>
+                      @{selectedAppForView.user?.username} · {selectedAppForView.user?.email}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', background: 'var(--action-hover)', padding: '12px', borderRadius: '8px', border: '1px solid var(--divider)' }}>
+                  <Box>
+                    <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 700, display: 'block' }}>USER LEVEL</Typography>
+                    <Typography style={{ fontWeight: 800 }}>Lv.{selectedAppForView.user?.level || 1} ({selectedAppForView.user?.levelName || 'Beginner'})</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 700, display: 'block' }}>EXPERIENCE POINTS</Typography>
+                    <Typography style={{ fontWeight: 800 }}>{(selectedAppForView.user?.xp || 0).toLocaleString()} XP</Typography>
+                  </Box>
+                </Box>
+
+                <Box>
+                  <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>REQUESTED ROLE</Typography>
+                  <Box style={{ marginTop: '4px' }}>
+                    <Chip
+                      label={ROLE_NAMES[selectedAppForView.requestedRole] || 'Expert'}
+                      size="small"
+                      style={{ background: reqRoleStyle.bg, color: reqRoleStyle.color, fontWeight: 800 }}
+                    />
+                  </Box>
+                </Box>
+
+                {selectedAppForView.courseId && (() => {
+                  const targetC = courses.find(c => Number(c.id) === Number(selectedAppForView.courseId));
+                  const courseName = targetC ? targetC.title : `Course #${selectedAppForView.courseId}`;
+                  return (
+                    <Box>
+                      <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>TARGET COURSE</Typography>
+                      <Typography style={{ fontWeight: 800 }}>{courseName}</Typography>
+                    </Box>
+                  );
+                })()}
+
+                <Box>
+                  <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>CONTACT EMAIL</Typography>
+                  <Typography style={{ fontWeight: 800 }}>{details.email || selectedAppForView.email}</Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>CONTACT PHONE</Typography>
+                  <Typography style={{ fontWeight: 800 }}>{details.phone || selectedAppForView.phone || 'Not provided'}</Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>CV ATTACHMENT</Typography>
+                  <Box style={{ marginTop: '4px' }}>
+                    {(details.cvBase64 || selectedAppForView.cvBase64) ? (
+                      <a
+                        href={details.cvBase64 || selectedAppForView.cvBase64}
+                        download={details.cvFileName || selectedAppForView.cvFileName}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          color: '#1CB0F6',
+                          textDecoration: 'none',
+                          fontWeight: 800,
+                          background: 'rgba(28, 176, 246, 0.1)',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(28, 176, 246, 0.2)'
+                        }}
+                      >
+                        📥 Download CV ({details.cvFileName || selectedAppForView.cvFileName})
+                      </a>
+                    ) : (
+                      <Typography style={{ fontWeight: 800, color: 'var(--text-secondary)' }}>No file attached</Typography>
+                    )}
+                  </Box>
+                </Box>
+
+                <Box>
+                  <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>REASONS / MOTIVATION</Typography>
+                  <Typography style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', marginTop: '4px' }}>
+                    {details.reasonsText || selectedAppForView.reasons || 'No motivation details provided.'}
+                  </Typography>
+                </Box>
+              </Stack>
+            </DialogContent>
+            <DialogActions style={{ gap: '8px', padding: '16px' }}>
+              <Button
+                variant="contained"
+                onClick={() => {
+                  handleApplicationStatus(selectedAppForView.id, 'rejected', selectedAppForView.user?.fullname || selectedAppForView.user?.username || 'Unknown User');
+                  setSelectedAppForView(null);
+                }}
+                style={{ background: '#f44336', color: '#fff', textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
+              >
+                Remove Application
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setSelectedAppForView(null)}
+                style={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px', color: 'var(--text-primary)', borderColor: 'var(--divider)' }}
+              >
+                Close
+              </Button>
+            </DialogActions>
+          </Dialog>
+        );
+      })()}
 
       {adminTab === 'logs' && (
         <Paper className="glass-panel" style={{ padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)' }}>
@@ -2868,34 +3417,63 @@ const AdminDashboardPage = () => {
           }
         }}
       >
-        <DialogTitle style={{ fontWeight: 800, paddingBottom: '4px' }}>Edit User Profile Settings</DialogTitle>
+        <DialogTitle style={{ fontWeight: 800, paddingBottom: '4px' }}>Edit User Role</DialogTitle>
         <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: '18px', paddingTop: '16px', minWidth: '320px' }}>
           <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)' }}>User: {userForm.name}</Typography>
           <Box>
-            <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontWeight: 700 }}>Account Access Role</Typography>
+            <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontWeight: 700 }}>Assign New Role</Typography>
             <Select
               fullWidth
               value={userForm.roleID}
               onChange={(e) => setUserForm(prev => ({ ...prev, roleID: e.target.value }))}
               sx={{ color: 'var(--text-primary)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }}
             >
-              <MenuItem value={0}>Student (RoleID 0)</MenuItem>
-              <MenuItem value={1}>Expert / Instructor (RoleID 1)</MenuItem>
-              <MenuItem value={2}>Administrator (RoleID 2)</MenuItem>
+              <MenuItem value={0}>Student — Default learner</MenuItem>
+              <MenuItem value={1}>Expert — Course instructor</MenuItem>
+              <MenuItem value={2}>Moderator — Community mod</MenuItem>
+              <MenuItem value={3}>Admin — Full access</MenuItem>
             </Select>
           </Box>
-          <Box>
-            <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontWeight: 700 }}>Account Access Status</Typography>
-            <Select
-              fullWidth
-              value={userForm.status}
-              onChange={(e) => setUserForm(prev => ({ ...prev, status: e.target.value }))}
-              sx={{ color: 'var(--text-primary)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' } }}
-            >
-              <MenuItem value="Active">Active</MenuItem>
-              <MenuItem value="Suspended">Suspended</MenuItem>
-            </Select>
-          </Box>
+
+          {userForm.roleID === 1 && (
+            <Box style={{ marginTop: '16px' }}>
+              <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontWeight: 700 }}>Assign Expertise Course Field(s)</Typography>
+              <Box style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px', maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {courses.map(c => {
+                  const isChecked = userForm.assignedCourseIds?.map(Number).includes(Number(c.id));
+                  return (
+                    <FormControlLabel
+                      key={c.id}
+                      control={
+                        <Checkbox
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const cid = Number(c.id);
+                            setUserForm(prev => {
+                              const current = prev.assignedCourseIds ? prev.assignedCourseIds.map(Number) : [];
+                              const next = e.target.checked 
+                                ? [...current, cid]
+                                : current.filter(id => id !== cid);
+                              return { ...prev, assignedCourseIds: next };
+                            });
+                          }}
+                          sx={{
+                            color: 'rgba(255,255,255,0.3)',
+                            '&.Mui-checked': { color: 'var(--primary-main)' }
+                          }}
+                        />
+                      }
+                      label={
+                        <Typography style={{ fontSize: '0.82rem', color: 'var(--text-primary)', fontWeight: 650 }}>
+                          {c.title} (ID: {c.id})
+                        </Typography>
+                      }
+                    />
+                  );
+                })}
+              </Box>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions style={{ padding: '16px 24px' }}>
           <Button onClick={() => setUserDialogOpen(false)} style={{ color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 800 }}>Cancel</Button>

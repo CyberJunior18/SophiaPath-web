@@ -675,6 +675,7 @@ const GroupChatPage = () => {
         const usersRes = await fetch('/users', { headers });
         if (!usersRes.ok) return;
         const allUsersList = await usersRes.json();
+        const nonAdmins = (allUsersList || []).filter(u => u.roleID !== 3);
 
         // 2. Fetch conversations
         const conversations = await socialStore.getUserConversations();
@@ -684,8 +685,8 @@ const GroupChatPage = () => {
           return Number(c.userId1) === Number(user.id) ? Number(c.userId2) : Number(c.userId1);
         });
 
-        // 4. Filter allUsersList to only include active partners
-        const activeContacts = allUsersList.filter(u => partnerIds.includes(Number(u.id)));
+        // 4. Filter nonAdmins to only include active partners
+        const activeContacts = nonAdmins.filter(u => partnerIds.includes(Number(u.id)));
 
         // 5. Exclude current members of this group
         if (group) {

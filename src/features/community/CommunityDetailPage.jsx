@@ -424,6 +424,10 @@ const CommunityDetailPage = () => {
 
   const handleUpvote = async (e, questionId) => {
     e.stopPropagation(); // Avoid navigating to details
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     const updated = await socialStore.upvoteQuestion(questionId, user.id);
     if (updated) {
       setQuestions(prev => prev.map(q => q.id === questionId ? { 
@@ -437,6 +441,10 @@ const CommunityDetailPage = () => {
 
   const handleDownvote = async (e, questionId) => {
     e.stopPropagation(); // Avoid navigating to details
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     const updated = await socialStore.downvoteQuestion(questionId, user.id);
     if (updated) {
       setQuestions(prev => prev.map(q => q.id === questionId ? { 
@@ -447,14 +455,6 @@ const CommunityDetailPage = () => {
       } : q));
     }
   };
-
-  if (!user) {
-    return (
-      <Box sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="body1">Loading User Profile...</Typography>
-      </Box>
-    );
-  }
 
   if (!community) {
     return (
@@ -1384,6 +1384,10 @@ const CommunityDetailPage = () => {
         ) : (
           <MenuItem onClick={async () => {
             setCommunityMenuAnchor(null);
+            if (!user) {
+              navigate('/login');
+              return;
+            }
             try {
               await socialStore.toggleJoinCommunity(community.id);
               loadCommunity();
