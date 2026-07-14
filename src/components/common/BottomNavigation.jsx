@@ -31,41 +31,33 @@ const AppBottomNavigation = () => {
           backgroundColor: 'transparent',
           '& .Mui-selected': {
             '& .MuiBottomNavigationAction-label': {
-              color: theme.palette.primary.main,
-            },
+              color: theme.palette.primary.main},
             '& .MuiSvgIcon-root': {
-              color: theme.palette.primary.main,
-            },
-          },
-        }}
+              color: theme.palette.primary.main}}}}
       >
         <BottomNavigationAction
           label="Home"
           icon={<HomeIcon />}
           sx={{
-            color: theme.palette.mode === 'light' ? 'rgba(31, 31, 57, 0.6)' : 'rgba(255, 255, 255, 0.6)',
-          }}
+            color: theme.palette.mode === 'light' ? 'rgba(31, 31, 57, 0.6)' : 'rgba(255, 255, 255, 0.6)'}}
         />
         <BottomNavigationAction
           label="Search"
           icon={<SearchIcon />}
           sx={{
-            color: theme.palette.mode === 'light' ? 'rgba(31, 31, 57, 0.6)' : 'rgba(255, 255, 255, 0.6)',
-          }}
+            color: theme.palette.mode === 'light' ? 'rgba(31, 31, 57, 0.6)' : 'rgba(255, 255, 255, 0.6)'}}
         />
         <BottomNavigationAction
           label="Favorites"
           icon={<FavoriteIcon />}
           sx={{
-            color: theme.palette.mode === 'light' ? 'rgba(31, 31, 57, 0.6)' : 'rgba(255, 255, 255, 0.6)',
-          }}
+            color: theme.palette.mode === 'light' ? 'rgba(31, 31, 57, 0.6)' : 'rgba(255, 255, 255, 0.6)'}}
         />
         <BottomNavigationAction
           label="Profile"
           icon={<PersonIcon />}
           sx={{
-            color: theme.palette.mode === 'light' ? 'rgba(31, 31, 57, 0.6)' : 'rgba(255, 255, 255, 0.6)',
-          }}
+            color: theme.palette.mode === 'light' ? 'rgba(31, 31, 57, 0.6)' : 'rgba(255, 255, 255, 0.6)'}}
         />
       </BottomNavigation>
     </Paper>

@@ -743,9 +743,7 @@ const CommunityDetailPage = () => {
               borderRadius: 2, 
               fontWeight: 600, 
               background: 'linear-gradient(135deg, #ff9800 0%, #ed6c02 100%)',
-              color: '#fff',
-              boxShadow: '0 4px 12px rgba(237, 108, 2, 0.2)'
-            }}
+              color: '#fff'}}
           >
             You are temporarily timed out in this community. You are blocked from creating rooms, posting questions, commenting, or replying.
           </Alert>
@@ -1478,12 +1476,10 @@ const CommunityDetailPage = () => {
         onClose={() => setCommunityMenuAnchor(null)}
         anchorOrigin={{
           vertical: 'bottom',
-          horizontal: 'right',
-        }}
+          horizontal: 'right'}}
         transformOrigin={{
           vertical: 'top',
-          horizontal: 'right',
-        }}
+          horizontal: 'right'}}
         PaperProps={{ sx: { borderRadius: 1, minWidth: 160 } }}
       >
         {isOwner && (
@@ -1659,9 +1655,7 @@ const CommunityDetailPage = () => {
                 PaperProps: {
                   elevation: 1,
                   sx: {
-                    maxHeight: 300,
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
-                  }
+                    maxHeight: 300}
                 }
               }}
             >

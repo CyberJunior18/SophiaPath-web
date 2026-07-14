@@ -296,7 +296,7 @@
 
 .b64-chunk-block.active {
   border-color: var(--info-main);
-  box-shadow: 0 0 10px rgba(14, 165, 233, 0.2);
+
   outline: 2px solid var(--info-main);
 }
 
@@ -349,7 +349,7 @@
   padding: 1.5rem;
   border-radius: 0.5rem;
   border: 1px solid var(--divider);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+
 }
 
 @media (min-width: 768px) {
@@ -502,7 +502,7 @@
   color: var(--background-default);
   border-color: var(--info-light);
   transform: scale(1.05);
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+
   z-index: 10;
   font-weight: 700;
 }

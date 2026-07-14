@@ -95,7 +95,7 @@
   border: 1px solid var(--divider);
   border-radius: 24px;
   margin: 1.5rem 0;
-  box-shadow: var(--shadow-soft);
+
 }
 
 .sp-loader-logo-container {

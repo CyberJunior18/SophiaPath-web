@@ -184,8 +184,7 @@ const CodeEditorPage = () => {
           height: '100vh',
           zIndex: 999980,
           backgroundColor: 'transparent',
-          pointerEvents: 'auto',
-        }}
+          pointerEvents: 'auto'}}
       />
     );
   };
@@ -200,13 +199,12 @@ const CodeEditorPage = () => {
           top: `${spotlightRect.top - 8}px`,
           width: `${spotlightRect.width + 16}px`,
           height: `${spotlightRect.height + 16}px`,
-          boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
+          
           borderRadius: '8px',
           border: '2px solid var(--primary-main)',
           pointerEvents: 'none',
           zIndex: 999990,
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'}}
       />
     );
   };
@@ -219,8 +217,7 @@ const CodeEditorPage = () => {
       position: 'fixed',
       zIndex: 999995,
       width: '320px',
-      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    };
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'};
     
     if (spotlightRect) {
       let placement = step.placement;
@@ -265,10 +262,9 @@ const CodeEditorPage = () => {
         sx={{
           p: 2.5,
           borderRadius: 3,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+          
           border: '1px solid rgba(255, 255, 255, 0.15)',
-          background: 'var(--background-paper) !important',
-        }}
+          background: 'var(--background-paper) !important'}}
       >
         <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, color: 'var(--primary-main)' }}>
           {step.title}
@@ -348,13 +344,11 @@ const CodeEditorPage = () => {
         base: 'vs-dark',
         inherit: true,
         rules: [],
-        colors: { 'editor.background': '#000000', 'editor.lineHighlightBackground': '#111111' },
-      });
+        colors: { 'editor.background': '#000000', 'editor.lineHighlightBackground': '#111111' }});
       monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
         jsx: monaco.languages.typescript.JsxEmit.React,
         allowJs: true,
-        target: monaco.languages.typescript.ScriptTarget.ESNext,
-      });
+        target: monaco.languages.typescript.ScriptTarget.ESNext});
       setThemeLoaded(true);
     });
   }, []);

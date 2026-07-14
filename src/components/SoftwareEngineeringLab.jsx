@@ -292,8 +292,7 @@ const AddEntityDialog = ({ open, onClose, onSubmit, existingEntityNames }) => {
           borderRadius: '16px',
           padding: '12px',
           maxWidth: '600px',
-          width: '100%',
-        }
+          width: '100%'}
       }}
     >
       <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
@@ -317,8 +316,7 @@ const AddEntityDialog = ({ open, onClose, onSubmit, existingEntityNames }) => {
             '& .MuiOutlinedInput-root': {
               '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' },
               '&:hover fieldset': { borderColor: 'var(--primary-main)' },
-              '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' },
-            }
+              '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' }}
           }}
         />
 
@@ -435,8 +433,7 @@ const CreateRelationDialog = ({ open, onClose, source, target, onSubmit }) => {
           borderRadius: '16px',
           padding: '12px',
           maxWidth: '450px',
-          width: '100%',
-        }
+          width: '100%'}
       }}
     >
       <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
@@ -462,8 +459,7 @@ const CreateRelationDialog = ({ open, onClose, source, target, onSubmit }) => {
                 sx={{
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' },
                   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' },
-                }}
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }}}
               >
                 <MenuItem value="ONE">ONE (1)</MenuItem>
                 <MenuItem value="MANY">MANY (M)</MenuItem>
@@ -489,8 +485,7 @@ const CreateRelationDialog = ({ open, onClose, source, target, onSubmit }) => {
                 sx={{
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' },
                   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' },
-                }}
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }}}
               >
                 <MenuItem value="ONE">ONE (1)</MenuItem>
                 <MenuItem value="MANY">MANY (N)</MenuItem>
@@ -3582,8 +3577,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                         height: '28px',
                         fontSize: '0.72rem',
                         background: 'var(--primary-main)',
-                        fontWeight: 800,
-                      }}
+                        fontWeight: 800}}
                     >
                       Add Entity
                     </Button>
@@ -3611,8 +3605,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                           color: '#00FFCC',
                           borderColor: '#00FFCC',
                           fontWeight: 700,
-                          letterSpacing: '0.02em',
-                        }}
+                          letterSpacing: '0.02em'}}
                       >
                         ✦ Auto Layout
                       </Button>
@@ -3647,8 +3640,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                           color: '#00FFCC',
                           borderColor: '#00FFCC',
                           fontWeight: 700,
-                          letterSpacing: '0.02em',
-                        }}
+                          letterSpacing: '0.02em'}}
                       >
                         ✦ Auto Layout
                       </Button>
@@ -3729,9 +3721,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                 overflow: 'auto',
                 height: 'calc(100% - 30px)',
                 cursor: isPanningRef.current ? 'grabbing' : 'grab',
-                userSelect: 'none',
-                boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.15)'
-              }}
+                userSelect: 'none'}}
             >
               {/* Virtual Scroll Boundaries Wrapper */}
               <Box
@@ -3823,10 +3813,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             borderRadius: '12px',
                             color: 'var(--text-primary)',
                             fontFamily: 'Outfit, sans-serif',
-                            boxShadow: isPendingSource ? '0 0 20px rgba(0,255,204,0.6)' : (draggingNode === entity.name ? '0 12px 30px rgba(0,0,0,0.35)' : '0 4px 15px rgba(0,0,0,0.15)'),
                             zIndex: draggingNode === entity.name ? 10 : 3,
                             cursor: isCandidateTarget ? 'pointer' : 'default',
-                            transition: 'border 0.2s ease, box-shadow 0.2s ease'
+                            transition: 'border 0.2s ease'
                           }}
                         >
                           {/* Connection Dot */}
@@ -3856,18 +3845,16 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                              
                               transition: 'all 0.2s ease',
-                              transform: isPendingSource ? 'scale(1.2)' : 'scale(1)',
-                            }}
+                              transform: isPendingSource ? 'scale(1.2)' : 'scale(1)'}}
                           >
                             <div
                               style={{
                                 width: '6px',
                                 height: '6px',
                                 borderRadius: '50%',
-                                backgroundColor: '#fff',
-                              }}
+                                backgroundColor: '#fff'}}
                             />
                           </div>
 
@@ -3975,7 +3962,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             border: '2px solid var(--primary-main)',
                             background: 'var(--background-paper)',
                             color: 'var(--text-primary)',
-                            boxShadow: draggingNode === uc.id ? '0 12px 30px rgba(0,0,0,0.35)' : '0 4px 15px rgba(0,0,0,0.15)',
+                            
                             zIndex: draggingNode === uc.id ? 10 : 3,
                             display: 'flex',
                             alignItems: 'center',
@@ -4032,9 +4019,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                   alignItems: 'center',
                   gap: '12px',
                   zIndex: 100,
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-                  backdropFilter: 'blur(5px)',
-                }}
+                  
+                  backdropFilter: 'blur(5px)'}}
               >
                 <Typography variant="body2" style={{ fontWeight: 600 }}>
                   Connecting <strong>{pendingRelationSource}</strong>: click a target entity to establish relationship...
@@ -4051,8 +4037,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     borderColor: '#ff647c',
                     textTransform: 'none',
                     borderRadius: '6px',
-                    padding: '2px 8px',
-                  }}
+                    padding: '2px 8px'}}
                 >
                   Cancel
                 </Button>
@@ -4134,7 +4119,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
             background: 'var(--background-paper)',
             backdropFilter: 'blur(20px)',
             border: '1px solid var(--divider)',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            
             height: '92vh',
             maxHeight: '92vh',
             width: '95vw',
@@ -4407,9 +4392,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             border: '2px solid var(--primary-main)',
                             borderRadius: '12px',
                             color: 'var(--text-primary)',
-                            fontFamily: 'Outfit, sans-serif',
-                            boxShadow: '0 4px 15px rgba(0,0,0,0.15)'
-                          }}
+                            fontFamily: 'Outfit, sans-serif'}}
                         >
                           <div
                             style={{

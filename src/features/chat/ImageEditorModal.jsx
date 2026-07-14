@@ -490,7 +490,7 @@ export default function ImageEditorModal({ open, onClose, images = [], imageSrc,
           width: cropBox.w,
           height: cropBox.h,
           border: '2px solid #007AFF',
-          boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)', // Shaded backdrop
+           // Shaded backdrop
           cursor: 'move',
           zIndex: 5
         }}
@@ -579,7 +579,7 @@ export default function ImageEditorModal({ open, onClose, images = [], imageSrc,
           borderRadius: 2,
           bgcolor: 'background.paper',
           backgroundImage: 'none',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+          
           position: 'relative'
         }
       }}
@@ -662,7 +662,7 @@ export default function ImageEditorModal({ open, onClose, images = [], imageSrc,
                     height: 22,
                     bgcolor: c,
                     border: brushColor === c ? '2px solid var(--primary-main, #3D5CFF)' : '1px solid rgba(0,0,0,0.1)',
-                    boxShadow: brushColor === c ? '0 0 6px rgba(0,0,0,0.2)' : 'none',
+                    
                     '&:hover': { bgcolor: c, opacity: 0.8 }
                   }}
                 />
@@ -704,7 +704,7 @@ export default function ImageEditorModal({ open, onClose, images = [], imageSrc,
               transform: `scale(${zoom})`,
               transformOrigin: 'center center',
               transition: 'transform 0.15s ease-out',
-              boxShadow: '0 12px 36px rgba(0,0,0,0.5)',
+              
               display: 'inline-block'
             }}
           >
@@ -744,7 +744,7 @@ export default function ImageEditorModal({ open, onClose, images = [], imageSrc,
                   overflow: 'hidden',
                   cursor: 'pointer',
                   border: isActive ? '2px solid var(--primary-color)' : '1px solid var(--divider)',
-                  boxShadow: isActive ? '0 2px 8px rgba(61,92,255,0.3)' : 'none',
+                  
                   transition: 'all 0.2s ease',
                   '&:hover': { transform: 'scale(1.05)' }
                 }}

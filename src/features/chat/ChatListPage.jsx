@@ -468,7 +468,7 @@ const ChatListPage = () => {
                 sx={{
                   borderRadius: 4,
                   textTransform: 'none',
-                  boxShadow: '0 4px 14px rgba(61, 92, 255, 0.25)',
+                  
                   fontWeight: 600
                 }}
               >
@@ -670,7 +670,7 @@ const ChatListPage = () => {
                                       fontSize: '0.7rem', 
                                       fontWeight: 800, 
                                       px: 0.6,
-                                      boxShadow: '0 2px 8px rgba(61, 92, 255, 0.35)',
+                                      
                                       flexShrink: 0
                                     }}
                                   >
@@ -934,7 +934,7 @@ const ChatListPage = () => {
                                   fontSize: '0.7rem', 
                                   fontWeight: 800, 
                                   px: 0.6,
-                                  boxShadow: '0 2px 8px rgba(61, 92, 255, 0.35)',
+                                  
                                   flexShrink: 0
                                 }}
                               >
@@ -1061,7 +1061,7 @@ const ChatListPage = () => {
         open={Boolean(chatMenuAnchor)}
         onClose={handleCloseChatMenu}
         PaperProps={{
-          sx: { borderRadius: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }
+          sx: { borderRadius: 3}
         }}
       >
         <MenuItem onClick={handleArchiveChat} sx={{ fontSize: '0.85rem' }}>
@@ -1077,7 +1077,7 @@ const ChatListPage = () => {
         open={Boolean(groupMenuAnchor)}
         onClose={handleCloseGroupMenu}
         PaperProps={{
-          sx: { borderRadius: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }
+          sx: { borderRadius: 3}
         }}
       >
         <MenuItem onClick={handleDeleteGroup} sx={{ color: 'error.main', fontSize: '0.85rem' }}>

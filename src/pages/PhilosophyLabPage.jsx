@@ -70,8 +70,7 @@ export const SocraticDialogueWidget = () => {
       const res = await fetch('/ai/socrates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText, generateVoice: audioEnabled }),
-      });
+        body: JSON.stringify({ message: userText, generateVoice: audioEnabled })});
 
       if (res.ok) {
         const data = await res.json();
@@ -136,8 +135,7 @@ export const SocraticDialogueWidget = () => {
       margin: '20px 0',
       borderRadius: '16px',
       border: '1px solid rgba(255,255,255,0.08)',
-      overflow: 'hidden',
-    }}>
+      overflow: 'hidden'}}>
       {/* ── Flex container for Socrates (left) and Chat (right) ── */}
       <Box style={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch' }}>
         
@@ -304,8 +302,7 @@ export const SocraticDialogueWidget = () => {
                   backgroundColor: 'rgba(255,255,255,0.01)',
                   '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
                   '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.25)' },
-                  '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' },
-                }
+                  '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' }}
               }}
             />
             <Button
@@ -770,8 +767,7 @@ export const FallacySorterWidget = () => {
                       borderRadius: '10px',
                       padding: '12px 16px',
                       cursor: 'pointer',
-                      transition: 'background 0.25s, transform 0.2s',
-                    }}
+                      transition: 'background 0.25s, transform 0.2s'}}
                   >
                     <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
@@ -3416,8 +3412,7 @@ export const PoliticalCompassWidget = () => {
                     backgroundColor: 'rgba(255,255,255,0.04)',
                     '& .MuiLinearProgress-bar': {
                       background: 'linear-gradient(90deg, var(--primary-main) 0%, #26C6DA 100%)',
-                      borderRadius: 3,
-                    },
+                      borderRadius: 3},
                     mb: 2.5
                   }} 
                 />

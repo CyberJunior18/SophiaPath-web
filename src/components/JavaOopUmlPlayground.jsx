@@ -4925,7 +4925,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
             background: 'var(--background-paper)',
             backdropFilter: 'blur(20px)',
             border: isUmlFullscreen ? 'none' : '1px solid var(--divider)',
-            boxShadow: isUmlFullscreen ? 'none' : '0 20px 60px rgba(0,0,0,0.5)',
+            
             height: isUmlFullscreen ? '100vh' : '95vh',
             maxHeight: isUmlFullscreen ? '100vh' : '95vh',
             width: isUmlFullscreen ? '100vw' : '95vw',
@@ -5046,7 +5046,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 overflow: 'hidden',
                 border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
                 backgroundColor: isDarkMode ? '#1e1e1e' : '#fffffe',
-                boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
+                
                 display: 'flex',
                 flexDirection: 'column',
                 flexGrow: 1,
@@ -5165,12 +5165,10 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                 justifyContent: 'center',
                 transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), margin 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                 marginLeft: isUmlFullscreen ? '0px' : '-4px',
-                marginRight: isUmlFullscreen ? '0px' : '-4px',
-              }}
+                marginRight: isUmlFullscreen ? '0px' : '-4px'}}
               sx={{
                 '&:hover, &:active': {
-                  backgroundColor: 'var(--primary-main)',
-                },
+                  backgroundColor: 'var(--primary-main)'},
                 '&::after': {
                   content: '""',
                   width: isUmlFullscreen ? '0px' : '2px',
@@ -5226,9 +5224,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       padding: '10px 16px',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '12px',
-                      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.08)'
-                    }}
+                      gap: '12px'}}
                   >
                     <ErrorIcon style={{ color: '#ef4444', fontSize: '1.25rem' }} />
                     <Typography variant="body2" style={{ color: isDarkMode ? '#fca5a5' : '#b91c1c', fontWeight: 700, fontSize: '0.8rem', fontFamily: 'monospace' }}>
@@ -5255,7 +5251,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                         background: 'rgba(28, 176, 246, 0.9)',
                         backdropFilter: 'blur(4px)',
                         color: '#fff',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        
                         textTransform: 'none'
                       }}
                     >
@@ -5273,7 +5269,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                         background: 'rgba(61, 92, 255, 0.9)',
                         backdropFilter: 'blur(4px)',
                         color: '#fff',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        
                         textTransform: 'none'
                       }}
                     >
@@ -5297,7 +5293,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       width: '100%',
                       position: 'relative',
                       overflow: 'auto',
-                      boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.15)',
+                      
                       cursor: 'grab'
                     }}
                   >
@@ -5314,7 +5310,6 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       cursor: crosshair;
                       z-index: 100;
                       transition: all 0.2s ease-in-out;
-                      box-shadow: 0 0 5px rgba(28, 176, 246, 0.4);
                       opacity: 0;
                       pointer-events: none;
                     }
@@ -5356,7 +5351,6 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                     }
                     .uml-port:hover {
                       background-color: #007bb5;
-                      box-shadow: 0 0 12px #1CB0F6, 0 0 5px #1CB0F6;
                     }
                     .uml-port-top:hover {
                       transform: translateX(-50%) scale(1.4) !important;
@@ -5603,11 +5597,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                                 border: `2px solid ${theme.palette.primary.main}80`,
                                 borderRadius: '12px',
                                 background: 'var(--background-paper)',
-                                boxShadow: draggingClass === umlClass.title
-                                  ? '0 12px 30px rgba(0,0,0,0.35)'
-                                  : '0 4px 15px rgba(0,0,0,0.15)',
                                 zIndex: draggingClass === umlClass.title ? 10 : 3,
-                                transition: draggingClass === umlClass.title ? 'none' : 'box-shadow 0.2s ease',
                                 display: 'flex',
                                 flexDirection: 'column'
                               }}
@@ -5970,7 +5960,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       border: '1px solid var(--divider)',
                       padding: '4px 12px',
                       borderRadius: '20px',
-                      boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
+                      
                       zIndex: 200
                     }}
                   >
@@ -6040,7 +6030,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       border: '1px solid var(--divider)',
                       padding: '10px',
                       borderRadius: '50%',
-                      boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                      
                       zIndex: 200,
                       color: '#fff',
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -6104,10 +6094,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                       borderRadius: '12px',
                       fontWeight: 800,
                       textTransform: 'none',
-                      padding: '8px 16px',
-                      boxShadow: isRunning
-                        ? '0 4px 15px rgba(255, 79, 79, 0.25)'
-                        : '0 4px 15px rgba(28, 176, 246, 0.25)'
+                      padding: '8px 16px'
                     }}
                   >
                     {isRunning ? 'Stop Execution' : 'Run Java Code'}
@@ -6127,9 +6114,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                           padding: '10px 16px',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '12px',
-                          boxShadow: '0 2px 8px rgba(239, 68, 68, 0.08)'
-                        }}
+                          gap: '12px'}}
                       >
                         <ErrorIcon style={{ color: '#ef4444', fontSize: '1.25rem' }} />
                         <Typography variant="body2" style={{ color: isDarkMode ? '#fca5a5' : '#b91c1c', fontWeight: 700, fontSize: '0.8rem', fontFamily: 'monospace' }}>
@@ -6151,7 +6136,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                         whiteSpace: 'pre-wrap',
                         overflowY: 'auto',
                         minHeight: '350px',
-                        boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.5)',
+                        
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'flex-start'
@@ -6360,8 +6345,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
           elevation: 0,
           'data-theme': themeMode,
           style: {
-            background: 'var(--background-default)',
-          }
+            background: 'var(--background-default)'}
         }}
       >
         <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--divider)' }}>
@@ -6680,7 +6664,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
                         border: '2.5px solid var(--primary-main)',
                         borderRadius: '12px',
                         background: 'var(--background-paper)',
-                        boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+                        
                         zIndex: 3,
                         display: 'flex',
                         flexDirection: 'column',
@@ -6785,7 +6769,7 @@ export const JavaOopUmlPlayground = ({ open, onClose }) => {
               border: '1px solid var(--divider)',
               padding: '4px 12px',
               borderRadius: '20px',
-              boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
+              
               zIndex: 10
             }}
           >

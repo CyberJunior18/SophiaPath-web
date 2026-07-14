@@ -311,9 +311,7 @@ const ProfilePage = () => {
                       sx={{ 
                         width: 180, 
                         height: 180, 
-                        border: `8px solid ${theme.palette.background.paper}`,
-                        boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
-                      }}
+                        border: `8px solid ${theme.palette.background.paper}`}}
                     />
                   </Box>
 
@@ -585,8 +583,7 @@ const ProfilePage = () => {
                           display: 'flex',
                           gap: 3,
                           alignItems: 'center',
-                          opacity: ach.isUnlocked ? 1 : 0.6,
-                        }}
+                          opacity: ach.isUnlocked ? 1 : 0.6}}
                       >
                         <Box 
                           sx={{ 

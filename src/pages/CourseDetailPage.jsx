@@ -81,8 +81,7 @@ const CourseDetailPage = () => {
                     category: les.category || 'learning',
                     chapterName: les.chapterName || '',
                     title: les.title || 'Untitled Lesson',
-                    orderIndex: les.orderIndex || 0,
-                  });
+                    orderIndex: les.orderIndex || 0});
                 }
               });
 
@@ -176,11 +175,49 @@ const CourseDetailPage = () => {
     );
   };
 
+  const handleLessonClick = async (sectionIndex, lessonObj) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (!isRegistered) {
+      await registerCourse(course.title);
+    }
+    navigate(`/learning-path/${course.id}`, { 
+      state: { 
+        course,
+        initialSectionIndex: sectionIndex,
+        targetLessonId: lessonObj.id
+      } 
+    });
+  };
+
   return (
     <div className="course-detail-container">
       <div className="course-detail-header">
-        <Container maxWidth="lg" className="course-detail-header-content">
-
+        <Container maxWidth="lg" className="course-detail-header-content" style={{ display: 'flex', flexDirection: 'column' }}>
+          <Button
+            startIcon={<ArrowBackIcon />}
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              setTimeout(() => {
+                navigate('/courses');
+              }, 250);
+            }}
+            sx={{
+              alignSelf: 'flex-start',
+              mb: 2,
+              textTransform: 'none',
+              color: 'rgba(255, 255, 255, 0.75)',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              '&:hover': {
+                color: '#ffffff',
+                backgroundColor: 'rgba(255, 255, 255, 0.15)'}
+            }}
+          >
+            Back to Courses
+          </Button>
 
           <div className="course-detail-copy">
             <Typography variant="overline" className="course-detail-kicker">
@@ -193,16 +230,12 @@ const CourseDetailPage = () => {
               {course.description}
             </Typography>
             <br></br>
-            <div className="course-detail-meta">
-              <div className="course-detail-meta-item">
-                <TimeIcon fontSize="small" />
-                <span>12 Hours Content</span>
-              </div>
-              <div className="course-detail-meta-item">
-                <BookIcon fontSize="small" />
-                <span>{course.totalLessons || course.sections?.reduce((sum, s) => sum + (s.lessons?.length || 0), 0) || 6} Comprehensive Lessons</span>
-              </div>
-            </div>
+             <div className="course-detail-meta">
+               <div className="course-detail-meta-item">
+                 <BookIcon fontSize="small" />
+                 <span>{course.totalLessons || course.sections?.reduce((sum, s) => sum + (s.lessons?.length || 0), 0) || 6} Comprehensive Lessons</span>
+               </div>
+             </div>
           </div>
         </Container>
       </div>
@@ -250,14 +283,9 @@ const CourseDetailPage = () => {
                           <Typography className="course-section-title">
                             {section.title}
                           </Typography>
-                          <div className="course-section-meta">
-                            <span className="course-section-meta-item">
-                              <TimeIcon sx={{ fontSize: 16 }} />
-                              {10 + index * 5} min
-                            </span>
-                            <span className="course-section-divider"></span>
-                            <span className="course-section-meta-label">{lessonCount} Lessons</span>
-                          </div>
+                           <div className="course-section-meta">
+                             <span className="course-section-meta-label">{lessonCount} Lessons</span>
+                           </div>
                         </div>
                         <div className="course-section-action" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                           <div style={{ color: 'var(--text-secondary)' }}>
@@ -269,19 +297,34 @@ const CourseDetailPage = () => {
                       {/* Expanded Lessons */}
                       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                         <div className="course-lesson-list" style={{ padding: '0 2rem 1.75rem 2rem' }}>
-                          {section.lessons?.map((lesson, idx) => (
-                            <div key={lesson.id || idx} style={{ display: 'flex', alignItems: 'center', padding: '1rem', borderTop: '1px solid rgba(var(--divider-rgb), 0.2)', gap: '1rem' }}>
-                              <div style={{ color: 'var(--text-secondary)' }}>
-                                {index === 0 || isRegistered ? <PlayIcon fontSize="small" style={{ color: 'var(--primary-main)' }} /> : <LockIcon fontSize="small" />}
-                              </div>
-                              <Typography style={{ flexGrow: 1, fontWeight: 500, opacity: (index === 0 || isRegistered) ? 1 : 0.6 }}>
-                                {lesson.title}
-                              </Typography>
-                              <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
-                                5 min
-                              </Typography>
-                            </div>
-                          ))}
+                           {section.lessons?.map((lesson, idx) => (
+                             <div 
+                               key={lesson.id || idx} 
+                               onClick={() => handleLessonClick(index, lesson)}
+                               className="course-lesson-row-interactive"
+                               style={{ 
+                                 display: 'flex', 
+                                 alignItems: 'center', 
+                                 padding: '1rem', 
+                                 borderTop: '1px solid rgba(var(--divider-rgb), 0.2)', 
+                                 gap: '1rem',
+                                 cursor: 'pointer'
+                               }}
+                             >
+                               <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
+                                 {(() => {
+                                   const isDone = user?.quizScores?.[lesson.id] !== undefined;
+                                   if (isDone) {
+                                     return <CheckCircleIcon fontSize="small" style={{ color: 'var(--success-main)' }} />;
+                                   }
+                                   return (index === 0 || isRegistered) ? <PlayIcon fontSize="small" style={{ color: 'var(--primary-main)' }} /> : <LockIcon fontSize="small" />;
+                                 })()}
+                               </div>
+                               <Typography style={{ flexGrow: 1, fontWeight: 600, color: 'var(--text-primary)', opacity: (index === 0 || isRegistered) ? 1 : 0.6 }}>
+                                 {lesson.title}
+                               </Typography>
+                             </div>
+                           ))}
                         </div>
                       </Collapse>
                     </div>
@@ -333,15 +376,13 @@ const CourseDetailPage = () => {
 
               <div className="course-perks">
                 {[
-                  "Full lifetime access",
-                  "Certificate of completion",
-                  "24/7 Support community",
-                  "Downloadable resources"
+                  "Comprehensive curriculum access",
+                  "Hands-on interactive learning",
+                  "Roadmap progress tracking",
+                  "Downloadable cheatsheets"
                 ].map((perk) => (
                   <div key={perk} className="course-perk-item">
-                    <div className="course-perk-icon">
-                      <CheckCircleIcon sx={{ fontSize: 18, color: 'var(--success-main)' }} />
-                    </div>
+                    <CheckCircleIcon sx={{ fontSize: 20, color: 'var(--success-main)' }} />
                     <span className="course-perk-text">{perk}</span>
                   </div>
                 ))}

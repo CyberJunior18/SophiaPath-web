@@ -1533,13 +1533,11 @@ const QuizPage = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginLeft: '-4px',
-                    marginRight: '-4px',
-                  }}
+                    marginRight: '-4px'}}
                   sx={{
                     '&:hover, &:active': {
                       '&::after': {
-                        backgroundColor: 'var(--primary-main)',
-                      }
+                        backgroundColor: 'var(--primary-main)'}
                     },
                     '&::after': {
                       content: '""',
@@ -1560,7 +1558,7 @@ const QuizPage = () => {
                     overflow: 'hidden',
                     border: '1px solid var(--code-border)',
                     backgroundColor: 'var(--code-bg)',
-                    boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
+                    
                     position: 'relative',
                     height: isConsoleOpen ? '32vh' : '56vh',
                     transition: 'height 0.2s ease-in-out'

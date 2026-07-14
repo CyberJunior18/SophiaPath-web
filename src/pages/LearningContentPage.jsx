@@ -955,9 +955,7 @@ const InlineCodeExerciseWidget = ({
               borderRadius: '12px',
               textTransform: 'none',
               fontWeight: 800,
-              padding: '10px 24px',
-              boxShadow: '0 4px 10px rgba(var(--primary-main-rgb), 0.2)'
-            }}
+              padding: '10px 24px'}}
           >
             {isChecking ? 'Checking...' : 'Check Answer'}
           </Button>
@@ -1149,7 +1147,7 @@ const ChallengePlaygroundDialog = ({
           background: isDarkMode ? 'rgba(20, 20, 42, 0.98)' : 'rgba(252, 253, 255, 0.98)',
           backdropFilter: 'blur(20px)',
           border: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+          
           maxHeight: '95vh',
           width: '95vw'
         }
@@ -1351,19 +1349,16 @@ const ChallengePlaygroundDialog = ({
               alignItems: 'center',
               justifyContent: 'center',
               marginLeft: '-4px',
-              marginRight: '-4px',
-            }}
+              marginRight: '-4px'}}
             sx={{
               '&:hover, &:active': {
-                backgroundColor: 'var(--primary-main)',
-              },
+                backgroundColor: 'var(--primary-main)'},
               '&::after': {
                 content: '""',
                 width: '2px',
                 height: '40px',
                 backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
-                borderRadius: '1px',
-              }
+                borderRadius: '1px'}
             }}
           />
 
@@ -1375,7 +1370,7 @@ const ChallengePlaygroundDialog = ({
               overflow: 'hidden',
               border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
               backgroundColor: isDarkMode ? '#1e1e1e' : '#fffffe',
-              boxShadow: '0 4px 25px rgba(0,0,0,0.15)',
+              
               position: 'relative',
               height: isConsoleOpen ? '32vh' : '56vh',
               transition: 'height 0.2s ease-in-out'
@@ -1612,9 +1607,7 @@ const ChallengePlaygroundDialog = ({
             borderRadius: '10px',
             textTransform: 'none',
             fontWeight: 800,
-            padding: '6px 20px',
-            boxShadow: '0 4px 12px rgba(var(--primary-main-rgb), 0.2)'
-          }}
+            padding: '6px 20px'}}
         >
           Submit Solution
         </Button>
@@ -1869,10 +1862,11 @@ const LearningContentPage = () => {
         for (let i = 0; i < slides.length; i++) {
           const slide = slides[i];
           
+          const themeBg = getComputedStyle(document.documentElement).getPropertyValue('--background-default').trim() || '#1E1E38';
           const canvas = await html2canvas(slide, {
             scale: 2,
             useCORS: true,
-            backgroundColor: '#1E1E38',
+            backgroundColor: themeBg,
             scrollY: 0,
             scrollX: 0
           });
@@ -1886,6 +1880,10 @@ const LearningContentPage = () => {
           if (i > 0) {
             pdf.addPage();
           }
+
+          // Draw theme background color over the entire PDF page
+          pdf.setFillColor(themeBg);
+          pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
 
           const xOffset = padding;
           const yOffset = (pdfHeight - imgHeight) / 2 > padding ? (pdfHeight - imgHeight) / 2 : padding;
@@ -2039,13 +2037,12 @@ const LearningContentPage = () => {
               border: '1.5px solid rgba(255, 255, 255, 0.08)',
               borderRadius: '24px',
               background: 'rgba(255, 255, 255, 0.02)',
-              boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+              
               backdropFilter: 'blur(4px)',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-            }}
+              alignItems: 'center'}}
           >
             <Typography
               variant="h6"
@@ -2055,8 +2052,7 @@ const LearningContentPage = () => {
                 mb: 3,
                 textAlign: 'center',
                 letterSpacing: '0.5px',
-                textTransform: 'uppercase',
-              }}
+                textTransform: 'uppercase'}}
             >
               {labTitle}
             </Typography>
@@ -2069,8 +2065,7 @@ const LearningContentPage = () => {
                 '& > *': {
                   transform: 'scale(0.9)',
                   transformOrigin: 'top center',
-                  my: -2,
-                }
+                  my: -2}
               }}
             >
               {labComponent}
@@ -2313,9 +2308,7 @@ const LearningContentPage = () => {
                     fontWeight: 700,
                     textTransform: 'none',
                     background: 'var(--hero-gradient)',
-                    color: '#fff',
-                    boxShadow: '0 4px 10px rgba(var(--primary-main-rgb), 0.2)'
-                  }}
+                    color: '#fff'}}
                 >
                   Run Code
                 </Button>
@@ -2357,7 +2350,7 @@ const LearningContentPage = () => {
                 <span style={{ fontSize: '1.25rem', color: 'var(--primary-main)' }}>➔</span>
 
                 {/* std::cin buffer */}
-                <Box style={{ padding: '12px 18px', background: 'var(--primary-main)', borderRadius: '10px', color: '#fff', textAlign: 'center', boxShadow: '0 8px 24px rgba(28,176,246,0.2)' }}>
+                <Box style={{ padding: '12px 18px', background: 'var(--primary-main)', borderRadius: '10px', color: '#fff', textAlign: 'center'}}>
                   <Typography variant="body2" style={{ fontWeight: 800 }}>std::cin</Typography>
                   <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.8)' }}>Input Buffer</Typography>
                 </Box>
@@ -3042,7 +3035,7 @@ const LearningContentPage = () => {
                   <Button 
                     variant="contained" 
                     className="security-sim-btn" 
-                    style={{ background: 'var(--danger-main)', boxShadow: '0 0 15px rgba(255, 100, 124, 0.25)' }}
+                    style={{ background: 'var(--danger-main)'}}
                     onClick={triggerThreatSimulation}
                   >
                     Simulate Active Attack Vector
@@ -3199,9 +3192,7 @@ const LearningContentPage = () => {
                 textTransform: 'none',
                 background: 'var(--hero-gradient)',
                 color: '#fff',
-                fontFamily: '"Outfit", sans-serif',
-                boxShadow: '0 4px 12px rgba(var(--primary-main-rgb), 0.2)'
-              }}
+                fontFamily: '"Outfit", sans-serif'}}
             >
               Download
             </Button>
@@ -3341,9 +3332,7 @@ const LearningContentPage = () => {
                 border: '1px solid var(--divider)', 
                 borderRadius: '16px', 
                 padding: '40px', 
-                marginBottom: '30px', 
-                boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-              }}
+                marginBottom: '30px'}}
             >
               <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: '1.8rem', fontWeight: 700, color: 'var(--primary-main)', marginTop: 0, marginBottom: '20px' }}>
                 {page.pageTitle || `Section ${pIdx + 1}`}
@@ -3356,12 +3345,24 @@ const LearningContentPage = () => {
         </div>
       )}
 
-      <Dialog open={isExportingPdf} PaperProps={{ style: { padding: '24px', borderRadius: '16px', background: 'rgba(30, 30, 56, 0.95)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#ffffff', textAlign: 'center' } }}>
+      <Dialog 
+        open={isExportingPdf} 
+        PaperProps={{ 
+          style: { 
+            padding: '24px', 
+            borderRadius: '16px', 
+            background: 'var(--background-paper)', 
+            border: '1px solid var(--divider)', 
+            color: 'var(--text-primary)', 
+            textAlign: 'center' 
+          } 
+        }}
+      >
         <DialogContent>
-          <Typography variant="h6" style={{ fontWeight: 800, marginBottom: '8px', fontFamily: 'Outfit' }}>
+          <Typography variant="h6" style={{ fontWeight: 800, marginBottom: '8px', fontFamily: 'Outfit', color: 'var(--text-primary)' }}>
             Generating Cheatsheet PDF
           </Typography>
-          <Typography variant="body2" style={{ opacity: 0.8, marginBottom: '20px' }}>
+          <Typography variant="body2" style={{ opacity: 0.8, marginBottom: '20px', color: 'var(--text-secondary)' }}>
             Taking high-definition screenshots of your lesson slides...
           </Typography>
           <LinearProgress color="primary" />

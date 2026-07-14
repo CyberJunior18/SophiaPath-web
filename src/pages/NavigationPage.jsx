@@ -16,8 +16,7 @@ import {
   useTheme,
   Stack,
   Popover,
-  Tooltip,
-} from '@mui/material';
+  Tooltip} from '@mui/material';
 import {
   AutoAwesome as AutoAwesomeIcon,
   Brightness6 as Brightness6Icon,
@@ -35,8 +34,7 @@ import {
   Groups as GroupsIcon,
   School as SchoolIcon,
   Science as ScienceIcon,
-  InfoOutlined as InfoIcon,
-} from '@mui/icons-material';
+  InfoOutlined as InfoIcon} from '@mui/icons-material';
 
 
 import { AnimatePresence, motion } from 'framer-motion';
@@ -99,7 +97,7 @@ const getRouteKey = (pathname) => {
     return 'communities';
   }
   if (segments[0] === 'chat' || segments[0] === 'chats' || segments[0] === 'group') return 'chats';
-  if (segments[0] === 'course' || segments[0] === 'learning-path' || segments[0] === 'learning') return 'learning';
+  if (segments[0] === 'course' || segments[0] === 'learning-path' || segments[0] === 'learning') return pathname;
   return segments[0];
 };
 
@@ -892,8 +890,7 @@ const NavigationPage = () => {
           height: '100vh',
           zIndex: 999980,
           backgroundColor: 'transparent',
-          pointerEvents: 'auto',
-        }}
+          pointerEvents: 'auto'}}
       />
     );
   };
@@ -910,13 +907,12 @@ const NavigationPage = () => {
           top: `${spotlightRect.top - 8}px`,
           width: `${spotlightRect.width + 16}px`,
           height: `${spotlightRect.height + 16}px`,
-          boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
+          
           borderRadius: '8px',
           border: '2px solid var(--primary-main)',
           pointerEvents: 'none',
           zIndex: 999990,
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'}}
       />
     );
   };
@@ -932,8 +928,7 @@ const NavigationPage = () => {
       position: 'fixed',
       zIndex: 999995,
       width: '320px',
-      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    };
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'};
 
     if (spotlightRect) {
       let placement = step.placement;
@@ -987,10 +982,9 @@ const NavigationPage = () => {
         sx={{
           p: 2.5,
           borderRadius: 3,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+          
           border: '1px solid rgba(255, 255, 255, 0.15)',
-          background: 'var(--background-paper) !important',
-        }}
+          background: 'var(--background-paper) !important'}}
       >
         <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, color: 'var(--primary-main)' }}>
           {step.title}
@@ -1118,8 +1112,7 @@ const NavigationPage = () => {
     '/chats': 'Messages',
     '/communities': 'Learning Communities',
     '/profile': 'Your Profile',
-    '/settings': 'Settings',
-  };
+    '/settings': 'Settings'};
 
   const pageDescriptions = {
     '/': Number(user?.roleID) === 1
@@ -1133,8 +1126,7 @@ const NavigationPage = () => {
     '/chats': 'Chat with friends, learners, and experts in real time.',
     '/communities': 'Join communities, participate in discussions, and connect with learners worldwide.',
     '/profile': 'View your profile, accomplishments, and learning activity.',
-    '/settings': 'Customize your account, preferences, accessibility, and application settings.',
-  };
+    '/settings': 'Customize your account, preferences, accessibility, and application settings.'};
 
 
 
@@ -1282,12 +1274,10 @@ const NavigationPage = () => {
           onClose={handleLevelInfoClose}
           anchorOrigin={{
             vertical: 'bottom',
-            horizontal: 'left',
-          }}
+            horizontal: 'left'}}
           transformOrigin={{
             vertical: 'top',
-            horizontal: 'left',
-          }}
+            horizontal: 'left'}}
           PaperProps={{
             style: {
               padding: '16px',
@@ -1296,9 +1286,7 @@ const NavigationPage = () => {
               background: 'rgba(30, 30, 56, 0.95)',
               backdropFilter: 'blur(10px)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
-              color: '#ffffff',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-            }
+              color: '#ffffff'}
           }}
         >
           <Typography variant="subtitle2" style={{ fontWeight: 850, marginBottom: '6px', fontFamily: '"Outfit", sans-serif', color: '#3D5CFF' }}>
@@ -1332,8 +1320,7 @@ const NavigationPage = () => {
                     padding: '5px 8px',
                     borderRadius: '8px',
                     background: isCurrent ? 'rgba(61, 92, 255, 0.18)' : 'transparent',
-                    border: isCurrent ? '1.5px solid #3D5CFF' : '1px solid transparent',
-                  }}
+                    border: isCurrent ? '1.5px solid #3D5CFF' : '1px solid transparent'}}
                 >
                   <span style={{ fontSize: '0.76rem', fontWeight: isCurrent ? 800 : 500, color: isCurrent ? '#3D5CFF' : 'inherit' }}>
                     Lvl {cfg.level}: {cfg.name}
@@ -1383,8 +1370,7 @@ const NavigationPage = () => {
                     justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                     px: sidebarCollapsed ? 1 : 2,
                     color: isDisabled ? 'var(--text-disabled)' : 'inherit',
-                    opacity: isDisabled ? 0.35 : 1,
-                  }}
+                    opacity: isDisabled ? 0.35 : 1}}
                 >
                   <ListItemIcon
                     className="nav-menu-icon"
@@ -1622,8 +1608,7 @@ const NavigationPage = () => {
             WebkitMaskPosition: 'center',
             maskPosition: 'center',
             WebkitMaskSize: 'contain',
-            maskSize: 'contain',
-          }}
+            maskSize: 'contain'}}
           onClick={() => {
             if (sidebarCollapsed) {
               setSidebarCollapsed(false);
@@ -1648,8 +1633,7 @@ const NavigationPage = () => {
             left: '17rem',
             top: '56px',
             transform: 'translate(-50%, -50%)',
-            zIndex: 1200,
-          }}
+            zIndex: 1200}}
         >
           <IconButton
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -1659,7 +1643,7 @@ const NavigationPage = () => {
               color: 'var(--text-secondary)',
               border: '1px solid var(--divider)',
               background: 'var(--background-paper) !important',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              
               width: '24px',
               height: '24px',
               transition: 'background 0.2s, color 0.2s',

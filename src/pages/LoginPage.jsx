@@ -8,14 +8,12 @@ import {
   Paper,
   InputAdornment,
   IconButton,
-  Alert,
-} from '@mui/material';
+  Alert} from '@mui/material';
 import {
   Lock as LockIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
-  Person as PersonIcon,
-} from '@mui/icons-material';
+  Person as PersonIcon} from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logoImg from '../assets/sp-logo.png';
@@ -62,8 +60,7 @@ const LoginPage = () => {
               WebkitMaskPosition: 'center',
               maskPosition: 'center',
               WebkitMaskSize: 'contain',
-              maskSize: 'contain',
-            }}
+              maskSize: 'contain'}}
           >
             <div className="nav-logo-left-half" />
             <div className="nav-logo-right-half" />
@@ -96,8 +93,7 @@ const LoginPage = () => {
                 <InputAdornment position="start">
                   <PersonIcon fontSize="small" />
                 </InputAdornment>
-              ),
-            }}
+              )}}
           />
           <TextField
             fullWidth
@@ -120,8 +116,7 @@ const LoginPage = () => {
                     {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                   </IconButton>
                 </InputAdornment>
-              ),
-            }}
+              )}}
           />
 
           <Button

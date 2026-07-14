@@ -642,8 +642,7 @@ function AccessControlLab({ isSecure }) {
   const profiles = {
     '1': { name: 'Alice (You)', role: 'Standard User', email: 'alice@example.com', sensitive: 'Credit Card: **** 1234' },
     '2': { name: 'Bob', role: 'Standard User', email: 'bob@example.com', sensitive: 'Credit Card: **** 5678' },
-    '3': { name: 'Administrator', role: 'Super Admin', email: 'admin@system.local', sensitive: 'Server API Key: xyz_9999_abc' },
-  };
+    '3': { name: 'Administrator', role: 'Super Admin', email: 'admin@system.local', sensitive: 'Server API Key: xyz_9999_abc' }};
 
   const getProfileDisplay = () => {
     if (!profiles[profileId]) return <div style={{ color: 'var(--text-disabled)', fontStyle: 'italic', textAlign: 'center', marginTop: '40px' }}>User not found</div>;
@@ -662,7 +661,7 @@ function AccessControlLab({ isSecure }) {
 
     const p = profiles[profileId];
     return (
-      <div style={{ marginTop: '20px', padding: '24px', backgroundColor: 'var(--background-default)', borderRadius: '12px', border: '1px solid var(--divider)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+      <div style={{ marginTop: '20px', padding: '24px', backgroundColor: 'var(--background-default)', borderRadius: '12px', border: '1px solid var(--divider)'}}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
           <div style={{ width: '60px', height: '60px', borderRadius: '50%', backgroundColor: profileId === loggedInUserId ? 'var(--primary-main)' : 'var(--info-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.5rem', fontWeight: 800 }}>
             {p.name.charAt(0)}
@@ -973,7 +972,7 @@ export default function CyberLabPage() {
       {/* Custom Alert Modal */}
       {alertConfig.show && (
         <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 9999, backdropFilter: 'blur(4px)', padding: '16px' }}>
-          <Paper style={{ backgroundColor: 'var(--background-paper)', padding: '24px', borderRadius: '16px', border: alertConfig.type === 'danger' ? '1.5px solid #FF647C' : '1.5px solid var(--primary-main)', maxWidth: '360px', width: '100%', boxShadow: 'var(--shadow-card)' }}>
+          <Paper style={{ backgroundColor: 'var(--background-paper)', padding: '24px', borderRadius: '16px', border: alertConfig.type === 'danger' ? '1.5px solid #FF647C' : '1.5px solid var(--primary-main)', maxWidth: '360px', width: '100%'}}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
               {alertConfig.type === 'danger' ? (
                 <ShieldAlert style={{ color: '#FF647C', width: '32px', height: '32px' }} />

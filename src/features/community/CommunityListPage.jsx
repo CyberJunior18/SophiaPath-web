@@ -237,6 +237,19 @@ const CommunityListPage = () => {
     setAlertOpen(true);
   };
 
+  const myOwnedCommunitiesCount = useMemo(() => {
+    if (!user) return 0;
+    return communities.filter(c => Number(c.ownerId) === Number(user.id)).length;
+  }, [communities, user]);
+
+  const handleOpenCreateClick = () => {
+    if (user?.roleID === 2 && myOwnedCommunitiesCount >= 3) {
+      showCustomAlert("Creation Limit Reached", "As a moderator, you can only create at most 3 communities.");
+      return;
+    }
+    setOpenCreate(true);
+  };
+
   // Custom Confirmation Dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTitle, setConfirmTitle] = useState('');
@@ -472,7 +485,7 @@ const CommunityListPage = () => {
               onClick={async (e) => {
                 e.currentTarget.blur();
                 await refreshUser();
-                setOpenCreate(true);
+                handleOpenCreateClick();
               }}
               sx={{
                 borderRadius: 4,
@@ -651,7 +664,7 @@ const CommunityListPage = () => {
                   borderRadius: 2,
                   cursor: 'pointer',
                   border: '1px solid var(--divider)',
-                  boxShadow: 'none',
+
                   position: 'relative',
                   '&:hover': {
                     borderColor: 'var(--primary-color)',
@@ -856,9 +869,7 @@ const CommunityListPage = () => {
                 PaperProps: {
                   elevation: 1,
                   sx: {
-                    maxHeight: 300,
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
-                  }
+                    maxHeight: 300}
                 }
               }}
             >
@@ -1210,8 +1221,7 @@ const CommunityListPage = () => {
           style: {
             background: 'var(--background-paper)',
             color: 'var(--text-primary)',
-            border: '1px solid rgba(255,255,255,0.08)',
-          }
+            border: '1px solid rgba(255,255,255,0.08)'}
         }}
       >
         <MenuItem

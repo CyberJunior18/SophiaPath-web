@@ -163,9 +163,7 @@ export const UmlDiagram = ({ data, compact = false }) => {
           borderRadius: '8px',
           border: `2px solid ${theme.palette.primary.main}66`,
           backgroundColor: theme.palette.background.paper,
-          overflow: 'hidden',
-          boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.08)'
-        }}
+          overflow: 'hidden'}}
       >
         {diagramBody}
       </Box>
@@ -181,9 +179,7 @@ export const UmlDiagram = ({ data, compact = false }) => {
           borderRadius: '10px',
           border: `2px solid ${theme.palette.primary.main}80`,
           backgroundColor: theme.palette.background.paper,
-          overflow: 'hidden',
-          boxShadow: isDark ? '0 8px 30px rgba(0,0,0,0.5)' : '0 8px 20px rgba(0,0,0,0.1)'
-        }}
+          overflow: 'hidden'}}
       >
         {diagramBody}
       </Box>

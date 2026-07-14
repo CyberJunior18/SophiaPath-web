@@ -30,9 +30,7 @@ const baseColors = {
   lightSurface: '#FCFDFF',
   lightSurfaceAlt: '#F0F4F8',
   white: '#FFFFFF',
-  darkText: '#2D2D4D',
-
-};
+  darkText: '#2D2D4D'};
 
 const buildTheme = (mode) => {
   let isDark = ['dark', 'lava', 'ocean', 'forest', 'amber', 'dracula', 'amethyst', 'nordic', 'midnight'].includes(mode);
@@ -226,37 +224,28 @@ const buildTheme = (mode) => {
       main: primaryMain,
       dark: primaryDark,
       light: primaryLight,
-      contrastText: baseColors.white,
-    },
+      contrastText: baseColors.white},
     secondary: {
-      main: isDark ? baseColors.darkSurfaceAlt : baseColors.lightSurfaceAlt,
-    },
+      main: isDark ? baseColors.darkSurfaceAlt : baseColors.lightSurfaceAlt},
     success: {
-      main: '#3DDC97',
-    },
+      main: '#3DDC97'},
     warning: {
-      main: '#FFB547',
-    },
+      main: '#FFB547'},
     error: {
-      main: '#FF647C',
-    },
+      main: '#FF647C'},
     background: {
       default: bgDefault,
-      paper: bgPaper,
-    },
+      paper: bgPaper},
     text: {
       primary: textPrimary,
       secondary: textSecondary,
-      disabled: textDisabled,
-    },
-    divider: dividerColor,
-  };
+      disabled: textDisabled},
+    divider: dividerColor};
 
   return createTheme({
     palette,
     shape: {
-      borderRadius: 20,
-    },
+      borderRadius: 20},
     typography: {
       fontFamily: '"Poppins", "Roboto", "Helvetica", "Arial", sans-serif',
       h1: { fontWeight: 800, letterSpacing: '-0.04em' },
@@ -268,9 +257,7 @@ const buildTheme = (mode) => {
       button: {
         fontWeight: 700,
         letterSpacing: '0.02em',
-        textTransform: 'none',
-      },
-    },
+        textTransform: 'none'}},
     shadows: [
       'none',
       '0 1px 2px rgba(8, 10, 27, 0.06)',
@@ -303,68 +290,43 @@ const buildTheme = (mode) => {
         styleOverrides: {
           body: {
             backgroundColor: bgDefault,
-            backgroundImage: 'none',
-          },
-        },
-      },
+            backgroundImage: 'none'}}},
       MuiPaper: {
         styleOverrides: {
           root: {
             backgroundImage: 'none',
             borderRadius: 16,
-            backgroundColor: bgPaper,
-          },
-        },
-      },
+            backgroundColor: bgPaper}}},
       MuiButton: {
         defaultProps: {
-          disableElevation: true,
-        },
+          disableElevation: true},
         styleOverrides: {
           root: {
             borderRadius: 18,
             paddingInline: 22,
-            transition: 'all 0.2s ease',
-          },
+            transition: 'all 0.2s ease'},
           containedPrimary: {
             backgroundColor: primaryMain,
-            boxShadow: '0 2px 6px rgba(8, 10, 27, 0.12)',
+            
             '&:hover': {
-              backgroundColor: primaryDark,
-              boxShadow: '0 4px 10px rgba(8, 10, 27, 0.16)',
-            },
+              backgroundColor: primaryDark},
             '&:active': {
-              boxShadow: '0 2px 4px rgba(8, 10, 27, 0.12)',
-            },
-          },
-        },
-      },
+              
+            }}}},
       MuiChip: {
         styleOverrides: {
           root: {
             borderRadius: 999,
-            fontWeight: 600,
-          },
-        },
-      },
+            fontWeight: 600}}},
       MuiDrawer: {
         styleOverrides: {
           paper: {
-            backgroundColor: isDark ? alpha(bgPaper, 0.94) : alpha(bgPaper, 0.92),
-          },
-        },
-      },
+            backgroundColor: isDark ? alpha(bgPaper, 0.94) : alpha(bgPaper, 0.92)}}},
       MuiAppBar: {
         styleOverrides: {
           root: {
             backgroundImage: 'none',
-            backgroundColor: 'transparent',
-            boxShadow: 'none',
-          },
-        },
-      },
-    },
-  });
+            backgroundColor: 'transparent'}}}}});
 };
 
 export const darkTheme = buildTheme('dark');

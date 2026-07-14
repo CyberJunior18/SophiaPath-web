@@ -242,7 +242,7 @@ const SettingsPage = () => {
                           borderRadius: '16px',
                           background: t.bg,
                           border: themeMode === t.id ? `2px solid ${t.dot}` : '1.5px solid var(--divider)',
-                          boxShadow: themeMode === t.id ? `0 0 16px ${t.dot}33` : 'none',
+                          
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
@@ -251,7 +251,7 @@ const SettingsPage = () => {
                           textAlign: 'center'
                         }}
                       >
-                        <Box style={{ width: '20px', height: '20px', borderRadius: '50%', background: t.dot, border: '2.5px solid #fff', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} />
+                        <Box style={{ width: '20px', height: '20px', borderRadius: '50%', background: t.dot, border: '2.5px solid #fff'}} />
                         <Typography style={{ fontSize: '0.8rem', fontWeight: 800, color: t.text }}>{t.name}</Typography>
                       </Box>
                     ))}
@@ -431,7 +431,7 @@ const SettingsPage = () => {
                           borderRadius: '12px',
                           background: 'rgba(255, 255, 255, 0.02)',
                           border: customCursor === c.id ? `2px solid var(--primary-main)` : '1.5px solid var(--divider)',
-                          boxShadow: customCursor === c.id ? `0 0 12px var(--primary-main)33` : 'none',
+
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
@@ -467,8 +467,7 @@ const SettingsPage = () => {
                         borderRadius: '10px',
                         fieldset: { borderColor: 'var(--divider)' },
                         '&:hover fieldset': { borderColor: 'var(--primary-main) !important' },
-                        '&.Mui-focused fieldset': { borderColor: 'var(--primary-main) !important' },
-                      }}
+                        '&.Mui-focused fieldset': { borderColor: 'var(--primary-main) !important' }}}
                     >
                       <MenuItem value="default">Outfit / Poppins (Theme)</MenuItem>
                       <MenuItem value="sans">Inter (Modern Sans)</MenuItem>
@@ -514,8 +513,7 @@ const SettingsPage = () => {
                             borderRadius: '10px',
                             fieldset: { borderColor: 'var(--divider)' },
                             '&:hover fieldset': { borderColor: 'var(--primary-main) !important' },
-                            '&.Mui-focused fieldset': { borderColor: 'var(--primary-main) !important' },
-                          }}
+                            '&.Mui-focused fieldset': { borderColor: 'var(--primary-main) !important' }}}
                         >
                           <MenuItem value="constellation">1. Constellation Network</MenuItem>
                           <MenuItem value="circuit">2. Circuit</MenuItem>

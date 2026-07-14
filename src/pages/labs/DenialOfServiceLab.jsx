@@ -36,8 +36,7 @@ export default function DenialOfServiceLab({ startMitigated = false }) {
     const angle = Math.atan2(serverY - cy, serverX - cx);
     return {
       tx: serverX - targetRadius * Math.cos(angle),
-      ty: serverY - targetRadius * Math.sin(angle),
-    };
+      ty: serverY - targetRadius * Math.sin(angle)};
   };
 
   // --- Spawn Attacker Requests ---
@@ -259,8 +258,7 @@ export default function DenialOfServiceLab({ startMitigated = false }) {
                       '--end-x': `${req.tx}px`,
                       '--end-y': `${req.ty}px`,
                       '--end-scale': endScale,
-                      '--end-opacity': endOpacity,
-                    }}
+                      '--end-opacity': endOpacity}}
                   />
                 );
               })}

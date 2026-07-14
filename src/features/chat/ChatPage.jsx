@@ -1109,9 +1109,7 @@ const ChatPage = () => {
                         fontSize: '0.8rem',
                         letterSpacing: '0.05em',
                         borderRadius: 1,
-                        backdropFilter: 'blur(4px)',
-                        boxShadow: '0 2px 8px rgba(61,92,255,0.03)'
-                      }}
+                        backdropFilter: 'blur(4px)'}}
                     >
                       Unseen Messages
                     </Box>
@@ -1157,7 +1155,7 @@ const ChatPage = () => {
                         cursor: msg.deleted ? 'default' : 'pointer',
                         position: 'relative',
                         border: msg.id === highlightMessageId ? '1.5px solid #FFD54F' : 'none',
-                        boxShadow: msg.id === highlightMessageId ? '0 0 12px rgba(255, 213, 79, 0.6)' : undefined,
+                        
                         backgroundColor: msg.id === highlightMessageId 
                           ? '#FFF9C4 !important' 
                           : undefined
@@ -1276,10 +1274,8 @@ const ChatPage = () => {
                 color: 'white',
                 '&:hover': {
                   backgroundColor: 'primary.main',
-                  transform: 'scale(1.15)',
-                },
-                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-              }}
+                  transform: 'scale(1.15)'},
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'}}
             >
               <KeyboardArrowDownIcon />
             </IconButton>
@@ -1300,7 +1296,7 @@ const ChatPage = () => {
                   fontSize: '0.75rem',
                   fontWeight: 'bold',
                   px: 0.5,
-                  boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                  
                   border: '1.5px solid white'
                 }}
               >
@@ -1438,13 +1434,11 @@ const ChatPage = () => {
           onClose={() => setEmojiAnchor(null)}
           anchorOrigin={{
             vertical: 'top',
-            horizontal: 'left',
-          }}
+            horizontal: 'left'}}
           transformOrigin={{
             vertical: 'bottom',
-            horizontal: 'left',
-          }}
-          PaperProps={{ sx: { p: 1.5, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', maxWidth: 280 } }}
+            horizontal: 'left'}}
+          PaperProps={{ sx: { p: 1.5, borderRadius: 3,  maxWidth: 280 } }}
         >
           {frequentlyUsedEmojis.length > 0 && (
             <Box sx={{ mb: 1.5 }}>
@@ -1851,7 +1845,7 @@ const ChatPage = () => {
         anchorEl={headerMenuAnchor}
         open={Boolean(headerMenuAnchor)}
         onClose={() => setHeaderMenuAnchor(null)}
-        PaperProps={{ sx: { borderRadius: 1.5, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}
+        PaperProps={{ sx: { borderRadius: 1.5} }}
       >
         <MenuItem onClick={() => {
           setHeaderMenuAnchor(null);

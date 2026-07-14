@@ -136,7 +136,7 @@
 .course-card {
   padding: 2.5rem;
   border-radius: 2.5rem;
-  box-shadow: var(--shadow-card);
+
   border: 1px solid rgba(var(--divider-rgb), 0.5);
   background: var(--surface-elevated);
 }
@@ -195,7 +195,7 @@
   background-color: var(--action-hover);
   border-color: rgba(var(--primary-main-rgb), 0.3);
   transform: translateY(-4px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+
 }
 
 .course-section-number {
@@ -210,7 +210,7 @@
   font-size: 1.25rem;
   font-weight: bold;
   margin-right: 1.5rem;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
+
   transition: transform 0.3s ease;
 }
 
@@ -285,7 +285,7 @@
 .course-sidebar {
   padding: 2.5rem;
   border-radius: 2.5rem;
-  box-shadow: var(--shadow-card);
+
   position: sticky;
   top: 2rem;
   border: 1px solid rgba(var(--divider-rgb), 0.5);
@@ -325,7 +325,7 @@
   padding: 1.25rem;
   font-weight: bold;
   font-size: 1.25rem;
-  box-shadow: 0 10px 25px rgba(var(--primary-main-rgb), 0.4);
+
   background-color: var(--primary-main);
   transform: scale(1);
   transition: all 0.3s ease;
@@ -383,4 +383,13 @@
   border-radius: 1rem;
   padding-left: 1.5rem;
   padding-right: 1.5rem;
+}
+
+.course-lesson-row-interactive {
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  border-radius: 8px;
+}
+.course-lesson-row-interactive:hover {
+  background-color: var(--action-hover, rgba(255, 255, 255, 0.05));
+  transform: translateX(6px);
 }

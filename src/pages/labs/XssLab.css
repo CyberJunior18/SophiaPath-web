@@ -94,7 +94,7 @@
   padding: 1rem;
   border-radius: 0.5rem;
   border: 1px solid var(--divider);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+
   display: flex;
   flex-direction: column;
 }
@@ -224,7 +224,7 @@
   padding: 1rem;
   border-radius: 0.25rem;
   border: 2px solid var(--danger-main);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+
   animation: bounce 1s infinite;
   width: 100%;
 }

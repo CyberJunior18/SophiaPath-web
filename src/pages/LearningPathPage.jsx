@@ -108,8 +108,7 @@ const LearningPathPage = () => {
                 category: les.category || 'learning',
                 chapterName: les.chapterName || '',
                 title: les.title || 'Untitled Lesson',
-                orderIndex: les.orderIndex || 0,
-              }))
+                orderIndex: les.orderIndex || 0}))
             }))
           }));
 
@@ -192,6 +191,15 @@ const LearningPathPage = () => {
   // Automatically select and open the first incomplete section when accessing the page or returning
   useEffect(() => {
     if (sections.length > 0 && !hasInitialSectionBeenSet) {
+      if (location.state?.initialSectionIndex !== undefined) {
+        const targetIdx = Number(location.state.initialSectionIndex);
+        if (targetIdx >= 0 && targetIdx < sections.length) {
+          setActiveSectionIndex(targetIdx);
+          setHasInitialSectionBeenSet(true);
+          return;
+        }
+      }
+
       const finishedLessonId = location.state?.quizResult?.lessonId || location.state?.lessonFinished?.lessonId;
       if (finishedLessonId) {
         const sectionIdx = sections.findIndex(s =>
@@ -598,7 +606,7 @@ const LearningPathPage = () => {
             fontSize: '0.9rem',
             backgroundColor: accentColor,
             color: '#fff',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            transition: 'transform 0.2s ease',
             fontFamily: '"Outfit", sans-serif',
             textTransform: 'none'
           }}
@@ -645,29 +653,31 @@ const LearningPathPage = () => {
     if (node.category === 'learning' || !node.score) {
       return {
         background: 'var(--success-main)',
-        color: 'white',
-      };
+        color: 'white'};
     }
 
     if (node.score >= 80) {
       return {
         background: 'var(--success-main)',
-        color: 'white',
-      };
+        color: 'white'};
     } else if (node.score >= 50) {
       return {
         background: 'var(--yellow-500)',
-        color: 'white',
-      };
+        color: 'white'};
     } else {
       return {
         background: 'var(--danger-main)',
-        color: 'white',
-      };
+        color: 'white'};
     }
   };
 
-  const nextActiveNode = nodes.find(n => n.status === 'active') || nodes[nodes.length - 1];
+  const nextActiveNode = useMemo(() => {
+    if (location.state?.targetLessonId) {
+      const matchedNode = nodes.find(n => Number(n.id) === Number(location.state.targetLessonId));
+      if (matchedNode) return matchedNode;
+    }
+    return nodes.find(n => n.status === 'active') || nodes[nodes.length - 1];
+  }, [nodes, location.state]);
 
   return (
     <Box className="path-page">
@@ -676,7 +686,15 @@ const LearningPathPage = () => {
         <Box className="path-header-sticky">
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <IconButton onClick={() => navigate('/')} sx={{ color: 'var(--text-primary)', mr: 1 }}>
+              <IconButton 
+                onClick={() => {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  setTimeout(() => {
+                    navigate(`/course/${course?.id || courseId}`);
+                  }, 250);
+                }} 
+                sx={{ color: 'var(--text-primary)', mr: 1 }}
+              >
                 <ArrowBackIcon />
               </IconButton>
               <Typography variant="h5" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
@@ -1012,12 +1030,10 @@ const LearningPathPage = () => {
           onClose={handleClosePreview}
           anchorOrigin={{
             vertical: 'center',
-            horizontal: 'right',
-          }}
+            horizontal: 'right'}}
           transformOrigin={{
             vertical: 'center',
-            horizontal: 'left',
-          }}
+            horizontal: 'left'}}
           PaperProps={{
             style: {
               borderRadius: '24px',
@@ -1030,8 +1046,7 @@ const LearningPathPage = () => {
                 ? (theme.palette.mode === 'dark' ? 'rgba(31, 45, 31, 0.96)' : 'rgba(242, 251, 240, 0.96)')
                 : 'var(--surface-glass)',
               backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-            }
+              WebkitBackdropFilter: 'blur(20px)'}
           }}
         >
           {renderPreviewContent()}
@@ -1054,8 +1069,7 @@ const LearningPathPage = () => {
                 ? (theme.palette.mode === 'dark' ? 'rgba(31, 45, 31, 0.96)' : 'rgba(242, 251, 240, 0.96)')
                 : 'var(--surface-glass)',
               backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-            }
+              WebkitBackdropFilter: 'blur(20px)'}
           }}
         >
           {renderPreviewContent()}

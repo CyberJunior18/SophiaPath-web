@@ -1454,9 +1454,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
             background: `rgba(${node.color === '#3DDC97' ? '61,220,151' : '255,100,124'}, 0.12)`,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: `0 0 15px rgba(${node.color === '#3DDC97' ? '61,220,151' : '255,100,124'}, 0.15)`
-          }}
+            justifyContent: 'center'}}
         >
           <Typography variant="body2" style={{ fontFamily: '"Roboto Mono", monospace', fontWeight: 800, color: '#fff' }}>
             {node.label}
@@ -1475,9 +1473,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            borderRadius: '6px',
-            boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
-          }}
+            borderRadius: '6px'}}
         >
           <Typography
             variant="caption"
@@ -1511,9 +1507,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: '8px',
-            margin: '10px 0',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-          }}
+            margin: '10px 0'}}
         >
           <Typography
             variant="caption"
@@ -1546,9 +1540,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            borderRadius: '8px',
-            boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
-          }}
+            borderRadius: '8px'}}
         >
           <Typography
             variant="caption"
@@ -1586,7 +1578,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            
             zIndex: 2
           }}
         >
@@ -1637,9 +1629,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
               border: '1px solid #3DDC97',
               borderRadius: '12px',
               padding: '2px 8px',
-              marginBottom: '15px',
-              boxShadow: '0 0 10px rgba(61, 220, 151, 0.1)'
-            }}>
+              marginBottom: '15px'}}>
               <Typography variant="caption" style={{ color: '#3DDC97', fontWeight: 800, fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
                 YES ✔️
               </Typography>
@@ -1681,9 +1671,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
               border: '1px solid #FF647C',
               borderRadius: '12px',
               padding: '2px 8px',
-              marginBottom: '15px',
-              boxShadow: '0 0 10px rgba(255, 100, 124, 0.1)'
-            }}>
+              marginBottom: '15px'}}>
               <Typography variant="caption" style={{ color: '#FF647C', fontWeight: 800, fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
                 NO ❌
               </Typography>
@@ -1750,7 +1738,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            
             zIndex: 2
           }}
         >
@@ -1932,7 +1920,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
           background: 'var(--background-paper)',
           backdropFilter: 'blur(20px)',
           border: '1px solid var(--divider)',
-          boxShadow: 'var(--shadow-card)',
+
           maxHeight: '95vh',
           width: '95vw',
           overflow: 'hidden'
@@ -2029,9 +2017,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
                 backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#fffffe',
                 height: '380px',
-                width: '100%',
-                boxShadow: '0 4px 25px rgba(0,0,0,0.15)'
-              }}>
+                width: '100%'}}>
                 <Editor
                   height="100%"
                   language="cpp"
@@ -2070,7 +2056,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   whiteSpace: 'pre-wrap',
                   overflowY: 'auto',
                   height: '380px',
-                  boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.5)',
+                  
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'flex-start'
@@ -2163,9 +2149,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   overflowY: 'auto',
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'center',
-                  boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.2)'
-                }}
+                  alignItems: 'center'}}
               >
                 {renderFlowchartNodes()}
               </Paper>
@@ -2191,9 +2175,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 fontWeight: 800,
                 textTransform: 'none',
                 background: 'var(--hero-gradient)',
-                color: '#fff',
-                boxShadow: '0 6px 15px rgba(var(--primary-main-rgb), 0.2)'
-              }}
+                color: '#fff'}}
             >
               {isRunning ? "RUNNING..." : "RUN CODE"}
             </Button>

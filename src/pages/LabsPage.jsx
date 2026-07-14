@@ -6,8 +6,7 @@ import {
   Paper,
   TextField,
   Typography,
-  IconButton,
-} from '@mui/material';
+  IconButton} from '@mui/material';
 import SecurityIcon from '@mui/icons-material/Security';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import CodeIcon from '@mui/icons-material/Code';
@@ -421,8 +420,7 @@ const LabsPage = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="learning-search-field"
               InputProps={{
-                startAdornment: <SearchIcon className="learning-search-icon" />,
-              }}
+                startAdornment: <SearchIcon className="learning-search-icon" />}}
             />
           </div>
 

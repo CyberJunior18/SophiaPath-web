@@ -192,8 +192,7 @@ const LearningPage = () => {
                   category: les.category || 'learning',
                   chapterName: les.chapterName || '',
                   title: les.title || 'Untitled Lesson',
-                  orderIndex: les.orderIndex || 0,
-                }))
+                  orderIndex: les.orderIndex || 0}))
               }))
             }));
             setCourses(mapped);
@@ -365,8 +364,7 @@ const LearningPage = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="learning-search-field"
               InputProps={{
-                startAdornment: <SearchIcon className="learning-search-icon" />,
-              }}
+                startAdornment: <SearchIcon className="learning-search-icon" />}}
             />
           </div>
 
@@ -430,9 +428,9 @@ const LearningPage = () => {
                         position: 'absolute',
                         top: '12px',
                         right: '12px',
-                        background: 'rgba(28, 176, 246, 0.15)',
+                        background: 'none',
                         color: 'var(--primary-main)',
-                        border: '1px solid rgba(28, 176, 246, 0.3)',
+                        border: 'none',
                         zIndex: 10
                       }}
                       onClick={(e) => {
@@ -451,9 +449,9 @@ const LearningPage = () => {
                         position: 'absolute',
                         top: '12px',
                         right: '12px',
-                        background: 'var(--action-hover)',
+                        background: 'none',
                         color: 'var(--text-secondary)',
-                        border: '1px solid var(--divider)',
+                        border: 'none',
                         zIndex: 10
                       }}
                       onClick={(e) => {
@@ -561,8 +559,7 @@ const LearningPage = () => {
           style: {
             background: 'var(--background-paper)',
             color: 'var(--text-primary)',
-            border: '1px solid rgba(255,255,255,0.08)',
-          }
+            border: '1px solid rgba(255,255,255,0.08)'}
         }}
       >
         <MenuItem

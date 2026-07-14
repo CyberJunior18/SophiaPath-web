@@ -1124,7 +1124,7 @@ const QuestionDetailPage = () => {
                 maxWidth: '100%', 
                 maxHeight: '400px', 
                 borderRadius: '8px', 
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                
                 border: '1px solid var(--divider)',
                 display: 'block'
               }} 
@@ -1369,7 +1369,7 @@ const QuestionDetailPage = () => {
         <Button
           variant="contained"
           onClick={() => navigate(`/communities/${communityId || 1}`)}
-          sx={{ borderRadius: 2.5, textTransform: 'none', px: 4, py: 1.25, fontWeight: 700, boxShadow: '0 4px 14px rgba(61, 92, 255, 0.2)' }}
+          sx={{ borderRadius: 2.5, textTransform: 'none', px: 4, py: 1.25, fontWeight: 700}}
         >
           Back to Community
         </Button>
@@ -1711,9 +1711,7 @@ const QuestionDetailPage = () => {
               borderRadius: 2, 
               fontWeight: 600, 
               background: 'linear-gradient(135deg, #ff9800 0%, #ed6c02 100%)',
-              color: '#fff',
-              boxShadow: '0 4px 12px rgba(237, 108, 2, 0.2)'
-            }}
+              color: '#fff'}}
           >
             You are temporarily timed out in this community. You are blocked from creating rooms, posting questions, commenting, or replying.
           </Alert>

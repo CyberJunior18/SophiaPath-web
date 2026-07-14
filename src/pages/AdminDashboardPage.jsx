@@ -97,6 +97,7 @@ const AdminDashboardPage = () => {
   
   const [courses, setCourses] = useState(coursesData);
   const [loadError, setLoadError] = useState(null);
+  const [coursesProgress, setCoursesProgress] = useState({});
   
   // Navigation State inside Admin Page
   const [editingCourseDetails, setEditingCourseDetails] = useState(null); // Course currently editing sections/lessons
@@ -126,9 +127,29 @@ const AdminDashboardPage = () => {
   const ROLE_NAMES = { 0: 'Student', 1: 'Expert', 2: 'Moderator', 3: 'Admin' };
   const ROLE_COLORS = {
     0: { bg: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' },
-    1: { bg: 'rgba(76, 175, 80, 0.15)', color: '#4caf50' },
-    2: { bg: 'rgba(156, 39, 176, 0.15)', color: '#e040fb' },
-    3: { bg: 'rgba(255, 193, 7, 0.15)', color: '#ffc107' }
+    1: { bg: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)' },
+    2: { bg: 'rgba(255,255,255,0.05)', color: 'var(--primary-main)' },
+    3: { bg: 'rgba(255,255,255,0.05)', color: 'var(--primary-main)' }
+  };
+
+  const getLessonFinishedCount = (lessonId) => {
+    const progressList = coursesProgress[editingCourseDetails?.id] || [];
+    return progressList.filter(record => {
+      const gradeObj = record.grades?.find(g => Number(g.lessonId) === Number(lessonId));
+      return gradeObj && (gradeObj.completed || (gradeObj.grade !== null && gradeObj.grade >= 70));
+    }).length;
+  };
+
+  const getSectionFinishedCount = (section) => {
+    const progressList = coursesProgress[editingCourseDetails?.id] || [];
+    const lessonIds = (section.lessons || []).map(l => l.id);
+    if (lessonIds.length === 0) return 0;
+    return progressList.filter(record => {
+      return lessonIds.every(lid => {
+        const gradeObj = record.grades?.find(g => Number(g.lessonId) === Number(lid));
+        return gradeObj && (gradeObj.completed || (gradeObj.grade !== null && gradeObj.grade >= 70));
+      });
+    }).length;
   };
 
   const [users, setUsers] = useState([]);
@@ -293,6 +314,22 @@ const AdminDashboardPage = () => {
     localStorage.setItem('sophiapath_admin_active_slide_index', activeSlideIndex);
   }, [activeSlideIndex]);
 
+  const loadProgressForAllCourses = async (courseList) => {
+    if (!courseList || courseList.length === 0) return;
+    const progressMap = {};
+    for (const course of courseList) {
+      try {
+        const res = await adminFetch(`/courses/${course.id}/students-progress`);
+        if (res.ok) {
+          progressMap[course.id] = await res.json();
+        }
+      } catch (err) {
+        console.error(`Failed to load progress for course ${course.id}:`, err);
+      }
+    }
+    setCoursesProgress(progressMap);
+  };
+
   // Load all courses from database
   const loadCourses = async () => {
     try {
@@ -303,6 +340,7 @@ const AdminDashboardPage = () => {
         if (backendCourses && backendCourses.length > 0) {
           const sorted = backendCourses.sort((a, b) => a.id - b.id);
           setCourses(sorted);
+          await loadProgressForAllCourses(sorted);
           
           // Check if we need to restore editingCourseDetails from localStorage
           const savedCourseId = localStorage.getItem('sophiapath_admin_editing_course_id');
@@ -338,7 +376,13 @@ const AdminDashboardPage = () => {
 
   useEffect(() => {
     loadCourses();
-  }, []);
+  }, [user]);
+
+  useEffect(() => {
+    if (courses && courses.length > 0) {
+      loadProgressForAllCourses(courses);
+    }
+  }, [courses, user]);
 
   // Log database helpers
   const loadLogs = useCallback(async () => {
@@ -955,7 +999,7 @@ const AdminDashboardPage = () => {
     const activeSlide = editingLesson.pages[activeSlideIndex] || { pageTitle: 'Untitled Slide', blocks: [] };
 
     return (
-      <Box style={{ display: 'flex', flexDirection: 'column', gap: '20px', background: '#080c14', minHeight: '90vh', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.08)', padding: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+      <Box style={{ display: 'flex', flexDirection: 'column', gap: '20px', background: '#080c14', minHeight: '90vh', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.08)', padding: '24px'}}>
         
         {/* Top Header Bar */}
         <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '20px' }}>
@@ -995,7 +1039,7 @@ const AdminDashboardPage = () => {
             <Button
               variant="contained"
               onClick={handleSaveLesson}
-              style={{ background: 'var(--hero-gradient)', textTransform: 'none', fontWeight: 800, borderRadius: '10px', color: 'var(--text-primary)', padding: '8px 24px', boxShadow: '0 8px 20px rgba(28, 176, 246, 0.3)' }}
+              style={{ background: 'var(--hero-gradient)', textTransform: 'none', fontWeight: 800, borderRadius: '10px', color: 'var(--text-primary)', padding: '8px 24px'}}
             >
               Save Lesson Deck
             </Button>
@@ -1068,7 +1112,7 @@ const AdminDashboardPage = () => {
                   minHeight: '600px',
                   position: 'sticky',
                   top: '24px',
-                  boxShadow: '0 8px 32px 0 rgba(28, 176, 246, 0.08), inset 0 0 40px rgba(0,0,0,0.4)',
+                  
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '24px',
@@ -1445,7 +1489,7 @@ const AdminDashboardPage = () => {
                         position: 'relative',
                         transition: 'all 0.2s',
                         transform: isDragOver ? 'scale(1.05) translateY(-2px)' : 'none',
-                        boxShadow: isActive ? '0 4px 15px rgba(28,176,246,0.2)' : 'none',
+                        
                         zIndex: isDragOver ? 10 : 1
                       }}
                       onMouseEnter={(e) => {
@@ -1597,9 +1641,6 @@ const AdminDashboardPage = () => {
                           position: 'relative',
                           opacity: isBlockDragged ? 0.25 : 1,
                           transform: isBlockDragOver ? 'translateY(-4px)' : 'none',
-                          boxShadow: isBlockDragOver 
-                            ? '0 12px 30px rgba(28, 176, 246, 0.15)' 
-                            : '0 8px 24px rgba(0,0,0,0.2)',
                           transition: 'all 0.2s',
                           cursor: 'grab',
                           zIndex: isBlockDragOver ? 10 : 1
@@ -2144,11 +2185,11 @@ const AdminDashboardPage = () => {
             )}
             <Box>
               <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
-                {Number(user?.roleID) === 1 
-                  ? `${editingCourseDetails.title}` 
-                  : `Syllabus Editor: ${editingCourseDetails.title}`
-                }
-              </Typography>
+                 {Number(user?.roleID) === 1 
+                   ? `${editingCourseDetails.title}` 
+                   : `Syllabus Editor: ${editingCourseDetails.title}`
+                 }
+               </Typography>
               <Typography variant="body2" style={{ color: 'var(--text-secondary)' }}>
                 {Number(user?.roleID) === 1 
                   ? 'As an assigned Course Expert, you can manage the syllabus sections, lessons, and content for this course.'
@@ -2157,17 +2198,22 @@ const AdminDashboardPage = () => {
               </Typography>
             </Box>
           </Box>
-          <Box style={{ display: 'flex', gap: '12px' }}>
+          <Box sx={{ display: 'flex', gap: '12px' }}>
             <Button
               variant="outlined"
               onClick={handleOpenSectionCreate}
               startIcon={<AddIcon />}
-              style={{
+              sx={{
                 textTransform: 'none',
                 fontWeight: 800,
                 borderRadius: '8px',
-                color: 'var(--text-primary)',
-                borderColor: 'rgba(255,255,255,0.12)'
+                color: 'var(--primary-main)',
+                borderColor: 'var(--primary-main)',
+                opacity: 0.85,
+                '&:hover': {
+                  borderColor: 'var(--primary-main)',
+                  opacity: 1
+                }
               }}
             >
               Add Section
@@ -2210,9 +2256,11 @@ const AdminDashboardPage = () => {
                   {/* Section Title and Controls */}
                   <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                     <Box style={{ maxWidth: '75%' }}>
-                      <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <Chip label={'Index: ' + (sec.orderIndex || 0)} size="small" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--primary-main)', fontWeight: 800, fontSize: '0.7rem' }} />
+                      <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                         <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{sec.title}</Typography>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: 700 }}>
+                          ({getSectionFinishedCount(sec)} completion)
+                        </span>
                       </Box>
                       <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{sec.description}</Typography>
                     </Box>
@@ -2222,11 +2270,22 @@ const AdminDashboardPage = () => {
                         variant="outlined"
                         startIcon={<AddIcon />}
                         onClick={() => handleOpenLessonCreate(sec.id)}
-                        style={{ textTransform: 'none', borderRadius: '8px', fontWeight: 800, color: 'var(--primary-main)', borderColor: 'rgba(28,176,246,0.3)' }}
+                        sx={{
+                          textTransform: 'none',
+                          borderRadius: '8px',
+                          fontWeight: 800,
+                          color: 'var(--primary-main)',
+                          borderColor: 'var(--primary-main)',
+                          opacity: 0.85,
+                          '&:hover': {
+                            borderColor: 'var(--primary-main)',
+                            opacity: 1
+                          }
+                        }}
                       >
                         Add Lesson
                       </Button>
-                      <IconButton size="small" onClick={() => handleOpenSectionEdit(sec)} style={{ color: '#1CB0F6' }}>
+                      <IconButton size="small" onClick={() => handleOpenSectionEdit(sec)} style={{ color: 'var(--primary-main)' }}>
                         <EditIcon style={{ fontSize: '1.2rem' }} />
                       </IconButton>
                       <IconButton size="small" onClick={() => handleDeleteSection(sec.id, sec.title)} style={{ color: '#f44336' }}>
@@ -2245,26 +2304,29 @@ const AdminDashboardPage = () => {
                       <Table size="small">
                         <TableHead>
                           <TableRow style={{ borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
-                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Lesson Title</TableCell>
-                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Chapter</TableCell>
-                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Category</TableCell>
-                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Order</TableCell>
-                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Slides</TableCell>
-                            <TableCell align="right" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Actions</TableCell>
+                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Lesson Title</TableCell>
+                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Chapter</TableCell>
+                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Category</TableCell>
+                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Slides</TableCell>
+                            <TableCell align="right" style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Actions</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {sec.lessons.sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map((les) => (
                             <TableRow key={les.id || les.title} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                              <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800 }}>{les.title}</TableCell>
-                              <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{les.chapterName}</TableCell>
-                              <TableCell>
-                                <Chip label={les.category} size="small" style={{ background: les.category === 'exercise' ? 'rgba(156, 39, 176, 0.15)' : 'rgba(76, 175, 80, 0.15)', color: les.category === 'exercise' ? '#e040fb' : '#4caf50', fontWeight: 800, fontSize: '0.65rem' }} />
+                              <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                {les.title}
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, marginLeft: '8px', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                                  ({getLessonFinishedCount(les.id)} completion)
+                                </span>
                               </TableCell>
-                              <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{les.orderIndex || 0}</TableCell>
-                              <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{(les.pages || []).length} pages</TableCell>
-                              <TableCell align="right">
-                                <IconButton size="small" onClick={() => handleOpenLessonEdit(sec.id, les)} style={{ color: '#1CB0F6' }}>
+                              <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{les.chapterName}</TableCell>
+                              <TableCell style={{ color: les.category === 'exercise' ? 'var(--primary-main)' : 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                {les.category}
+                              </TableCell>
+                              <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{(les.pages || []).length} pages</TableCell>
+                              <TableCell align="right" style={{ whiteSpace: 'nowrap' }}>
+                                <IconButton size="small" onClick={() => handleOpenLessonEdit(sec.id, les)} style={{ color: 'var(--primary-main)' }}>
                                   <EditIcon style={{ fontSize: '1.05rem' }} />
                                 </IconButton>
                                 <IconButton size="small" onClick={() => handleDeleteLesson(sec.id, les.id, les.title)} style={{ color: '#f44336' }}>
@@ -2293,9 +2355,7 @@ const AdminDashboardPage = () => {
               border: '1px solid var(--divider)',
               borderRadius: '24px',
               color: 'var(--text-primary)',
-              padding: '16px',
-              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)'
-            }
+              padding: '16px'}
           }}
         >
           <DialogTitle style={{ fontWeight: 800, paddingBottom: '4px' }}>
@@ -2350,9 +2410,7 @@ const AdminDashboardPage = () => {
               border: '1px solid var(--divider)',
               borderRadius: '24px',
               color: 'var(--text-primary)',
-              padding: '16px',
-              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)'
-            }
+              padding: '16px'}
           }}
         >
           <DialogTitle style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-primary)', fontSize: '1.25rem', paddingBottom: '8px' }}>
@@ -2374,23 +2432,18 @@ const AdminDashboardPage = () => {
                   color: 'var(--text-primary)',
                   '& fieldset': {
                     borderColor: 'var(--divider)',
-                    transition: 'all 0.2s ease-in-out',
-                  },
+                    transition: 'all 0.2s ease-in-out'},
                   '&:hover fieldset': {
-                    borderColor: 'var(--text-secondary)',
-                  },
+                    borderColor: 'var(--text-secondary)'},
                   '&.Mui-focused fieldset': {
                     borderColor: 'var(--primary-main)',
-                    borderWidth: '1.5px',
-                  },
-                },
+                    borderWidth: '1.5px'}},
                 '& .MuiInputLabel-root': {
                   color: 'var(--text-secondary)',
                   fontFamily: '"Outfit", sans-serif',
                   fontWeight: 600,
                   '&.Mui-focused': {
-                    color: 'var(--primary-main)',
-                  }
+                    color: 'var(--primary-main)'}
                 }
               }}
             />
@@ -2410,23 +2463,18 @@ const AdminDashboardPage = () => {
                   color: 'var(--text-primary)',
                   '& fieldset': {
                     borderColor: 'var(--divider)',
-                    transition: 'all 0.2s ease-in-out',
-                  },
+                    transition: 'all 0.2s ease-in-out'},
                   '&:hover fieldset': {
-                    borderColor: 'var(--text-secondary)',
-                  },
+                    borderColor: 'var(--text-secondary)'},
                   '&.Mui-focused fieldset': {
                     borderColor: 'var(--primary-main)',
-                    borderWidth: '1.5px',
-                  },
-                },
+                    borderWidth: '1.5px'}},
                 '& .MuiInputLabel-root': {
                   color: 'var(--text-secondary)',
                   fontFamily: '"Outfit", sans-serif',
                   fontWeight: 600,
                   '&.Mui-focused': {
-                    color: 'var(--primary-main)',
-                  }
+                    color: 'var(--primary-main)'}
                 }
               }}
             />
@@ -2446,23 +2494,18 @@ const AdminDashboardPage = () => {
                   color: 'var(--text-primary)',
                   '& fieldset': {
                     borderColor: 'var(--divider)',
-                    transition: 'all 0.2s ease-in-out',
-                  },
+                    transition: 'all 0.2s ease-in-out'},
                   '&:hover fieldset': {
-                    borderColor: 'var(--text-secondary)',
-                  },
+                    borderColor: 'var(--text-secondary)'},
                   '&.Mui-focused fieldset': {
                     borderColor: 'var(--primary-main)',
-                    borderWidth: '1.5px',
-                  },
-                },
+                    borderWidth: '1.5px'}},
                 '& .MuiInputLabel-root': {
                   color: 'var(--text-secondary)',
                   fontFamily: '"Outfit", sans-serif',
                   fontWeight: 600,
                   '&.Mui-focused': {
-                    color: 'var(--primary-main)',
-                  }
+                    color: 'var(--primary-main)'}
                 }
               }}
             />
@@ -2480,23 +2523,18 @@ const AdminDashboardPage = () => {
                   color: 'var(--text-primary)',
                   '& fieldset': {
                     borderColor: 'var(--divider)',
-                    transition: 'all 0.2s ease-in-out',
-                  },
+                    transition: 'all 0.2s ease-in-out'},
                   '&:hover fieldset': {
-                    borderColor: 'var(--text-secondary)',
-                  },
+                    borderColor: 'var(--text-secondary)'},
                   '&.Mui-focused fieldset': {
                     borderColor: 'var(--primary-main)',
-                    borderWidth: '1.5px',
-                  },
-                },
+                    borderWidth: '1.5px'}},
                 '& .MuiInputLabel-root': {
                   color: 'var(--text-secondary)',
                   fontFamily: '"Outfit", sans-serif',
                   fontWeight: 600,
                   '&.Mui-focused': {
-                    color: 'var(--primary-main)',
-                  }
+                    color: 'var(--primary-main)'}
                 }
               }}
             />
@@ -2507,11 +2545,9 @@ const AdminDashboardPage = () => {
                   onChange={(e) => setCourseForm(prev => ({ ...prev, comingsoon: e.target.checked }))}
                   sx={{
                     '& .MuiSwitch-switchBase.Mui-checked': {
-                      color: 'var(--primary-main)',
-                    },
+                      color: 'var(--primary-main)'},
                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                      backgroundColor: 'var(--primary-main)',
-                    }
+                      backgroundColor: 'var(--primary-main)'}
                   }}
                 />
               }
@@ -2547,9 +2583,7 @@ const AdminDashboardPage = () => {
                 borderRadius: '12px', 
                 color: 'var(--text-primary)',
                 fontFamily: '"Outfit", sans-serif',
-                padding: '8px 18px',
-                boxShadow: 'var(--shadow-button)'
-              }}
+                padding: '8px 18px'}}
             >
               Save Changes
             </Button>
@@ -2598,7 +2632,7 @@ const AdminDashboardPage = () => {
               <Box>
                 <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block', fontSize: '0.65rem', letterSpacing: '0.5px' }}>TOTAL STUDENT ENROLLMENTS</Typography>
                 <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>1,248</Typography>
-                <Typography variant="caption" style={{ color: '#4caf50', fontWeight: 800 }}>+4.2% this week</Typography>
+                <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800 }}>+4.2% this week</Typography>
               </Box>
             </CardContent>
           </Card>
@@ -2680,6 +2714,7 @@ const AdminDashboardPage = () => {
                   <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Title</TableCell>
                   <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>ID</TableCell>
                   <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Syllabus Structure</TableCell>
+                  <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Registrations</TableCell>
                   <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Status</TableCell>
                   <TableCell align="right" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Actions</TableCell>
                 </TableRow>
@@ -2690,25 +2725,25 @@ const AdminDashboardPage = () => {
                     <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800 }}>{course.title}</TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{course.id}</TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>
-                      <Chip
-                        label={(course.sections || []).length + ' Sections'}
-                        size="small"
-                        onClick={() => setEditingCourseDetails(course)}
+                      <span
                         style={{
-                          background: 'rgba(28, 176, 246, 0.15)',
                           color: 'var(--primary-main)',
                           fontWeight: 800,
-                          marginRight: '6px',
-                          cursor: 'pointer'
+                          marginRight: '6px'
                         }}
-                      />
+                      >
+                        {(course.sections || []).length} Sections
+                      </span>
                       {(course.sections || []).reduce((acc, s) => acc + (s.lessons || []).length, 0)} Lessons
+                    </TableCell>
+                    <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800 }}>
+                      {(coursesProgress[course.id] || coursesProgress[Number(course.id)] || coursesProgress[String(course.id)])?.length || 0} registered
                     </TableCell>
                     <TableCell>
                       {course.comingsoon ? (
-                        <Chip label="Coming Soon" size="small" style={{ background: 'rgba(255, 152, 0, 0.12)', color: '#ff9800', fontWeight: 800, border: '1px solid rgba(255, 152, 0, 0.25)' }} />
+                        <span style={{ color: '#ff9800', fontWeight: 800 }}>Coming Soon</span>
                       ) : (
-                        <Chip label="Published" size="small" style={{ background: 'rgba(76, 175, 80, 0.12)', color: '#4caf50', fontWeight: 800, border: '1px solid rgba(76, 175, 80, 0.25)' }} />
+                        <span style={{ color: 'var(--primary-main)', fontWeight: 800 }}>Published</span>
                       )}
                     </TableCell>
                     <TableCell align="right">
@@ -2721,8 +2756,8 @@ const AdminDashboardPage = () => {
                           textTransform: 'none',
                           fontWeight: 800,
                           borderRadius: '8px',
-                          color: '#1CB0F6',
-                          borderColor: 'rgba(28, 176, 246, 0.25)',
+                          color: 'var(--primary-main)',
+                          borderColor: 'var(--primary-main)',
                           marginRight: '8px'
                         }}
                       >
@@ -2846,18 +2881,16 @@ const AdminDashboardPage = () => {
                           <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>@{u.username}</TableCell>
                           <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{u.email}</TableCell>
                           <TableCell>
-                            <Chip
-                              label={u.roleName}
-                              size="small"
-                              style={{ background: roleStyle.bg, color: roleStyle.color, fontWeight: 800 }}
-                            />
+                            <span style={{ color: roleStyle.color, fontWeight: 800 }}>
+                              {u.roleName}
+                            </span>
                           </TableCell>
                           <TableCell style={{ color: 'var(--primary-main)', fontWeight: 800 }}>{u.xp} XP · Lv.{u.level}</TableCell>
                           <TableCell align="right">
-                            <IconButton onClick={() => handleOpenUserEdit(u)} style={{ color: '#1CB0F6' }} title="Edit user">
-                              <EditIcon />
-                            </IconButton>
-                          </TableCell>
+                             <IconButton onClick={() => handleOpenUserEdit(u)} style={{ color: 'var(--primary-main)' }} title="Edit user">
+                               <EditIcon />
+                             </IconButton>
+                           </TableCell>
                         </TableRow>
                       );
                     })}
@@ -2905,8 +2938,8 @@ const AdminDashboardPage = () => {
             <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {applications.map((app) => {
                 const reqRoleStyle = ROLE_COLORS[app.requestedRole] || ROLE_COLORS[1];
-                const statusColor = app.status === 'accepted' ? '#4caf50' : app.status === 'rejected' ? '#f44336' : '#ff9800';
-                const statusBg = app.status === 'accepted' ? 'rgba(76,175,80,0.12)' : app.status === 'rejected' ? 'rgba(244,67,54,0.12)' : 'rgba(255,152,0,0.12)';
+                const statusColor = app.status === 'accepted' ? 'var(--primary-main)' : app.status === 'rejected' ? 'var(--text-secondary)' : '#ff9800';
+                const statusBg = app.status === 'accepted' ? 'rgba(61,92,255,0.12)' : app.status === 'rejected' ? 'rgba(255,255,255,0.05)' : 'rgba(255,152,0,0.12)';
                 const isPending = !app.status || app.status === 'pending';
                 const applicantName = app.user?.fullname || app.user?.username || 'Unknown User';
                 const appTitle = app.requestedRole === 1 ? 'Expert Position Application' : 'Moderator Position Application';
@@ -2929,24 +2962,22 @@ const AdminDashboardPage = () => {
                               {appTitle} · Application #{app.id}
                             </Typography>
                           </Box>
-                          <Chip
-                            label={`Requesting: ${ROLE_NAMES[app.requestedRole] || 'Expert'}`}
-                            size="small"
-                            style={{ background: reqRoleStyle.bg, color: reqRoleStyle.color, fontWeight: 800 }}
-                          />
+                          <span style={{ color: reqRoleStyle.color, fontWeight: 800, fontSize: '0.85rem' }}>
+                            Requesting: {ROLE_NAMES[app.requestedRole] || 'Expert'}
+                          </span>
                           {app.courseId && (() => {
                             const targetC = courses.find(c => Number(c.id) === Number(app.courseId));
                             const courseName = targetC ? targetC.title : `Course #${app.courseId}`;
                             return (
-                              <Chip label={`Target Course: ${courseName}`} size="small" style={{ background: 'rgba(28,176,246,0.1)', color: '#1CB0F6', fontWeight: 800 }} />
+                              <span style={{ color: 'var(--primary-main)', fontWeight: 800, fontSize: '0.85rem' }}>
+                                Target Course: {courseName}
+                              </span>
                             );
                           })()}
                         </Box>
-                        <Chip
-                          label={(app.status || 'pending').toUpperCase()}
-                          size="small"
-                          style={{ background: statusBg, color: statusColor, fontWeight: 900, border: `1px solid ${statusColor}40` }}
-                        />
+                        <span style={{ color: statusColor, fontWeight: 900, fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          {app.status || 'pending'}
+                        </span>
                       </Box>
 
                       {app.description && (
@@ -3047,11 +3078,9 @@ const AdminDashboardPage = () => {
                 <Box>
                   <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>REQUESTED ROLE</Typography>
                   <Box style={{ marginTop: '4px' }}>
-                    <Chip
-                      label={ROLE_NAMES[selectedAppForView.requestedRole] || 'Expert'}
-                      size="small"
-                      style={{ background: reqRoleStyle.bg, color: reqRoleStyle.color, fontWeight: 800 }}
-                    />
+                    <span style={{ color: reqRoleStyle.color, fontWeight: 800, fontSize: '0.9rem' }}>
+                      {ROLE_NAMES[selectedAppForView.requestedRole] || 'Expert'}
+                    </span>
                   </Box>
                 </Box>
 
@@ -3188,9 +3217,7 @@ const AdminDashboardPage = () => {
             border: '1px solid var(--divider)',
             borderRadius: '24px',
             color: 'var(--text-primary)',
-            padding: '16px',
-            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)'
-          }
+            padding: '16px'}
         }}
       >
         <DialogTitle style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-primary)', fontSize: '1.25rem', paddingBottom: '8px' }}>
@@ -3212,23 +3239,18 @@ const AdminDashboardPage = () => {
                 color: 'var(--text-primary)',
                 '& fieldset': {
                   borderColor: 'var(--divider)',
-                  transition: 'all 0.2s ease-in-out',
-                },
+                  transition: 'all 0.2s ease-in-out'},
                 '&:hover fieldset': {
-                  borderColor: 'var(--text-secondary)',
-                },
+                  borderColor: 'var(--text-secondary)'},
                 '&.Mui-focused fieldset': {
                   borderColor: 'var(--primary-main)',
-                  borderWidth: '1.5px',
-                },
-              },
+                  borderWidth: '1.5px'}},
               '& .MuiInputLabel-root': {
                 color: 'var(--text-secondary)',
                 fontFamily: '"Outfit", sans-serif',
                 fontWeight: 600,
                 '&.Mui-focused': {
-                  color: 'var(--primary-main)',
-                }
+                  color: 'var(--primary-main)'}
               }
             }}
           />
@@ -3248,23 +3270,18 @@ const AdminDashboardPage = () => {
                 color: 'var(--text-primary)',
                 '& fieldset': {
                   borderColor: 'var(--divider)',
-                  transition: 'all 0.2s ease-in-out',
-                },
+                  transition: 'all 0.2s ease-in-out'},
                 '&:hover fieldset': {
-                  borderColor: 'var(--text-secondary)',
-                },
+                  borderColor: 'var(--text-secondary)'},
                 '&.Mui-focused fieldset': {
                   borderColor: 'var(--primary-main)',
-                  borderWidth: '1.5px',
-                },
-              },
+                  borderWidth: '1.5px'}},
               '& .MuiInputLabel-root': {
                 color: 'var(--text-secondary)',
                 fontFamily: '"Outfit", sans-serif',
                 fontWeight: 600,
                 '&.Mui-focused': {
-                  color: 'var(--primary-main)',
-                }
+                  color: 'var(--primary-main)'}
               }
             }}
           />
@@ -3284,23 +3301,18 @@ const AdminDashboardPage = () => {
                 color: 'var(--text-primary)',
                 '& fieldset': {
                   borderColor: 'var(--divider)',
-                  transition: 'all 0.2s ease-in-out',
-                },
+                  transition: 'all 0.2s ease-in-out'},
                 '&:hover fieldset': {
-                  borderColor: 'var(--text-secondary)',
-                },
+                  borderColor: 'var(--text-secondary)'},
                 '&.Mui-focused fieldset': {
                   borderColor: 'var(--primary-main)',
-                  borderWidth: '1.5px',
-                },
-              },
+                  borderWidth: '1.5px'}},
               '& .MuiInputLabel-root': {
                 color: 'var(--text-secondary)',
                 fontFamily: '"Outfit", sans-serif',
                 fontWeight: 600,
                 '&.Mui-focused': {
-                  color: 'var(--primary-main)',
-                }
+                  color: 'var(--primary-main)'}
               }
             }}
           />
@@ -3318,23 +3330,18 @@ const AdminDashboardPage = () => {
                 color: 'var(--text-primary)',
                 '& fieldset': {
                   borderColor: 'var(--divider)',
-                  transition: 'all 0.2s ease-in-out',
-                },
+                  transition: 'all 0.2s ease-in-out'},
                 '&:hover fieldset': {
-                  borderColor: 'var(--text-secondary)',
-                },
+                  borderColor: 'var(--text-secondary)'},
                 '&.Mui-focused fieldset': {
                   borderColor: 'var(--primary-main)',
-                  borderWidth: '1.5px',
-                },
-              },
+                  borderWidth: '1.5px'}},
               '& .MuiInputLabel-root': {
                 color: 'var(--text-secondary)',
                 fontFamily: '"Outfit", sans-serif',
                 fontWeight: 600,
                 '&.Mui-focused': {
-                  color: 'var(--primary-main)',
-                }
+                  color: 'var(--primary-main)'}
               }
             }}
           />
@@ -3345,11 +3352,9 @@ const AdminDashboardPage = () => {
                 onChange={(e) => setCourseForm(prev => ({ ...prev, comingsoon: e.target.checked }))}
                 sx={{
                   '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: 'var(--primary-main)',
-                  },
+                    color: 'var(--primary-main)'},
                   '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    backgroundColor: 'var(--primary-main)',
-                  }
+                    backgroundColor: 'var(--primary-main)'}
                 }}
               />
             }
@@ -3385,9 +3390,7 @@ const AdminDashboardPage = () => {
               borderRadius: '12px', 
               color: 'var(--text-primary)',
               fontFamily: '"Outfit", sans-serif',
-              padding: '8px 18px',
-              boxShadow: 'var(--shadow-button)'
-            }}
+              padding: '8px 18px'}}
           >
             Save Changes
           </Button>
@@ -3404,9 +3407,7 @@ const AdminDashboardPage = () => {
             border: '1px solid var(--divider)',
             borderRadius: '24px',
             color: 'var(--text-primary)',
-            padding: '16px',
-            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)'
-          }
+            padding: '16px'}
         }}
       >
         <DialogTitle style={{ fontWeight: 800, paddingBottom: '4px' }}>Edit User Role</DialogTitle>
@@ -3429,7 +3430,7 @@ const AdminDashboardPage = () => {
 
           {userForm.roleID === 1 && (
             <Box style={{ marginTop: '16px' }}>
-              <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontWeight: 700 }}>Assign Expertise Course Field(s)</Typography>
+              <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontWeight: 700 }}>Assign Expertise Course Field</Typography>
               <Box style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px', maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {courses.map(c => {
                   const isChecked = userForm.assignedCourseIds?.map(Number).includes(Number(c.id));
@@ -3437,17 +3438,14 @@ const AdminDashboardPage = () => {
                     <FormControlLabel
                       key={c.id}
                       control={
-                        <Checkbox
+                        <Radio
                           checked={isChecked}
                           onChange={(e) => {
                             const cid = Number(c.id);
-                            setUserForm(prev => {
-                              const current = prev.assignedCourseIds ? prev.assignedCourseIds.map(Number) : [];
-                              const next = e.target.checked 
-                                ? [...current, cid]
-                                : current.filter(id => id !== cid);
-                              return { ...prev, assignedCourseIds: next };
-                            });
+                            setUserForm(prev => ({
+                              ...prev,
+                              assignedCourseIds: e.target.checked ? [cid] : []
+                            }));
                           }}
                           sx={{
                             color: 'rgba(255,255,255,0.3)',

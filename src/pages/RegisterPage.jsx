@@ -8,15 +8,13 @@ import {
   Paper,
   InputAdornment,
   IconButton,
-  Alert,
-} from '@mui/material';
+  Alert} from '@mui/material';
 import {
   Email as EmailIcon,
   Lock as LockIcon,
   Person as PersonIcon,
   Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-} from '@mui/icons-material';
+  VisibilityOff as VisibilityOffIcon} from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logoImg from '../assets/sp-logo.png';
@@ -29,8 +27,7 @@ const RegisterPage = () => {
     password: '',
     confirmPassword: '',
     age: '',
-    gender: 'Rather Not Say',
-  });
+    gender: 'Rather Not Say'});
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { register } = useAuth();
@@ -91,8 +88,7 @@ const RegisterPage = () => {
               WebkitMaskPosition: 'center',
               maskPosition: 'center',
               WebkitMaskSize: 'contain',
-              maskSize: 'contain',
-            }}
+              maskSize: 'contain'}}
           >
             <div className="nav-logo-left-half" />
             <div className="nav-logo-right-half" />
@@ -127,8 +123,7 @@ const RegisterPage = () => {
                 <InputAdornment position="start">
                   <PersonIcon fontSize="small" />
                 </InputAdornment>
-              ),
-            }}
+              )}}
           />
           <TextField
             fullWidth
@@ -145,8 +140,7 @@ const RegisterPage = () => {
                 <InputAdornment position="start">
                   <EmailIcon fontSize="small" />
                 </InputAdornment>
-              ),
-            }}
+              )}}
           />
           <TextField
             fullWidth
@@ -170,8 +164,7 @@ const RegisterPage = () => {
                     {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                   </IconButton>
                 </InputAdornment>
-              ),
-            }}
+              )}}
           />
           <TextField
             fullWidth
@@ -188,8 +181,7 @@ const RegisterPage = () => {
                 <InputAdornment position="start">
                   <LockIcon fontSize="small" />
                 </InputAdornment>
-              ),
-            }}
+              )}}
           />
 
           <Box sx={{ display: 'flex', gap: 2, mt: 1, mb: 1 }}>
@@ -214,8 +206,7 @@ const RegisterPage = () => {
               value={formData.gender}
               onChange={handleChange}
               SelectProps={{
-                native: true,
-              }}
+                native: true}}
               required
             >
               <option value="Rather Not Say">Rather Not Say</option>

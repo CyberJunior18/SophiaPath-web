@@ -722,14 +722,14 @@ export const ReligionTreeMap = () => {
           borderRight: 'none',
           borderTop: 'none',
           background: 'rgba(10,10,15,0.95)', 
-          boxShadow: 'none',
+
           zIndex: 10
         } : {
           padding: '16px 20px', 
           borderRadius: '16px', 
           border: '1px solid var(--divider)', 
           background: 'var(--surface-glass)', 
-          boxShadow: 'none',
+
           zIndex: 1
         }}
       >
@@ -880,7 +880,7 @@ export const ReligionTreeMap = () => {
           position: 'relative', 
           cursor: isDragging ? 'grabbing' : 'grab',
           background: 'rgba(10,10,15,0.4)',
-          boxShadow: 'none',
+
           borderRadius: 0,
           border: 'none'
         } : { 
@@ -890,9 +890,7 @@ export const ReligionTreeMap = () => {
           borderRadius: '24px', 
           border: '1.5px solid var(--divider)',
           cursor: isDragging ? 'grabbing' : 'grab',
-          background: 'rgba(10,10,15,0.4)',
-          boxShadow: 'none'
-        }}
+          background: 'rgba(10,10,15,0.4)'}}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUpOrLeave}
@@ -993,9 +991,7 @@ export const ReligionTreeMap = () => {
                       justifyContent: 'center',
                       backdropFilter: 'blur(8px)',
                       WebkitBackdropFilter: 'blur(8px)',
-                      transition: 'all 0.3s ease',
-                      boxShadow: 'none'
-                    }}
+                      transition: 'all 0.3s ease'}}
                   >
                     <Typography style={{ fontSize: node.font, lineHeight: 1, color: isSelected ? 'var(--primary-main)' : 'var(--text-primary)' }}>
                       {node.symbol}
@@ -1057,9 +1053,7 @@ export const ReligionTreeMap = () => {
                         fontSize: '0.55rem',
                         fontWeight: 900,
                         zIndex: 25,
-                        cursor: 'pointer',
-                        boxShadow: 'none'
-                      }}
+                        cursor: 'pointer'}}
                     >
                       {node.isExpanded ? '−' : '+'}
                     </div>
@@ -1092,7 +1086,7 @@ export const ReligionTreeMap = () => {
             borderRadius: '24px',
             color: 'var(--text-primary)',
             padding: '8px',
-            boxShadow: 'none',
+
             position: 'relative'
           }
         }}
@@ -1138,7 +1132,7 @@ export const ReligionTreeMap = () => {
                 <Grid size={{ xs: 12, md: 5 }} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   
                   {/* Meta stats card */}
-                  <Paper style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--divider)', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: 'none' }}>
+                  <Paper style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--divider)', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px'}}>
                     <Box style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <User size={16} style={{ color: 'var(--primary-main)' }} />
                       <Typography variant="caption" style={{ color: 'var(--text-secondary)', display: 'block', fontWeight: 800 }}>
@@ -1189,7 +1183,7 @@ export const ReligionTreeMap = () => {
                     </Typography>
                     <Box style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       {activeDialogNode.practices.map((practice, idx) => (
-                        <Chip key={idx} label={practice} size="small" style={{ fontSize: '0.7rem', fontWeight: 700, background: 'rgba(255, 255, 255, 0.03)', color: 'var(--text-primary)', border: '1px solid var(--divider)', boxShadow: 'none' }} />
+                        <Chip key={idx} label={practice} size="small" style={{ fontSize: '0.7rem', fontWeight: 700, background: 'rgba(255, 255, 255, 0.03)', color: 'var(--text-primary)', border: '1px solid var(--divider)'}} />
                       ))}
                     </Box>
                   </Box>
@@ -1201,7 +1195,7 @@ export const ReligionTreeMap = () => {
                     </Typography>
                     <Box style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       {activeDialogNode.holidays.map((holiday, idx) => (
-                        <Chip key={idx} label={holiday} size="small" style={{ fontSize: '0.7rem', fontWeight: 700, background: 'rgba(255, 255, 255, 0.03)', color: 'var(--text-primary)', border: '1px solid var(--divider)', boxShadow: 'none' }} />
+                        <Chip key={idx} label={holiday} size="small" style={{ fontSize: '0.7rem', fontWeight: 700, background: 'rgba(255, 255, 255, 0.03)', color: 'var(--text-primary)', border: '1px solid var(--divider)'}} />
                       ))}
                     </Box>
                   </Box>
@@ -1245,7 +1239,7 @@ export const ReligionTreeMap = () => {
                     </Typography>
                     <Box style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       {activeDialogNode.branches.map((br, idx) => (
-                        <Chip key={idx} label={br} size="small" style={{ fontSize: '0.7rem', fontWeight: 800, background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--divider)', color: 'var(--text-primary)', boxShadow: 'none' }} />
+                        <Chip key={idx} label={br} size="small" style={{ fontSize: '0.7rem', fontWeight: 800, background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--divider)', color: 'var(--text-primary)'}} />
                       ))}
                     </Box>
                   </Box>
@@ -1258,7 +1252,7 @@ export const ReligionTreeMap = () => {
                       </Typography>
                       <Box style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         {activeDialogNode.relatedReligions.map((rel, idx) => (
-                          <Chip key={idx} label={rel} size="small" style={{ fontSize: '0.7rem', fontWeight: 700, background: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--divider)', color: 'var(--text-secondary)', boxShadow: 'none' }} />
+                          <Chip key={idx} label={rel} size="small" style={{ fontSize: '0.7rem', fontWeight: 700, background: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--divider)', color: 'var(--text-secondary)'}} />
                         ))}
                       </Box>
                     </Box>
