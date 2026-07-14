@@ -72,6 +72,7 @@ const LearningPathPage = () => {
   const [course, setCourse] = useState(location.state?.course || null);
   const [courseLoading, setCourseLoading] = useState(!course);
   const [backendLessons, setBackendLessons] = useState({});
+  const [backendCheatsheets, setBackendCheatsheets] = useState({});
   const [loadingLessons, setLoadingLessons] = useState(false);
 
   // Roadmap Preview Popover & Dialog State
@@ -153,7 +154,11 @@ const LearningPathPage = () => {
     if (!course || !course.sections) return [];
 
     return course.sections.map((section, sIndex) => {
-      const currentLessons = backendLessons[section.id] || section.lessons || [];
+      let currentLessons = backendLessons[section.id] || section.lessons || [];
+      currentLessons = currentLessons.filter(l => {
+        const title = (l.title || '').trim().toLowerCase();
+        return !(title.startsWith('cheatsheet:') || title.startsWith('cheatsheet ') || title === 'cheatsheet');
+      });
 
       // Title-based deduplication for section lessons progress calculation
       const uniqueLessons = [];
@@ -234,10 +239,14 @@ const LearningPathPage = () => {
         const secRes = await fetch(`/courses/${dbId}/sections/${sectionId}`);
         if (secRes.ok) {
           const sectionData = await secRes.json();
-          if (sectionData && sectionData.lessons) {
+          if (sectionData) {
             setBackendLessons(prev => ({
               ...prev,
-              [sectionId]: sectionData.lessons
+              [sectionId]: sectionData.lessons || []
+            }));
+            setBackendCheatsheets(prev => ({
+              ...prev,
+              [sectionId]: sectionData.cheatsheet || null
             }));
           }
         }
@@ -252,17 +261,11 @@ const LearningPathPage = () => {
   }, [course, activeSectionIndex]);
 
   const cheatsheetLesson = useMemo(() => {
-    let rawLessons = [];
-    if (activeSection && backendLessons[activeSection.id] && backendLessons[activeSection.id].length > 0) {
-      rawLessons = backendLessons[activeSection.id];
-    } else {
-      rawLessons = activeSection?.lessons || [];
+    if (activeSection && backendCheatsheets[activeSection.id] !== undefined) {
+      return backendCheatsheets[activeSection.id];
     }
-    return rawLessons.find(l => {
-      const title = (l.title || '').trim().toLowerCase();
-      return title.startsWith('cheatsheet:') || title.startsWith('cheatsheet ') || title === 'cheatsheet';
-    });
-  }, [activeSection, backendLessons]);
+    return activeSection?.cheatsheet || null;
+  }, [activeSection, backendCheatsheets]);
 
   const isComputerScience = useMemo(() => {
     return course?.title?.toLowerCase()?.includes('computer science') || String(course?.id) === '2';
