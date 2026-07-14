@@ -131,7 +131,10 @@ const RenderReplyNode = ({
             {isCollapsed ? <KeyboardArrowRightIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
           </IconButton>
 
-          <Avatar sx={{ width: 20, height: 20, fontSize: '0.65rem' }}>
+          <Avatar 
+            src={localStorage.getItem(`avatar_${reply.authorId}`) || community?.members?.find(m => Number(m.id) === Number(reply.authorId))?.avatar || reply.authorAvatar || ''} 
+            sx={{ width: 20, height: 20, fontSize: '0.65rem' }}
+          >
             {reply.authorName?.charAt(0)?.toUpperCase() || '?'}
           </Avatar>
           <Typography className="comment-author-name" sx={{ fontSize: '0.85rem !important', fontWeight: 600 }}>
@@ -254,6 +257,24 @@ const RenderReplyNode = ({
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   disabled={isMyStatusTimedOut}
+                  onFocus={async () => {
+                    const cId = community?.id || communityId;
+                    if (!cId) return;
+                    try {
+                      const status = await socialStore.getMyStatus(cId);
+                      if (status?.isBanned) {
+                        showCustomAlert("Access Denied", "You have been banned from this community.");
+                        setIsMyStatusTimedOut(false);
+                        return;
+                      }
+                      if (status?.isTimedOut) {
+                        showCustomAlert("Temporary Cooldown", "You are currently on timeout and cannot reply.");
+                        setIsMyStatusTimedOut(true);
+                      }
+                    } catch (e) {
+                      console.error("Failed to verify status:", e);
+                    }
+                  }}
                   InputProps={{ sx: { borderRadius: 1.5 } }}
                   inputProps={{ maxLength: 1000 }}
                 />
@@ -471,6 +492,10 @@ const QuestionDetailPage = () => {
   const [timeoutTargetUserId, setTimeoutTargetUserId] = useState(null);
   const [timeoutTargetUsername, setTimeoutTargetUsername] = useState('');
   const [timeoutDuration, setTimeoutDuration] = useState(5);
+  const [banDialogOpen, setBanDialogOpen] = useState(false);
+  const [banTargetUserId, setBanTargetUserId] = useState(null);
+  const [banTargetUsername, setBanTargetUsername] = useState('');
+  const [banReason, setBanReason] = useState('Violating community guidelines');
 
   const startCooldown = () => {
     const duration = 5000;
@@ -963,7 +988,8 @@ const QuestionDetailPage = () => {
       async () => {
         const success = await socialStore.deleteQuestion(questionId);
         if (success) {
-          navigate(`/communities/${communityId}/room/${roomId}`);
+          const rId = question?.roomId || roomId;
+          navigate(`/communities/${community?.id || communityId}/room/${rId && rId !== 'undefined' ? rId : 1}`);
         }
       }
     );
@@ -1023,6 +1049,22 @@ const QuestionDetailPage = () => {
       setTimeoutDialogOpen(false);
       setTimeoutTargetUserId(null);
       setTimeoutTargetUsername('');
+      loadQuestionAndComments();
+    } catch (err) {
+      showCustomAlert("Action Failed", err.message);
+    }
+  };
+
+  const handleBanSubmit = async () => {
+    if (!banTargetUserId) return;
+    const cId = community?.id || communityId;
+    if (!cId) { showCustomAlert("Error", "Could not determine community."); return; }
+    try {
+      await socialStore.banUser(cId, banTargetUserId, banReason);
+      showToast(`Successfully banned @${banTargetUsername}`);
+      setBanDialogOpen(false);
+      setBanTargetUserId(null);
+      setBanTargetUsername('');
       loadQuestionAndComments();
     } catch (err) {
       showCustomAlert("Action Failed", err.message);
@@ -1351,7 +1393,10 @@ const QuestionDetailPage = () => {
       {/* Back button */}
       <Button
         startIcon={<ArrowBackIcon />}
-        onClick={() => navigate(`/communities/${communityId}/room/${roomId}`)}
+        onClick={() => {
+          const rId = question?.roomId || roomId;
+          navigate(`/communities/${community?.id || communityId}/room/${rId && rId !== 'undefined' ? rId : 1}`);
+        }}
         sx={{ alignSelf: 'flex-start', textTransform: 'none', color: 'var(--text-secondary)' }}
       >
         Back
@@ -1361,7 +1406,10 @@ const QuestionDetailPage = () => {
       <Card className="question-detail-card">
         <Box className="question-detail-header-block" sx={{ pb: 0 , pt: 0}}>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2, width: '100%' }}>
-            <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+            <Avatar 
+              src={localStorage.getItem(`avatar_${question.authorId}`) || community?.members?.find(m => Number(m.id) === Number(question.authorId))?.avatar || question.authorAvatar || ''} 
+              sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}
+            >
               {question.authorName?.charAt(0)?.toUpperCase() || '?'}
             </Avatar>
             <Box>
@@ -1696,6 +1744,24 @@ const QuestionDetailPage = () => {
               value={newCommentText}
               onChange={(e) => setNewCommentText(e.target.value)}
               disabled={isMyStatusTimedOut}
+              onFocus={async () => {
+                const cId = community?.id || communityId;
+                if (!cId) return;
+                try {
+                  const status = await socialStore.getMyStatus(cId);
+                  if (status?.isBanned) {
+                    showCustomAlert("Access Denied", "You have been banned from this community.");
+                    setIsMyStatusTimedOut(false);
+                    return;
+                  }
+                  if (status?.isTimedOut) {
+                    showCustomAlert("Temporary Cooldown", "You are currently on timeout and cannot comment.");
+                    setIsMyStatusTimedOut(true);
+                  }
+                } catch (e) {
+                  console.error("Failed to verify status:", e);
+                }
+              }}
               InputProps={{
                 sx: { borderRadius: 1.5 }
               }}
@@ -1796,9 +1862,12 @@ const QuestionDetailPage = () => {
               <Box sx={{ border: '1px solid var(--divider)', borderRadius: 3, p: 2, bgcolor: 'background.paper' }}>
                 <Box className="comment-header" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
-                      {focusedReply.authorName.charAt(0).toUpperCase()}
-                    </Avatar>
+                     <Avatar 
+                       src={localStorage.getItem(`avatar_${focusedReply.authorId}`) || community?.members?.find(m => Number(m.id) === Number(focusedReply.authorId))?.avatar || focusedReply.authorAvatar || ''} 
+                       sx={{ width: 24, height: 24, fontSize: '0.75rem' }}
+                     >
+                       {focusedReply.authorName.charAt(0).toUpperCase()}
+                     </Avatar>
                     <Typography className="comment-author-name" sx={{ fontWeight: 600 }}>
                       {focusedReply.authorName}
                     </Typography>
@@ -1853,6 +1922,24 @@ const QuestionDetailPage = () => {
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
                             disabled={isMyStatusTimedOut}
+                            onFocus={async () => {
+                              const cId = community?.id || communityId;
+                              if (!cId) return;
+                              try {
+                                const status = await socialStore.getMyStatus(cId);
+                                if (status?.isBanned) {
+                                  showCustomAlert("Access Denied", "You have been banned from this community.");
+                                  setIsMyStatusTimedOut(false);
+                                  return;
+                                }
+                                if (status?.isTimedOut) {
+                                  showCustomAlert("Temporary Cooldown", "You are currently on timeout and cannot reply.");
+                                  setIsMyStatusTimedOut(true);
+                                }
+                              } catch (e) {
+                                console.error("Failed to verify status:", e);
+                              }
+                            }}
                             InputProps={{ sx: { borderRadius: 1.5 } }}
                             inputProps={{ maxLength: 1000 }}
                           />
@@ -1937,7 +2024,10 @@ const QuestionDetailPage = () => {
                         {isCollapsed ? <KeyboardArrowRightIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
                       </IconButton>
 
-                      <Avatar sx={{ width: 24, height: 24, fontSize: '0.7rem' }}>
+                      <Avatar 
+                        src={localStorage.getItem(`avatar_${comment.authorId}`) || community?.members?.find(m => Number(m.id) === Number(comment.authorId))?.avatar || comment.authorAvatar || ''} 
+                        sx={{ width: 24, height: 24, fontSize: '0.7rem' }}
+                      >
                         {comment.authorName?.charAt(0)?.toUpperCase() || '?'}
                       </Avatar>
                       <Typography className="comment-author-name" sx={{ fontWeight: 600 }}>
@@ -2079,6 +2169,24 @@ const QuestionDetailPage = () => {
                               value={replyText}
                               onChange={(e) => setReplyText(e.target.value)}
                               disabled={isMyStatusTimedOut}
+                              onFocus={async () => {
+                               const cId = community?.id || communityId;
+                               if (!cId) return;
+                               try {
+                                 const status = await socialStore.getMyStatus(cId);
+                                 if (status?.isBanned) {
+                                   showCustomAlert("Access Denied", "You have been banned from this community.");
+                                   setIsMyStatusTimedOut(false);
+                                   return;
+                                 }
+                                 if (status?.isTimedOut) {
+                                   showCustomAlert("Temporary Cooldown", "You are currently on timeout and cannot reply.");
+                                   setIsMyStatusTimedOut(true);
+                                 }
+                               } catch (e) {
+                                 console.error("Failed to verify status:", e);
+                               }
+                             }}
                               InputProps={{ sx: { borderRadius: 1.5 } }}
                               inputProps={{ maxLength: 1000 }}
                             />
@@ -2220,21 +2328,12 @@ const QuestionDetailPage = () => {
 
             {/* Ban Option */}
             {isMod && Number(menuTarget.authorId) !== Number(user?.id) && Number(menuTarget.authorId) !== Number(community?.ownerId) && (Number(community?.ownerId) === Number(user?.id) || !community?.moderatorIds?.includes(String(menuTarget.authorId))) && (
-              <MenuItem onClick={async () => {
+              <MenuItem onClick={() => {
                 setCommentMenuAnchor(null);
-                showConfirmDialog(
-                  "Ban User?",
-                  `Are you sure you want to ban @${menuTarget.authorName} from this community?`,
-                  async () => {
-                    try {
-                      await socialStore.banUser(community.id, menuTarget.authorId);
-                      showToast(`Successfully banned @${menuTarget.authorName}`);
-                      loadQuestionAndComments();
-                    } catch (err) {
-                      showCustomAlert("Action Failed", err.message);
-                    }
-                  }
-                );
+                setBanTargetUserId(menuTarget.authorId);
+                setBanTargetUsername(menuTarget.authorName);
+                setBanReason('Violating community guidelines');
+                setBanDialogOpen(true);
                 setMenuTarget(null);
               }} sx={{ color: 'error.main' }}>
                 Ban User
@@ -2311,6 +2410,61 @@ const QuestionDetailPage = () => {
             sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 800, background: 'var(--hero-gradient)', color: '#fff' }}
           >
             Timeout
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* BAN DIALOG WITH REASON */}
+      <Dialog
+        open={banDialogOpen}
+        onClose={() => {
+          setBanDialogOpen(false);
+          setBanTargetUserId(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2.5, p: 2, background: 'var(--background-paper)', color: 'var(--text-primary)', border: '1px solid var(--divider)' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, textAlign: 'center', fontFamily: '"Outfit", sans-serif' }}>
+          Ban @{banTargetUsername}
+        </DialogTitle>
+        <DialogContent sx={{ py: 2, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            Please specify the reason for banning this user. Banning will remove them from the community and prevent them from returning until they are unbanned.
+          </Typography>
+
+          <TextField
+            label="Reason for Ban"
+            multiline
+            rows={3}
+            fullWidth
+            value={banReason}
+            onChange={(e) => setBanReason(e.target.value)}
+            placeholder="Violating community guidelines, harassment, spamming, etc."
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 1, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            fullWidth 
+            onClick={() => {
+              setBanDialogOpen(false);
+              setBanTargetUserId(null);
+            }}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            fullWidth 
+            onClick={handleBanSubmit}
+            disabled={!banReason.trim()}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 800 }}
+          >
+            Ban
           </Button>
         </DialogActions>
       </Dialog>

@@ -35,7 +35,7 @@
 
 .community-card:hover {
   transform: translateY(-8px);
-  border-color: rgba(61, 92, 255, 0.35);
+  border-color: var(--primary-main);
 }
 
 .community-card-banner {
@@ -231,7 +231,7 @@
 
 .post-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(61, 92, 255, 0.35) !important;
+  border-color: var(--primary-main) !important;
 }
 
 .post-votes-sidebar {
@@ -242,7 +242,7 @@
   align-items: center;
   justify-content: center;
   padding: 1.25rem 0;
-  background: var(--background-default);
+  background: var(--background-paper-alt);
   border-right: 1px solid var(--divider);
 }
 

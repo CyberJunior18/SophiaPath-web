@@ -184,6 +184,10 @@ const CommunityDetailPage = () => {
   const [timeoutTargetUsername, setTimeoutTargetUsername] = useState('');
   const [timeoutDuration, setTimeoutDuration] = useState(5);
   const [isMyStatusTimedOut, setIsMyStatusTimedOut] = useState(false);
+  const [banDialogOpen, setBanDialogOpen] = useState(false);
+  const [banTargetUserId, setBanTargetUserId] = useState(null);
+  const [banTargetUsername, setBanTargetUsername] = useState('');
+  const [banReason, setBanReason] = useState('Violating community guidelines');
 
   // Visibility states for optional attachment fields
   const [showCodeField, setShowCodeField] = useState(false);
@@ -234,7 +238,7 @@ const CommunityDetailPage = () => {
         console.error(e);
       }
       // If a roomId is in params, use it; otherwise default to first room
-      if (paramRoomId) {
+      if (paramRoomId && !isNaN(Number(paramRoomId))) {
         setActiveRoomId(Number(paramRoomId));
       } else if (data.rooms && data.rooms.length > 0) {
         setActiveRoomId(data.rooms[0].id);
@@ -484,8 +488,24 @@ const CommunityDetailPage = () => {
       await socialStore.timeoutUser(community.id, timeoutTargetUserId, timeoutDuration);
       showToast(`Placed @${timeoutTargetUsername} on timeout for ${timeoutDuration} minutes.`);
       setTimeoutDialogOpen(false);
+      setOpenMembersDialog(false);
       setTimeoutTargetUserId(null);
       setTimeoutTargetUsername('');
+      loadCommunity();
+    } catch (err) {
+      showCustomAlert("Action Failed", err.message);
+    }
+  };
+
+  const handleBanSubmit = async () => {
+    if (!banTargetUserId || !community) return;
+    try {
+      await socialStore.banUser(community.id, banTargetUserId, banReason);
+      showToast(`Successfully banned @${banTargetUsername}`);
+      setBanDialogOpen(false);
+      setOpenMembersDialog(false);
+      setBanTargetUserId(null);
+      setBanTargetUsername('');
       loadCommunity();
     } catch (err) {
       showCustomAlert("Action Failed", err.message);
@@ -793,8 +813,24 @@ const CommunityDetailPage = () => {
               variant="contained"
               size="small"
               startIcon={<AddIcon />}
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.currentTarget.blur();
+                try {
+                  const status = await socialStore.getMyStatus(community.id);
+                  if (status?.isBanned) {
+                    showCustomAlert("Access Denied", "You have been banned from this community.");
+                    setIsMyStatusTimedOut(false);
+                    loadCommunity();
+                    return;
+                  }
+                  if (status?.isTimedOut) {
+                    showCustomAlert("Temporary Cooldown", "You are currently on timeout and cannot create posts.");
+                    setIsMyStatusTimedOut(true);
+                    return;
+                  }
+                } catch (err) {
+                  console.error("Failed to verify status:", err);
+                }
                 setOpenAskQuestion(true);
               }}
               disabled={!community.isJoined || isMyStatusTimedOut}
@@ -816,7 +852,7 @@ const CommunityDetailPage = () => {
                 <Card 
                   key={q.id} 
                   className="post-card"
-                  onClick={() => navigate(`/communities/${communityId}/room/${activeRoomId}/question/${q.id}`)}
+                  onClick={() => navigate(`/communities/${community?.id || communityId}/room/${q.roomId || activeRoomId || 1}/question/${q.id}`)}
                   sx={{ flexShrink: 0 }}
                 >
                   {/* Upvote side column */}
@@ -845,7 +881,10 @@ const CommunityDetailPage = () => {
                   {/* Body Content */}
                   <Box className="post-card-body">
                     <Box className="post-meta">
-                      <Avatar sx={{ width: 18, height: 18, fontSize: '0.65rem' }}>
+                      <Avatar 
+                        src={localStorage.getItem(`avatar_${q.authorId}`) || community?.members?.find(m => Number(m.id) === Number(q.authorId))?.avatar || q.authorAvatar || ''} 
+                        sx={{ width: 18, height: 18, fontSize: '0.65rem' }}
+                      >
                         {q.authorName?.charAt(0)?.toUpperCase() || '?'}
                       </Avatar>
                       <span className="post-author">{q.authorName}</span>
@@ -1559,21 +1598,12 @@ const CommunityDetailPage = () => {
               Timeout User
             </MenuItem>
             <MenuItem 
-              onClick={async () => {
+              onClick={() => {
                 setMemberMenuAnchor(null);
-                showConfirmDialog(
-                  "Ban User?",
-                  `Are you sure you want to ban @${selectedMember.fullname || selectedMember.username || 'user'} from this community?`,
-                  async () => {
-                    try {
-                      await socialStore.banUser(community.id, selectedMember.id);
-                      showToast(`Successfully banned @${selectedMember.fullname || selectedMember.username || 'user'}`);
-                      loadCommunity();
-                    } catch (err) {
-                      showCustomAlert("Action Failed", err.message);
-                    }
-                  }
-                );
+                setBanTargetUserId(selectedMember.id);
+                setBanTargetUsername(selectedMember.fullname || selectedMember.username || 'user');
+                setBanReason('Violating community guidelines');
+                setBanDialogOpen(true);
                 setSelectedMember(null);
               }} 
               sx={{ color: 'error.main' }}
@@ -1972,6 +2002,61 @@ const CommunityDetailPage = () => {
             sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 800, background: 'var(--hero-gradient)', color: '#fff' }}
           >
             Timeout
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* BAN DIALOG WITH REASON */}
+      <Dialog
+        open={banDialogOpen}
+        onClose={() => {
+          setBanDialogOpen(false);
+          setBanTargetUserId(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2.5, p: 2, background: 'var(--background-paper)', color: 'var(--text-primary)', border: '1px solid var(--divider)' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, textAlign: 'center', fontFamily: '"Outfit", sans-serif' }}>
+          Ban @{banTargetUsername}
+        </DialogTitle>
+        <DialogContent sx={{ py: 2, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            Please specify the reason for banning this user. Banning will remove them from the community and prevent them from returning until they are unbanned.
+          </Typography>
+
+          <TextField
+            label="Reason for Ban"
+            multiline
+            rows={3}
+            fullWidth
+            value={banReason}
+            onChange={(e) => setBanReason(e.target.value)}
+            placeholder="Violating community guidelines, harassment, spamming, etc."
+            InputProps={{ sx: { borderRadius: 1.5 } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 1, gap: 1.5 }}>
+          <Button 
+            variant="outlined" 
+            fullWidth 
+            onClick={() => {
+              setBanDialogOpen(false);
+              setBanTargetUserId(null);
+            }}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            fullWidth 
+            onClick={handleBanSubmit}
+            disabled={!banReason.trim()}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 800 }}
+          >
+            Ban
           </Button>
         </DialogActions>
       </Dialog>

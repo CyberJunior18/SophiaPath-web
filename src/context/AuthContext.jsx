@@ -84,6 +84,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const syncAvatarIfNeeded = (userData, token) => {
+    const localAv = localStorage.getItem(`avatar_${userData.id}`);
+    if (localAv && !userData.avatar) {
+      fetch('/users/me', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ avatar: localAv })
+      }).catch(err => console.error("Self-healing avatar sync failed:", err));
+    }
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       const savedToken = getStoredToken();
@@ -96,6 +110,7 @@ export const AuthProvider = ({ children }) => {
           });
           if (res.ok) {
             const userData = await res.json();
+            syncAvatarIfNeeded(userData, savedToken);
             const progress = await fetchUserProgress(savedToken);
 
             const finalRoleId = userData.roleID ?? 0;
@@ -191,6 +206,8 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem(`pending_avatar_${userData.email}`);
         }
 
+        syncAvatarIfNeeded(userData, accessToken);
+
         const finalRoleId = userData.roleID ?? 0;
         const finalCourses = userData.assignedCourseIds ? userData.assignedCourseIds.map(Number) : [];
 
@@ -238,7 +255,8 @@ export const AuthProvider = ({ children }) => {
         fullname,
         tag: userData.tag || "Learner",
         gender: userData.gender || "Rather Not Say",
-        age: userData.age ? Number(userData.age) : 20
+        age: userData.age ? Number(userData.age) : 20,
+        avatar: userData.avatar || ''
       };
 
       const res = await fetch('/auth/register', {

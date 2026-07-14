@@ -771,11 +771,11 @@ export const socialStore = {
     return res.json();
   },
 
-  banUser: async (communityId, targetUserId) => {
+  banUser: async (communityId, targetUserId, reason) => {
     const res = await fetch(`/api/communities/${communityId}/ban`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ targetUserId: Number(targetUserId) })
+      body: JSON.stringify({ targetUserId: Number(targetUserId), reason })
     });
     if (!res.ok) {
       const errorData = await res.json();
