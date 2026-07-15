@@ -396,6 +396,10 @@ const GroupChatPage = () => {
         setMessages(prev => prev.map(m => m.id === menuMessage.id ? { ...m, deleted: true, text: 'This message was deleted' } : m));
         setSnackbarMessage("Message deleted!");
         setOpenSnackbar(true);
+        // Remove from starred messages list
+        let starred = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
+        starred = starred.filter(m => String(m.id) !== String(menuMessage.id));
+        localStorage.setItem('starred_messages_list', JSON.stringify(starred));
       }
     }
     handleCloseMenu();
@@ -980,6 +984,10 @@ const GroupChatPage = () => {
       if (res) {
         setMessages(prev => prev.map(m => String(m.id) === String(id) ? { ...m, deleted: true, text: 'This message was deleted' } : m));
         successCount++;
+        // Remove from starred messages list
+        let starred = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
+        starred = starred.filter(m => String(m.id) !== String(id));
+        localStorage.setItem('starred_messages_list', JSON.stringify(starred));
       }
     }
 
@@ -2874,6 +2882,11 @@ const GroupChatPage = () => {
                 deletedObj[groupId] = new Date().toISOString();
                 localStorage.setItem(`sophiapath_deleted_groups_${user.id}`, JSON.stringify(deletedObj));
               }
+              // Remove starred messages for this group
+              let starred = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
+              starred = starred.filter(m => String(m.groupId) !== String(groupId));
+              localStorage.setItem('starred_messages_list', JSON.stringify(starred));
+
               setOpenDeleteConfirm(false);
               navigate('/chats?tab=groups');
             }}

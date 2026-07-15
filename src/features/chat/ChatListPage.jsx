@@ -382,6 +382,10 @@ const ChatListPage = () => {
     const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_chats_${user.id}`) || '{}');
     deletedObj[chatMenuTargetUserId] = new Date().toISOString();
     localStorage.setItem(`sophiapath_deleted_chats_${user.id}`, JSON.stringify(deletedObj));
+    // Remove starred messages for this chat
+    let starred = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
+    starred = starred.filter(m => String(m.chatPartnerId) !== String(chatMenuTargetUserId));
+    localStorage.setItem('starred_messages_list', JSON.stringify(starred));
     setSettingsTrigger(prev => prev + 1);
     handleCloseChatMenu();
   };
@@ -403,6 +407,10 @@ const ChatListPage = () => {
     const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_groups_${user.id}`) || '{}');
     deletedObj[groupMenuTargetId] = new Date().toISOString();
     localStorage.setItem(`sophiapath_deleted_groups_${user.id}`, JSON.stringify(deletedObj));
+    // Remove starred messages for this group
+    let starred = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
+    starred = starred.filter(m => String(m.groupId) !== String(groupMenuTargetId));
+    localStorage.setItem('starred_messages_list', JSON.stringify(starred));
     setSettingsTrigger(prev => prev + 1);
     handleCloseGroupMenu();
   };

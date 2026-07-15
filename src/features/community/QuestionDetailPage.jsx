@@ -109,9 +109,10 @@ const RenderReplyNode = ({
   isJoinedMember,
   collapsedReplyIds,
   toggleReplyCollapse,
-  canDeleteContent,
   cooldownMs,
-  isMyStatusTimedOut
+  isMyStatusTimedOut,
+  community,
+  canDeleteContent
 }) => {
   if (!reply) return null;
   const isReplyAuthor = Number(reply.authorId) === Number(user?.id);
@@ -338,6 +339,7 @@ const RenderReplyNode = ({
                     canDeleteContent={canDeleteContent}
                     cooldownMs={cooldownMs}
                     isMyStatusTimedOut={isMyStatusTimedOut}
+                    community={community}
                   />
                 ))
               )}
@@ -1997,6 +1999,7 @@ const QuestionDetailPage = () => {
                     canDeleteContent={canDeleteContent}
                     cooldownMs={cooldownMs}
                     isMyStatusTimedOut={isMyStatusTimedOut}
+                    community={community}
                   />
                 ))}
               </Box>
@@ -2244,6 +2247,7 @@ const QuestionDetailPage = () => {
                               canDeleteContent={canDeleteContent}
                               cooldownMs={cooldownMs}
                               isMyStatusTimedOut={isMyStatusTimedOut}
+                              community={community}
                             />
                           ))}
                         </Box>

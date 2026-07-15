@@ -45,6 +45,25 @@
 
 .chat-search-field .MuiOutlinedInput-root {
   background: var(--background-default);
+  border-radius: 24px !important;
+}
+
+.chat-search-field .MuiOutlinedInput-notchedOutline {
+  border-color: var(--divider) !important;
+  border-radius: 24px !important;
+  top: 0 !important;
+}
+
+.chat-search-field .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: var(--primary-main) !important;
+}
+
+.chat-search-field .Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--primary-main) !important;
+}
+
+.chat-search-field .MuiOutlinedInput-notchedOutline legend {
+  display: none !important;
 }
 
 /* Chat Page Header */
@@ -197,9 +216,33 @@
   background: var(--background-paper);
 }
 
-.chat-text-field .MuiOutlinedInput-root {
+.chat-text-field .MuiOutlinedInput-root,
+.chat-input-field .MuiOutlinedInput-root {
   background: var(--background-default);
+  border-radius: 32px !important;
   transition: all 0.2s ease;
+}
+
+.chat-text-field .MuiOutlinedInput-notchedOutline,
+.chat-input-field .MuiOutlinedInput-notchedOutline {
+  border-color: var(--divider) !important;
+  border-radius: 32px !important;
+  top: 0 !important;
+}
+
+.chat-text-field .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline,
+.chat-input-field .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: var(--primary-main) !important;
+}
+
+.chat-text-field .Mui-focused .MuiOutlinedInput-notchedOutline,
+.chat-input-field .Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--primary-main) !important;
+}
+
+.chat-text-field .MuiOutlinedInput-notchedOutline legend,
+.chat-input-field .MuiOutlinedInput-notchedOutline legend {
+  display: none !important;
 }
 
 .chat-send-btn {

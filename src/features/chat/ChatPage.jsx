@@ -544,6 +544,10 @@ const ChatPage = () => {
       if (res) {
         setMessages(prev => prev.map(m => String(m.id) === String(id) ? { ...m, deleted: true, text: 'This message was deleted' } : m));
         successCount++;
+        // Remove from starred messages list
+        let starred = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
+        starred = starred.filter(m => String(m.id) !== String(id));
+        localStorage.setItem('starred_messages_list', JSON.stringify(starred));
       }
     }
 
@@ -676,6 +680,10 @@ const ChatPage = () => {
         setMessages(prev => prev.map(m => m.id === menuMessage.id ? { ...m, deleted: true, text: 'This message was deleted' } : m));
         setSnackbarMessage("Message deleted!");
         setOpenSnackbar(true);
+        // Remove from starred messages list
+        let starred = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
+        starred = starred.filter(m => String(m.id) !== String(menuMessage.id));
+        localStorage.setItem('starred_messages_list', JSON.stringify(starred));
       }
     }
     handleCloseMenu();

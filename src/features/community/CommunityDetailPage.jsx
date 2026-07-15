@@ -29,7 +29,9 @@ import {
   FormControlLabel,
   ListItem,
   Snackbar,
-  Alert
+  Alert,
+  Radio,
+  RadioGroup
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -130,6 +132,43 @@ const CommunityDetailPage = () => {
   const [hidePending, setHidePending] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
   const [openMembersDialog, setOpenMembersDialog] = useState(false);
+  const [notifSettingsOpen, setNotifSettingsOpen] = useState(false);
+  const [notifPreference, setNotifPreference] = useState('all');
+
+  const handleOpenNotifSettings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const res = await fetch(`/api/notifications/settings/community/${community.id}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifPreference(data.preference || 'all');
+      }
+    } catch (e) {
+      console.error('Failed to load notification settings:', e);
+    }
+    setNotifSettingsOpen(true);
+  };
+
+  const handleSaveNotifSettings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      
+      await fetch(`/api/notifications/settings/community/${community.id}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ preference: notifPreference })
+      });
+    } catch (e) {
+      console.error('Failed to save notification settings:', e);
+    }
+    setNotifSettingsOpen(false);
+  };
+
   const [communityMenuAnchor, setCommunityMenuAnchor] = useState(null);
   const [memberMenuAnchor, setMemberMenuAnchor] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
@@ -1469,6 +1508,89 @@ const CommunityDetailPage = () => {
         </DialogContent>
       </Dialog>
 
+      {/* NOTIFICATION SETTINGS DIALOG */}
+      <Dialog
+        open={notifSettingsOpen}
+        onClose={() => setNotifSettingsOpen(false)}
+        PaperProps={{
+          style: {
+            background: 'var(--background-paper)',
+            border: '1px solid var(--divider)',
+            borderRadius: '12px',
+            padding: '8px',
+            width: '100%',
+            maxWidth: '400px'
+          }
+        }}
+      >
+        <DialogTitle style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '1.2rem' }}>
+          Notification Settings
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            Choose how you want to be notified for comment and reply activities inside <strong>{community.name}</strong>.
+          </Typography>
+          <FormControl component="fieldset">
+            <RadioGroup
+              value={notifPreference}
+              onChange={(e) => setNotifPreference(e.target.value)}
+            >
+              <FormControlLabel
+                value="all"
+                control={<Radio style={{ color: 'var(--primary-main)' }} />}
+                label={
+                  <Box sx={{ ml: 1 }}>
+                    <Typography variant="subtitle2" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                      All Activity
+                    </Typography>
+                    <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                      Notify me on all comments on my posts and replies on my comments
+                    </Typography>
+                  </Box>
+                }
+                style={{ marginBottom: '12px', alignItems: 'flex-start' }}
+              />
+              <FormControlLabel
+                value="none"
+                control={<Radio style={{ color: 'var(--primary-main)' }} />}
+                label={
+                  <Box sx={{ ml: 1 }}>
+                    <Typography variant="subtitle2" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                      Muted
+                    </Typography>
+                    <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                      Do not notify me about any comments or replies inside this community
+                    </Typography>
+                  </Box>
+                }
+                style={{ alignItems: 'flex-start' }}
+              />
+            </RadioGroup>
+          </FormControl>
+        </DialogContent>
+        <DialogActions style={{ padding: '16px' }}>
+          <Button
+            onClick={() => setNotifSettingsOpen(false)}
+            style={{ textTransform: 'none', color: 'var(--text-secondary)', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveNotifSettings}
+            style={{
+              textTransform: 'none',
+              background: 'var(--primary-main)',
+              borderRadius: '8px',
+              fontWeight: 800,
+              padding: '6px 16px'
+            }}
+          >
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* COMMUNITY MENU */}
       <Menu
         anchorEl={communityMenuAnchor}
@@ -1515,6 +1637,14 @@ const CommunityDetailPage = () => {
             handleDeleteCommunityClick();
           }} sx={{ color: 'error.main' }}>
             Delete Community
+          </MenuItem>
+        )}
+        {community.isJoined && (
+          <MenuItem onClick={() => {
+            setCommunityMenuAnchor(null);
+            handleOpenNotifSettings();
+          }}>
+            Notification Settings
           </MenuItem>
         )}
         {community.isJoined ? (

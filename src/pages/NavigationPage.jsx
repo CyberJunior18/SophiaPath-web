@@ -16,7 +16,9 @@ import {
   useTheme,
   Stack,
   Popover,
-  Tooltip} from '@mui/material';
+  Tooltip,
+  Badge,
+  ListItem} from '@mui/material';
 import {
   AutoAwesome as AutoAwesomeIcon,
   Brightness6 as Brightness6Icon,
@@ -34,7 +36,9 @@ import {
   Groups as GroupsIcon,
   School as SchoolIcon,
   Science as ScienceIcon,
-  InfoOutlined as InfoIcon} from '@mui/icons-material';
+  InfoOutlined as InfoIcon,
+  Notifications as NotificationsIcon,
+  DoneAll as DoneAllIcon} from '@mui/icons-material';
 
 
 import { AnimatePresence, motion } from 'framer-motion';
@@ -1084,6 +1088,225 @@ const NavigationPage = () => {
     }
   }, [location.pathname]);
 
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifAnchor, setNotifAnchor] = useState(null);
+
+  const handleNotifClick = (event) => {
+    setNotifAnchor(event.currentTarget);
+  };
+
+  const handleNotifClose = () => {
+    setNotifAnchor(null);
+  };
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
+      const [notifsRes, countRes] = await Promise.all([
+        fetch('/api/notifications', { headers }),
+        fetch('/api/notifications/unread-count', { headers })
+      ]);
+
+      if (notifsRes.ok && countRes.ok) {
+        let notifs = await notifsRes.json();
+        let countData = await countRes.json();
+        let unreadCountVal = countData.count;
+
+        // Check if inside active chat / group chat to auto-mute
+        const chatMatch = location.pathname.match(/^\/chat\/(\d+)/);
+        const activeChatPartnerId = chatMatch ? chatMatch[1] : null;
+
+        const groupMatch = location.pathname.match(/^\/group\/(\d+)/);
+        const activeGroupId = groupMatch ? groupMatch[1] : null;
+
+        const readPromises = [];
+        notifs = notifs.map(n => {
+          if (!n.isRead) {
+            const isViewingChat = n.type === 'chat' && String(n.sourceId) === String(activeChatPartnerId);
+            const isViewingGroup = n.type === 'group_chat' && String(n.sourceId) === String(activeGroupId);
+            if (isViewingChat || isViewingGroup) {
+              n.isRead = true;
+              unreadCountVal = Math.max(0, unreadCountVal - 1);
+              readPromises.push(
+                fetch(`/api/notifications/${n.id}/read`, { method: 'POST', headers })
+              );
+            }
+          }
+          return n;
+        });
+
+        if (readPromises.length > 0) {
+          try {
+            await Promise.all(readPromises);
+          } catch (e) {
+            console.error('Failed to auto-read current chat notifications:', e);
+          }
+        }
+
+        setNotifications(notifs);
+        setUnreadCount(unreadCountVal);
+      }
+    } catch (e) {
+      console.error('Failed to fetch notifications:', e);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
+      const res = await fetch('/api/notifications/mark-all-read', {
+        method: 'POST',
+        headers
+      });
+
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        setUnreadCount(0);
+      }
+    } catch (e) {
+      console.error('Failed to mark notifications as read:', e);
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
+      const res = await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers
+      });
+
+      if (res.ok) {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    } catch (e) {
+      console.error('Failed to clear notifications:', e);
+    }
+  };
+
+  const handleNotificationClick = async (notif) => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
+      const ids = notif.originalIds || [notif.id];
+      await Promise.all(
+        ids.map(id =>
+          fetch(`/api/notifications/${id}/read`, {
+            method: 'POST',
+            headers
+          })
+        )
+      );
+
+      // Update state
+      setNotifications(prev => prev.map(n => ids.includes(n.id) ? { ...n, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - ids.length));
+      
+      handleNotifClose();
+
+      // Navigation routing based on notification type
+      if (notif.type === 'system_role') {
+        navigate('/profile');
+      } else if (notif.type === 'community_role') {
+        navigate(`/communities/${notif.sourceId}`);
+      } else if (notif.type === 'comment' || notif.type === 'reply') {
+        navigate(`/communities/${notif.sourceId}`);
+      } else if (notif.type === 'chat') {
+        navigate(`/chat/${notif.sourceId}`);
+      } else if (notif.type === 'group_chat' || notif.type === 'group_role') {
+        navigate(`/group/${notif.sourceId}`);
+      }
+    } catch (e) {
+      console.error('Failed to handle notification click:', e);
+    }
+  };
+
+  const getGroupedNotifications = () => {
+    const grouped = [];
+    const unreadGroups = {}; // key: 'chat:sourceId' or 'group_chat:sourceId' -> array of notifications
+
+    for (const notif of notifications) {
+      if (!notif.isRead && (notif.type === 'chat' || notif.type === 'group_chat')) {
+        const key = `${notif.type}:${notif.sourceId}`;
+        if (!unreadGroups[key]) {
+          unreadGroups[key] = [];
+        }
+        unreadGroups[key].push(notif);
+      } else {
+        grouped.push({ ...notif, originalIds: [notif.id] });
+      }
+    }
+
+    for (const key in unreadGroups) {
+      const groupNotifs = unreadGroups[key];
+      // Sort by date descending (most recent first)
+      groupNotifs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      const mostRecent = groupNotifs[0];
+      const count = groupNotifs.length;
+      
+      if (count > 1) {
+        let mergedMessage = '';
+        if (mostRecent.type === 'chat') {
+          const parts = mostRecent.message.split(': ');
+          const sender = parts[0] || 'User';
+          const lastMsg = parts.slice(1).join(': ') || '';
+          mergedMessage = `${sender} (${count} messages): ${lastMsg}`;
+        } else {
+          // Group chat
+          const parts = mostRecent.message.split(' - ');
+          const groupName = parts[0] || 'Group';
+          const rest = parts.slice(1).join(' - ') || '';
+          const subParts = rest.split(': ');
+          const sender = subParts[0] || 'User';
+          const lastMsg = subParts.slice(1).join(': ') || '';
+          mergedMessage = `${groupName} - ${sender} (${count} messages): ${lastMsg}`;
+        }
+
+        grouped.push({
+          ...mostRecent,
+          message: mergedMessage,
+          originalIds: groupNotifs.map(n => n.id)
+        });
+      } else {
+        grouped.push({
+          ...mostRecent,
+          originalIds: [mostRecent.id]
+        });
+      }
+    }
+
+    return grouped.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 4000);
+      return () => clearInterval(interval);
+    } else {
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!localStorage.getItem('sophiapath_starred_cleared')) {
+      localStorage.removeItem('starred_messages_list');
+      localStorage.setItem('sophiapath_starred_cleared', 'true');
+    }
+  }, []);
+
   const userName = user?.name || (user ? 'Learner' : 'Guest User');
 
 
@@ -1712,6 +1935,11 @@ const NavigationPage = () => {
                 </Button>
               ) : (
                 <>
+                  <IconButton onClick={handleNotifClick} className="nav-notif-btn" title="Notifications" style={{ color: 'var(--text-secondary)' }}>
+                    <Badge badgeContent={unreadCount} color="error" max={99}>
+                      <NotificationsIcon />
+                    </Badge>
+                  </IconButton>
                   <IconButton onClick={handleLogout} className="nav-logout-btn" title="Logout">
                     <LogoutIcon />
                   </IconButton>
@@ -1723,6 +1951,99 @@ const NavigationPage = () => {
                   >
                     {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
                   </Avatar>
+
+                  <Popover
+                    open={Boolean(notifAnchor)}
+                    anchorEl={notifAnchor}
+                    onClose={handleNotifClose}
+                    anchorOrigin={{
+                      vertical: 'bottom',
+                      horizontal: 'right',
+                    }}
+                    transformOrigin={{
+                      vertical: 'top',
+                      horizontal: 'right',
+                    }}
+                    PaperProps={{
+                      style: {
+                        width: '360px',
+                        maxHeight: '480px',
+                        background: 'var(--background-paper)',
+                        border: '1px solid var(--divider)',
+                        borderRadius: '12px',
+                        backdropFilter: 'blur(10px)',
+                        boxShadow: 'none',
+                        marginTop: '8px'
+                      },
+                    }}
+                  >
+                    <Box style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)' }}>
+                      <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '15px' }}>
+                        Notifications
+                      </Typography>
+                      <Box style={{ display: 'flex', gap: '8px' }}>
+                        {unreadCount > 0 && (
+                          <Button
+                            size="small"
+                            onClick={handleMarkAllRead}
+                            style={{ textTransform: 'none', color: 'var(--primary-main)', fontWeight: 700, fontSize: '12px', padding: 0, minWidth: 0 }}
+                          >
+                            Mark read
+                          </Button>
+                        )}
+                        {notifications.length > 0 && (
+                          <Button
+                            size="small"
+                            onClick={handleClearAll}
+                            style={{ textTransform: 'none', color: 'var(--text-secondary)', fontWeight: 700, fontSize: '12px', padding: 0, minWidth: 0 }}
+                          >
+                            Clear all
+                          </Button>
+                        )}
+                      </Box>
+                    </Box>
+                    <List style={{ padding: 0, overflowY: 'auto', maxHeight: '400px' }}>
+                      {notifications.length === 0 ? (
+                        <Box style={{ padding: '40px 16px', textAlign: 'center' }}>
+                          <NotificationsIcon style={{ fontSize: '32px', color: 'var(--text-secondary)', opacity: 0.4, marginBottom: '8px' }} />
+                          <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                            You are all caught up!
+                          </Typography>
+                        </Box>
+                      ) : (
+                        getGroupedNotifications().map((notif) => (
+                          <ListItem
+                            key={notif.id}
+                            disablePadding
+                            style={{
+                              borderBottom: '1px solid var(--divider)',
+                              background: notif.isRead ? 'transparent' : 'rgba(var(--primary-main-rgb), 0.04)',
+                            }}
+                          >
+                            <ListItemButton onClick={() => handleNotificationClick(notif)} style={{ padding: '12px 16px' }}>
+                              <ListItemText
+                                primary={
+                                  <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px' }}>
+                                    <Typography variant="subtitle2" style={{ fontWeight: notif.isRead ? 600 : 800, color: 'var(--text-primary)', fontSize: '13px' }}>
+                                      {notif.type === 'chat' && notif.originalIds?.length > 1 ? 'New Chat Messages' : notif.type === 'group_chat' && notif.originalIds?.length > 1 ? 'New Group Messages' : notif.title}
+                                    </Typography>
+                                    <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '9px', whiteSpace: 'nowrap' }}>
+                                      {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </Typography>
+                                  </Box>
+                                }
+                                secondary={
+                                  <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '4px', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                                    {notif.message}
+                                  </Typography>
+                                }
+                              />
+                            </ListItemButton>
+                          </ListItem>
+                        ))
+                      )}
+                    </List>
+                  </Popover>
                 </>
               )}
             </div>

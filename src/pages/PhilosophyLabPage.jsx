@@ -1673,6 +1673,7 @@ export const TrolleyProblemWidget = () => {
   const [profilingDone, setProfilingDone] = useState(false);
   const [animationState, setAnimationState] = useState('idle'); // 'idle' | 'running' | 'complete'
   const [decision, setDecision] = useState(null); // 'yes' | 'no'
+  const [smokeActive, setSmokeActive] = useState(false);
 
   const scenarios = [
     {
@@ -1754,12 +1755,19 @@ export const TrolleyProblemWidget = () => {
 
     setTimeout(() => {
       setAnimationState('complete');
+      if (currentScenario === 10) {
+        setSmokeActive(true);
+        setTimeout(() => {
+          setSmokeActive(false);
+        }, 3000);
+      }
     }, 2400);
   };
 
   const handleNext = () => {
     setAnimationState('idle');
     setDecision(null);
+    setSmokeActive(false);
     if (currentScenario < 10) {
       setCurrentScenario(prev => prev + 1);
     } else {
@@ -1806,6 +1814,7 @@ export const TrolleyProblemWidget = () => {
     setProfilingDone(false);
     setAnimationState('idle');
     setDecision(null);
+    setSmokeActive(false);
   };
 
   const trolleyX = decision === 'yes' 
@@ -2848,18 +2857,18 @@ export const TrolleyProblemWidget = () => {
                 {/* Incipient starting fires - visible only while deciding or running */}
                 {animationState !== 'complete' && (
                   <>
-                    {/* Fire under stranger */}
+                    {/* Fire under stranger (bottom at floor) */}
                     <motion.g transform="translate(65, 160)" animate={{ scaleY: [1, 1.2, 0.9, 1.1, 1] }} transition={{ repeat: Infinity, duration: 1.2 }}>
                       <path d="M -10,0 L -4,-18 L 2,-8 L 8,-22 L 14,0 Z" fill="#ff3d00" />
                       <path d="M -6,0 L -2,-12 L 2,-5 L 6,-15 L 9,0 Z" fill="#ffb300" />
                     </motion.g>
-                    {/* Fire under masterpiece painting */}
-                    <motion.g transform="translate(225, 160)" animate={{ scaleY: [1, 1.15, 0.95, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1.0 }}>
+                    {/* Fire under masterpiece painting (bottom of frame on the wall) */}
+                    <motion.g transform="translate(227, 101)" animate={{ scaleY: [1, 1.15, 0.95, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1.0 }}>
                       <path d="M -8,0 L -3,-15 L 2,-6 L 7,-18 L 12,0 Z" fill="#ff3d00" />
                       <path d="M -5,0 L -1,-10 L 2,-4 L 5,-12 L 8,0 Z" fill="#ffb300" />
                     </motion.g>
-                    {/* Fire under sculpture pedestal */}
-                    <motion.g transform="translate(310, 160)" animate={{ scaleY: [1, 1.25, 0.9, 1.1, 1] }} transition={{ repeat: Infinity, duration: 1.4 }}>
+                    {/* Fire under sculpture (bottom of sculpture itself on top of the cap) */}
+                    <motion.g transform="translate(310, 95)" animate={{ scaleY: [1, 1.25, 0.9, 1.1, 1] }} transition={{ repeat: Infinity, duration: 1.4 }}>
                       <path d="M -8,0 L -3,-16 L 2,-7 L 7,-20 L 12,0 Z" fill="#ff3d00" />
                       <path d="M -5,0 L -1,-11 L 2,-5 L 5,-13 L 8,0 Z" fill="#ffb300" />
                     </motion.g>
@@ -2869,12 +2878,12 @@ export const TrolleyProblemWidget = () => {
                 {/* Massive fires at the end state */}
                 {animationState === 'complete' && decision === 'yes' && (
                   <motion.g initial={{ opacity: 0 }} animate={{ opacity: 0.9 }}>
-                    {/* Original massive right fire */}
-                    <path d="M 330,160 L 345,60 L 365,110 L 385,30 L 405,120 L 415,50 L 430,160 Z" fill="#ff3d00" />
-                    <path d="M 345,160 L 360,90 L 375,120 L 390,70 L 415,160 Z" fill="#ffb300" />
+                    {/* Original massive right fire centered on sculpture */}
+                    <path d="M 270,160 L 290,50 L 310,100 L 330,20 L 350,110 L 360,40 L 375,160 Z" fill="#ff3d00" />
+                    <path d="M 285,160 L 300,80 L 315,110 L 330,60 L 350,160 Z" fill="#ffb300" />
                     {/* Massive fire engulfing the masterpiece painting on the right wall */}
-                    <path d="M 200,160 L 220,70 L 235,110 L 245,65 L 260,160 Z" fill="#ff3d00" />
-                    <path d="M 210,160 L 225,95 L 235,120 L 245,85 L 250,160 Z" fill="#ffb300" />
+                    <path d="M 200,105 L 220,50 L 235,80 L 245,45 L 260,105 Z" fill="#ff3d00" />
+                    <path d="M 210,105 L 225,65 L 235,90 L 245,60 L 250,105 Z" fill="#ffb300" />
                   </motion.g>
                 )}
                 {animationState === 'complete' && decision === 'no' && (
@@ -2890,13 +2899,13 @@ export const TrolleyProblemWidget = () => {
                   initial={{ x: 200, y: 150 }}
                   animate={
                     animationState === 'running' && decision === 'yes'
-                      ? { x: [200, 70, 110] }
+                      ? { x: [200, 70, 135] }
                       : animationState === 'complete' && decision === 'yes'
-                      ? { x: 110 }
+                      ? { x: 135 }
                       : animationState === 'running' && decision === 'no'
-                      ? { x: [200, 350, 300] }
+                      ? { x: [200, 270, 170] }
                       : animationState === 'complete' && decision === 'no'
-                      ? { x: 300 }
+                      ? { x: 170 }
                       : { x: 200 }
                   }
                   transition={{ duration: 2.0 }}
@@ -2911,7 +2920,7 @@ export const TrolleyProblemWidget = () => {
                       <rect x="-1" y="-3" width="2" height="2" fill="#37474f" />
                       <line x1="0" y1="-2" x2="-4" y2="-4" stroke="#37474f" strokeWidth="0.8" />
                       {/* White smoke spray out (extinguishing the fire/securing the stranger) */}
-                      {animationState === 'complete' && (
+                      {smokeActive && (
                         <g>
                           {/* Expanding base cloud volume */}
                           <motion.path
@@ -2971,7 +2980,7 @@ export const TrolleyProblemWidget = () => {
                       <rect x="-1" y="-3" width="2" height="2" fill="#37474f" />
                       <line x1="0" y1="-2" x2="4" y2="-4" stroke="#37474f" strokeWidth="0.8" />
                       {/* White smoke spray out (extinguishing the fire/securing the artworks) */}
-                      {animationState === 'complete' && (
+                      {smokeActive && (
                         <g>
                           {/* Expanding base cloud volume */}
                           <motion.path
