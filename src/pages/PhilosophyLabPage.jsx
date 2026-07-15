@@ -1495,11 +1495,11 @@ export const ShipOfTheseusWidget = () => {
 };
 
 // Helper Stick Figure component for Trolley Problem visualization (Fully theme compatible)
-const StickFigure = ({ x, y, color = "var(--text-primary)", scale = 1, isDead = false }) => {
+const StickFigure = ({ x, y, color = "var(--text-primary)", bg = "none", scale = 1, isDead = false }) => {
   return (
     <g transform={`translate(${x}, ${y}) scale(${scale})`} style={{ transition: 'all 0.5s' }}>
       {/* Head */}
-      <circle cx="0" cy="-24" r="5" fill="none" stroke={color} strokeWidth="2" />
+      <circle cx="0" cy="-24" r="5" fill={bg} stroke={color} strokeWidth="2" />
       {/* Torso */}
       <line x1="0" y1="-19" x2="0" y2="-7" stroke={color} strokeWidth="2" />
       {/* Arms */}
@@ -1860,7 +1860,7 @@ export const TrolleyProblemWidget = () => {
           <Box style={{ width: '100%', height: '280px', backgroundColor: 'rgba(128,128,128,0.08)', borderRadius: '12px', border: '1px solid rgba(128,128,128,0.15)', position: 'relative', overflow: 'hidden', marginBottom: '20px' }}>
             
             {currentScenario === 1 && (
-              <svg viewBox="0 0 450 180" width="100%" height="100%">
+              <svg viewBox="0 0 450 180" width="100%" height="100%" style={{ overflow: "hidden" }}>
                 <RailroadTracksSVG startX={20} startY={90} endX={430} endY={90} tiesCount={16} />
                 <CurvedRailroadTracksSVG />
                 <motion.line
@@ -1907,474 +1907,1130 @@ export const TrolleyProblemWidget = () => {
             )}
 
             {currentScenario === 2 && (
-              <svg viewBox="0 0 450 180" width="100%" height="100%">
-                <RailroadTracksSVG startX={20} startY={140} endX={430} endY={140} tiesCount={16} />
-                <rect x="180" y="55" width="100" height="10" fill="#78909c" rx="2" />
-                <path d="M 180,65 L 180,140 L 195,140 L 195,75 Q 230,70 265,75 L 265,140 L 280,140 L 280,65 Z" fill="#546e7a" />
-                <line x1="180" y1="55" x2="280" y2="55" stroke="#b0bec5" strokeWidth="2.5" />
-
+              <svg viewBox="0 0 450 200" width="100%" height="100%" style={{ overflow: "hidden" }}>
+                <defs>
+                  <linearGradient id="skyGrad2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#1a1a2e" />
+                    <stop offset="100%" stopColor="#16213e" />
+                  </linearGradient>
+                  <linearGradient id="groundGrad2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3d4b52" />
+                    <stop offset="100%" stopColor="#263238" />
+                  </linearGradient>
+                </defs>
+                {/* Sky background */}
+                <rect x="0" y="0" width="450" height="200" fill="url(#skyGrad2)" />
+                {/* Stars */}
+                {[{x:30,y:15},{x:80,y:8},{x:150,y:20},{x:220,y:6},{x:300,y:18},{x:380,y:10},{x:420,y:22}].map((s,i) => (
+                  <motion.circle key={i} cx={s.x} cy={s.y} r="1.2" fill="#fff" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 2 + i * 0.5, repeat: Infinity, delay: i * 0.3 }} />
+                ))}
+                {/* Ground/Road */}
+                <rect x="0" y="155" width="450" height="45" fill="url(#groundGrad2)" />
+                <line x1="0" y1="155" x2="450" y2="155" stroke="#546e7a" strokeWidth="2" />
+                {/* Railroad tracks on ground */}
+                <RailroadTracksSVG startX={20} startY={162} endX={430} endY={162} tiesCount={16} />
+                {/* Bridge structure - vertical pillars */}
+                <rect x="168" y="72" width="8" height="83" fill="#546e7a" />
+                <rect x="274" y="72" width="8" height="83" fill="#546e7a" />
+                {/* Bridge cables going up */}
+                <line x1="172" y1="72" x2="225" y2="35" stroke="#78909c" strokeWidth="1.5" opacity="0.8" />
+                <line x1="278" y1="72" x2="225" y2="35" stroke="#78909c" strokeWidth="1.5" opacity="0.8" />
+                <line x1="172" y1="80" x2="225" y2="42" stroke="#78909c" strokeWidth="1" opacity="0.5" />
+                <line x1="278" y1="80" x2="225" y2="42" stroke="#78909c" strokeWidth="1" opacity="0.5" />
+                {/* Cable tower top */}
+                <rect x="220" y="30" width="10" height="60" fill="#607d8b" />
+                <rect x="215" y="28" width="20" height="6" rx="2" fill="#78909c" />
+                {/* Bridge deck/walkway */}
+                <rect x="165" y="68" width="120" height="10" rx="2" fill="#607d8b" stroke="#546e7a" strokeWidth="1.5" />
+                {/* Bridge railings */}
+                {[175,190,205,220,235,250,265].map((x,i) => (
+                  <line key={i} x1={x} y1="64" x2={x} y2="78" stroke="#78909c" strokeWidth="1.2" />
+                ))}
+                <line x1="172" y1="64" x2="280" y2="64" stroke="#90a4ae" strokeWidth="1.5" />
+                {/* Moon */}
+                <circle cx="400" cy="25" r="14" fill="#eceff1" />
+                <circle cx="408" cy="22" r="11" fill="#16213e" />
+                {/* YOU figure on bridge - highlighted in green, standing on top of bridge walkway */}
+                <StickFigure x={252} y={63} color="#4CAF50" bg="#16213e" scale={0.85} />
+                <text x="244" y="32" fill="#4CAF50" fontSize="7" fontWeight="800">YOU</text>
+                {/* LARGE MAN (target to push) */}
                 <motion.g
-                  initial={{ x: 215, y: 55 }}
-                  animate={animationState === 'running' && decision === 'yes' ? { y: [55, 55, 140], x: [215, 215, 215], rotate: [0, 90, 180] } : { x: 215, y: 55 }}
-                  transition={{ duration: 2.0, times: [0, 0.4, 0.75], ease: "easeInOut" }}
-                  style={{ cursor: 'pointer' }}
+                  initial={{ x: 217, y: 63 }}
+                  animate={
+                    animationState === 'running' && decision === 'yes'
+                      ? { x: [217, 217, 217], y: [63, 63, 157], rotate: [0, 30, 90] }
+                      : animationState === 'complete' && decision === 'yes'
+                      ? { x: 217, y: 157, rotate: 90 }
+                      : { x: 217, y: 63 }
+                  }
+                  transition={{ duration: 2.0, times: [0, 0.4, 1.0], ease: "easeInOut" }}
+                  style={{ cursor: animationState === 'idle' ? 'pointer' : 'default' }}
                   onClick={() => { if (animationState === 'idle') handleChoice('yes'); }}
                 >
-                  <StickFigure x={0} y={0} color={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#2196F3'} isDead={animationState === 'complete' && decision === 'yes'} scale={1.1} />
+                  {/* Large man (bigger head & body, opaque head to prevent background lines showing through) */}
+                  <circle cx="0" cy="-26" r="8" fill="#16213e" stroke={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#2196F3'} strokeWidth="2.5" />
+                  <line x1="0" y1="-18" x2="0" y2="-2" stroke={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#2196F3'} strokeWidth="3" />
+                  <line x1="-10" y1="-12" x2="10" y2="-12" stroke={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#2196F3'} strokeWidth="3" />
+                  <line x1="0" y1="-2" x2="-7" y2="10" stroke={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#2196F3'} strokeWidth="3" />
+                  <line x1="0" y1="-2" x2="7" y2="10" stroke={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#2196F3'} strokeWidth="3" />
+                  {animationState === 'complete' && decision === 'yes' && (
+                    <path d="M -7,-30 L 7,-14 M 7,-30 L -7,-14" stroke="#ff5252" strokeWidth="2.5" />
+                  )}
                   {animationState === 'idle' && (
-                    <text x="-15" y="-34" fill="#2196F3" fontSize="8" fontWeight="800">PUSH</text>
+                    <text x="-20" y="-38" fill="#2196F3" fontSize="7" fontWeight="800">PUSH?</text>
                   )}
                 </motion.g>
-
-                <StickFigure x={255} y={55} color="#4CAF50" scale={0.8} />
-                <text x="248" y="32" fill="#4CAF50" fontSize="8" fontWeight="800">YOU</text>
-
-                <StickFigure x={380} y={140} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                <StickFigure x={395} y={125} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                <StickFigure x={395} y={155} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                <StickFigure x={410} y={133} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                <StickFigure x={410} y={147} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-
+                {/* 5 workers at track end with crowd effect */}
+                {[{x:360,y:157},{x:375,y:150},{x:375,y:164},{x:390,y:153},{x:390,y:162}].map((pos,i) => (
+                  <StickFigure key={i} x={pos.x} y={pos.y}
+                    color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'}
+                    isDead={animationState === 'complete' && decision === 'no'} scale={0.55} bg="#263238" />
+                ))}
+                <text x="349" y="140" fill="var(--text-secondary)" fontSize="6.5" fontWeight="800">5 WORKERS</text>
+                {/* Trolley on ground track */}
                 <motion.g
-                  initial={{ x: 30, y: 130 }}
-                  animate={animationState === 'running' ? { x: decision === 'yes' ? [30, 205] : [30, 360] } : { x: 30, y: 130 }}
+                  initial={{ x: 30, y: 152 }}
+                  animate={animationState === 'running'
+                    ? { x: decision === 'yes' ? [30, 210] : [30, 360] }
+                    : animationState === 'complete'
+                    ? { x: decision === 'yes' ? 210 : 360, y: 152 }
+                    : { x: 30, y: 152 }}
                   transition={{ duration: 2.0, ease: "easeInOut" }}
                 >
                   <AdvancedTrolleySVG />
                 </motion.g>
+                {/* Trolley blocking glow when stopped */}
+                {animationState === 'complete' && decision === 'yes' && (
+                  <motion.circle cx={217} cy={162} r="12" fill="#ff5252" initial={{ scale: 0, opacity: 0 }} animate={{ scale: [0, 1.5, 1], opacity: [0, 0.6, 0] }} transition={{ duration: 0.8 }} />
+                )}
               </svg>
             )}
 
             {currentScenario === 3 && (
-              <svg viewBox="0 0 450 180" width="100%" height="100%">
-                <rect x="0" y="0" width="450" height="180" fill="#263238" />
-                <rect x="0" y="140" width="450" height="40" fill="#3e2723" />
-                <line x1="160" y1="0" x2="160" y2="140" stroke="#cfd8dc" strokeWidth="5" />
-                <rect x="145" y="40" width="30" height="90" fill="#8d6e63" stroke="#5d4037" strokeWidth="2.5" />
-                <circle cx="152" cy="85" r="3" fill="#ffeb3b" />
-
+              <svg viewBox="0 0 450 200" width="100%" height="100%" style={{ overflow: "hidden" }}>
+                <defs>
+                  <radialGradient id="lampGlow3" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#ffeb3b" stopOpacity="0.5" />
+                    <stop offset="100%" stopColor="#ffeb3b" stopOpacity="0" />
+                  </radialGradient>
+                  <linearGradient id="nightSky3" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0d1117" />
+                    <stop offset="70%" stopColor="#161b22" />
+                    <stop offset="100%" stopColor="#1c2128" />
+                  </linearGradient>
+                </defs>
+                {/* Night sky */}
+                <rect x="0" y="0" width="450" height="200" fill="url(#nightSky3)" />
+                {/* Stars */}
+                {[{x:20,y:12},{x:60,y:5},{x:110,y:18},{x:180,y:8},{x:240,y:14},{x:310,y:6},{x:370,y:20},{x:415,y:10}].map((s,i) => (
+                  <motion.circle key={i} cx={s.x} cy={s.y} r="1" fill="#fff" animate={{ opacity: [0.2, 0.9, 0.2] }} transition={{ duration: 3 + i * 0.4, repeat: Infinity, delay: i * 0.2 }} />
+                ))}
+                {/* Ground / sidewalk */}
+                <rect x="0" y="158" width="450" height="42" fill="#1c2128" />
+                <rect x="0" y="158" width="450" height="4" fill="#30363d" />
+                {/* Street lamp */}
+                <line x1="35" y1="158" x2="35" y2="60" stroke="#484f58" strokeWidth="3.5" />
+                <path d="M 35,60 Q 35,48 55,48" fill="none" stroke="#484f58" strokeWidth="3.5" />
+                <ellipse cx="55" cy="48" rx="10" ry="5" fill="#ffeb3b" opacity="0.9" />
+                <ellipse cx="55" cy="48" rx="25" ry="20" fill="url(#lampGlow3)" />
+                {/* House exterior - right side */}
+                <rect x="270" y="60" width="160" height="100" fill="#161b22" stroke="#21262d" strokeWidth="2" />
+                <rect x="270" y="55" width="160" height="10" fill="#21262d" />
+                {/* House roof peak */}
+                <polygon points="265,62 350,20 435,62" fill="#21262d" stroke="#30363d" strokeWidth="2" />
+                
+                {/* Window with warm interior light */}
+                <rect x="290" y="80" width="35" height="28" rx="2" fill="#332200" />
+                <rect x="292" y="82" width="31" height="24" rx="1" fill="#ffcc44" opacity="0.3" />
+                <line x1="309" y1="82" x2="309" y2="106" stroke="#554400" strokeWidth="1.5" />
+                <line x1="292" y1="94" x2="323" y2="94" stroke="#554400" strokeWidth="1.5" />
+                
+                {/* FRIEND figure visible through window outline (behind the window not on the wall) */}
+                <StickFigure x={308} y={104} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#2196F3'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} bg="none" />
+                
+                {/* Inside Murderer figure beside friend when decision is NO */}
                 <motion.g
-                  initial={{ x: 50, y: 110 }}
-                  animate={animationState === 'running' && decision === 'no' ? { x: 130 } : { x: 50 }}
-                  transition={{ duration: 1.5 }}
+                  initial={{ opacity: 0 }}
+                  animate={animationState === 'complete' && decision === 'no' ? { opacity: 1 } : { opacity: 0 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  <circle cx="0" cy="-25" r="7" fill="#ff5252" />
-                  <line x1="0" y1="-18" x2="0" y2="5" stroke="#ff5252" strokeWidth="2.5" />
-                  <line x1="0" y1="5" x2="-8" y2="25" stroke="#ff5252" strokeWidth="2" />
-                  <line x1="0" y1="5" x2="8" y2="25" stroke="#ff5252" strokeWidth="2" />
-                  <line x1="0" y1="-10" x2="10" y2="-5" stroke="#ff5252" strokeWidth="2" />
-                  <text x="-25" y="-38" fill="#ff5252" fontSize="7" fontWeight="900">MURDERER</text>
+                  <StickFigure x={296} y={104} color="#d32f2f" scale={0.6} bg="none" />
                 </motion.g>
 
-                <StickFigure x={220} y={110} color="#4CAF50" scale={0.9} />
-                <text x="212" y="75" fill="#4CAF50" fontSize="8" fontWeight="800">YOU</text>
-
+                {/* Main door */}
+                <rect x="335" y="108" width="40" height="52" rx="3" fill="#4a2c00" stroke="#30363d" strokeWidth="2" />
+                <rect x="339" y="112" width="32" height="44" rx="2" fill="#3d2400" />
+                {/* Door crack of light - shows friend is inside */}
+                <line x1="375" y1="109" x2="375" y2="159" stroke="#ffcc44" strokeWidth="1.5" opacity="0.5" />
+                {/* Door knocker */}
+                <circle cx="355" cy="134" r="3" fill="#90a4ae" />
+                
+                {/* Outside MURDERER figure approaching door, then entering */}
+                <motion.g
+                  initial={{ x: 60, y: 158, opacity: 1 }}
+                  animate={
+                    animationState === 'running' && decision === 'no'
+                      ? { x: [60, 355, 355], opacity: [1, 1, 0] }
+                      : animationState === 'complete' && decision === 'no'
+                      ? { x: 355, opacity: 0 }
+                      : { x: 60, opacity: 1 }
+                  }
+                  transition={{ duration: 1.8, times: [0, 0.8, 1.0], ease: "easeInOut" }}
+                >
+                  <StickFigure x={0} y={0} color="#d32f2f" scale={0.9} bg="#161b22" />
+                  {/* Weapon: a proper little knife in hand */}
+                  <g transform="translate(4, -13)">
+                    <line x1="0" y1="0" x2="3" y2="-3" stroke="#5d4037" strokeWidth="1.2" />
+                    <path d="M 2,-2 L 8,-8 L 9,-7 L 3,-1 Z" fill="#cfd8dc" stroke="#90a4ae" strokeWidth="0.5" />
+                  </g>
+                  <text x="-28" y="-40" fill="#ff5252" fontSize="7" fontWeight="900">MURDERER</text>
+                </motion.g>
+                
+                {/* YOU figure standing near house */}
+                <StickFigure x={200} y={158} color="#4CAF50" bg="#161b22" scale={0.9} />
+                <text x="192" y="124" fill="#4CAF50" fontSize="7" fontWeight="800">YOU</text>
+                
+                {/* Speech bubble from YOU after decision */}
                 {animationState === 'complete' && (
-                  <motion.g initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                    <path d="M 220,60 L 230,45 L 290,45 L 290,20 L 205,20 L 205,45 L 215,45 Z" fill="#fff" />
-                    <text x="212" y="35" fill="#000" fontSize="7" fontWeight="bold">
+                  <motion.g initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4 }}>
+                    <rect x="200" y="112" width="72" height="24" rx="6" fill="#fff" />
+                    <polygon points="208,136 200,144 216,136" fill="#fff" />
+                    <text x="207" y="124" fill="#1a1a2e" fontSize="8" fontWeight="bold">
                       {decision === 'yes' ? "He's not here!" : "He is inside."}
                     </text>
                   </motion.g>
                 )}
-
-                <StickFigure
-                  x={360}
-                  y={110}
-                  color={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#2196F3'}
-                  isDead={animationState === 'complete' && decision === 'no'}
-                  scale={0.8}
-                />
-                <rect x="335" y="70" width="50" height="70" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeDasharray="3,3" />
-                <text x="345" y="60" fill="#2196F3" fontSize="7" fontWeight="800">FRIEND</text>
+                
+                <text x="307" y="76" fill="#2196F3" fontSize="6.5" fontWeight="800">FRIEND</text>
+                {/* Moonlight */}
+                <circle cx="410" cy="28" r="16" fill="#eceff1" />
+                <circle cx="420" cy="24" r="13" fill="#0d1117" />
               </svg>
             )}
 
             {currentScenario === 4 && (
-              <svg viewBox="0 0 450 180" width="100%" height="100%">
-                <rect x="0" y="30" width="450" height="120" fill="#37474f" />
-                <line x1="0" y1="90" x2="450" y2="90" stroke="#fff" strokeWidth="2" strokeDasharray="15,15" opacity="0.4" />
-                <line x1="0" y1="30" x2="450" y2="30" stroke="#fff" strokeWidth="3" />
-                <line x1="0" y1="150" x2="450" y2="150" stroke="#fff" strokeWidth="3" />
-
-                <g transform="translate(240, 45)">
-                  <rect x="0" y="0" width="30" height="30" fill="#f44336" rx="4" />
-                  <line x1="5" y1="0" x2="30" y2="25" stroke="#fff" strokeWidth="3" />
-                  <line x1="0" y1="5" x2="25" y2="30" stroke="#fff" strokeWidth="3" />
-                  <text x="-5" y="-6" fill="#ff5252" fontSize="7" fontWeight="900">BARRIER</text>
+              <svg viewBox="0 0 450 200" width="100%" height="100%" style={{ overflow: "hidden" }}>
+                <defs>
+                  <linearGradient id="roadGrad4" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#37474f" />
+                    <stop offset="100%" stopColor="#263238" />
+                  </linearGradient>
+                  <linearGradient id="skyDay4" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#1565c0" />
+                    <stop offset="100%" stopColor="#42a5f5" />
+                  </linearGradient>
+                  <radialGradient id="headlightCone4" cx="0%" cy="50%" r="100%">
+                    <stop offset="0%" stopColor="#fff59d" stopOpacity="0.7" />
+                    <stop offset="100%" stopColor="#fff59d" stopOpacity="0" />
+                  </radialGradient>
+                  <clipPath id="skyClip4">
+                    <rect x="0" y="0" width="450" height="95" />
+                  </clipPath>
+                </defs>
+                {/* Sky */}
+                <rect x="0" y="0" width="450" height="95" fill="url(#skyDay4)" />
+                {/* Clouds (clipped to sky width to slice at borders) */}
+                <g clipPath="url(#skyClip4)">
+                  <motion.g animate={{ x: [-80, 510] }} transition={{ repeat: Infinity, duration: 50, ease: "linear" }}>
+                    <path d="M -30,45 C -18,32 2,32 12,42 C 22,32 40,32 52,45 C 60,40 75,50 68,60 C 61,70 -22,70 -26,60 C -32,50 -36,46 -30,45 Z" fill="#fff" opacity="0.7" />
+                  </motion.g>
+                  <motion.g animate={{ x: [-100, 500] }} transition={{ repeat: Infinity, duration: 70, ease: "linear" }}>
+                    <path d="M -20,30 C -10,20 8,20 16,28 C 24,20 38,20 48,30 C 56,26 66,34 62,42 C 57,50 -15,50 -18,42 C -22,34 -26,30 -20,30 Z" fill="#fff" opacity="0.5" />
+                  </motion.g>
                 </g>
-
-                <g transform="translate(360, 110)">
-                  <rect x="-10" y="-20" width="50" height="40" fill="none" stroke="#fff" strokeWidth="2" strokeDasharray="4,4" opacity="0.3" />
-                  <StickFigure x={0} y={10} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                  <StickFigure x={12} y={-5} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                  <StickFigure x={12} y={20} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                  <StickFigure x={24} y={5} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                  <StickFigure x={24} y={15} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'} isDead={animationState === 'complete' && decision === 'no'} scale={0.6} />
-                  <text x="-5" y="-24" fill="var(--text-secondary)" fontSize="7" fontWeight="900">5 PEDESTRIANS</text>
-                </g>
-
+                {/* Road surface */}
+                <rect x="0" y="95" width="450" height="105" fill="url(#roadGrad4)" />
+                <line x1="0" y1="95" x2="450" y2="95" stroke="#fff" strokeWidth="3" />
+                <line x1="0" y1="190" x2="450" y2="190" stroke="#fff" strokeWidth="3" />
+                {/* Lane dashes */}
+                {[0,1,2,3,4,5].map(i => (
+                  <rect key={i} x={i * 60} y="138" width="35" height="3" fill="rgba(255,255,255,0.5)" rx="1" />
+                ))}
+                {/* Last segment of the road's center line after crosswalk (ends at 445, under 450 sky limit) */}
+                <rect x="425" y="138" width="20" height="3" fill="rgba(255,255,255,0.5)" rx="1" />
+                {/* Crosswalk at right - 5 pedestrians */}
+                <rect x="345" y="95" width="75" height="95" fill="rgba(255,255,255,0.04)" />
+                {[95,110,126,141,157].map((y,i) => (
+                  <rect key={i} x="345" y={y} width="75" height="8" fill="rgba(255,255,255,0.12)" />
+                ))}
+                <text x="355" y="86" fill="#ffffff" fontSize="8" fontWeight="900" style={{ letterSpacing: '0.5px' }}>CROSSWALK</text>
+                {[{x:360,y:143},{x:375,y:130},{x:380,y:155},{x:395,y:138},{x:393,y:160}].map((pos,i) => (
+                  <StickFigure key={i} x={pos.x} y={pos.y}
+                    color={animationState === 'complete' && decision === 'no' ? '#ff5252' : 'var(--text-primary)'}
+                    isDead={animationState === 'complete' && decision === 'no'} scale={0.55} bg="#37474f" />
+                ))}
+                <text x="355" y="180" fill="#ffffff" fontSize="8" fontWeight="900" style={{ letterSpacing: '0.5px' }}>5 PEDESTRIANS</text>
+                {/* Concrete barrier - realistic Jersey barrier shape with warning light and safety hazard stripes */}
+                <polygon points="226,123 232,105 262,105 268,123" fill="#90a4ae" stroke="#78909c" strokeWidth="1.5" />
+                <polygon points="232,123 238,105 244,105 238,123" fill="#ff9800" />
+                <polygon points="244,123 250,105 256,105 250,123" fill="#ff9800" />
+                <polygon points="256,123 260,105 262,105 268,123" fill="#ff9800" />
+                <text x="225" y="134" fill="#ffd54f" fontSize="8" fontWeight="900" style={{ letterSpacing: '0.5px' }}>BARRIER</text>
+                
+                {/* Self-driving car - proper sedan car shape moving forward (right) */}
                 <motion.g
-                  initial={{ x: 30, y: 110 }}
+                  initial={{ x: 70, y: 162 }}
                   animate={
                     animationState === 'running' && decision === 'yes'
-                      ? { x: [30, 140, 210], y: [110, 110, 50], rotate: [0, -15, -30] }
+                      ? { x: [70, 140, 225], y: [162, 138, 114] }
                       : animationState === 'complete' && decision === 'yes'
-                      ? { x: 210, y: 50, rotate: -30 }
+                      ? { x: 225, y: 114 }
                       : animationState === 'running' && decision === 'no'
-                      ? { x: [30, 340], y: [110, 110] }
+                      ? { x: [70, 330], y: [162, 162] }
                       : animationState === 'complete' && decision === 'no'
-                      ? { x: 340, y: 110 }
-                      : { x: 30, y: 110 }
+                      ? { x: 330, y: 162 }
+                      : { x: 70, y: 162 }
                   }
-                  transition={{ duration: 1.8, ease: "easeInOut" }}
+                  transition={{ duration: 2.0, ease: "linear" }}
                 >
-                  <rect x="-24" y="-12" width="48" height="24" rx="6" fill="#2196F3" stroke="#0d47a1" strokeWidth="2" />
-                  <rect x="8" y="-9" width="12" height="18" rx="2" fill="#e3f2fd" />
-                  <polygon points="24,-6 38,-10 38,10 24,6" fill="url(#carLightGlow)" opacity="0.4" />
-                  <circle cx="-6" cy="0" r="4" fill={animationState === 'complete' && decision === 'yes' ? '#ff5252' : '#fff'} />
+                  {/* Car body - forward-facing sedan */}
+                  <path d="M -28,14 L -28,2 L -22,2 L -12,-12 L 8,-12 L 18,2 L 28,2 L 28,14 Z" fill="#1565c0" stroke="#0d47a1" strokeWidth="2" />
+                  {/* Windows */}
+                  <path d="M -10,-10 L -20,0 L -12,0 L -8,-10 Z" fill="#e3f2fd" opacity="0.9" />
+                  <path d="M -6,-10 L -4,0 L 14,0 L 8,-10 Z" fill="#e3f2fd" opacity="0.9" />
+                  {/* AI sensor dome on top - police car alarm light shape, squeezed horizontally */}
+                  <path d="M -4,-12 L -3,-18 Q 0,-20 3,-18 L 4,-12 Z" fill="#29b6f6" stroke="#0288d1" strokeWidth="1.5" />
+                  <motion.ellipse cx="0" cy="-15" rx="5" ry="3.5" fill="none" stroke="#29b6f6" strokeWidth="1" animate={{ scale: [1, 1.8], opacity: [0.6, 0] }} transition={{ repeat: Infinity, duration: 1.2 }} />
+                  {/* Headlights cone */}
+                  <polygon points="28,1 70,-15 70,23 28,7" fill="url(#headlightCone4)" />
+                  <circle cx="28" cy="4" r="3" fill="#ffeb3b" />
+                  {/* Wheels */}
+                  <circle cx="-16" cy="14" r="6" fill="#37474f" stroke="#263238" strokeWidth="1.5" />
+                  <circle cx="-16" cy="14" r="3" fill="#b0bec5" />
+                  <circle cx="16" cy="14" r="6" fill="#37474f" stroke="#263238" strokeWidth="1.5" />
+                  <circle cx="16" cy="14" r="3" fill="#b0bec5" />
+                  <text x="-38" y="-24" fill="#29b6f6" fontSize="7.5" fontWeight="900" style={{ letterSpacing: '0.5px' }}>AI CAR</text>
                 </motion.g>
-
-                <defs>
-                  <linearGradient id="carLightGlow" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#fff59d" stopOpacity="0.8" />
-                    <stop offset="100%" stopColor="#fff59d" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-
+                {/* Crash explosion */}
                 {animationState === 'complete' && decision === 'yes' && (
-                  <motion.g initial={{ scale: 0, opacity: 0 }} animate={{ scale: [1, 1.5, 1.2], opacity: [0, 1, 0] }} transition={{ duration: 0.6 }}>
-                    <path d="M 230,45 L 240,25 L 245,40 L 265,35 L 250,55 L 260,70 L 240,60 L 230,75 L 232,52 Z" fill="#ffeb3b" />
+                  <motion.g initial={{ scale: 0, opacity: 0 }} animate={{ scale: [0, 1.5, 1.2], opacity: [0, 1, 0.8] }} transition={{ duration: 0.7 }}>
+                    <path d="M 248,112 L 260,90 L 266,107 L 285,100 L 268,118 L 279,130 L 258,120 L 248,135 L 250,112 Z" fill="#ffeb3b" />
+                    <path d="M 253,115 L 263,97 L 268,111 L 282,105 L 267,120 L 276,130 L 258,122 L 250,132 L 253,115 Z" fill="#ff8f00" opacity="0.7" />
                   </motion.g>
                 )}
               </svg>
             )}
 
             {currentScenario === 5 && (
-              <svg viewBox="0 0 450 180" width="100%" height="100%">
-                <rect x="0" y="0" width="450" height="180" fill="#1e272c" />
-                <rect x="0" y="140" width="450" height="40" fill="#37474f" />
-                <rect x="250" y="90" width="120" height="50" fill="#455a64" rx="2" />
-                <line x1="80" y1="75" x2="200" y2="75" stroke="#cfd8dc" strokeWidth="3.5" />
-                <circle cx="100" cy="65" r="4" fill="#ffb74d" />
-                <circle cx="120" cy="65" r="4" fill="#64b5f6" />
-                <circle cx="180" cy="65" r="4" fill="#81c784" />
+              <svg viewBox="0 0 450 200" width="100%" height="100%" style={{ overflow: "hidden" }}>
+                <defs>
+                  <linearGradient id="pharmBg5" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0f1923" />
+                    <stop offset="100%" stopColor="#1a2535" />
+                  </linearGradient>
+                  <radialGradient id="beamLight5" cx="50%" cy="0%" r="100%">
+                    <stop offset="0%" stopColor="#fff" stopOpacity="0.15" />
+                    <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
+                {/* Background */}
+                <rect x="0" y="0" width="450" height="200" fill="url(#pharmBg5)" />
+                {/* Shelves in window */}
+                {[72,87,102].map((y,i) => (
+                  <g key={i}>
+                    <line x1="245" y1={y} x2="315" y2={y} stroke="#0d47a1" strokeWidth="1.5" />
+                    {[252,265,278,291,302].map((x,j) => (
+                      <rect key={j} x={x} y={y-10} width="7" height="9" rx="1" fill={['#ef9a9a','#90caf9','#a5d6a7','#fff176','#ce93d8'][j]} />
+                    ))}
+                  </g>
+                ))}
 
-                {!(animationState === 'complete' && decision === 'yes') && (
-                  <motion.g
-                    transform="translate(145, 52)"
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ repeat: Infinity, duration: 1.5 }}
-                  >
-                    <path d="M 0,16 L 10,16 L 8,5 L 5,5 L 5,0 L 2,0 L 2,5 L 0,5 Z" fill="#00e676" />
-                    <text x="-16" y="-6" fill="#00e676" fontSize="6" fontWeight="bold">ANTIDOTE</text>
-                  </motion.g>
-                )}
-
-                <StickFigure x={310} y={135.5} color="var(--text-secondary)" scale={0.9} />
-                <text x="292" y="100" fill="var(--text-secondary)" fontSize="7" fontWeight="800">PHARMACIST</text>
-
+                {/* Pharmacist behind counter */}
+                <rect x="350" y="90" width="70" height="80" fill="rgba(255,255,255,0.02)" />
+                <StickFigure x={390} y={153} color="var(--text-secondary)" bg="#1a2535" scale={1.1} />
+                {/* Counter table */}
+                <rect x="355" y="138" width="80" height="8" rx="1" fill="#21262d" stroke="#30363d" strokeWidth="1" />
+                <rect x="360" y="130" width="20" height="10" rx="1" fill="#30363d" />
+                <text x="360" y="88" fill="var(--text-secondary)" fontSize="7" fontWeight="800">PHARMACIST</text>
+                {/* PRICE TAG */}
+                <rect x="375" y="100" width="38" height="18" rx="3" fill="#f44336" />
+                <text x="380" y="113" fill="#fff" fontSize="9" fontWeight="900">$850</text>
+                
+                {/* Pharmacy shop exterior wall and door frame rendered IN FRONT of table */}
+                <rect x="230" y="20" width="200" height="140" fill="none" stroke="#29b6f6" strokeWidth="1.5" />
+                <rect x="230" y="20" width="200" height="30" fill="#0d47a1" />
+                <text x="263" y="42" fill="#fff" fontSize="11" fontWeight="900">💊 PHARMACY</text>
+                <rect x="330" y="100" width="40" height="60" rx="2" fill="none" stroke="#29b6f6" strokeWidth="2.5" />
+                <circle cx="342" cy="130" r="3" fill="#90a4ae" />
+                <rect x="240" y="60" width="80" height="70" rx="2" fill="none" stroke="#42a5f5" strokeWidth="1.5" />
+                
+                {/* Sick child bed - left side */}
+                <rect x="10" y="130" width="80" height="40" rx="4" fill="#1e3a4a" stroke="#29b6f6" strokeWidth="1" />
+                <rect x="10" y="128" width="80" height="12" rx="4" fill="#263238" />
+                
+                {/* Lying child - fully detailed small person */}
+                <circle cx="28" cy="142" r="5" fill="#ffcc80" />
+                <line x1="28" y1="147" x2="52" y2="147" stroke="#ffcc80" strokeWidth="2.5" />
+                <rect x="33" y="140" width="45" height="20" rx="3" fill="#37474f" stroke="#4f5b66" strokeWidth="1" />
+                
+                {/* Heart monitor line */}
+                <motion.path
+                  d={animationState === 'complete' && decision === 'no'
+                    ? "M 15,120 L 80,120"
+                    : "M 15,120 L 30,120 L 35,108 L 40,128 L 45,108 L 50,120 L 80,120"}
+                  fill="none"
+                  stroke={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#4CAF50'}
+                  strokeWidth="2"
+                  animate={{ strokeDashoffset: [80, 0] }}
+                  style={{ strokeDasharray: 80 }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                />
+                <text x="18" y="100" fill="#29b6f6" fontSize="6.5" fontWeight="800">SICK CHILD</text>
+                
+                {/* PARENT figure (YOU) - bigger scale */}
                 <motion.g
-                  initial={{ x: 60, y: 135.5 }}
+                  initial={{ x: 110, y: 158 }}
                   animate={
                     animationState === 'running' && decision === 'yes'
-                      ? { x: [60, 140, 40], y: [135.5, 120, 135.5] }
+                      ? { x: [110, 240, 100], y: [158, 140, 158] }
                       : animationState === 'complete' && decision === 'yes'
-                      ? { x: 40, y: 135.5 }
-                      : { x: 60, y: 135.5 }
+                      ? { x: 100, y: 158 }
+                      : { x: 110, y: 158 }
                   }
                   transition={{ duration: 2.0 }}
                 >
-                  <StickFigure x={0} y={0} color="#4CAF50" scale={0.9} />
-                  <text x="-8" y="-32" fill="#4CAF50" fontSize="7" fontWeight="800">PARENT</text>
+                  <StickFigure x={0} y={0} color="#4CAF50" bg="#1a2535" scale={1.05} />
+                  <text x="-14" y="-30" fill="#4CAF50" fontSize="7" fontWeight="800">PARENT</text>
+                  
+                  {/* Small medicine bottle that travels in parent's hand */}
+                  {animationState === 'running' && decision === 'yes' && (
+                    <motion.g
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: [0, 0, 1, 1] }}
+                      transition={{ duration: 2.0, times: [0, 0.45, 0.55, 1.0] }}
+                    >
+                      <rect x="8" y="-12" width="6" height="10" rx="1.5" fill="#00e676" stroke="#00c853" strokeWidth="1" />
+                      <rect x="10.5" y="-15" width="1" height="3" fill="#00c853" />
+                    </motion.g>
+                  )}
                   {animationState === 'complete' && decision === 'yes' && (
-                    <path d="M 12,0 L 20,0 L 18,-8 L 16,-8 L 16,-12 L 14,-12 L 14,-8 L 12,-8 Z" fill="#00e676" />
+                    <g>
+                      <rect x="8" y="-12" width="6" height="10" rx="1.5" fill="#00e676" stroke="#00c853" strokeWidth="1" />
+                      <rect x="10.5" y="-15" width="1" height="3" fill="#00c853" />
+                    </g>
                   )}
                 </motion.g>
-
-                <g transform="translate(15, 115)">
-                  <rect x="0" y="5" width="25" height="20" fill="#b0bec5" rx="1" />
-                  <rect x="2" y="2" width="8" height="6" fill="#eceff1" rx="1" />
-                  <line x1="2" y1="12" x2="23" y2="12" stroke={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#81c784'} strokeWidth="2.5" />
-                  <text x="-2" y="-5" fill="var(--text-secondary)" fontSize="6" fontWeight="bold">CHILD</text>
-                </g>
+                <line x1="0" y1="170" x2="450" y2="170" stroke="#21262d" strokeWidth="2" />
               </svg>
             )}
 
             {currentScenario === 6 && (
-              <svg viewBox="0 0 450 180" width="100%" height="100%">
-                <rect x="0" y="0" width="450" height="180" fill="#1a237e" />
-                <path d="M 0,110 Q 50,100 100,110 Q 150,120 200,110 Q 250,100 300,110 Q 350,120 400,110 Q 450,100 450,110 L 450,180 L 0,180 Z" fill="#0d47a1" />
+              <svg viewBox="0 0 450 200" width="100%" height="100%" style={{ overflow: "hidden" }}>
+                <defs>
+                  <linearGradient id="daySky6" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#a0c4ff" />
+                    <stop offset="60%" stopColor="#c4e0e5" />
+                    <stop offset="100%" stopColor="#e0f7fa" />
+                  </linearGradient>
+                  <linearGradient id="deepOcean6" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0d3b5e" />
+                    <stop offset="100%" stopColor="#051624" />
+                  </linearGradient>
+                  <clipPath id="skyClip6">
+                    <rect x="0" y="0" width="450" height="200" />
+                  </clipPath>
+                </defs>
+                {/* Daylight sky filling the canvas */}
+                <rect x="0" y="0" width="450" height="200" fill="url(#daySky6)" />
+                
+                {/* White moving clouds (clipped to sky width to slice at borders) */}
+                <g clipPath="url(#skyClip6)" opacity="0.8">
+                  <motion.g animate={{ x: [-80, 510] }} transition={{ repeat: Infinity, duration: 40, ease: "linear" }}>
+                    <path d="M -40,30 C -30,15 -10,15 0,25 C 10,15 30,15 40,30 C 50,25 65,35 60,45 C 55,55 -30,55 -35,45 C -40,35 -45,30 -40,30 Z" fill="#ffffff" />
+                  </motion.g>
+                  <motion.g animate={{ x: [-100, 500] }} transition={{ repeat: Infinity, duration: 55, ease: "linear" }}>
+                    <path d="M -50,20 C -40,5 -20,5 -10,15 C 0,5 20,5 30,20 C 40,15 55,25 50,35 C 45,45 -40,45 -45,35 C -50,25 -55,20 -50,20 Z" fill="#ffffff" opacity="0.85" />
+                  </motion.g>
+                </g>
+
+                {/* Ocean waves - clipped to sky width */}
+                <g clipPath="url(#skyClip6)">
+                  {/* Ocean waves - back layer */}
+                  <motion.path
+                    d="M -100,115 C 0,100 100,128 200,115 C 300,100 400,128 550,115 L 550,200 L -100,200 Z"
+                    fill="url(#deepOcean6)"
+                    animate={{ d: [
+                      "M -100,115 C 0,100 100,128 200,115 C 300,100 400,128 550,115 L 550,200 L -100,200 Z",
+                      "M -100,122 C 0,110 100,132 200,120 C 300,110 400,132 550,120 L 550,200 L -100,200 Z",
+                      "M -100,108 C 0,95 100,120 200,108 C 300,95 400,120 550,108 L 550,200 L -100,200 Z",
+                      "M -100,115 C 0,100 100,128 200,115 C 300,100 400,128 550,115 L 550,200 L -100,200 Z"
+                    ]}}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                  
+                  {/* Ocean waves - front layer */}
+                  <motion.path
+                    d="M -100,125 C -50,138 50,115 150,128 C 250,140 350,118 550,130 L 550,200 L -100,200 Z"
+                    fill="#093152"
+                    animate={{ d: [
+                      "M -100,125 C -50,138 50,115 150,128 C 250,140 350,118 550,130 L 550,200 L -100,200 Z",
+                      "M -100,118 C -50,130 50,108 150,120 C 250,132 350,112 550,122 L 550,200 L -100,200 Z",
+                      "M -100,130 C -50,142 50,120 150,134 C 250,146 350,124 550,136 L 550,200 L -100,200 Z",
+                      "M -100,125 C -50,138 50,115 150,128 C 250,140 350,118 550,130 L 550,200 L -100,200 Z"
+                    ]}}
+                    transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                </g>
+                
+                {/* Actual ship rocking on waves (Greek Theseus sailboat styling) */}
                 <motion.g
-                  initial={{ x: 120, y: 88 }}
+                  initial={{ x: 100, y: 95 }}
                   animate={
                     animationState === 'complete' && decision === 'no'
-                      ? { x: 120, y: 128, rotate: -8, opacity: 0.6 }
-                      : { x: 120, y: [88, 83, 88], rotate: [0, 2, 0] }
+                      ? { x: 100, y: 145, rotate: -15, opacity: 0.5 }
+                      : { x: 100, y: [95, 90, 96, 90, 95], rotate: [0, 2.5, -2, 2.5, 0] }
                   }
-                  transition={{ repeat: animationState === 'complete' && decision === 'no' ? 0 : Infinity, duration: 2.5 }}
+                  transition={{ repeat: animationState === 'complete' && decision === 'no' ? 0 : Infinity, duration: 3 }}
                 >
-                  <path d="M 0,30 L 110,30 L 125,5 L -15,5 Z" fill="#8d6e63" stroke="#5d4037" strokeWidth="2" />
-                  <circle cx="10" cy="-2" r="5" fill="#4CAF50" />
-                  <circle cx="25" cy="-2" r="5" fill="#4CAF50" />
-                  <circle cx="40" cy="-2" r="5" fill="#4CAF50" />
-                  <circle cx="55" cy="-2" r="5" fill="#4CAF50" />
-                  <circle cx="70" cy="-2" r="5" fill="#4CAF50" />
-                  {!(animationState === 'complete' && decision === 'yes') && (
-                    <motion.circle
-                      cx="85" cy="-2" r="5" fill={animationState === 'complete' ? '#ff5252' : '#2196F3'}
-                      animate={animationState === 'running' && decision === 'yes' ? { x: 40, y: -40, opacity: 0 } : {}}
-                      transition={{ duration: 1.5 }}
-                    />
-                  )}
-                  <text x="30" y="20" fill="#fff" fontSize="7" fontWeight="bold">LIFEBOAT</text>
-                </motion.g>
+                  {/* Rigging stays */}
+                  <line x1="10" y1="-40" x2="-45" y2="20" stroke="#a1887f" strokeWidth="1.2" opacity="0.6" />
+                  <line x1="10" y1="-40" x2="65" y2="20" stroke="#a1887f" strokeWidth="1.2" opacity="0.6" />
+                  
+                  {/* Mast */}
+                  <line x1="10" y1="20" x2="10" y2="-40" stroke="#5d4037" strokeWidth="3" strokeLinecap="round" />
+                  {/* Yard */}
+                  <line x1="-25" y1="-32" x2="45" y2="-32" stroke="#5d4037" strokeWidth="2.2" strokeLinecap="round" />
+                  {/* Sail */}
+                  <path d="M -20,-32 Q 10,-28 40,-32 Q 52,-15 38,10 Q 10,14 -15,10 Q -5,-15 -20,-32 Z" fill="rgba(248, 245, 235, 0.95)" stroke="#d4c5a1" strokeWidth="1" />
+                  
+                  {/* Boat hull */}
+                  <path d="M -60,20 Q -70,36 -50,40 L 70,40 Q 90,36 80,20 Z" fill="#8d6e63" stroke="#5d4037" strokeWidth="2" />
+                  <path d="M -60,20 L 80,20" stroke="#5d4037" strokeWidth="2.5" />
+                  
+                  {/* Oars in water */}
+                  {[0,1,2,3,4].map(i => (
+                    <g key={i}>
+                      <line x1={-45 + i*22} y1="32" x2={-52 + i*22} y2="55" stroke="#a1887f" strokeWidth="1.5" />
+                      <ellipse cx={-53 + i*22} cy="56" rx="3.5" ry="1.5" fill="#a1887f" />
+                    </g>
+                  ))}
 
+                  {/* 5 survivors as colored dots */}
+                  {[-45,-25,-5,15,35].map((cx,i) => (
+                    <circle key={i} cx={cx} cy="14" r="6" fill="#4CAF50" stroke="#388e3c" strokeWidth="1.5" />
+                  ))}
+                  {/* 6th person - sits as a head circle, becomes full body stick figure during the throw animation */}
+                  <motion.g
+                    animate={
+                      animationState === 'running' && decision === 'yes'
+                        ? { x: [0, 60, 110], y: [0, -40, 50], rotate: [0, 120, 360], opacity: [1, 1, 0] }
+                        : {}
+                    }
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                  >
+                    {animationState === 'running' && decision === 'yes' ? (
+                      <StickFigure x={55} y={24} color="#2196F3" scale={0.85} bg="none" />
+                    ) : (
+                      <circle cx="55" cy="14" r="6" fill={animationState === 'complete' ? '#ff5252' : '#2196F3'} stroke="#1565c0" strokeWidth="1.5" />
+                    )}
+                  </motion.g>
+                  <text x="-50" y="8" fill="#fff" fontSize="6.5" fontWeight="bold">LIFEBOAT</text>
+                </motion.g>
+                
+                {/* Person overboard - bobs up and down in sync with the waves */}
                 {animationState === 'complete' && decision === 'yes' && (
-                  <motion.g initial={{ opacity: 0, x: 225, y: 115 }} animate={{ opacity: 1, y: 120 }}>
-                    <circle cx="0" cy="0" r="5" fill="#ff5252" />
-                    <path d="M -8,8 Q 0,4 8,8" stroke="#fff" strokeWidth="1.5" />
-                    <text x="-25" y="-12" fill="#ff5252" fontSize="6" fontWeight="bold">SACRIFICED</text>
+                  <motion.g
+                    initial={{ opacity: 0, x: 215, y: 130 }}
+                    animate={{ opacity: 1, y: [133, 139, 133] }}
+                    transition={{
+                      opacity: { duration: 0.5 },
+                      y: { repeat: Infinity, duration: 3.2, ease: "easeInOut" }
+                    }}
+                  >
+                    <circle cx="0" cy="0" r="6" fill="#ff5252" stroke="#b71c1c" strokeWidth="1.5" />
+                    <text x="-22" y="-14" fill="#ff5252" fontSize="6.5" fontWeight="bold">OVERBOARD</text>
                   </motion.g>
                 )}
               </svg>
             )}
 
             {currentScenario === 7 && (
-              <svg viewBox="0 0 450 180" width="100%" height="100%">
-                <rect x="0" y="0" width="450" height="180" fill="#1b1c1e" />
-                <g transform="translate(60, 100)">
-                  <path d="M -15,40 L 15,40 L 12,0 Q 12,-15 0,-15 Q -12,-15 -12,0 Z" fill="#37474f" stroke="#263238" strokeWidth="2" />
-                  <line x1="0" y1="5" x2="0" y2="25" stroke="#90a4ae" strokeWidth="2" />
-                  <line x1="-5" y1="12" x2="5" y2="12" stroke="#90a4ae" strokeWidth="2" />
-                  <text x="-20" y="-22" fill="#90a4ae" fontSize="7" fontWeight="bold">DECEASED FRIEND</text>
-                </g>
-
-                <g transform="translate(200, 80)">
-                  <rect x="-15" y="-2" width="30" height="24" rx="3" fill="#ffd54f" stroke="#ffb300" strokeWidth="2" />
-                  <circle cx="0" cy="8" r="3" fill="#3e2723" />
+              <svg viewBox="0 0 450 200" width="100%" height="100%" style={{ overflow: "hidden" }}>
+                <defs>
+                  <radialGradient id="moonGlow7" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#eceff1" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#eceff1" stopOpacity="0" />
+                  </radialGradient>
+                  <linearGradient id="graveSky7" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0d1117" />
+                    <stop offset="100%" stopColor="#1a2035" />
+                  </linearGradient>
+                </defs>
+                {/* Dark cemetery sky */}
+                <rect x="0" y="0" width="450" height="200" fill="url(#graveSky7)" />
+                {/* Stars */}
+                {[{x:25,y:10},{x:70,y:6},{x:130,y:15},{x:200,y:5},{x:290,y:12},{x:370,y:8},{x:430,y:18}].map((s,i) => (
+                  <motion.circle key={i} cx={s.x} cy={s.y} r="1" fill="#fff" animate={{ opacity: [0.2, 0.8, 0.2] }} transition={{ duration: 2.5 + i * 0.3, repeat: Infinity, delay: i * 0.15 }} />
+                ))}
+                {/* Moon with glow */}
+                <circle cx="400" cy="30" r="25" fill="url(#moonGlow7)" />
+                <circle cx="400" cy="30" r="18" fill="#eceff1" />
+                <circle cx="410" cy="26" r="14" fill="#1a2035" />
+                {/* Ground */}
+                <rect x="0" y="150" width="450" height="50" fill="#161b22" />
+                <line x1="0" y1="150" x2="450" y2="150" stroke="#21262d" strokeWidth="2" />
+                {/* Grass */}
+                {Array.from({length: 30}).map((_,i) => (
+                  <line key={i} x1={i*16+3} y1="150" x2={i*16+8} y2="143" stroke="#2d4a1e" strokeWidth="2" strokeLinecap="round" />
+                ))}
+                {/* Gravestones background */}
+                {[{x:30,h:40},{x:80,h:30},{x:345,h:42},{x:410,h:28}].map((g,i) => (
+                  <g key={i}>
+                    <rect x={g.x} y={150-g.h} width="22" height={g.h} rx="4" fill="#21262d" stroke="#30363d" strokeWidth="1.5" />
+                    <path d={`M ${g.x},${150-g.h} Q ${g.x+11},${150-g.h-12} ${g.x+22},${150-g.h}`} fill="#21262d" stroke="#30363d" strokeWidth="1.5" />
+                  </g>
+                ))}
+                {/* Main friend's gravestone - center */}
+                <rect x="180" y="90" width="40" height="60" rx="6" fill="#21262d" stroke="#30363d" strokeWidth="2" />
+                <path d="M 180,100 Q 200,82 220,100" fill="#21262d" stroke="#30363d" strokeWidth="2" />
+                <text x="190" y="118" fill="#90a4ae" fontSize="8" fontWeight="bold">R.I.P</text>
+                <line x1="185" y1="125" x2="215" y2="125" stroke="#30363d" strokeWidth="1.5" />
+                <text x="188" y="138" fill="#546e7a" fontSize="6">FRIEND</text>
+                <text x="189" y="146" fill="#546e7a" fontSize="5.5">1968-2019</text>
+                {/* Candle beside grave */}
+                <motion.g animate={{ opacity: [0.6, 1, 0.6] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                  <rect x="228" y="135" width="6" height="15" fill="#eceff1" rx="1" />
+                  <path d="M 231,135 L 228,128 L 231,131 L 234,128 Z" fill="#ffcc44" />
+                </motion.g>
+                {/* Locked box = Sacred Promise */}
+                <g transform="translate(250, 120)">
+                  {/* Shackle drawn behind lock body */}
                   <motion.path
-                    d="M -9,-2 L -9,-12 Q 0,-22 9,-12 L 9,-2"
-                    fill="none"
-                    stroke="#ffd54f"
-                    strokeWidth="3.5"
-                    animate={animationState === 'complete' && decision === 'yes' ? { y: -8, rotate: 15 } : {}}
-                    transition={{ duration: 0.5 }}
+                    d="M -8,-12 L -8,-22 Q 0,-30 8,-22 L 8,-12"
+                    fill="none" stroke="#ffd54f" strokeWidth="3.5"
+                    animate={animationState === 'complete' && decision === 'yes' ? { y: -5, rotate: -30 } : { y: 0, rotate: 0 }}
+                    style={{ transformOrigin: "-8px -12px" }}
+                    transition={{ type: "spring", stiffness: 120, damping: 10 }}
                   />
-                  <text x="-22" y="36" fill="#ffd54f" fontSize="7" fontWeight="bold">SACRED PROMISE</text>
+                  <rect x="-14" y="-12" width="28" height="22" rx="3" fill="#ffd54f" stroke="#ffb300" strokeWidth="2" />
+                  <circle cx="0" cy="5" r="4" fill="#3e2723" />
+                  <text x="0" y="19" textAnchor="middle" fill="#ffd54f" fontSize="7" fontWeight="bold">PROMISE</text>
                 </g>
-
-                <g transform="translate(360, 100)">
-                  <StickFigure x={0} y={0} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#81c784'} scale={0.7} />
-                  <StickFigure x={15} y={15} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#81c784'} scale={0.7} />
-                  <StickFigure x={15} y={-15} color={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#81c784'} scale={0.7} />
-                  <text x="-15" y="-32" fill="var(--text-secondary)" fontSize="7" fontWeight="bold">THE PUBLIC</text>
+                {/* Crowd of people in danger */}
+                <g transform="translate(360, 140)">
+                  {[{x:0,y:0},{x:16,y:10},{x:16,y:-10},{x:30,y:4}].map((pos,i) => (
+                    <StickFigure key={i} x={pos.x} y={pos.y}
+                      color={animationState === 'complete' && decision === 'no' ? '#ff5252' : '#81c784'}
+                      isDead={animationState === 'complete' && decision === 'no'} scale={0.65} bg="#161b22" />
+                  ))}
+                  <text x="-12" y="-28" fill="var(--text-secondary)" fontSize="6.5" fontWeight="bold">THE PUBLIC</text>
                 </g>
-
+                {/* YOU figure */}
+                <StickFigure x={130} y={150} color="#4CAF50" bg="#161b22" scale={0.9} />
+                <text x="122" y="116" fill="#4CAF50" fontSize="7" fontWeight="800">YOU</text>
+                {/* Information beam when revealing */}
                 {animationState === 'complete' && decision === 'yes' && (
-                  <motion.line
-                    x1="215" y1="90" x2="330" y2="100"
-                    stroke="#ffeb3b"
-                    strokeWidth="3.5"
-                    strokeDasharray="5,5"
-                    animate={{ strokeDashoffset: [20, 0] }}
-                    transition={{ repeat: Infinity, duration: 1.0, ease: "linear" }}
-                  />
+                  <motion.g>
+                    <motion.line
+                      x1="250" y1="115" x2="345" y2="130"
+                      stroke="#ffeb3b" strokeWidth="2.5" strokeDasharray="6,4"
+                      animate={{ strokeDashoffset: [30, 0] }}
+                      transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+                    />
+                    <circle cx="345" cy="130" r="6" fill="#ffeb3b" opacity="0.5" />
+                    <text x="280" y="125" fill="#ffeb3b" fontSize="6" fontWeight="bold">SECRET REVEALED</text>
+                  </motion.g>
                 )}
               </svg>
             )}
 
             {currentScenario === 8 && (
-              <svg viewBox="0 0 450 180" width="100%" height="100%">
-                <rect x="0" y="0" width="450" height="180" fill="#0f172a" />
-                <rect x="20" y="20" width="80" height="140" fill="#1e293b" rx="2" />
-                <line x1="20" y1="50" x2="100" y2="50" stroke="#334155" />
-                <line x1="20" y1="90" x2="100" y2="90" stroke="#334155" />
-                <line x1="20" y1="130" x2="100" y2="130" stroke="#334155" />
-                <circle cx="35" cy="35" r="3" fill="#10b981" />
-                <circle cx="35" cy="70" r="3" fill="#10b981" />
-                <circle cx="35" cy="110" r="3" fill="#ef4444" />
-
-                <g transform="translate(180, 90)">
-                  <motion.circle
-                    r="30"
-                    fill="none"
-                    stroke={decision === 'yes' ? '#3b82f6' : 'rgba(255,255,255,0.1)'}
-                    strokeWidth="2"
-                    animate={decision === 'yes' ? { scale: [1, 1.1, 1] } : {}}
-                    transition={{ repeat: Infinity, duration: 2.0 }}
-                  />
-                  <circle r="18" fill="#1e1b4b" stroke="#4f46e5" strokeWidth="2" />
-                  <path d="M -8,-4 L 8,-4 M -6,2 L 6,2 M -4,8 L 4,8" stroke="#818cf8" strokeWidth="2.5" />
-                  <text x="-25" y="-38" fill="var(--text-primary)" fontSize="8" fontWeight="bold">AI SCREENER</text>
+              <svg viewBox="0 0 450 200" width="100%" height="100%" style={{ overflow: "hidden" }}>
+                <defs>
+                  <linearGradient id="techBg8" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#050d1a" />
+                    <stop offset="100%" stopColor="#0f1f35" />
+                  </linearGradient>
+                  <radialGradient id="coreGlow8" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.5" />
+                    <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
+                <rect x="0" y="0" width="450" height="200" fill="url(#techBg8)" />
+                {/* Grid background */}
+                {Array.from({length: 9}).map((_,i) => (
+                  <line key={`h${i}`} x1="0" y1={i*25} x2="450" y2={i*25} stroke="rgba(79,70,229,0.06)" strokeWidth="1" />
+                ))}
+                {Array.from({length: 19}).map((_,i) => (
+                  <line key={`v${i}`} x1={i*25} y1="0" x2={i*25} y2="200" stroke="rgba(79,70,229,0.06)" strokeWidth="1" />
+                ))}
+                {/* Candidate database - left panel */}
+                <rect x="10" y="20" width="95" height="160" fill="#0f1f35" rx="4" stroke="#1e3a5f" strokeWidth="1.5" />
+                <text x="18" y="35" fill="#94a3b8" fontSize="7" fontWeight="bold">CANDIDATES</text>
+                <line x1="10" y1="40" x2="105" y2="40" stroke="#1e3a5f" strokeWidth="1" />
+                {/* Candidate rows */}
+                {[
+                  {y:50, grp:'A', score:92, col:'#10b981'},
+                  {y:65, grp:'A', score:88, col:'#10b981'},
+                  {y:80, grp:'A', score:95, col:'#10b981'},
+                  {y:95, grp:'B', score:90, col:'#ef4444'},
+                  {y:110, grp:'B', score:87, col:'#ef4444'},
+                  {y:125, grp:'B', score:93, col:'#ef4444'},
+                ].map((r,i) => (
+                  <g key={i}>
+                    <circle cx="24" cy={r.y+5} r="5" fill={r.col} opacity="0.8" />
+                    <text x="34" y={r.y+9} fill="#e2e8f0" fontSize="6.5" fontWeight="bold">Group {r.grp}</text>
+                    <text x="75" y={r.y+9} fill={r.col} fontSize="6.5" fontWeight="800">{r.score}%</text>
+                  </g>
+                ))}
+                {/* AI Brain/Core - center */}
+                <g transform="translate(210, 100)">
+                  <circle r="38" fill="url(#coreGlow8)" />
+                  <circle r="28" fill="#1e1b4b" stroke="#4f46e5" strokeWidth="2" />
+                  {/* Neural network lines */}
+                  {[{x1:-18,y1:-12,x2:12,y2:-8},{x1:-20,y1:0,x2:14,y2:2},{x1:-18,y1:12,x2:12,y2:8}].map((l,i) => (
+                    <motion.line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="#818cf8" strokeWidth="1.5"
+                      animate={{ opacity: [0.2, 1, 0.2] }}
+                      transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.4 }}
+                    />
+                  ))}
+                  {[-12,0,12].map((y,i) => (
+                    <motion.circle key={i} cx="0" cy={y} r="3.5" fill="#6366f1"
+                      animate={{ scale: [1, 1.3, 1] }}
+                      transition={{ duration: 1, repeat: Infinity, delay: i * 0.35 }}
+                    />
+                  ))}
+                  <text x="-22" y="-38" fill="#e2e8f0" fontSize="7" fontWeight="bold">AI SCREENER</text>
+                  {/* Rotating orbit ring */}
+                  <motion.g animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 4, ease: "linear" }}>
+                    <circle r="36" fill="none" stroke="#4f46e5" strokeWidth="1" strokeDasharray="4,6" />
+                  </motion.g>
                 </g>
-
-                <g transform="translate(290, 30)">
-                  <rect x="0" y="0" width="130" height="120" fill="#1e293b" stroke="#334155" strokeWidth="2" rx="3" />
-                  <text x="10" y="20" fill="#94a3b8" fontSize="7" fontWeight="bold">EFFICIENCY:</text>
-                  <text x="80" y="20" fill="#10b981" fontSize="8" fontWeight="900">
-                    {animationState === 'complete' && decision === 'yes' ? "98%" : "85%"}
-                  </text>
-                  <text x="10" y="45" fill="#94a3b8" fontSize="7" fontWeight="bold">BIAS DISTRIBUTION:</text>
-                  <text x="10" y="65" fill="#fff" fontSize="6">Group A</text>
-                  <rect x="50" y="60" width="70" height="6" fill="#3b82f6" rx="1" />
-                  <text x="10" y="85" fill="#fff" fontSize="6">Group B</text>
-                  <motion.rect
-                    x="50" y="80"
-                    height="6"
-                    fill="#ef4444"
-                    rx="1"
-                    animate={{ width: animationState === 'complete' && decision === 'yes' ? 18 : 60 }}
-                    transition={{ duration: 1.0 }}
-                    initial={{ width: 60 }}
+                {/* Results panel - right */}
+                <rect x="300" y="20" width="140" height="160" fill="#0f1f35" rx="4" stroke="#1e3a5f" strokeWidth="1.5" />
+                <text x="314" y="35" fill="#94a3b8" fontSize="7" fontWeight="bold">AI DECISION</text>
+                <line x1="300" y1="40" x2="440" y2="40" stroke="#1e3a5f" strokeWidth="1" />
+                <text x="314" y="55" fill="#94a3b8" fontSize="6.5">EFFICIENCY:</text>
+                <text x="375" y="55" fill="#10b981" fontSize="8" fontWeight="900">
+                  {animationState === 'complete' && decision === 'yes' ? "98%" : "85%"}
+                </text>
+                {/* Bias bar chart */}
+                <text x="314" y="75" fill="#94a3b8" fontSize="6.5">BIAS LEVELS</text>
+                <text x="314" y="92" fill="#e2e8f0" fontSize="6">Group A:</text>
+                <rect x="355" y="84" width="70" height="8" rx="2" fill="#10b981" />
+                <text x="314" y="112" fill="#e2e8f0" fontSize="6">Group B:</text>
+                <motion.rect
+                  x="355" y="104" height="8" fill="#ef4444" rx="2"
+                  animate={{ width: animationState === 'complete' && decision === 'yes' ? 20 : 55 }}
+                  transition={{ duration: 1 }}
+                  initial={{ width: 55 }}
+                />
+                <text x="314" y="132" fill="#94a3b8" fontSize="6.5">APPROVED RATE:</text>
+                <text x="314" y="148" fill="#10b981" fontSize="7" fontWeight="900">Group A: 71%</text>
+                <motion.text x="314" y="163" fill="#ef4444" fontSize="7" fontWeight="900"
+                  animate={{ opacity: animationState === 'complete' && decision === 'yes' ? 0.4 : 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  Group B: {animationState === 'complete' && decision === 'yes' ? "52%" : "42%"}
+                </motion.text>
+                {/* Connection lines from DB to AI */}
+                {[50,80,110].map((y,i) => (
+                  <motion.line key={i} x1="105" y1={y} x2="172" y2="100"
+                    stroke="#6366f1" strokeWidth="1" strokeDasharray="4,4"
+                    animate={{ strokeDashoffset: [16, 0] }}
+                    transition={{ duration: 0.8, repeat: Infinity, ease: "linear", delay: i * 0.25 }}
                   />
-                </g>
+                ))}
+                {/* Connection lines from AI to results */}
+                {[60,90,120].map((y,i) => (
+                  <motion.line key={i} x1="248" y1="100" x2="300" y2={y}
+                    stroke={decision === 'yes' ? "#10b981" : "#6366f1"} strokeWidth="1" strokeDasharray="4,4"
+                    animate={{ strokeDashoffset: [16, 0] }}
+                    transition={{ duration: 0.8, repeat: Infinity, ease: "linear", delay: i * 0.25 + 0.4 }}
+                  />
+                ))}
               </svg>
             )}
 
             {currentScenario === 9 && (
-              <svg viewBox="0 0 450 180" width="100%" height="100%">
-                <rect x="0" y="0" width="450" height="180" fill="#1e252b" />
-                <rect x="0" y="130" width="450" height="50" fill="#424242" />
-                <line x1="0" y1="130" x2="450" y2="130" stroke="#616161" strokeWidth="3" />
-
-                <g transform="translate(360, 80)">
-                  <rect x="-12" y="0" width="24" height="50" fill="#1565c0" rx="3" />
-                  <rect x="-12" y="5" width="24" height="10" fill="#0d47a1" />
-                  <line x1="-12" y1="15" x2="12" y2="15" stroke="#fff" strokeWidth="1.5" />
-                  <text x="-16" y="-8" fill="#1565c0" fontSize="7" fontWeight="bold">MAILBOX</text>
+              <svg viewBox="0 0 450 200" width="100%" height="100%" style={{ overflow: "hidden" }}>
+                <defs>
+                  <linearGradient id="streetSky9" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0d1117" />
+                    <stop offset="70%" stopColor="#161b22" />
+                    <stop offset="100%" stopColor="#1c2128" />
+                  </linearGradient>
+                  <radialGradient id="lampGlow9" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#ffeb3b" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#ffeb3b" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
+                {/* Night street */}
+                <rect x="0" y="0" width="450" height="200" fill="url(#streetSky9)" />
+                {/* Stars */}
+                {[{x:35,y:12},{x:85,y:7},{x:155,y:18},{x:230,y:5},{x:320,y:14},{x:395,y:8}].map((s,i) => (
+                  <motion.circle key={i} cx={s.x} cy={s.y} r="1" fill="#fff" animate={{ opacity: [0.3, 0.9, 0.3] }} transition={{ duration: 2.5 + i * 0.4, repeat: Infinity, delay: i * 0.2 }} />
+                ))}
+                {/* Sidewalk */}
+                <rect x="0" y="145" width="450" height="55" fill="#1c2128" />
+                <line x1="0" y1="145" x2="450" y2="145" stroke="#30363d" strokeWidth="3" />
+                {/* Pavement cracks / tiles */}
+                {[80,160,240,320,400].map((x,i) => (
+                  <line key={i} x1={x} y1="145" x2={x} y2="200" stroke="#21262d" strokeWidth="1.5" />
+                ))}
+                {/* Street lamp - left */}
+                <line x1="40" y1="145" x2="40" y2="50" stroke="#484f58" strokeWidth="4" />
+                <path d="M 40,50 Q 40,38 62,38" fill="none" stroke="#484f58" strokeWidth="4" />
+                <ellipse cx="62" cy="38" rx="12" ry="6" fill="#ffeb3b" />
+                <ellipse cx="62" cy="38" rx="30" ry="25" fill="url(#lampGlow9)" />
+                {/* Street lamp - right */}
+                <line x1="415" y1="145" x2="415" y2="50" stroke="#484f58" strokeWidth="4" />
+                <path d="M 415,50 Q 415,38 393,38" fill="none" stroke="#484f58" strokeWidth="4" />
+                <ellipse cx="393" cy="38" rx="12" ry="6" fill="#ffeb3b" />
+                <ellipse cx="393" cy="38" rx="30" ry="25" fill="url(#lampGlow9)" />
+                {/* Wallet on the ground - highlighted in spotlight, remains visible from start and fades out when picked up */}
+                <g transform="translate(218, 145)">
+                  <motion.g
+                    initial={{ opacity: 1 }}
+                    animate={
+                      animationState === 'running'
+                        ? { opacity: [1, 1, 0, 0], scale: [1, 1.04, 1, 1] }
+                        : animationState === 'complete'
+                        ? { opacity: 0 }
+                        : { opacity: 1, scale: [1, 1.04, 1] }
+                    }
+                    transition={
+                      animationState === 'running'
+                        ? { duration: 2.2, times: [0, 0.25, 0.3, 1.0], ease: "linear" }
+                        : { repeat: Infinity, duration: 1.8 }
+                    }
+                  >
+                    <rect x="-12" y="-7" width="24" height="14" rx="3" fill="#5d4037" stroke="#3e2723" strokeWidth="1.5" />
+                    <line x1="-12" y1="1" x2="12" y2="1" stroke="#3e2723" strokeWidth="2" />
+                    <rect x="3" y="-10" width="8" height="7" rx="1" fill="#4CAF50" />
+                    <text x="-18" y="-14" fill="#ffcc44" fontSize="6.5" fontWeight="bold">$2,000 WALLET</text>
+                  </motion.g>
                 </g>
+                
 
-                {!(animationState === 'complete' || animationState === 'running') && (
-                  <g transform="translate(200, 120)">
-                    <rect x="-10" y="-6" width="20" height="12" fill="#5d4037" rx="1.5" />
-                    <line x1="-10" y1="0" x2="10" y2="0" stroke="#3e2723" strokeWidth="2.5" />
-                    <rect x="2" y="-9" width="6" height="5" fill="#4CAF50" />
-                  </g>
+                {/* Owner silhouette far right (the person who lost it) */}
+                <StickFigure x={340} y={145} color="var(--text-secondary)" bg="#1c2128" scale={0.7} />
+                <text x="340" y="115" textAnchor="middle" fill="var(--text-secondary)" fontSize="7.5" fontWeight="bold">OWNER</text>
+                
+                {/* Wallet in owner's hand - appears when YOU hands it over, and stays there */}
+                {(animationState === 'complete' || animationState === 'running') && decision === 'yes' && (
+                  <motion.g
+                    transform="translate(340, 145) scale(0.7)"
+                    initial={{ opacity: 0 }}
+                    animate={
+                      animationState === 'running'
+                        ? { opacity: [0, 0, 0, 1, 1] }
+                        : { opacity: 1 }
+                    }
+                    transition={
+                      animationState === 'running'
+                        ? { duration: 2.2, times: [0, 0.65, 0.7, 0.75, 1.0] }
+                        : {}
+                    }
+                  >
+                    <rect x="-14" y="-16" width="10" height="6" rx="1.5" fill="#5d4037" />
+                    <rect x="-11" y="-18" width="3" height="2" rx="0.8" fill="#4CAF50" />
+                  </motion.g>
                 )}
-
+                
+                {/* YOU figure */}
                 <motion.g
-                  initial={{ x: 60, y: 125.5 }}
+                  initial={{ x: 70, y: 145 }}
                   animate={
                     animationState === 'running' && decision === 'yes'
-                      ? { x: [60, 200, 350, 280] }
+                      ? { x: [70, 218, 320, 260] }
                       : animationState === 'complete' && decision === 'yes'
-                      ? { x: 280 }
+                      ? { x: 260 }
                       : animationState === 'running' && decision === 'no'
-                      ? { x: [60, 200, 120] }
+                      ? { x: [70, 218, 120] }
                       : animationState === 'complete' && decision === 'no'
                       ? { x: 120 }
-                      : { x: 60 }
+                      : { x: 70 }
                   }
                   transition={{ duration: 2.2 }}
                 >
-                  <StickFigure x={0} y={0} color="#4CAF50" scale={0.9} />
-                  <text x="-8" y="-32" fill="#4CAF50" fontSize="7" fontWeight="800">YOU</text>
-                  <motion.rect
-                    x="8"
-                    y="-10"
-                    width="10"
-                    height="6"
-                    fill="#5d4037"
+                  <StickFigure x={0} y={0} color="#4CAF50" bg="#1c2128" scale={0.9} />
+                  <text x="-10" y="-36" fill="#4CAF50" fontSize="7" fontWeight="800">YOU</text>
+                  {/* Wallet in hand when picked up */}
+                  <motion.g
                     initial={{ opacity: 0 }}
                     animate={
                       animationState === 'running' && decision === 'yes'
-                        ? { opacity: [0, 0, 1, 1, 0, 0] }
+                        ? { opacity: [0, 0, 1, 1, 0] }
                         : animationState === 'running' && decision === 'no'
                         ? { opacity: [0, 0, 1, 0] }
                         : { opacity: 0 }
                     }
-                    transition={{
-                      duration: 2.2,
-                      times: decision === 'yes' ? [0, 0.25, 0.3, 0.65, 0.7, 1.0] : [0, 0.55, 0.6, 1.0]
-                    }}
-                  />
+                    transition={{ duration: 2.2, times: decision === 'yes' ? [0, 0.25, 0.3, 0.7, 0.75] : [0, 0.45, 0.5, 0.55] }}
+                  >
+                    <rect x="10" y="-12" width="12" height="7" rx="2" fill="#5d4037" />
+                    <rect x="14" y="-14" width="4" height="3" rx="1" fill="#4CAF50" />
+                  </motion.g>
                 </motion.g>
-
+                {/* Money particles when keeping */}
                 {animationState === 'complete' && decision === 'no' && (
-                  <g transform="translate(130, 60)">
-                    <motion.text
-                      x="0" y="0" fill="#4CAF50" fontSize="12" fontWeight="bold"
-                      animate={{ y: [-10, -35], opacity: [1, 0] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    >
-                      $
-                    </motion.text>
-                    <motion.text
-                      x="15" y="-10" fill="#4CAF50" fontSize="12" fontWeight="bold"
-                      animate={{ y: [-20, -45], opacity: [1, 0] }}
-                      transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
-                    >
-                      $
-                    </motion.text>
+                  <g transform="translate(130, 100)">
+                    {[0,1,2,3].map(i => (
+                      <motion.text key={i} x={i * 14} y="0" fill="#4CAF50" fontSize="12" fontWeight="bold"
+                        animate={{ y: [-10, -45], opacity: [1, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}
+                      >
+                        $
+                      </motion.text>
+                    ))}
                   </g>
                 )}
               </svg>
             )}
 
             {currentScenario === 10 && (
-              <svg viewBox="0 0 450 180" width="100%" height="100%">
-                <rect x="0" y="0" width="450" height="180" fill="#2d1500" />
-                <rect x="0" y="140" width="450" height="40" fill="#1c0a00" />
-
-                <g transform="translate(60, 100)">
+              <svg viewBox="0 0 450 200" width="100%" height="100%" style={{ overflow: "hidden" }}>
+                <defs>
+                  <radialGradient id="fireGlow10" cx="50%" cy="100%" r="80%">
+                    <stop offset="0%" stopColor="#ff6d00" stopOpacity="0.5" />
+                    <stop offset="100%" stopColor="#ff6d00" stopOpacity="0" />
+                  </radialGradient>
+                  <linearGradient id="museBg10" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#1a0a00" />
+                    <stop offset="100%" stopColor="#2d1400" />
+                  </linearGradient>
+                </defs>
+                {/* Museum interior background */}
+                <rect x="0" y="0" width="450" height="200" fill="url(#museBg10)" />
+                {/* Floor */}
+                <rect x="0" y="160" width="450" height="40" fill="#1c0a00" />
+                <line x1="0" y1="160" x2="450" y2="160" stroke="#3e1a00" strokeWidth="2" />
+                {/* Floor tiles */}
+                {[0,1,2,3,4,5].map(i => (
+                  <g key={i}>
+                    <line x1={i*75} y1="160" x2={i*75} y2="200" stroke="#2d1400" strokeWidth="1.5" />
+                  </g>
+                ))}
+                {/* Ceiling */}
+                <rect x="0" y="0" width="450" height="18" fill="#2d1400" />
+                {/* Columns */}
+                {[60,180,270,390].map((x,i) => (
+                  <g key={i}>
+                    <rect x={x} y="18" width="14" height="142" fill="#3e2000" stroke="#5d2e00" strokeWidth="1" />
+                    <rect x={x-4} y="14" width="22" height="8" fill="#5d2e00" />
+                    <rect x={x-4} y="155" width="22" height="8" fill="#5d2e00" />
+                  </g>
+                ))}
+                {/* Museum artworks on walls */}
+                {/* Left wall artworks */}
+                <rect x="80" y="40" width="45" height="60" rx="2" fill="#1a0d00" stroke="#7c3a00" strokeWidth="2" />
+                <rect x="84" y="44" width="37" height="52" rx="1" fill="#2d1800" />
+                <path d="M 84,80 Q 102,55 121,70 Q 115,90 84,96 Z" fill="#8d5524" opacity="0.7" />
+                <path d="M 90,52 Q 105,48 115,58" fill="none" stroke="#ffd54f" strokeWidth="1.5" opacity="0.5" />
+                <rect x="86" y="40" width="41" height="4" fill="#7c3a00" />
+                <text x="82" y="38" fill="#ffd54f" fontSize="6" fontWeight="bold">PORTRAIT</text>
+                {/* Center/Right artworks */}
+                <rect x="200" y="35" width="55" height="70" rx="2" fill="#1a0d00" stroke="#7c3a00" strokeWidth="2" />
+                {/* Landscape painting */}
+                <rect x="204" y="39" width="47" height="62" rx="1" fill="#ffa726" />
+                <circle cx="228" cy="55" r="8" fill="#ffeb3b" />
+                <polygon points="204,101 222,75 235,90 242,80 251,101" fill="#5d4037" />
+                <text x="200" y="33" fill="#ffd54f" fontSize="6" fontWeight="bold">MASTERPIECE</text>
+                {/* Sculpture pedestal */}
+                <rect x="295" y="100" width="30" height="60" fill="#3e2000" stroke="#5d2e00" strokeWidth="1.5" />
+                <rect x="290" y="95" width="40" height="8" rx="2" fill="#5d2e00" />
+                {/* Sculpture */}
+                <circle cx="310" cy="80" r="8" fill="#b0bec5" stroke="#90a4ae" strokeWidth="1.5" />
+                <line x1="310" y1="88" x2="310" y2="95" stroke="#b0bec5" strokeWidth="3" />
+                <text x="295" y="75" fill="#ffd54f" fontSize="5.5" fontWeight="bold">SCULPTURE</text>
+                {/* TRAPPED STRANGER - left in flames */}
+                <g transform="translate(65, 150)">
                   {!(animationState === 'complete' && decision === 'no') && (
-                    <StickFigure x={0} y={35.75} color="#ff8a65" scale={0.85} />
-                  )}
-                  <path d="M -15,40 L -5,20 L 5,35 L 15,10 L 25,40 Z" fill="#e65100" opacity="0.6" />
-                  <text x="-25" y="8" fill="#ff8a65" fontSize="7" fontWeight="bold">STRANGER</text>
-                </g>
-
-                <g transform="translate(380, 100)">
-                  <rect x="-15" y="15" width="30" height="25" fill="#4e342e" />
-                  {!(animationState === 'complete' && decision === 'yes') && (
-                    <motion.path
-                      d="M -10,15 L -8,0 L -3,8 L 0,-2 L 3,8 L 8,0 L 10,15 Z"
-                      fill="#ffd54f"
-                      stroke="#ffb300"
-                      strokeWidth="1.5"
-                    />
-                  )}
-                  <text x="-22" y="-12" fill="#ffd54f" fontSize="7" fontWeight="bold">ARTIFACTS</text>
-                </g>
-
-                <motion.g
-                  initial={{ x: 220, y: 135.5 }}
-                  animate={
-                    animationState === 'running' && decision === 'yes'
-                      ? { x: [220, 70, 120] }
-                      : animationState === 'complete' && decision === 'yes'
-                      ? { x: 120 }
-                      : animationState === 'running' && decision === 'no'
-                      ? { x: [220, 370, 320] }
-                      : animationState === 'complete' && decision === 'no'
-                      ? { x: 320 }
-                      : { x: 220 }
-                  }
-                  transition={{ duration: 2.0 }}
-                >
-                  <StickFigure x={0} y={0} color="#4CAF50" scale={0.9} />
-                  <text x="-8" y="-32" fill="#4CAF50" fontSize="7" fontWeight="800">YOU</text>
-                  {animationState === 'complete' && decision === 'yes' && (
-                    <circle cx="8" cy="-5" r="4" fill="#ff8a65" />
+                    <StickFigure x={0} y={0} color="#ff8a65" bg="#2d1400" isDead={animationState === 'complete' && decision === 'yes' === false} scale={0.85} />
                   )}
                   {animationState === 'complete' && decision === 'no' && (
-                    <path d="M 8,-4 L 14,-4 L 11,-10 L 8,-4 Z" fill="#ffd54f" />
+                    <StickFigure x={0} y={0} color="#ff5252" bg="#2d1400" isDead={true} scale={0.85} />
                   )}
-                </motion.g>
+                  <text x="-24" y="-22" fill="#ff8a65" fontSize="6.5" fontWeight="bold">STRANGER</text>
+                </g>
 
+                {/* Incipient starting fires - visible only while deciding or running */}
+                {animationState !== 'complete' && (
+                  <>
+                    {/* Fire under stranger */}
+                    <motion.g transform="translate(65, 160)" animate={{ scaleY: [1, 1.2, 0.9, 1.1, 1] }} transition={{ repeat: Infinity, duration: 1.2 }}>
+                      <path d="M -10,0 L -4,-18 L 2,-8 L 8,-22 L 14,0 Z" fill="#ff3d00" />
+                      <path d="M -6,0 L -2,-12 L 2,-5 L 6,-15 L 9,0 Z" fill="#ffb300" />
+                    </motion.g>
+                    {/* Fire under masterpiece painting */}
+                    <motion.g transform="translate(225, 160)" animate={{ scaleY: [1, 1.15, 0.95, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1.0 }}>
+                      <path d="M -8,0 L -3,-15 L 2,-6 L 7,-18 L 12,0 Z" fill="#ff3d00" />
+                      <path d="M -5,0 L -1,-10 L 2,-4 L 5,-12 L 8,0 Z" fill="#ffb300" />
+                    </motion.g>
+                    {/* Fire under sculpture pedestal */}
+                    <motion.g transform="translate(310, 160)" animate={{ scaleY: [1, 1.25, 0.9, 1.1, 1] }} transition={{ repeat: Infinity, duration: 1.4 }}>
+                      <path d="M -8,0 L -3,-16 L 2,-7 L 7,-20 L 12,0 Z" fill="#ff3d00" />
+                      <path d="M -5,0 L -1,-11 L 2,-5 L 5,-13 L 8,0 Z" fill="#ffb300" />
+                    </motion.g>
+                  </>
+                )}
+
+                {/* Massive fires at the end state */}
                 {animationState === 'complete' && decision === 'yes' && (
                   <motion.g initial={{ opacity: 0 }} animate={{ opacity: 0.9 }}>
-                    <path d="M 350,140 L 360,50 L 375,100 L 390,20 L 410,110 L 420,40 L 430,140 Z" fill="#ff3d00" />
-                    <path d="M 360,140 L 370,80 L 385,110 L 395,60 L 415,140 Z" fill="#ffb300" />
+                    {/* Original massive right fire */}
+                    <path d="M 330,160 L 345,60 L 365,110 L 385,30 L 405,120 L 415,50 L 430,160 Z" fill="#ff3d00" />
+                    <path d="M 345,160 L 360,90 L 375,120 L 390,70 L 415,160 Z" fill="#ffb300" />
+                    {/* Massive fire engulfing the masterpiece painting on the right wall */}
+                    <path d="M 200,160 L 220,70 L 235,110 L 245,65 L 260,160 Z" fill="#ff3d00" />
+                    <path d="M 210,160 L 225,95 L 235,120 L 245,85 L 250,160 Z" fill="#ffb300" />
                   </motion.g>
                 )}
                 {animationState === 'complete' && decision === 'no' && (
                   <motion.g initial={{ opacity: 0 }} animate={{ opacity: 0.9 }}>
-                    <path d="M 20,140 L 30,30 L 45,90 L 60,10 L 80,100 L 90,30 L 110,140 Z" fill="#ff3d00" />
-                    <path d="M 30,140 L 40,70 L 55,100 L 65,50 L 85,140 Z" fill="#ffb300" />
+                    {/* Original massive left fire completely engulfing the stranger */}
+                    <path d="M 20,160 L 35,40 L 55,100 L 75,20 L 95,110 L 105,40 L 120,160 Z" fill="#ff3d00" />
+                    <path d="M 35,160 L 50,80 L 65,110 L 80,60 L 105,160 Z" fill="#ffb300" />
                   </motion.g>
                 )}
+
+                {/* YOU (rescuer) figure holding a fire extinguisher */}
+                <motion.g
+                  initial={{ x: 200, y: 150 }}
+                  animate={
+                    animationState === 'running' && decision === 'yes'
+                      ? { x: [200, 70, 110] }
+                      : animationState === 'complete' && decision === 'yes'
+                      ? { x: 110 }
+                      : animationState === 'running' && decision === 'no'
+                      ? { x: [200, 350, 300] }
+                      : animationState === 'complete' && decision === 'no'
+                      ? { x: 300 }
+                      : { x: 200 }
+                  }
+                  transition={{ duration: 2.0 }}
+                >
+                  <StickFigure x={0} y={0} color="#4CAF50" bg="#2d1400" scale={0.9} />
+                  <text x="-10" y="-36" fill="#4CAF50" fontSize="7" fontWeight="800">YOU</text>
+                  
+                  {/* Fire Extinguisher - dynamically faces the target (LEFT for stranger/yes, RIGHT for artworks/no/idle) */}
+                  {decision === 'yes' ? (
+                    <g transform="translate(-9, -13)">
+                      <rect x="-2" y="-1" width="4" height="10" rx="1" fill="#d32f2f" stroke="#b71c1c" strokeWidth="0.5" />
+                      <rect x="-1" y="-3" width="2" height="2" fill="#37474f" />
+                      <line x1="0" y1="-2" x2="-4" y2="-4" stroke="#37474f" strokeWidth="0.8" />
+                      {/* White smoke spray out (extinguishing the fire/securing the stranger) */}
+                      {animationState === 'complete' && (
+                        <g>
+                          {/* Expanding base cloud volume */}
+                          <motion.path
+                            d="M -6,-5 L -20,-15 C -35,-8 -35,5 -20,2 Z"
+                            fill="#ffffff"
+                            initial={{ opacity: 0 }}
+                            animate={{ scaleX: [1, 2.5], scaleY: [1, 2.8], opacity: [0.45, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, ease: "easeOut" }}
+                            style={{ transformOrigin: "-6px -5px" }}
+                          />
+                          {/* Particle 1 */}
+                          <motion.circle cx="-6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [-6, -55], cy: [-5, -28], r: [2, 32], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, ease: "easeOut" }}
+                          />
+                          {/* Particle 2 */}
+                          <motion.circle cx="-6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [-6, -45], cy: [-5, -6], r: [2, 25], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.08, ease: "easeOut" }}
+                          />
+                          {/* Particle 3 */}
+                          <motion.circle cx="-6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [-6, -72], cy: [-5, -18], r: [2, 45], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.16, ease: "easeOut" }}
+                          />
+                          {/* Particle 4 */}
+                          <motion.circle cx="-6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [-6, -52], cy: [-5, 12], r: [2, 35], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.24, ease: "easeOut" }}
+                          />
+                          {/* Particle 5 */}
+                          <motion.circle cx="-6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [-6, -66], cy: [-5, -24], r: [2, 40], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.32, ease: "easeOut" }}
+                          />
+                          {/* Particle 6 */}
+                          <motion.circle cx="-6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [-6, -36], cy: [-5, -2], r: [2, 23], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.40, ease: "easeOut" }}
+                          />
+                          {/* Particle 7 */}
+                          <motion.circle cx="-6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [-6, -76], cy: [-5, -8], r: [2, 48], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.48, ease: "easeOut" }}
+                          />
+                          {/* Particle 8 */}
+                          <motion.circle cx="-6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [-6, -60], cy: [-5, -20], r: [2, 38], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.56, ease: "easeOut" }}
+                          />
+                        </g>
+                      )}
+                    </g>
+                  ) : (
+                    <g transform="translate(9, -13)">
+                      <rect x="-2" y="-1" width="4" height="10" rx="1" fill="#d32f2f" stroke="#b71c1c" strokeWidth="0.5" />
+                      <rect x="-1" y="-3" width="2" height="2" fill="#37474f" />
+                      <line x1="0" y1="-2" x2="4" y2="-4" stroke="#37474f" strokeWidth="0.8" />
+                      {/* White smoke spray out (extinguishing the fire/securing the artworks) */}
+                      {animationState === 'complete' && (
+                        <g>
+                          {/* Expanding base cloud volume */}
+                          <motion.path
+                            d="M 6,-5 L 20,-15 C 35,-8 35,5 20,2 Z"
+                            fill="#ffffff"
+                            initial={{ opacity: 0 }}
+                            animate={{ scaleX: [1, 2.5], scaleY: [1, 2.8], opacity: [0.45, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, ease: "easeOut" }}
+                            style={{ transformOrigin: "6px -5px" }}
+                          />
+                          {/* Particle 1 */}
+                          <motion.circle cx="6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [6, 55], cy: [-5, -28], r: [2, 32], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, ease: "easeOut" }}
+                          />
+                          {/* Particle 2 */}
+                          <motion.circle cx="6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [6, 45], cy: [-5, -6], r: [2, 25], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.08, ease: "easeOut" }}
+                          />
+                          {/* Particle 3 */}
+                          <motion.circle cx="6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [6, 72], cy: [-5, -18], r: [2, 45], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.16, ease: "easeOut" }}
+                          />
+                          {/* Particle 4 */}
+                          <motion.circle cx="6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [6, 52], cy: [-5, 12], r: [2, 35], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.24, ease: "easeOut" }}
+                          />
+                          {/* Particle 5 */}
+                          <motion.circle cx="6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [6, 66], cy: [-5, -24], r: [2, 40], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.32, ease: "easeOut" }}
+                          />
+                          {/* Particle 6 */}
+                          <motion.circle cx="6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [6, 36], cy: [-5, -2], r: [2, 23], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.40, ease: "easeOut" }}
+                          />
+                          {/* Particle 7 */}
+                          <motion.circle cx="6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [6, 76], cy: [-5, -8], r: [2, 48], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.48, ease: "easeOut" }}
+                          />
+                          {/* Particle 8 */}
+                          <motion.circle cx="6" cy="-5" r="2" fill="#ffffff" opacity="0.95"
+                            animate={{ cx: [6, 60], cy: [-5, -20], r: [2, 38], opacity: [0.95, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.56, ease: "easeOut" }}
+                          />
+                        </g>
+                      )}
+                    </g>
+                  )}
+                  
+                  {animationState === 'complete' && decision === 'yes' && (
+                    <circle cx="8" cy="-6" r="5" fill="#ff8a65" />
+                  )}
+                </motion.g>
               </svg>
             )}
           </Box>
@@ -2397,13 +3053,13 @@ export const TrolleyProblemWidget = () => {
               {scenarios[currentScenario - 1].yesLabel}
             </Button>
             <Button
-              variant="outlined"
+              variant="contained"
               disabled={animationState === 'running' || animationState === 'complete'}
               onClick={() => handleChoice('no')}
               style={{
                 flex: 1,
-                borderColor: 'rgba(128,128,128,0.25)',
-                color: 'var(--text-primary)',
+                background: 'var(--hero-gradient)',
+                color: '#fff',
                 fontWeight: 800,
                 borderRadius: '10px',
                 textTransform: 'none',

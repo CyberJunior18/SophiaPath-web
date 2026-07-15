@@ -1235,8 +1235,8 @@ const NavigationPage = () => {
                   borderRadius: '4px',
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
-                  background: !user ? 'rgba(255,255,255,0.08)' : Number(user.roleID) === 3 ? 'rgba(255, 193, 7, 0.15)' : Number(user.roleID) === 2 ? 'rgba(156, 39, 176, 0.15)' : Number(user.roleID) === 1 ? 'rgba(76, 175, 80, 0.15)' : 'rgba(255,255,255,0.06)',
-                  color: !user ? 'var(--text-secondary)' : Number(user.roleID) === 3 ? '#ffc107' : Number(user.roleID) === 2 ? '#e040fb' : Number(user.roleID) === 1 ? '#4caf50' : 'var(--text-secondary)',
+                  background: !user ? 'rgba(255,255,255,0.08)' : Number(user.roleID) >= 1 ? 'rgba(var(--primary-main-rgb), 0.15)' : 'rgba(255,255,255,0.06)',
+                  color: !user ? 'var(--text-secondary)' : Number(user.roleID) >= 1 ? 'var(--primary-main)' : 'var(--text-secondary)',
                   border: '1px solid var(--divider)',
                   flexShrink: 0
                 }}>
@@ -1283,13 +1283,13 @@ const NavigationPage = () => {
               padding: '16px',
               width: '280px',
               borderRadius: '16px',
-              background: 'rgba(30, 30, 56, 0.95)',
+              background: 'var(--background-paper)',
               backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              color: '#ffffff'}
+              border: '1px solid var(--divider)',
+              color: 'var(--text-primary)'}
           }}
         >
-          <Typography variant="subtitle2" style={{ fontWeight: 850, marginBottom: '6px', fontFamily: '"Outfit", sans-serif', color: '#3D5CFF' }}>
+          <Typography variant="subtitle2" style={{ fontWeight: 850, marginBottom: '6px', fontFamily: '"Outfit", sans-serif', color: 'var(--primary-main)' }}>
             XP & Levels Rank System
           </Typography>
           <Typography variant="body2" style={{ fontSize: '0.74rem', opacity: 0.7, marginBottom: '12px', lineHeight: 1.4 }}>
@@ -1319,10 +1319,10 @@ const NavigationPage = () => {
                     justifyContent: 'space-between',
                     padding: '5px 8px',
                     borderRadius: '8px',
-                    background: isCurrent ? 'rgba(61, 92, 255, 0.18)' : 'transparent',
-                    border: isCurrent ? '1.5px solid #3D5CFF' : '1px solid transparent'}}
+                    background: isCurrent ? 'rgba(var(--primary-main-rgb), 0.18)' : 'transparent',
+                    border: isCurrent ? '1.5px solid var(--primary-main)' : '1px solid transparent'}}
                 >
-                  <span style={{ fontSize: '0.76rem', fontWeight: isCurrent ? 800 : 500, color: isCurrent ? '#3D5CFF' : 'inherit' }}>
+                  <span style={{ fontSize: '0.76rem', fontWeight: isCurrent ? 800 : 500, color: isCurrent ? 'var(--primary-main)' : 'inherit' }}>
                     Lvl {cfg.level}: {cfg.name}
                   </span>
                   <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>

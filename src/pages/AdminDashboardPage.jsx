@@ -130,7 +130,7 @@ const AdminDashboardPage = () => {
   const ROLE_NAMES = { 0: 'Student', 1: 'Expert', 2: 'Moderator', 3: 'Admin' };
   const ROLE_COLORS = {
     0: { bg: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' },
-    1: { bg: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)' },
+    1: { bg: 'rgba(255,255,255,0.05)', color: 'var(--primary-main)' },
     2: { bg: 'rgba(255,255,255,0.05)', color: 'var(--primary-main)' },
     3: { bg: 'rgba(255,255,255,0.05)', color: 'var(--primary-main)' }
   };
@@ -158,6 +158,10 @@ const AdminDashboardPage = () => {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [courseSearchQuery, setCourseSearchQuery] = useState('');
+  const [sectionLessonSearch, setSectionLessonSearch] = useState({});
+  const [sectionLessonCategory, setSectionLessonCategory] = useState({});
+  const [sectionLessonChapter, setSectionLessonChapter] = useState({});
 
   const [applications, setApplications] = useState([]);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
@@ -380,6 +384,29 @@ const AdminDashboardPage = () => {
 
   useEffect(() => {
     loadCourses();
+    fetch('/users')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => {
+        if (data && data.length > 0) {
+          const mapped = data.map(u => {
+            const finalRoleId = u.roleID ?? 0;
+            const finalCourses = u.assignedCourseIds || [];
+            return {
+              id: u.id,
+              name: u.fullname || u.username || 'Unknown',
+              username: u.username,
+              email: u.email,
+              roleID: finalRoleId,
+              roleName: ROLE_NAMES[finalRoleId] || 'Student',
+              xp: u.xp || 0,
+              level: u.level || 1,
+              assignedCourseIds: finalCourses
+            };
+          });
+          setUsers(mapped);
+        }
+      })
+      .catch(err => console.error('Failed to pre-load users:', err));
   }, [user]);
 
   useEffect(() => {
@@ -2292,7 +2319,10 @@ const AdminDashboardPage = () => {
                           <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                             <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{sec.title}</Typography>
                             <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: 700 }}>
-                              ({getSectionFinishedCount(sec)} completion)
+                              ({(() => {
+                                const finishedCount = getSectionFinishedCount(sec);
+                                return `${finishedCount} ${finishedCount === 1 ? 'completion' : 'completions'}`;
+                              })()})
                             </span>
                           </Box>
                           <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{sec.description}</Typography>
@@ -2332,46 +2362,194 @@ const AdminDashboardPage = () => {
                         <Typography style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', paddingLeft: '8px' }}>
                           No lessons added to this section yet.
                         </Typography>
-                      ) : (
-                        <TableContainer style={{ overflowX: 'auto', background: 'rgba(0,0,0,0.1)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow style={{ borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
-                                <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Lesson Title</TableCell>
-                                <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Chapter</TableCell>
-                                <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Category</TableCell>
-                                <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Slides</TableCell>
-                                <TableCell align="right" style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Actions</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {sec.lessons.sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map((les) => (
-                                <TableRow key={les.id || les.title} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                  <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                    {les.title}
-                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, marginLeft: '8px', display: 'inline-block', whiteSpace: 'nowrap' }}>
-                                      ({getLessonFinishedCount(les.id)} completion)
-                                    </span>
-                                  </TableCell>
-                                  <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{les.chapterName}</TableCell>
-                                  <TableCell style={{ color: les.category === 'exercise' ? 'var(--primary-main)' : 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                    {les.category}
-                                  </TableCell>
-                                  <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{(les.pages || []).length} pages</TableCell>
-                                  <TableCell align="right" style={{ whiteSpace: 'nowrap' }}>
-                                    <IconButton size="small" onClick={() => handleOpenLessonEdit(sec.id, les)} style={{ color: 'var(--primary-main)' }}>
-                                      <EditIcon style={{ fontSize: '1.05rem' }} />
-                                    </IconButton>
-                                    <IconButton size="small" onClick={() => handleDeleteLesson(sec.id, les.id, les.title)} style={{ color: '#f44336' }}>
-                                      <DeleteIcon style={{ fontSize: '1.05rem' }} />
-                                    </IconButton>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      )}
+                      ) : (() => {
+                        const searchVal = sectionLessonSearch[sec.id] || '';
+                        const catVal = sectionLessonCategory[sec.id] || 'all';
+                        const chapVal = sectionLessonChapter[sec.id] || 'all';
+
+                        // Unique chapter names in this section
+                        const uniqueChapters = Array.from(new Set(
+                          (sec.lessons || [])
+                            .map(les => les.chapterName)
+                            .filter(Boolean)
+                        ));
+
+                        const filteredLessons = (sec.lessons || [])
+                          .filter(les => {
+                            if (searchVal) {
+                              const q = searchVal.toLowerCase().trim();
+                              // Only search lesson title
+                              if (!les.title.toLowerCase().includes(q)) return false;
+                            }
+                            if (catVal !== 'all') {
+                              if (les.category !== catVal) return false;
+                            }
+                            if (chapVal !== 'all') {
+                              if (les.chapterName !== chapVal) return false;
+                            }
+                            return true;
+                          })
+                          .sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+
+                        return (
+                          <>
+                            {/* Filter Bar */}
+                            <Box style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+                              <TextField
+                                placeholder="Search lessons..."
+                                value={searchVal}
+                                onChange={(e) => setSectionLessonSearch(prev => ({ ...prev, [sec.id]: e.target.value }))}
+                                size="small"
+                                InputProps={{
+                                  startAdornment: (
+                                    <SearchIcon style={{ color: 'var(--text-secondary)', marginRight: '6px', fontSize: '1rem' }} />
+                                  ),
+                                }}
+                                sx={{
+                                  width: '200px',
+                                  '& .MuiOutlinedInput-root': {
+                                    color: 'var(--text-primary)',
+                                    borderRadius: '8px',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                                    fontSize: '0.82rem',
+                                    '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.06)' },
+                                    '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.12)' },
+                                    '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' },
+                                  }
+                                }}
+                              />
+                              <Select
+                                value={catVal}
+                                onChange={(e) => setSectionLessonCategory(prev => ({ ...prev, [sec.id]: e.target.value }))}
+                                size="small"
+                                sx={{
+                                  width: '140px',
+                                  borderRadius: '8px',
+                                  backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.82rem',
+                                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.06)' },
+                                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.12)' },
+                                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }
+                                }}
+                              >
+                                <MenuItem value="all" style={{ fontSize: '0.82rem' }}>All Categories</MenuItem>
+                                <MenuItem value="lecture" style={{ fontSize: '0.82rem' }}>Lecture</MenuItem>
+                                <MenuItem value="exercise" style={{ fontSize: '0.82rem' }}>Exercise</MenuItem>
+                              </Select>
+                              <Select
+                                value={chapVal}
+                                onChange={(e) => setSectionLessonChapter(prev => ({ ...prev, [sec.id]: e.target.value }))}
+                                size="small"
+                                displayEmpty
+                                sx={{
+                                  width: '180px',
+                                  borderRadius: '8px',
+                                  backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.82rem',
+                                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.06)' },
+                                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.12)' },
+                                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }
+                                }}
+                              >
+                                <MenuItem value="all" style={{ fontSize: '0.82rem' }}>All Chapters</MenuItem>
+                                {uniqueChapters.map((chapName) => (
+                                  <MenuItem key={chapName} value={chapName} style={{ fontSize: '0.82rem' }}>
+                                    {chapName}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </Box>
+
+                            <TableContainer style={{ overflowX: 'auto', background: 'rgba(0,0,0,0.1)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow style={{ borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
+                                    <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Lesson Title</TableCell>
+                                    <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Chapter</TableCell>
+                                    <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Category</TableCell>
+                                    <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Slides</TableCell>
+                                    <TableCell align="right" style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Actions</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {filteredLessons.map((les) => (
+                                    <TableRow key={les.id || les.title} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                      <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                        {les.title}
+                                        <span style={{ 
+                                          color: 'var(--primary-main)', 
+                                          fontSize: '0.74rem', 
+                                          fontWeight: 700, 
+                                          marginLeft: '12px',
+                                          background: 'rgba(var(--primary-main-rgb), 0.08)',
+                                          padding: '2px 8px',
+                                          borderRadius: '6px',
+                                          border: '1px solid rgba(var(--primary-main-rgb), 0.1)',
+                                          display: 'inline-block',
+                                          whiteSpace: 'nowrap'
+                                        }}>
+                                          {(() => {
+                                            const finishedCount = getLessonFinishedCount(les.id);
+                                            return `${finishedCount} ${finishedCount === 1 ? 'completion' : 'completions'}`;
+                                          })()}
+                                        </span>
+                                      </TableCell>
+                                      <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{les.chapterName}</TableCell>
+                                      <TableCell style={{ whiteSpace: 'nowrap' }}>
+                                        {les.category === 'exercise' ? (
+                                          <Chip
+                                            label="Exercise"
+                                            size="small"
+                                            style={{
+                                              background: 'rgba(var(--primary-main-rgb), 0.12)',
+                                              color: 'var(--primary-main)',
+                                              fontWeight: 800,
+                                              fontSize: '0.72rem',
+                                              borderRadius: '6px',
+                                              border: '1px solid rgba(var(--primary-main-rgb), 0.15)'
+                                            }}
+                                          />
+                                        ) : (
+                                          <Chip
+                                            label="Lecture"
+                                            size="small"
+                                            style={{
+                                              background: 'rgba(255, 255, 255, 0.04)',
+                                              color: 'var(--text-secondary)',
+                                              fontWeight: 700,
+                                              fontSize: '0.72rem',
+                                              borderRadius: '6px',
+                                              border: '1px solid var(--divider)'
+                                            }}
+                                          />
+                                        )}
+                                      </TableCell>
+                                      <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{(les.pages || []).length} pages</TableCell>
+                                      <TableCell align="right" style={{ whiteSpace: 'nowrap' }}>
+                                        <IconButton size="small" onClick={() => handleOpenLessonEdit(sec.id, les)} style={{ color: 'var(--primary-main)' }} title="Edit Lesson">
+                                          <EditIcon style={{ fontSize: '1.05rem' }} />
+                                        </IconButton>
+                                        <IconButton size="small" onClick={() => handleDeleteLesson(sec.id, les.id, les.title)} style={{ color: '#f44336' }} title="Delete Lesson">
+                                          <DeleteIcon style={{ fontSize: '1.05rem' }} />
+                                        </IconButton>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                  {filteredLessons.length === 0 && (
+                                    <TableRow>
+                                      <TableCell colSpan={5} style={{ textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', padding: '16px' }}>
+                                        No lessons match current filters.
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </TableBody>
+                              </Table>
+                            </TableContainer>
+                          </>
+                        );
+                      })()}
                     </CardContent>
                   </Card>
                 ))}
@@ -2634,9 +2812,58 @@ const AdminDashboardPage = () => {
     );
   }
 
-  const visibleCourses = user?.roleID === 1
+  const visibleCourses = (user?.roleID === 1
     ? courses.filter(c => user.assignedCourseIds?.map(Number).includes(Number(c.id)))
-    : courses;
+    : courses
+  ).filter(c => {
+    if (!courseSearchQuery) return true;
+    const query = courseSearchQuery.trim();
+    const matchPhraseFromWordStart = (text, q) => {
+      if (!q) return true;
+      if (!text) return false;
+      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp('\\b' + escaped, 'i');
+      return regex.test(text);
+    };
+    return matchPhraseFromWordStart(c.title, query) || 
+           matchPhraseFromWordStart(c.description, query) || 
+           String(c.id).startsWith(query);
+  });
+
+  const getDashboardStats = () => {
+    let totalEnrollments = 0;
+    let totalLessonsCount = 0;
+    let completedLessonsCount = 0;
+
+    courses.forEach(course => {
+      const progressList = coursesProgress[course.id] || [];
+      totalEnrollments += progressList.length;
+
+      const courseLessonsCount = (course.sections || []).reduce((sum, s) => sum + (s.lessons || []).length, 0);
+
+      progressList.forEach(record => {
+        totalLessonsCount += courseLessonsCount;
+        const completed = (record.grades || []).filter(g => g.completed || (g.grade !== null && g.grade >= 70)).length;
+        completedLessonsCount += completed;
+      });
+    });
+
+    const completionRate = totalLessonsCount > 0 
+      ? Math.round((completedLessonsCount / totalLessonsCount) * 100) 
+      : 0;
+
+    const totalSections = courses.reduce((sum, c) => sum + (c.sections || []).length, 0);
+    const totalLessons = courses.reduce((sum, c) => sum + (c.sections || []).reduce((sAcc, s) => sAcc + (s.lessons || []).length, 0), 0);
+
+    return {
+      totalEnrollments,
+      completionRate,
+      totalSections,
+      totalLessons
+    };
+  };
+
+  const stats = getDashboardStats();
 
   // Otherwise, render core Admin Control Panel (Tab switcher: Manage Courses list, Manage Users list, Audit logs)
   return (
@@ -2667,13 +2894,13 @@ const AdminDashboardPage = () => {
         <Grid item xs={12} sm={6} md={3}>
           <Card className="glass-panel" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)' }}>
             <CardContent style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <Avatar style={{ background: 'rgba(28, 176, 246, 0.15)', color: '#1CB0F6' }}>
+              <Avatar style={{ background: 'rgba(var(--primary-main-rgb), 0.15)', color: 'var(--primary-main)' }}>
                 <PeopleIcon />
               </Avatar>
               <Box>
                 <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block', fontSize: '0.65rem', letterSpacing: '0.5px' }}>TOTAL STUDENT ENROLLMENTS</Typography>
-                <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>1,248</Typography>
-                <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800 }}>+4.2% this week</Typography>
+                <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>{stats.totalEnrollments}</Typography>
+                <Typography variant="caption" style={{ color: 'var(--primary-main)', fontWeight: 800 }}>{stats.completionRate}% avg completion rate</Typography>
               </Box>
             </CardContent>
           </Card>
@@ -2681,17 +2908,45 @@ const AdminDashboardPage = () => {
         <Grid item xs={12} sm={6} md={3}>
           <Card className="glass-panel" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)' }}>
             <CardContent style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <Avatar style={{ background: 'rgba(156, 39, 176, 0.15)', color: '#9c27b0' }}>
+              <Avatar style={{ background: 'rgba(var(--primary-main-rgb), 0.15)', color: 'var(--primary-main)' }}>
                 <BookIcon />
               </Avatar>
               <Box>
                 <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block', fontSize: '0.65rem', letterSpacing: '0.5px' }}>PUBLISHED COURSES</Typography>
                 <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>{visibleCourses.length}</Typography>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Active learning tracks</Typography>
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        
+        <Grid item xs={12} sm={6} md={3}>
+          <Card className="glass-panel" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)' }}>
+            <CardContent style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <Avatar style={{ background: 'rgba(var(--primary-main-rgb), 0.15)', color: 'var(--primary-main)' }}>
+                <PeopleIcon />
+              </Avatar>
+              <Box>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block', fontSize: '0.65rem', letterSpacing: '0.5px' }}>TOTAL REGISTERED USERS</Typography>
+                <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>{users.length}</Typography>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>Active student & staff accounts</Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card className="glass-panel" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)' }}>
+            <CardContent style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <Avatar style={{ background: 'rgba(var(--primary-main-rgb), 0.15)', color: 'var(--primary-main)' }}>
+                <DatabaseIcon />
+              </Avatar>
+              <Box>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, display: 'block', fontSize: '0.65rem', letterSpacing: '0.5px' }}>TOTAL CURRICULUM ITEMS</Typography>
+                <Typography variant="h5" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>{stats.totalLessons} Lessons</Typography>
+                <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800 }}>{stats.totalSections} Sections in database</Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       {/* Sub-tab selection bar */}
@@ -2730,22 +2985,46 @@ const AdminDashboardPage = () => {
               <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>Courses Directory</Typography>
               <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>Configure courses, sections, lessons, and custom slide components</Typography>
             </Box>
-            {user?.roleID !== 1 && (
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleOpenCourseCreate}
-                style={{
-                  background: 'var(--hero-gradient)',
-                  textTransform: 'none',
-                  fontWeight: 800,
-                  borderRadius: '8px',
-                  color: '#fff'
+            <Box style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <TextField
+                placeholder="Search courses..."
+                value={courseSearchQuery}
+                onChange={(e) => setCourseSearchQuery(e.target.value)}
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <SearchIcon style={{ color: 'var(--text-secondary)', marginRight: '8px', fontSize: '1.15rem' }} />
+                  ),
                 }}
-              >
-                Create Course
-              </Button>
-            )}
+                sx={{
+                  width: '240px',
+                  '& .MuiOutlinedInput-root': {
+                    color: 'var(--text-primary)',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                    '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.08)' },
+                    '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' },
+                    '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' },
+                  }
+                }}
+              />
+              {user?.roleID !== 1 && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleOpenCourseCreate}
+                  style={{
+                    background: 'var(--hero-gradient)',
+                    textTransform: 'none',
+                    fontWeight: 800,
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                >
+                  Create Course
+                </Button>
+              )}
+            </Box>
           </Box>
 
           <TableContainer style={{ overflowX: 'auto' }}>
@@ -2766,19 +3045,30 @@ const AdminDashboardPage = () => {
                     <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800 }}>{course.title}</TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{course.id}</TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>
-                      <span
-                        style={{
-                          color: 'var(--primary-main)',
-                          fontWeight: 800,
-                          marginRight: '6px'
-                        }}
-                      >
-                        {(course.sections || []).length} Sections
-                      </span>
-                      {(course.sections || []).reduce((acc, s) => acc + (s.lessons || []).length, 0)} Lessons
+                      {(() => {
+                        const secCount = (course.sections || []).length;
+                        return (
+                          <span
+                            style={{
+                              color: 'var(--primary-main)',
+                              fontWeight: 800,
+                              marginRight: '6px'
+                            }}
+                          >
+                            {secCount} {secCount === 1 ? 'Section' : 'Sections'}
+                          </span>
+                        );
+                      })()}
+                      {(() => {
+                        const lesCount = (course.sections || []).reduce((acc, s) => acc + (s.lessons || []).length, 0);
+                        return `${lesCount} ${lesCount === 1 ? 'Lesson' : 'Lessons'}`;
+                      })()}
                     </TableCell>
                     <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800 }}>
-                      {(coursesProgress[course.id] || coursesProgress[Number(course.id)] || coursesProgress[String(course.id)])?.length || 0} registered
+                      {(() => {
+                        const regCount = (coursesProgress[course.id] || coursesProgress[Number(course.id)] || coursesProgress[String(course.id)])?.length || 0;
+                        return `${regCount} ${regCount === 1 ? 'registration' : 'registrations'}`;
+                      })()}
                     </TableCell>
                     <TableCell>
                       {course.comingsoon ? (
@@ -2908,10 +3198,17 @@ const AdminDashboardPage = () => {
                     .filter(u => {
                       if (u.roleID === 3) return false; // Exclude Admin users from lists/search results
                       if (!userSearchQuery) return true;
-                      const queryLower = userSearchQuery.toLowerCase().trim();
-                      // Compare the query to the beginning of any word in the username
-                      const words = u.username.toLowerCase().split(/[^a-zA-Z0-9]/);
-                      return words.some(word => word.startsWith(queryLower));
+                      const query = userSearchQuery.trim();
+                      const matchPhraseFromWordStart = (text, q) => {
+                        if (!q) return true;
+                        if (!text) return false;
+                        const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const regex = new RegExp('\\b' + escaped, 'i');
+                        return regex.test(text);
+                      };
+                      return matchPhraseFromWordStart(u.username, query) || 
+                             matchPhraseFromWordStart(u.name, query) || 
+                             matchPhraseFromWordStart(u.email, query);
                     })
                     .sort((a, b) => b.roleID - a.roleID) // Sort users by role descending
                     .map((u) => {
@@ -2926,7 +3223,7 @@ const AdminDashboardPage = () => {
                               {u.roleName}
                             </span>
                           </TableCell>
-                          <TableCell style={{ color: 'var(--primary-main)', fontWeight: 800 }}>{u.xp} XP · Lv.{u.level}</TableCell>
+                          <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{u.xp} XP · Lv.{u.level}</TableCell>
                           <TableCell align="right">
                              <IconButton onClick={() => handleOpenUserEdit(u)} style={{ color: 'var(--primary-main)' }} title="Edit user">
                                <EditIcon />

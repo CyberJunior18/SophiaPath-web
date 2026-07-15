@@ -333,23 +333,9 @@ const LearningPage = () => {
     const freshCourse = courses.find(c => c.title.toLowerCase() === course.title.toLowerCase()) || course;
     const courseUrlSlug = course.title.toLowerCase().replace(/\s+/g, '-');
 
-    if (!user) {
-      navigate(`/course/${courseUrlSlug}`, {
-        state: { course: freshCourse }
-      });
-      return;
-    }
-
-    if (isCourseRegistered(course.title)) {
-      navigate(`/course/${courseUrlSlug}`, {
-        state: { course: freshCourse }
-      });
-    } else {
-      registerCourse(freshCourse.title);
-      navigate(`/course/${courseUrlSlug}`, {
-        state: { course: freshCourse }
-      });
-    }
+    navigate(`/course/${courseUrlSlug}`, {
+      state: { course: freshCourse }
+    });
   };
 
   return (

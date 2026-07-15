@@ -1845,10 +1845,86 @@ const LearningContentPage = () => {
           throw new Error("Export container not found");
         }
 
-        const slides = exportContainer.querySelectorAll('.cheatsheet-pdf-export-slide');
-        if (slides.length === 0) {
+        const originalSlides = exportContainer.querySelectorAll('.cheatsheet-pdf-export-slide');
+        if (originalSlides.length === 0) {
           throw new Error("No slides found for export");
         }
+
+        // Create a temporary hidden container to render our split sub-slides
+        const tempContainer = document.createElement('div');
+        tempContainer.id = 'cheatsheet-pdf-temp-container';
+        tempContainer.style.position = 'fixed';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '-9999px';
+        tempContainer.style.width = '800px';
+        tempContainer.style.boxSizing = 'border-box';
+        tempContainer.style.backgroundColor = 'var(--background-default)';
+        tempContainer.style.color = 'var(--text-primary)';
+        tempContainer.style.padding = '40px';
+        document.body.appendChild(tempContainer);
+
+        const themeBg = getComputedStyle(document.documentElement).getPropertyValue('--background-default').trim() || '#1E1E38';
+        const maxPageHeight = 850; // Maximum allowed block height per page in sub-slide
+
+        // Distribute blocks into sub-slides
+        for (let i = 0; i < originalSlides.length; i++) {
+          const origSlide = originalSlides[i];
+          const titleEl = origSlide.querySelector('h2');
+          const titleText = titleEl ? titleEl.innerText : `Section ${i + 1}`;
+          const blocks = origSlide.querySelectorAll('.cheatsheet-pdf-block');
+
+          let currentSubSlide = null;
+          let currentSubSlideBlocksList = null;
+          let currentHeight = 0;
+          let subSlideIndex = 1;
+
+          const createNewSubSlide = () => {
+            currentSubSlide = document.createElement('div');
+            currentSubSlide.className = 'cheatsheet-pdf-export-slide';
+            currentSubSlide.style.backgroundColor = 'var(--background-paper)';
+            currentSubSlide.style.border = '1px solid var(--divider)';
+            currentSubSlide.style.borderRadius = '16px';
+            currentSubSlide.style.padding = '40px';
+            currentSubSlide.style.marginBottom = '30px';
+            currentSubSlide.style.boxSizing = 'border-box';
+            currentSubSlide.style.width = '720px'; // 800px - padding
+
+            const subTitleEl = document.createElement('h2');
+            subTitleEl.style.fontFamily = 'Outfit, sans-serif';
+            subTitleEl.style.fontSize = '1.8rem';
+            subTitleEl.style.fontWeight = '700';
+            subTitleEl.style.color = 'var(--primary-main)';
+            subTitleEl.style.marginTop = '0';
+            subTitleEl.style.marginBottom = '20px';
+            subTitleEl.innerText = subSlideIndex === 1 ? titleText : `${titleText} (Cont.)`;
+            currentSubSlide.appendChild(subTitleEl);
+
+            currentSubSlideBlocksList = document.createElement('div');
+            currentSubSlideBlocksList.className = 'slide-blocks-list';
+            currentSubSlide.appendChild(currentSubSlideBlocksList);
+
+            tempContainer.appendChild(currentSubSlide);
+            currentHeight = 60; // Base height for margins + header
+            subSlideIndex++;
+          };
+
+          createNewSubSlide();
+
+          for (let j = 0; j < blocks.length; j++) {
+            const block = blocks[j];
+            const clonedBlock = block.cloneNode(true);
+            const blockHeight = block.offsetHeight || 100;
+
+            if (currentHeight + blockHeight > maxPageHeight && currentSubSlideBlocksList.children.length > 0) {
+              createNewSubSlide();
+            }
+
+            currentSubSlideBlocksList.appendChild(clonedBlock);
+            currentHeight += blockHeight + 16;
+          }
+        }
+
+        const subSlides = tempContainer.querySelectorAll('.cheatsheet-pdf-export-slide');
 
         const pdf = new jsPDFClass({
           orientation: 'portrait',
@@ -1859,10 +1935,8 @@ const LearningContentPage = () => {
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
 
-        for (let i = 0; i < slides.length; i++) {
-          const slide = slides[i];
-          
-          const themeBg = getComputedStyle(document.documentElement).getPropertyValue('--background-default').trim() || '#1E1E38';
+        for (let i = 0; i < subSlides.length; i++) {
+          const slide = subSlides[i];
           const canvas = await html2canvas(slide, {
             scale: 2,
             useCORS: true,
@@ -1874,22 +1948,31 @@ const LearningContentPage = () => {
           const imgData = canvas.toDataURL('image/jpeg', 0.95);
           
           const padding = 30;
-          const imgWidth = pdfWidth - (padding * 2);
-          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          const maxAllowedWidth = pdfWidth - (padding * 2);
+          const maxAllowedHeight = pdfHeight - (padding * 2);
+
+          let imgWidth = maxAllowedWidth;
+          let imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+          if (imgHeight > maxAllowedHeight) {
+            imgHeight = maxAllowedHeight;
+            imgWidth = (canvas.width * imgHeight) / canvas.height;
+          }
 
           if (i > 0) {
             pdf.addPage();
           }
 
-          // Draw theme background color over the entire PDF page
           pdf.setFillColor(themeBg);
           pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
 
-          const xOffset = padding;
-          const yOffset = (pdfHeight - imgHeight) / 2 > padding ? (pdfHeight - imgHeight) / 2 : padding;
+          const xOffset = (pdfWidth - imgWidth) / 2;
+          const yOffset = (pdfHeight - imgHeight) / 2;
 
           pdf.addImage(imgData, 'JPEG', xOffset, yOffset, imgWidth, imgHeight);
         }
+
+        document.body.removeChild(tempContainer);
 
         pdf.save(`${lesson.title.replace(/\s+/g, '_')}_Cheatsheet.pdf`);
       } catch (err) {
@@ -1916,6 +1999,28 @@ const LearningContentPage = () => {
       setCurrentPageIndex(prev => prev - 1);
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      if (activeTag === 'input' || activeTag === 'textarea' || document.activeElement?.isContentEditable) {
+        return;
+      }
+
+      if (e.key === 'ArrowRight') {
+        if (currentPageIndex < pages.length - 1 && isPageCompleted(currentPageIndex)) {
+          handleNext();
+        }
+      } else if (e.key === 'ArrowLeft') {
+        handlePrevious();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [currentPageIndex, pages.length, isPageCompleted, handleNext, handlePrevious]);
 
   const handleFinish = async () => {
     if (!completionSaved && lesson?.id) {
@@ -3250,11 +3355,11 @@ const LearningContentPage = () => {
               Previous
             </Button>
             <Button
-              variant="contained"
+              variant="outlined"
               onClick={handleNext}
               disabled={!isPageCompleted(currentPageIndex)}
               endIcon={<RightIcon />}
-              className="footer-nav-btn primary"
+              className="footer-nav-btn"
             >
               {currentPageIndex === pages.length - 1 ? 'Finish Lesson' : 'Next'}
             </Button>
@@ -3274,11 +3379,11 @@ const LearningContentPage = () => {
               Previous
             </Button>
             <Button
-              variant="contained"
+              variant="outlined"
               onClick={handleNext}
               disabled={!isPageCompleted(currentPageIndex)}
               endIcon={<RightIcon />}
-              className="footer-nav-btn primary"
+              className="footer-nav-btn"
             >
               {currentPageIndex === pages.length - 1 ? 'Finish Lesson' : 'Next'}
             </Button>
@@ -3309,9 +3414,9 @@ const LearningContentPage = () => {
         <div 
           id="cheatsheet-pdf-export-container" 
           style={{ 
-            position: 'absolute', 
-            left: '0', 
-            top: '0', 
+            position: 'fixed', 
+            left: '-9999px', 
+            top: '-9999px', 
             zIndex: -9999, 
             width: '800px', 
             backgroundColor: 'var(--background-default)', 
@@ -3338,7 +3443,11 @@ const LearningContentPage = () => {
                 {page.pageTitle || `Section ${pIdx + 1}`}
               </h2>
               <div className="slide-blocks-list">
-                {page.blocks?.map((block, idx) => renderBlock(block, idx))}
+                {page.blocks?.map((block, idx) => (
+                  <div key={idx} className="cheatsheet-pdf-block" style={{ marginBottom: '16px' }}>
+                    {renderBlock(block, idx)}
+                  </div>
+                ))}
               </div>
             </div>
           ))}

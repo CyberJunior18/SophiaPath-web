@@ -410,23 +410,6 @@
   color: var(--code-text-default);
 }
 
-/* Footer Actions */
-.learning-content-footer {
-  position: sticky;
-  bottom: 0;
-  width: 100%;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  z-index: 100;
-  border-radius: 20px 20px 0 0;
-  border-bottom: none;
-  background: var(--surface-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid var(--divider);
-  margin-top: auto;
-}
 
 .learning-footer-content {
   display: flex;

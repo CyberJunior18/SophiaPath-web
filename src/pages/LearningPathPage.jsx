@@ -103,6 +103,7 @@ const LearningPathPage = () => {
               id: sec.id,
               title: sec.title,
               description: sec.description || '',
+              cheatsheet: sec.cheatsheet || null,
               lessons: (sec.lessons || []).map(les => ({
                 id: les.id,
                 category: les.category || 'learning',
