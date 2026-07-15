@@ -34,9 +34,6 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { ArrowOutward as ArrowOutwardIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { coursesData } from '../data/courses';
-import CybersecurityCourseCover from '../components/course/CybersecurityCourseCover';
-import ComputerScienceCourseCover from '../components/course/ComputerScienceCourseCover';
-import PhilosophyCourseCover from '../components/course/PhilosophyCourseCover';
 import './LearningPage.css';
 
 const getCourseDomain = (title) => {
@@ -72,13 +69,13 @@ const LearningPage = () => {
   // Role Application State (FR-S-46)
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState(null);
-  
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [appEmail, setAppEmail] = useState(user?.email || '');
   const [appPhone, setAppPhone] = useState('');
   const [appDescription, setAppDescription] = useState('');
   const [cvFile, setCvFile] = useState(null); // { name, base64 }
-  
+
   const [appSubmitting, setAppSubmitting] = useState(false);
   const [appError, setAppError] = useState('');
   const [appSuccess, setAppSuccess] = useState('');
@@ -195,7 +192,8 @@ const LearningPage = () => {
                   category: les.category || 'learning',
                   chapterName: les.chapterName || '',
                   title: les.title || 'Untitled Lesson',
-                  orderIndex: les.orderIndex || 0}))
+                  orderIndex: les.orderIndex || 0
+                }))
               }))
             }));
             setCourses(mapped);
@@ -211,7 +209,7 @@ const LearningPage = () => {
   const categories = ['All', 'Technology', 'Science', 'Humanities', 'Design', 'Business'];
 
   const registeredCourseTitles = user?.registeredCourses || [];
-  
+
   const courseProgress = useMemo(() => {
     const progress = {};
     if (!user) return progress;
@@ -353,7 +351,8 @@ const LearningPage = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="learning-search-field"
               InputProps={{
-                startAdornment: <SearchIcon className="learning-search-icon" />}}
+                startAdornment: <SearchIcon className="learning-search-icon" />
+              }}
             />
           </div>
 
@@ -402,47 +401,17 @@ const LearningPage = () => {
               const progress = totalLessons > 0 ? (lessonsFinished / totalLessons) * 100 : 0;
 
               const isCybersecurity = course.title.toLowerCase().includes('cybersecurity');
-              const isComputerScience = course.title.toLowerCase().includes('computer science');
-              const isPhilosophy = course.title.toLowerCase().includes('philosophy');
-              const hasCover = isCybersecurity || isComputerScience || isPhilosophy;
 
               return (
                 <Paper
                   key={course.title}
-                  className={`learning-course-card glass-panel ${hasCover ? 'has-cover' : ''}`}
+                  className="learning-course-card glass-panel"
                   elevation={0}
                   onClick={() => handleCourseClick(course)}
-                  style={{ position: 'relative', overflow: 'hidden', padding: hasCover ? 0 : undefined }}
+                  style={{ position: 'relative', overflow: 'hidden' }}
                 >
-                  {/* Expert settings edit button overlay */}
-                  {hasCover ? (
-                    <IconButton
-                      size="small"
-                      style={{
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        background: 'rgba(15, 23, 42, 0.6)',
-                        color: isCybersecurity ? '#00f3ff' : isComputerScience ? '#3b82f6' : '#ec4899',
-                        border: `1px solid ${
-                          isCybersecurity 
-                            ? 'rgba(0, 243, 255, 0.2)' 
-                            : isComputerScience 
-                              ? 'rgba(59, 130, 246, 0.2)' 
-                              : 'rgba(236, 72, 153, 0.2)'
-                        }`,
-                        zIndex: 10
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedCourse(course);
-                        setMenuAnchor(e.currentTarget);
-                      }}
-                      title="Course Settings"
-                    >
-                      <SettingsIcon style={{ fontSize: '1.15rem' }} />
-                    </IconButton>
-                  ) : (Number(user?.roleID) === 3 || (Number(user?.roleID) === 1 && user.assignedCourseIds?.map(Number).includes(Number(course.id)))) ? (
+                  {/* Settings or More options button overlay */}
+                  {(Number(user?.roleID) === 3 || (Number(user?.roleID) === 1 && user.assignedCourseIds?.map(Number).includes(Number(course.id)))) ? (
                     <IconButton
                       size="small"
                       style={{
@@ -486,144 +455,47 @@ const LearningPage = () => {
                     </IconButton>
                   )}
 
-                  {isCybersecurity && (
-                    <CybersecurityCourseCover 
-                      totalLessons={totalLessons} 
-                      lessonsFinished={lessonsFinished}
-                      height="100%"
-                      borderRadius="28px"
-                      borderBottom="none"
-                      badgePosition="top"
-                    />
-                  )}
-                  {isComputerScience && (
-                    <ComputerScienceCourseCover 
-                      totalLessons={totalLessons} 
-                      lessonsFinished={lessonsFinished}
-                      height="100%"
-                      borderRadius="28px"
-                      borderBottom="none"
-                      badgePosition="top"
-                    />
-                  )}
-                  {isPhilosophy && (
-                    <PhilosophyCourseCover 
-                      totalLessons={totalLessons} 
-                      lessonsFinished={lessonsFinished}
-                      height="100%"
-                      borderRadius="28px"
-                      borderBottom="none"
-                      badgePosition="top"
-                    />
-                  )}
-                  {!hasCover && (
-                    <div className="learning-course-card-top">
-                      <div className="learning-course-icon">
-                        {getCourseIcon(course.title)}
-                      </div>
-                      <div className="cyber-badge">{course.domain}</div>
+                  <div className="learning-course-card-top">
+                    <div className="learning-course-icon">
+                      {getCourseIcon(course.title)}
                     </div>
-                  )}
-                  
-                  {hasCover ? (
-                    <div 
-                      className="learning-course-card-content cyber-card-content" 
-                      style={{ 
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        padding: '1.25rem 1.5rem', 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        width: '100%', 
-                        boxSizing: 'border-box',
-                        background: 'rgba(10, 20, 35, 0.15)', 
-                        backdropFilter: 'none',
-                        WebkitBackdropFilter: 'none',
-                        borderTop: `1px solid ${
-                          isCybersecurity 
-                            ? 'rgba(0, 243, 255, 0.08)' 
-                            : isComputerScience 
-                              ? 'rgba(59, 130, 246, 0.08)' 
-                              : 'rgba(236, 72, 153, 0.08)'
-                        }`,
-                        borderRadius: '0 0 28px 28px',
-                        zIndex: 2
-                      }}
-                    >
-                      <Typography 
-                        variant="h5" 
-                        className="learning-course-title" 
-                        style={{ 
-                          margin: 0, 
-                          marginBottom: isRegistered ? '0.5rem' : 0, 
-                          fontWeight: 800,
-                          textAlign: 'center',
-                          textTransform: 'uppercase',
-                          letterSpacing: '-0.02em',
-                          fontFamily: '"Outfit", sans-serif',
-                          color: '#ffffff'
-                        }}
-                      >
-                        {course.title}
-                      </Typography>
+                    <div className="cyber-badge">{course.domain}</div>
+                  </div>
 
+                  <div className="learning-course-card-content">
+                    <Typography variant="h5" className="learning-course-title">
+                      {course.title}
+                    </Typography>
+                    <Typography variant="body2" className="learning-course-description">
+                      {course.description}
+                    </Typography>
+
+                    <div className="learning-course-tags">
+                      <Chip label={`${totalLessons} lessons`} className="learning-course-tag" />
+                      {isRegistered && <Chip label="Registered" className="learning-course-tag is-success" />}
+                    </div>
+
+                    <div className="learning-course-card-footer">
                       {isRegistered && (
-                        <div className="course-detail-registered-badge" style={{ margin: 0 }}>
-                          <span 
-                            className="badge-dot" 
-                            style={{ 
-                              backgroundColor: isCybersecurity 
-                                ? '#10b981' 
-                                : isComputerScience 
-                                  ? '#3b82f6' 
-                                  : '#ec4899' 
-                            }}
-                          ></span>
-                          Registered
+                        <div className="learning-course-progress">
+                          <div className="learning-course-progress-head">
+                            <span>Progress:</span>
+                            <span>{Math.round(progress)}%</span>
+                          </div>
+                          <LinearProgress
+                            variant="determinate"
+                            value={progress}
+                            className="learning-course-progress-bar"
+                          />
                         </div>
                       )}
-                    </div>
-                  ) : (
-                    <div className="learning-course-card-content">
-                      <Typography variant="h5" className="learning-course-title">
-                        {course.title}
-                      </Typography>
-                      <Typography variant="body2" className="learning-course-description">
-                        {course.description}
-                      </Typography>
 
-                      <div className="learning-course-tags">
-                        <Chip label={`${totalLessons} lessons`} className="learning-course-tag" />
-                        {isRegistered && <Chip label="Registered" className="learning-course-tag is-success" />}
-                      </div>
-
-                      <div className="learning-course-footer">
-                        {isRegistered ? (
-                          <div className="learning-course-progress">
-                            <div className="learning-course-progress-head">
-                              <span>Progress:</span>
-                              <span>{Math.round(progress)}%</span>
-                            </div>
-                            <LinearProgress
-                              variant="determinate"
-                              value={progress}
-                              className="learning-course-progress-bar"
-                            />
-                          </div>
-                        ) : (
-                          <div className="learning-course-cta">
-                            <span>Start learning</span>
-                            <PlayArrowIcon fontSize="small" />
-                          </div>
-                        )}
-                        <ArrowOutwardIcon className="learning-course-arrow" />
+                      <div className={`learning-course-action-btn ${isRegistered ? 'is-registered' : 'is-unregistered'}`}>
+                        <span>{isRegistered ? 'Continue Learning' : 'Start Learning'}</span>
+                        <PlayArrowIcon fontSize="small" className="btn-icon" />
                       </div>
                     </div>
-                  )}
+                  </div>
                 </Paper>
               );
             })}
@@ -678,7 +550,8 @@ const LearningPage = () => {
           style: {
             background: 'var(--background-paper)',
             color: 'var(--text-primary)',
-            border: '1px solid rgba(255,255,255,0.08)'}
+            border: '1px solid rgba(255,255,255,0.08)'
+          }
         }}
       >
         {selectedCourse?.title?.toLowerCase()?.includes('cybersecurity') ? (

@@ -296,16 +296,16 @@
   color: var(--success-main);
 }
 
-.learning-course-footer {
-  margin-top: 1.35rem;
+.learning-course-card-footer {
+  margin-top: auto;
+  width: 100%;
   display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 1.15rem;
 }
 
 .learning-course-progress {
-  flex: 1;
+  width: 100%;
 }
 
 .learning-course-progress-head {
@@ -329,22 +329,52 @@
   background: var(--hero-gradient);
 }
 
-.learning-course-cta {
-  display: inline-flex;
+.learning-course-action-btn {
+  display: flex;
   align-items: center;
-  gap: 0.35rem;
-  color: var(--primary-main);
-  font-weight: 700;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1.25rem;
+  border-radius: 14px;
+  font-weight: 750;
+  font-size: 0.9rem;
+  transition: all 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
 }
 
-.learning-course-arrow {
-  color: var(--text-disabled);
-  transition: transform 0.24s ease, color 0.24s ease;
+/* If registered (Continue) */
+.learning-course-action-btn.is-registered {
+  background: rgba(var(--primary-main-rgb), 0.1);
+  color: var(--primary-main);
+  border: 1px solid rgba(var(--primary-main-rgb), 0.22);
 }
 
-.learning-course-card:hover .learning-course-arrow {
-  transform: translate(4px, -4px);
-  color: var(--primary-main);
+.learning-course-card:hover .learning-course-action-btn.is-registered {
+  background: rgba(var(--primary-main-rgb), 0.18);
+  border-color: rgba(var(--primary-main-rgb), 0.35);
+}
+
+/* If not registered (Start) */
+.learning-course-action-btn.is-unregistered {
+  background: var(--hero-gradient);
+  color: #ffffff;
+  border: 1px solid transparent;
+  box-shadow: 0 4px 14px rgba(var(--primary-main-rgb), 0.15);
+}
+
+.learning-course-card:hover .learning-course-action-btn.is-unregistered {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 20px rgba(var(--primary-main-rgb), 0.35);
+  transform: translateY(-1px);
+}
+
+.learning-course-action-btn .btn-icon {
+  transition: transform 0.24s ease;
+}
+
+.learning-course-card:hover .learning-course-action-btn .btn-icon {
+  transform: translateX(3px);
 }
 
 .learning-empty-state {
@@ -425,14 +455,7 @@
   }
 }
 
-.learning-course-card.has-cover {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  text-align: left;
-  position: relative;
-  min-height: 320px;
-}
+
 
 .learning-course-card-content {
   padding: 1.5rem 1.4rem 2rem 1.4rem;
