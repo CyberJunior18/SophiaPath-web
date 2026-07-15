@@ -57,6 +57,8 @@ import {
 } from '@mui/icons-material';
 import { coursesData } from '../data/courses';
 import { useAuth } from '../context/AuthContext';
+import AiAuditorDashboard from '../components/course/AiAuditorDashboard';
+
 
 // Available cyber lab values
 const CYBER_LABS = [
@@ -101,6 +103,7 @@ const AdminDashboardPage = () => {
   
   // Navigation State inside Admin Page
   const [editingCourseDetails, setEditingCourseDetails] = useState(null); // Course currently editing sections/lessons
+  const [courseSubTab, setCourseSubTab] = useState('syllabus'); // 'syllabus' | 'auditor'
   const [editingLesson, setEditingLesson] = useState(() => {
     const saved = localStorage.getItem('sophiapath_admin_editing_lesson');
     if (saved) {
@@ -298,6 +301,7 @@ const AdminDashboardPage = () => {
     } else {
       localStorage.removeItem('sophiapath_admin_editing_course_id');
     }
+    setCourseSubTab('syllabus');
   }, [editingCourseDetails]);
 
   // Persist lesson editor state
@@ -2198,151 +2202,188 @@ const AdminDashboardPage = () => {
               </Typography>
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', gap: '12px' }}>
-            <Button
-              variant="outlined"
-              onClick={handleOpenSectionCreate}
-              startIcon={<AddIcon />}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 800,
-                borderRadius: '8px',
-                color: 'var(--primary-main)',
-                borderColor: 'var(--primary-main)',
-                opacity: 0.85,
-                '&:hover': {
-                  borderColor: 'var(--primary-main)',
-                  opacity: 1
-                }
-              }}
-            >
-              Add Section
-            </Button>
-            {Number(user?.roleID) !== 1 && (
+          {courseSubTab === 'syllabus' && (
+            <Box sx={{ display: 'flex', gap: '12px' }}>
               <Button
-                variant="contained"
-                onClick={() => handleOpenCourseEditMetadata(editingCourseDetails)}
-                startIcon={<SettingsIcon />}
-                style={{
-                  background: 'var(--hero-gradient)',
+                variant="outlined"
+                onClick={handleOpenSectionCreate}
+                startIcon={<AddIcon />}
+                sx={{
                   textTransform: 'none',
                   fontWeight: 800,
                   borderRadius: '8px',
-                  color: '#fff'
+                  color: 'var(--primary-main)',
+                  borderColor: 'var(--primary-main)',
+                  opacity: 0.85,
+                  '&:hover': {
+                    borderColor: 'var(--primary-main)',
+                    opacity: 1
+                  }
                 }}
               >
-                Edit Course Metadata
+                Add Section
               </Button>
-            )}
-          </Box>
+              {Number(user?.roleID) !== 1 && (
+                <Button
+                  variant="contained"
+                  onClick={() => handleOpenCourseEditMetadata(editingCourseDetails)}
+                  startIcon={<SettingsIcon />}
+                  style={{
+                    background: 'var(--hero-gradient)',
+                    textTransform: 'none',
+                    fontWeight: 800,
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                >
+                  Edit Course Metadata
+                </Button>
+              )}
+            </Box>
+          )}
         </Box>
 
-        {/* Sections List */}
-        {sections.length === 0 ? (
-          <Paper className="learning-empty-state glass-panel" style={{ padding: '40px', textAlign: 'center', borderRadius: '16px', background: 'var(--surface-glass)', border: '1px solid var(--divider)' }}>
-            <Typography variant="h6" style={{ color: 'var(--text-primary)', fontWeight: 800 }}>No Sections Found</Typography>
-            <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Create a section first to start structuring chapters and interactive lessons.
-            </Typography>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenSectionCreate} style={{ background: 'var(--hero-gradient)', borderRadius: '8px', textTransform: 'none', fontWeight: 800 }}>
-              Create Your First Section
-            </Button>
-          </Paper>
-        ) : (
-          <Box style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {sections.sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map((sec) => (
-              <Card key={sec.id || sec.title} className="glass-panel" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)', overflow: 'visible' }}>
-                <CardContent style={{ padding: '24px' }}>
-                  {/* Section Title and Controls */}
-                  <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                    <Box style={{ maxWidth: '75%' }}>
-                      <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                        <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{sec.title}</Typography>
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: 700 }}>
-                          ({getSectionFinishedCount(sec)} completion)
-                        </span>
-                      </Box>
-                      <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{sec.description}</Typography>
-                    </Box>
-                    <Box style={{ display: 'flex', gap: '8px' }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<AddIcon />}
-                        onClick={() => handleOpenLessonCreate(sec.id)}
-                        sx={{
-                          textTransform: 'none',
-                          borderRadius: '8px',
-                          fontWeight: 800,
-                          color: 'var(--primary-main)',
-                          borderColor: 'var(--primary-main)',
-                          opacity: 0.85,
-                          '&:hover': {
-                            borderColor: 'var(--primary-main)',
-                            opacity: 1
-                          }
-                        }}
-                      >
-                        Add Lesson
-                      </Button>
-                      <IconButton size="small" onClick={() => handleOpenSectionEdit(sec)} style={{ color: 'var(--primary-main)' }}>
-                        <EditIcon style={{ fontSize: '1.2rem' }} />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleDeleteSection(sec.id, sec.title)} style={{ color: '#f44336' }}>
-                        <DeleteIcon style={{ fontSize: '1.2rem' }} />
-                      </IconButton>
-                    </Box>
-                  </Box>
+        {/* Course Sub-tabs */}
+        <Paper className="glass-panel" style={{ padding: '4px 8px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)', display: 'inline-flex', alignSelf: 'flex-start' }}>
+          <Tabs
+            value={courseSubTab}
+            onChange={(e, val) => setCourseSubTab(val)}
+            sx={{
+              '& .MuiTabs-indicator': { backgroundColor: 'var(--primary-main)' },
+              '& .MuiTab-root': {
+                color: 'var(--text-secondary)',
+                fontWeight: 800,
+                fontSize: '0.8rem',
+                textTransform: 'none',
+                borderRadius: '6px',
+                marginRight: '6px',
+                minWidth: 'auto',
+                padding: '6px 16px',
+                '&.Mui-selected': { color: 'var(--primary-main)' }
+              }
+            }}
+          >
+            <Tab value="syllabus" label="Syllabus Builder" />
+            <Tab value="auditor" label="AI Content Auditor" />
+          </Tabs>
+        </Paper>
 
-                  {/* Section Lessons Table */}
-                  {(!sec.lessons || sec.lessons.length === 0) ? (
-                    <Typography style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', paddingLeft: '8px' }}>
-                      No lessons added to this section yet.
-                    </Typography>
-                  ) : (
-                    <TableContainer style={{ overflowX: 'auto', background: 'rgba(0,0,0,0.1)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow style={{ borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
-                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Lesson Title</TableCell>
-                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Chapter</TableCell>
-                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Category</TableCell>
-                            <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Slides</TableCell>
-                            <TableCell align="right" style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Actions</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {sec.lessons.sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map((les) => (
-                            <TableRow key={les.id || les.title} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                              <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                {les.title}
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, marginLeft: '8px', display: 'inline-block', whiteSpace: 'nowrap' }}>
-                                  ({getLessonFinishedCount(les.id)} completion)
-                                </span>
-                              </TableCell>
-                              <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{les.chapterName}</TableCell>
-                              <TableCell style={{ color: les.category === 'exercise' ? 'var(--primary-main)' : 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                {les.category}
-                              </TableCell>
-                              <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{(les.pages || []).length} pages</TableCell>
-                              <TableCell align="right" style={{ whiteSpace: 'nowrap' }}>
-                                <IconButton size="small" onClick={() => handleOpenLessonEdit(sec.id, les)} style={{ color: 'var(--primary-main)' }}>
-                                  <EditIcon style={{ fontSize: '1.05rem' }} />
-                                </IconButton>
-                                <IconButton size="small" onClick={() => handleDeleteLesson(sec.id, les.id, les.title)} style={{ color: '#f44336' }}>
-                                  <DeleteIcon style={{ fontSize: '1.05rem' }} />
-                                </IconButton>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
+        {courseSubTab === 'syllabus' ? (
+          <>
+            {/* Sections List */}
+            {sections.length === 0 ? (
+              <Paper className="learning-empty-state glass-panel" style={{ padding: '40px', textAlign: 'center', borderRadius: '16px', background: 'var(--surface-glass)', border: '1px solid var(--divider)' }}>
+                <Typography variant="h6" style={{ color: 'var(--text-primary)', fontWeight: 800 }}>No Sections Found</Typography>
+                <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                  Create a section first to start structuring chapters and interactive lessons.
+                </Typography>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenSectionCreate} style={{ background: 'var(--hero-gradient)', borderRadius: '8px', textTransform: 'none', fontWeight: 800 }}>
+                  Create Your First Section
+                </Button>
+              </Paper>
+            ) : (
+              <Box style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {sections.sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map((sec) => (
+                  <Card key={sec.id || sec.title} className="glass-panel" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)', overflow: 'visible' }}>
+                    <CardContent style={{ padding: '24px' }}>
+                      {/* Section Title and Controls */}
+                      <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                        <Box style={{ maxWidth: '75%' }}>
+                          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                            <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{sec.title}</Typography>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: 700 }}>
+                              ({getSectionFinishedCount(sec)} completion)
+                            </span>
+                          </Box>
+                          <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{sec.description}</Typography>
+                        </Box>
+                        <Box style={{ display: 'flex', gap: '8px' }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<AddIcon />}
+                            onClick={() => handleOpenLessonCreate(sec.id)}
+                            sx={{
+                              textTransform: 'none',
+                              borderRadius: '8px',
+                              fontWeight: 800,
+                              color: 'var(--primary-main)',
+                              borderColor: 'var(--primary-main)',
+                              opacity: 0.85,
+                              '&:hover': {
+                                borderColor: 'var(--primary-main)',
+                                opacity: 1
+                              }
+                            }}
+                          >
+                            Add Lesson
+                          </Button>
+                          <IconButton size="small" onClick={() => handleOpenSectionEdit(sec)} style={{ color: 'var(--primary-main)' }}>
+                            <EditIcon style={{ fontSize: '1.2rem' }} />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleDeleteSection(sec.id, sec.title)} style={{ color: '#f44336' }}>
+                            <DeleteIcon style={{ fontSize: '1.2rem' }} />
+                          </IconButton>
+                        </Box>
+                      </Box>
+
+                      {/* Section Lessons Table */}
+                      {(!sec.lessons || sec.lessons.length === 0) ? (
+                        <Typography style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', paddingLeft: '8px' }}>
+                          No lessons added to this section yet.
+                        </Typography>
+                      ) : (
+                        <TableContainer style={{ overflowX: 'auto', background: 'rgba(0,0,0,0.1)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow style={{ borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
+                                <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Lesson Title</TableCell>
+                                <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Chapter</TableCell>
+                                <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Category</TableCell>
+                                <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Slides</TableCell>
+                                <TableCell align="right" style={{ color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>Actions</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {sec.lessons.sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map((les) => (
+                                <TableRow key={les.id || les.title} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                  <TableCell style={{ color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                    {les.title}
+                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, marginLeft: '8px', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                                      ({getLessonFinishedCount(les.id)} completion)
+                                    </span>
+                                  </TableCell>
+                                  <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{les.chapterName}</TableCell>
+                                  <TableCell style={{ color: les.category === 'exercise' ? 'var(--primary-main)' : 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                    {les.category}
+                                  </TableCell>
+                                  <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{(les.pages || []).length} pages</TableCell>
+                                  <TableCell align="right" style={{ whiteSpace: 'nowrap' }}>
+                                    <IconButton size="small" onClick={() => handleOpenLessonEdit(sec.id, les)} style={{ color: 'var(--primary-main)' }}>
+                                      <EditIcon style={{ fontSize: '1.05rem' }} />
+                                    </IconButton>
+                                    <IconButton size="small" onClick={() => handleDeleteLesson(sec.id, les.id, les.title)} style={{ color: '#f44336' }}>
+                                      <DeleteIcon style={{ fontSize: '1.05rem' }} />
+                                    </IconButton>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            )}
+          </>
+        ) : (
+          <AiAuditorDashboard 
+            courseId={editingCourseDetails.id} 
+            courseTitle={editingCourseDetails.title} 
+            sections={editingCourseDetails.sections || []} 
+          />
         )}
 
         {/* Section Modal Dialog */}
