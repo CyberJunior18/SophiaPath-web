@@ -34,6 +34,9 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { ArrowOutward as ArrowOutwardIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { coursesData } from '../data/courses';
+import CybersecurityCourseCover from '../components/course/CybersecurityCourseCover';
+import ComputerScienceCourseCover from '../components/course/ComputerScienceCourseCover';
+import PhilosophyCourseCover from '../components/course/PhilosophyCourseCover';
 import './LearningPage.css';
 
 const getCourseDomain = (title) => {
@@ -60,7 +63,7 @@ const getCourseDomain = (title) => {
 };
 
 const LearningPage = () => {
-  const { user, registerCourse } = useAuth();
+  const { user, registerCourse, unregisterCourse } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [courses, setCourses] = useState(coursesData);
@@ -398,16 +401,48 @@ const LearningPage = () => {
               const totalLessons = getTotalLessons(course.title);
               const progress = totalLessons > 0 ? (lessonsFinished / totalLessons) * 100 : 0;
 
+              const isCybersecurity = course.title.toLowerCase().includes('cybersecurity');
+              const isComputerScience = course.title.toLowerCase().includes('computer science');
+              const isPhilosophy = course.title.toLowerCase().includes('philosophy');
+              const hasCover = isCybersecurity || isComputerScience || isPhilosophy;
+
               return (
                 <Paper
                   key={course.title}
-                  className="learning-course-card glass-panel"
+                  className={`learning-course-card glass-panel ${hasCover ? 'has-cover' : ''}`}
                   elevation={0}
                   onClick={() => handleCourseClick(course)}
-                  style={{ position: 'relative' }}
+                  style={{ position: 'relative', overflow: 'hidden', padding: hasCover ? 0 : undefined }}
                 >
                   {/* Expert settings edit button overlay */}
-                  {(Number(user?.roleID) === 3 || (Number(user?.roleID) === 1 && user.assignedCourseIds?.map(Number).includes(Number(course.id)))) ? (
+                  {hasCover ? (
+                    <IconButton
+                      size="small"
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        background: 'rgba(15, 23, 42, 0.6)',
+                        color: isCybersecurity ? '#00f3ff' : isComputerScience ? '#3b82f6' : '#ec4899',
+                        border: `1px solid ${
+                          isCybersecurity 
+                            ? 'rgba(0, 243, 255, 0.2)' 
+                            : isComputerScience 
+                              ? 'rgba(59, 130, 246, 0.2)' 
+                              : 'rgba(236, 72, 153, 0.2)'
+                        }`,
+                        zIndex: 10
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCourse(course);
+                        setMenuAnchor(e.currentTarget);
+                      }}
+                      title="Course Settings"
+                    >
+                      <SettingsIcon style={{ fontSize: '1.15rem' }} />
+                    </IconButton>
+                  ) : (Number(user?.roleID) === 3 || (Number(user?.roleID) === 1 && user.assignedCourseIds?.map(Number).includes(Number(course.id)))) ? (
                     <IconButton
                       size="small"
                       style={{
@@ -451,46 +486,144 @@ const LearningPage = () => {
                     </IconButton>
                   )}
 
-                  <div className="learning-course-card-top">
-                    <div className="learning-course-icon">
-                      {getCourseIcon(course.title)}
+                  {isCybersecurity && (
+                    <CybersecurityCourseCover 
+                      totalLessons={totalLessons} 
+                      lessonsFinished={lessonsFinished}
+                      height="100%"
+                      borderRadius="28px"
+                      borderBottom="none"
+                      badgePosition="top"
+                    />
+                  )}
+                  {isComputerScience && (
+                    <ComputerScienceCourseCover 
+                      totalLessons={totalLessons} 
+                      lessonsFinished={lessonsFinished}
+                      height="100%"
+                      borderRadius="28px"
+                      borderBottom="none"
+                      badgePosition="top"
+                    />
+                  )}
+                  {isPhilosophy && (
+                    <PhilosophyCourseCover 
+                      totalLessons={totalLessons} 
+                      lessonsFinished={lessonsFinished}
+                      height="100%"
+                      borderRadius="28px"
+                      borderBottom="none"
+                      badgePosition="top"
+                    />
+                  )}
+                  {!hasCover && (
+                    <div className="learning-course-card-top">
+                      <div className="learning-course-icon">
+                        {getCourseIcon(course.title)}
+                      </div>
+                      <div className="cyber-badge">{course.domain}</div>
                     </div>
-                    <div className="cyber-badge">{course.domain}</div>
-                  </div>
+                  )}
                   
-                  <Typography variant="h5" className="learning-course-title">
-                    {course.title}
-                  </Typography>
-                  <Typography variant="body2" className="learning-course-description">
-                    {course.description}
-                  </Typography>
+                  {hasCover ? (
+                    <div 
+                      className="learning-course-card-content cyber-card-content" 
+                      style={{ 
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        padding: '1.25rem 1.5rem', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        width: '100%', 
+                        boxSizing: 'border-box',
+                        background: 'rgba(10, 20, 35, 0.15)', 
+                        backdropFilter: 'none',
+                        WebkitBackdropFilter: 'none',
+                        borderTop: `1px solid ${
+                          isCybersecurity 
+                            ? 'rgba(0, 243, 255, 0.08)' 
+                            : isComputerScience 
+                              ? 'rgba(59, 130, 246, 0.08)' 
+                              : 'rgba(236, 72, 153, 0.08)'
+                        }`,
+                        borderRadius: '0 0 28px 28px',
+                        zIndex: 2
+                      }}
+                    >
+                      <Typography 
+                        variant="h5" 
+                        className="learning-course-title" 
+                        style={{ 
+                          margin: 0, 
+                          marginBottom: isRegistered ? '0.5rem' : 0, 
+                          fontWeight: 800,
+                          textAlign: 'center',
+                          textTransform: 'uppercase',
+                          letterSpacing: '-0.02em',
+                          fontFamily: '"Outfit", sans-serif',
+                          color: '#ffffff'
+                        }}
+                      >
+                        {course.title}
+                      </Typography>
 
-                  <div className="learning-course-tags">
-                    <Chip label={`${totalLessons} lessons`} className="learning-course-tag" />
-                    {isRegistered && <Chip label="Registered" className="learning-course-tag is-success" />}
-                  </div>
-
-                  <div className="learning-course-footer">
-                    {isRegistered ? (
-                      <div className="learning-course-progress">
-                        <div className="learning-course-progress-head">
-                          <span>Progress:</span>
-                          <span>{Math.round(progress)}%</span>
+                      {isRegistered && (
+                        <div className="course-detail-registered-badge" style={{ margin: 0 }}>
+                          <span 
+                            className="badge-dot" 
+                            style={{ 
+                              backgroundColor: isCybersecurity 
+                                ? '#10b981' 
+                                : isComputerScience 
+                                  ? '#3b82f6' 
+                                  : '#ec4899' 
+                            }}
+                          ></span>
+                          Registered
                         </div>
-                        <LinearProgress
-                          variant="determinate"
-                          value={progress}
-                          className="learning-course-progress-bar"
-                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="learning-course-card-content">
+                      <Typography variant="h5" className="learning-course-title">
+                        {course.title}
+                      </Typography>
+                      <Typography variant="body2" className="learning-course-description">
+                        {course.description}
+                      </Typography>
+
+                      <div className="learning-course-tags">
+                        <Chip label={`${totalLessons} lessons`} className="learning-course-tag" />
+                        {isRegistered && <Chip label="Registered" className="learning-course-tag is-success" />}
                       </div>
-                    ) : (
-                      <div className="learning-course-cta">
-                        <span>Start learning</span>
-                        <PlayArrowIcon fontSize="small" />
+
+                      <div className="learning-course-footer">
+                        {isRegistered ? (
+                          <div className="learning-course-progress">
+                            <div className="learning-course-progress-head">
+                              <span>Progress:</span>
+                              <span>{Math.round(progress)}%</span>
+                            </div>
+                            <LinearProgress
+                              variant="determinate"
+                              value={progress}
+                              className="learning-course-progress-bar"
+                            />
+                          </div>
+                        ) : (
+                          <div className="learning-course-cta">
+                            <span>Start learning</span>
+                            <PlayArrowIcon fontSize="small" />
+                          </div>
+                        )}
+                        <ArrowOutwardIcon className="learning-course-arrow" />
                       </div>
-                    )}
-                    <ArrowOutwardIcon className="learning-course-arrow" />
-                  </div>
+                    </div>
+                  )}
                 </Paper>
               );
             })}
@@ -548,15 +681,67 @@ const LearningPage = () => {
             border: '1px solid rgba(255,255,255,0.08)'}
         }}
       >
-        <MenuItem
-          onClick={() => {
-            setMenuAnchor(null);
-            setDialogOpen(true);
-          }}
-          style={{ fontWeight: 700 }}
-        >
-          Apply for expert position
-        </MenuItem>
+        {selectedCourse?.title?.toLowerCase()?.includes('cybersecurity') ? (
+          <>
+            {isCourseRegistered(selectedCourse.title) ? (
+              <>
+                <MenuItem
+                  onClick={() => {
+                    setMenuAnchor(null);
+                    handleCourseClick(selectedCourse);
+                  }}
+                  style={{ fontWeight: 600, color: '#00f3ff' }}
+                >
+                  Continue Learning
+                </MenuItem>
+                <MenuItem
+                  onClick={async () => {
+                    setMenuAnchor(null);
+                    if (unregisterCourse) {
+                      await unregisterCourse(selectedCourse.title);
+                    }
+                  }}
+                  style={{ fontWeight: 650, color: 'var(--danger-main, #ef4444)' }}
+                >
+                  Unenroll from Course
+                </MenuItem>
+              </>
+            ) : (
+              <MenuItem
+                onClick={async () => {
+                  setMenuAnchor(null);
+                  if (registerCourse) {
+                    await registerCourse(selectedCourse.title);
+                  }
+                }}
+                style={{ fontWeight: 600, color: '#00f3ff' }}
+              >
+                Register / Enroll
+              </MenuItem>
+            )}
+            {(Number(user?.roleID) === 3 || (Number(user?.roleID) === 1 && user.assignedCourseIds?.map(Number).includes(Number(selectedCourse.id)))) && (
+              <MenuItem
+                onClick={() => {
+                  setMenuAnchor(null);
+                  navigate('/', { state: { editCourse: selectedCourse } });
+                }}
+                style={{ fontWeight: 600 }}
+              >
+                Manage Course Syllabus
+              </MenuItem>
+            )}
+          </>
+        ) : (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              setDialogOpen(true);
+            }}
+            style={{ fontWeight: 700 }}
+          >
+            Apply for expert position
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Expert Application Dialog */}
