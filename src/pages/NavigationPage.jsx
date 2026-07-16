@@ -1225,6 +1225,8 @@ const NavigationPage = () => {
         navigate(`/chat/${notif.sourceId}`);
       } else if (notif.type === 'group_chat' || notif.type === 'group_role') {
         navigate(`/group/${notif.sourceId}`);
+      } else if (notif.type === 'achievement') {
+        navigate('/achievements');
       }
     } catch (e) {
       console.error('Failed to handle notification click:', e);
@@ -1233,10 +1235,10 @@ const NavigationPage = () => {
 
   const getGroupedNotifications = () => {
     const grouped = [];
-    const unreadGroups = {}; // key: 'chat:sourceId' or 'group_chat:sourceId' -> array of notifications
+    const unreadGroups = {}; // key: 'chat:sourceId', 'group_chat:sourceId', 'comment:sourceId', 'reply:sourceId'
 
     for (const notif of notifications) {
-      if (!notif.isRead && (notif.type === 'chat' || notif.type === 'group_chat')) {
+      if (!notif.isRead && (notif.type === 'chat' || notif.type === 'group_chat' || notif.type === 'comment' || notif.type === 'reply')) {
         const key = `${notif.type}:${notif.sourceId}`;
         if (!unreadGroups[key]) {
           unreadGroups[key] = [];
@@ -1256,13 +1258,14 @@ const NavigationPage = () => {
       const count = groupNotifs.length;
       
       if (count > 1) {
+        let mergedTitle = mostRecent.title;
         let mergedMessage = '';
         if (mostRecent.type === 'chat') {
           const parts = mostRecent.message.split(': ');
           const sender = parts[0] || 'User';
           const lastMsg = parts.slice(1).join(': ') || '';
           mergedMessage = `${sender} (${count} messages): ${lastMsg}`;
-        } else {
+        } else if (mostRecent.type === 'group_chat') {
           // Group chat
           const parts = mostRecent.message.split(' - ');
           const groupName = parts[0] || 'Group';
@@ -1271,10 +1274,17 @@ const NavigationPage = () => {
           const sender = subParts[0] || 'User';
           const lastMsg = subParts.slice(1).join(': ') || '';
           mergedMessage = `${groupName} - ${sender} (${count} messages): ${lastMsg}`;
+        } else if (mostRecent.type === 'comment') {
+          mergedTitle = 'New Comments';
+          mergedMessage = `${count} people commented on your post`;
+        } else if (mostRecent.type === 'reply') {
+          mergedTitle = 'New Replies';
+          mergedMessage = `${count} people replied to your comment`;
         }
 
         grouped.push({
           ...mostRecent,
+          title: mergedTitle,
           message: mergedMessage,
           originalIds: groupNotifs.map(n => n.id)
         });
@@ -2017,10 +2027,27 @@ const NavigationPage = () => {
                             disablePadding
                             style={{
                               borderBottom: '1px solid var(--divider)',
-                              background: notif.isRead ? 'transparent' : 'rgba(var(--primary-main-rgb), 0.04)',
+                              background: notif.isRead 
+                                ? 'transparent' 
+                                : (notif.type === 'achievement' 
+                                    ? 'rgba(255, 181, 71, 0.08)' 
+                                    : 'rgba(var(--primary-main-rgb), 0.04)'),
                             }}
                           >
                             <ListItemButton onClick={() => handleNotificationClick(notif)} style={{ padding: '12px 16px' }}>
+                              <Box style={{ marginRight: '12px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                                {notif.type === 'achievement' ? (
+                                  <EmojiEventsIcon style={{ color: '#FFB547', fontSize: '20px' }} />
+                                ) : notif.type === 'chat' ? (
+                                  <ChatIcon style={{ color: 'var(--primary-main)', fontSize: '20px' }} />
+                                ) : notif.type === 'group_chat' ? (
+                                  <GroupsIcon style={{ color: 'var(--primary-main)', fontSize: '20px' }} />
+                                ) : notif.type === 'comment' || notif.type === 'reply' ? (
+                                  <ChatIcon style={{ color: 'var(--primary-main)', fontSize: '20px' }} />
+                                ) : (
+                                  <NotificationsIcon style={{ color: 'var(--text-secondary)', fontSize: '20px' }} />
+                                )}
+                              </Box>
                               <ListItemText
                                 primary={
                                   <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px' }}>

@@ -78,39 +78,155 @@ const ProfilePage = () => {
 
   const resolvedAchievements = useState ? React.useMemo(() => {
     if (!user) return [];
-    const completedLessons = Object.keys(user.quizScores || {});
-    
+
+    const getCourseDomain = (title) => {
+      const t = title.toLowerCase();
+      if (t.includes('cybersecurity') || t.includes('network') || t.includes('security')) return 'Technology';
+      if (t.includes('physics') || t.includes('science') || t.includes('chemistry')) return 'Science';
+      if (t.includes('philosophy') || t.includes('history') || t.includes('literature')) return 'Humanities';
+      if (t.includes('marketing') || t.includes('business') || t.includes('management')) return 'Business';
+      if (t.includes('design') || t.includes('graphic') || t.includes('art')) return 'Design';
+      if (t.includes('mobile') || t.includes('web') || t.includes('app') || t.includes('code') || t.includes('development') || t.includes('ai') || t.includes('artificial')) return 'Technology';
+      return 'Other';
+    };
+
+    const getRegisteredCoursesProgress = () => {
+      if (!user || !user.registeredCourses) return [];
+      return user.registeredCourses.map(courseTitle => {
+        const courseTitleLower = courseTitle.toLowerCase();
+        const loadedLessons = user.courseLessons?.[courseTitleLower] || [];
+        const uniqueLessons = [];
+        const seenTitles = new Set();
+        loadedLessons.forEach(l => {
+          const norm = (l.title || '').trim().toLowerCase();
+          const isCheatsheet = norm.startsWith('cheatsheet:') || norm.startsWith('cheatsheet ') || norm === 'cheatsheet';
+          if (norm && !isCheatsheet && !seenTitles.has(norm)) {
+            seenTitles.add(norm);
+            uniqueLessons.push(l);
+          }
+        });
+        const completedLessons = uniqueLessons.filter(l => {
+          const duplicates = loadedLessons.filter(dl => (dl.title || '').trim().toLowerCase() === (l.title || '').trim().toLowerCase());
+          return duplicates.some(dl => dl.done || (dl.grade !== null && Number(dl.grade) >= 70));
+        });
+        return {
+          title: courseTitle,
+          completed: completedLessons.length,
+          total: uniqueLessons.length,
+          percent: uniqueLessons.length > 0 ? (completedLessons.length / uniqueLessons.length) * 100 : 0
+        };
+      });
+    };
+
+    const completedCoursesProgress = getRegisteredCoursesProgress();
+
     return achievementsData.map(ach => {
       let currentValue = 0;
       switch (ach.id) {
-        case 'ach-1': // First Step
-          currentValue = completedLessons.length >= 1 ? 1 : 0;
+        // 📚 Course Progress
+        case 'ach-course-1': // First Step
+          currentValue = (user.registeredCourses || []).length >= 1 ? 1 : 0;
           break;
-        case 'ach-2': // Perfect Score
-          currentValue = Object.values(user.quizScores || {}).some(score => score >= 100) ? 1 : 0;
+        case 'ach-course-2': // Getting Somewhere
+          const has50Percent = completedCoursesProgress.some(p => p.percent >= 50);
+          currentValue = has50Percent ? 50 : 0;
           break;
-        case 'ach-3': // Consistent Scholar
+        case 'ach-course-3': // Finished What I Started
+          const hasFinishedCourse = completedCoursesProgress.some(p => p.total > 0 && p.completed >= p.total);
+          currentValue = hasFinishedCourse ? 1 : 0;
+          break;
+        case 'ach-course-4': // On a Roll
+          currentValue = completedCoursesProgress.filter(p => p.total > 0 && p.completed >= p.total).length;
+          break;
+
+        // 🧪 Quiz & Performance
+        case 'ach-quiz-1': // Tried My Best
+          currentValue = Object.keys(user.quizScores || {}).length >= 1 ? 1 : 0;
+          break;
+        case 'ach-quiz-2': // Nailed It
+          currentValue = Object.values(user.quizScores || {}).some(s => Number(s) >= 100) ? 1 : 0;
+          break;
+        case 'ach-quiz-3': // High Achiever
+          currentValue = Object.values(user.quizScores || {}).filter(s => Number(s) >= 90).length;
+          break;
+        case 'ach-quiz-4': // Cover to Cover
+          const hasFullyDone = completedCoursesProgress.some(p => p.total > 0 && p.completed >= p.total);
+          currentValue = hasFullyDone ? 1 : 0;
+          break;
+
+        // 💬 Social & Community
+        case 'ach-social-1': // Speak Up
+          currentValue = user.commentsCreatedCount || 0;
+          break;
+        case 'ach-social-2': // Always Has Something to Say
+          currentValue = user.commentsCreatedCount || 0;
+          break;
+        case 'ach-social-3': // Making an Impact
+          currentValue = user.postsApprovedCount || 0;
+          break;
+        case 'ach-social-4': // Known Around Here
+          currentValue = user.postsApprovedCount || 0;
+          break;
+
+        // ⚡ XP & Levels
+        case 'ach-xp-1': // Getting Started
+          currentValue = user.xp || 0;
+          break;
+        case 'ach-xp-2': // Making Moves
+          currentValue = user.xp || 0;
+          break;
+        case 'ach-xp-3': // Moving Up
+          currentValue = user.level || 1;
+          break;
+        case 'ach-xp-4': // At the Top
+          currentValue = user.level || 1;
+          break;
+
+        // 🔥 Streaks
+        case 'ach-streak-1': // Warming Up
           currentValue = user.streak || 0;
           break;
-        case 'ach-4': // Speed Learner
-          currentValue = completedLessons.length;
+        case 'ach-streak-2': // In the Zone
+          currentValue = user.streak || 0;
           break;
-        case 'ach-5': // Polymath
-          currentValue = completedLessons.length >= 3 ? 3 : completedLessons.length;
+        case 'ach-streak-3': // Creature of Habit
+          currentValue = user.streak || 0;
           break;
-        case 'ach-6': // Domain Master
-          currentValue = completedLessons.length >= 6 ? 1 : 0;
+
+        // 🎭 Roles & Account Age
+        case 'ach-role-1': // Day One
+        case 'ach-role-2': // Been Here Forever
+          const joinedDate = user.joinedDate ? new Date(user.joinedDate) : new Date();
+          const diffDays = Math.floor((new Date() - joinedDate) / (1000 * 60 * 60 * 24));
+          currentValue = diffDays >= 0 ? diffDays : 0;
           break;
+        case 'ach-role-3': // Teacher's Got the Floor
+          currentValue = Number(user.roleID) === 1 ? 1 : 0;
+          break;
+
+        // 🏠 Engagement & Misc
+        case 'ach-eng-1': // Party Starter
+          currentValue = user.groupsCreatedCount || 0;
+          break;
+        case 'ach-eng-2': // Always Hosting
+          currentValue = user.groupsCreatedCount || 0;
+          break;
+        case 'ach-eng-3': // Bit of Everything
+          const domains = new Set((user.registeredCourses || []).map(getCourseDomain));
+          currentValue = domains.size;
+          break;
+
         default:
           currentValue = 0;
       }
-      
-      const isUnlocked = currentValue >= ach.progress.targetValue;
+
+      const targetValue = ach.progress.targetValue;
+      const isUnlocked = user.achievementIds?.includes(ach.id) || (currentValue >= targetValue);
       return {
         ...ach,
         isUnlocked,
-        currentValue,
-        targetValue: ach.progress.targetValue
+        currentValue: isUnlocked ? targetValue : currentValue,
+        targetValue
       };
     });
   }, [user]) : [];
@@ -594,17 +710,36 @@ const ProfilePage = () => {
                             alignItems: 'center', 
                             justifyContent: 'center',
                             flexShrink: 0,
-                            bgcolor: ach.isUnlocked ? `${ach.associatedColor}15` : 'rgba(0,0,0,0.05)',
+                            bgcolor: ach.isUnlocked ? `color-mix(in srgb, ${ach.associatedColor} 15%, transparent)` : 'rgba(0,0,0,0.05)',
                             color: ach.isUnlocked ? ach.associatedColor : 'var(--text-disabled)',
                             border: `2px solid ${ach.isUnlocked ? ach.associatedColor : 'var(--divider)'}`
                           }}
                         >
                           {ach.iconReference === 'school' && <CourseIcon fontSize="large" />}
-                          {ach.iconReference === 'emoji_events' && <TrophyIcon fontSize="large" />}
-                          {ach.iconReference === 'local_fire_department' && <StreakIcon fontSize="large" />}
-                          {ach.iconReference === 'bolt' && <BoltIcon fontSize="large" />}
-                          {ach.iconReference === 'explore' && <PathIcon fontSize="large" />}
+                          {ach.iconReference === 'trending_up' && <PathIcon fontSize="large" />}
                           {ach.iconReference === 'workspace_premium' && <TrophyIcon fontSize="large" />}
+                          {ach.iconReference === 'military_tech' && <TrophyIcon fontSize="large" />}
+                          {ach.iconReference === 'quiz' && <PathIcon fontSize="large" />}
+                          {ach.iconReference === 'emoji_events' && <TrophyIcon fontSize="large" />}
+                          {ach.iconReference === 'verified' && <CheckIcon fontSize="large" />}
+                          {ach.iconReference === 'auto_stories' && <CourseIcon fontSize="large" />}
+                          {ach.iconReference === 'chat_bubble_outline' && <ShareIcon fontSize="large" />}
+                          {ach.iconReference === 'forum' && <ShareIcon fontSize="large" />}
+                          {ach.iconReference === 'thumb_up' && <TrophyIcon fontSize="large" />}
+                          {ach.iconReference === 'stars' && <TrophyIcon fontSize="large" />}
+                          {ach.iconReference === 'star_outline' && <TrophyIcon fontSize="large" />}
+                          {ach.iconReference === 'star' && <TrophyIcon fontSize="large" />}
+                          {ach.iconReference === 'arrow_upward' && <ArrowForwardIcon fontSize="large" />}
+                          {ach.iconReference === 'local_fire_department' && <StreakIcon fontSize="large" />}
+                          {ach.iconReference === 'whatshot' && <StreakIcon fontSize="large" />}
+                          {ach.iconReference === 'flame_member' && <StreakIcon fontSize="large" />}
+                          {ach.iconReference === 'calendar_today' && <CalendarIcon fontSize="large" />}
+                          {ach.iconReference === 'history' && <CalendarIcon fontSize="large" />}
+                          {ach.iconReference === 'assignment_ind' && <PersonIcon fontSize="large" />}
+                          {ach.iconReference === 'group_add' && <PersonIcon fontSize="large" />}
+                          {ach.iconReference === 'groups' && <PersonIcon fontSize="large" />}
+                          {ach.iconReference === 'explore' && <PathIcon fontSize="large" />}
+                          {ach.iconReference === 'rocket' && <BoltIcon fontSize="large" />}
                         </Box>
                         
                         <Box sx={{ flex: 1, minWidth: 0 }}>

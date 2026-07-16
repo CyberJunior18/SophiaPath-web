@@ -131,8 +131,12 @@ export const AuthProvider = ({ children }) => {
               levelName: userData.levelName ?? 'Beginner',
               joinedDate: userData.dateTime,
               avatar: localStorage.getItem(`avatar_${userData.id}`) || userData.avatar || '',
-              achievements: [],
-              streak: 0,
+              achievementIds: userData.achievementIds ?? [],
+              streak: userData.streak ?? 0,
+              groupsCreatedCount: userData.groupsCreatedCount ?? 0,
+              commentsCreatedCount: userData.commentsCreatedCount ?? 0,
+              postsApprovedCount: userData.postsApprovedCount ?? 0,
+              commentsDeletedCount: userData.commentsDeletedCount ?? 0,
               ...progress
             });
           } else {
@@ -226,8 +230,12 @@ export const AuthProvider = ({ children }) => {
           levelName: userData.levelName ?? 'Beginner',
           joinedDate: userData.dateTime,
           avatar: localStorage.getItem(`avatar_${userData.id}`) || userData.avatar || '',
-          achievements: [],
-          streak: 0,
+          achievementIds: userData.achievementIds ?? [],
+          streak: userData.streak ?? 0,
+          groupsCreatedCount: userData.groupsCreatedCount ?? 0,
+          commentsCreatedCount: userData.commentsCreatedCount ?? 0,
+          postsApprovedCount: userData.postsApprovedCount ?? 0,
+          commentsDeletedCount: userData.commentsDeletedCount ?? 0,
           ...progress
         });
         return { success: true };
@@ -579,6 +587,13 @@ export const AuthProvider = ({ children }) => {
             tag: userData.tag || prev.tag,
             gender: userData.gender || prev.gender,
             age: userData.age || prev.age,
+            achievementIds: userData.achievementIds ?? [],
+            streak: userData.streak ?? 0,
+            joinedDate: userData.dateTime ?? prev.joinedDate,
+            groupsCreatedCount: userData.groupsCreatedCount ?? 0,
+            commentsCreatedCount: userData.commentsCreatedCount ?? 0,
+            postsApprovedCount: userData.postsApprovedCount ?? 0,
+            commentsDeletedCount: userData.commentsDeletedCount ?? 0,
             ...progress
           };
         });
@@ -590,8 +605,35 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const unlockAchievement = async (achievementId) => {
+    const activeToken = getStoredToken();
+    if (!activeToken) return;
+    try {
+      const res = await fetch('/users/me/achievements', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${activeToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ achievementId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            achievementIds: data.achievementIds || [],
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Failed to unlock achievement:', err);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, deleteAccount, updateQuizScore, registerCourse, unregisterCourse, updateProfile, blockUser, unblockUser, refreshUser, loading, hasRole }}>
+    <AuthContext.Provider value={{ user, login, register, logout, deleteAccount, updateQuizScore, registerCourse, unregisterCourse, updateProfile, blockUser, unblockUser, refreshUser, unlockAchievement, loading, hasRole }}>
       {!loading && children}
     </AuthContext.Provider>
   );

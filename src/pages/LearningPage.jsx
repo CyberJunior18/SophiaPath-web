@@ -408,7 +408,7 @@ const LearningPage = () => {
                   className="learning-course-card glass-panel"
                   elevation={0}
                   onClick={() => handleCourseClick(course)}
-                  style={{ position: 'relative', overflow: 'hidden' }}
+                  style={{ position: 'relative' }}
                 >
                   {/* Settings or More options button overlay */}
                   {(Number(user?.roleID) === 3 || (Number(user?.roleID) === 1 && user.assignedCourseIds?.map(Number).includes(Number(course.id)))) ? (
@@ -455,46 +455,45 @@ const LearningPage = () => {
                     </IconButton>
                   )}
 
-                  <div className="learning-course-card-top">
-                    <div className="learning-course-icon">
+                  <div className="learning-course-header">
+                    <div className="learning-course-icon-wrapper">
                       {getCourseIcon(course.title)}
                     </div>
                     <div className="cyber-badge">{course.domain}</div>
                   </div>
+                  
+                  <Typography variant="h5" className="learning-course-title">
+                    {course.title}
+                  </Typography>
+                  <Typography variant="body2" className="learning-course-description">
+                    {course.description}
+                  </Typography>
 
-                  <div className="learning-course-card-content">
-                    <Typography variant="h5" className="learning-course-title">
-                      {course.title}
-                    </Typography>
-                    <Typography variant="body2" className="learning-course-description">
-                      {course.description}
-                    </Typography>
+                  <div className="learning-course-tags">
+                    <Chip label={`${totalLessons} lessons`} className="learning-course-tag" />
+                    {isRegistered && <Chip label="Registered" className="learning-course-tag is-success" />}
+                  </div>
 
-                    <div className="learning-course-tags">
-                      <Chip label={`${totalLessons} lessons`} className="learning-course-tag" />
-                      {isRegistered && <Chip label="Registered" className="learning-course-tag is-success" />}
-                    </div>
-
-                    <div className="learning-course-card-footer">
-                      {isRegistered && (
-                        <div className="learning-course-progress">
-                          <div className="learning-course-progress-head">
-                            <span>Progress:</span>
-                            <span>{Math.round(progress)}%</span>
-                          </div>
-                          <LinearProgress
-                            variant="determinate"
-                            value={progress}
-                            className="learning-course-progress-bar"
-                          />
+                  <div className="learning-course-footer">
+                    {isRegistered ? (
+                      <div className="learning-course-progress">
+                        <div className="learning-course-progress-head">
+                          <span>Progress:</span>
+                          <span>{Math.round(progress)}%</span>
                         </div>
-                      )}
-
-                      <div className={`learning-course-action-btn ${isRegistered ? 'is-registered' : 'is-unregistered'}`}>
-                        <span>{isRegistered ? 'Continue Learning' : 'Start Learning'}</span>
-                        <PlayArrowIcon fontSize="small" className="btn-icon" />
+                        <LinearProgress
+                          variant="determinate"
+                          value={progress}
+                          className="learning-course-progress-bar"
+                        />
                       </div>
-                    </div>
+                    ) : (
+                      <div className="learning-course-cta">
+                        <span>Start learning</span>
+                        <PlayArrowIcon fontSize="small" />
+                      </div>
+                    )}
+                    <ArrowOutwardIcon className="learning-course-arrow" />
                   </div>
                 </Paper>
               );

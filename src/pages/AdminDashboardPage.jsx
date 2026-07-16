@@ -102,8 +102,20 @@ const AdminDashboardPage = () => {
   const [coursesProgress, setCoursesProgress] = useState({});
   
   // Navigation State inside Admin Page
-  const [editingCourseDetails, setEditingCourseDetails] = useState(null); // Course currently editing sections/lessons
-  const [courseSubTab, setCourseSubTab] = useState('syllabus'); // 'syllabus' | 'auditor'
+  const [editingCourseDetails, setEditingCourseDetails] = useState(() => {
+    const saved = localStorage.getItem('sophiapath_admin_editing_course');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }); // Course currently editing sections/lessons
+  const [courseSubTab, setCourseSubTab] = useState(() => {
+    return localStorage.getItem('sophiapath_admin_course_subtab') || 'syllabus';
+  });
   const [editingLesson, setEditingLesson] = useState(() => {
     const saved = localStorage.getItem('sophiapath_admin_editing_lesson');
     if (saved) {
@@ -298,15 +310,18 @@ const AdminDashboardPage = () => {
     }
   }, [adminTab]);
 
-  // Persist editing course details state (store the course ID)
+  // Persist editing course details state (store the course ID and full object)
   useEffect(() => {
     if (editingCourseDetails) {
       localStorage.setItem('sophiapath_admin_editing_course_id', editingCourseDetails.id);
-    } else {
-      localStorage.removeItem('sophiapath_admin_editing_course_id');
+      localStorage.setItem('sophiapath_admin_editing_course', JSON.stringify(editingCourseDetails));
     }
-    setCourseSubTab('syllabus');
   }, [editingCourseDetails]);
+
+  // Persist active course sub-tab
+  useEffect(() => {
+    localStorage.setItem('sophiapath_admin_course_subtab', courseSubTab);
+  }, [courseSubTab]);
 
   // Persist lesson editor state
   useEffect(() => {
@@ -537,6 +552,9 @@ const AdminDashboardPage = () => {
         if (res.ok) {
           addLog('Course deleted from Database: "' + courseTitle + '"', 'warning');
           setEditingCourseDetails(null);
+          localStorage.removeItem('sophiapath_admin_editing_course_id');
+          localStorage.removeItem('sophiapath_admin_editing_course');
+          localStorage.removeItem('sophiapath_admin_course_subtab');
           await loadCourses();
         } else {
           // Fallback delete state
@@ -2210,7 +2228,15 @@ const AdminDashboardPage = () => {
         <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <Box style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {Number(user?.roleID) !== 1 && (
-              <IconButton onClick={() => setEditingCourseDetails(null)} style={{ color: 'var(--text-secondary)' }}>
+              <IconButton 
+                onClick={() => {
+                  setEditingCourseDetails(null);
+                  localStorage.removeItem('sophiapath_admin_editing_course_id');
+                  localStorage.removeItem('sophiapath_admin_editing_course');
+                  localStorage.removeItem('sophiapath_admin_course_subtab');
+                }} 
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 <ArrowBackIcon />
               </IconButton>
             )}

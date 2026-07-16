@@ -642,7 +642,7 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
                   />
                   <button
                     type="submit"
-                    className="btn btn-secondary"
+                    className="btn btn-primary"
                     style={{ padding: '10px 14px' }}
                   >
                     <Plus style={{ width: '16px', height: '16px' }} />
@@ -665,13 +665,12 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
                     </span>
                   ) : (
                     config.websites.map((url, i) => (
-                      <span key={i} className="tag-pill" style={{ borderColor: 'rgba(156, 39, 176, 0.25)', color: '#e040fb', background: 'rgba(156, 39, 176, 0.1)' }}>
+                      <span key={i} className="tag-pill">
                         {url}
                         <button
                           type="button"
                           onClick={() => handleRemoveWebsite(url)}
                           className="tag-close"
-                          style={{ color: '#e040fb' }}
                           title="Remove website"
                         >
                           <X style={{ width: '12px', height: '12px' }} />
@@ -692,7 +691,7 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
                   />
                   <button
                     type="submit"
-                    className="btn btn-secondary"
+                    className="btn btn-primary"
                     style={{ padding: '10px 14px' }}
                   >
                     <Plus style={{ width: '16px', height: '16px' }} />
@@ -804,7 +803,7 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
                         type="button"
                         onClick={() => setRelevanceFilter('all')}
                         className={`btn-pill ${relevanceFilter === 'all' ? 'active' : ''}`}
-                        style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none', background: relevanceFilter === 'all' ? 'var(--primary)' : 'rgba(255,255,255,0.1)', color: '#fff' }}
+                        style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none' }}
                       >
                         All
                       </button>
@@ -812,7 +811,7 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
                         type="button"
                         onClick={() => setRelevanceFilter('high')}
                         className={`btn-pill ${relevanceFilter === 'high' ? 'active' : ''}`}
-                        style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none', background: relevanceFilter === 'high' ? '#e53935' : 'rgba(255,255,255,0.1)', color: '#fff' }}
+                        style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none' }}
                       >
                         High Only
                       </button>

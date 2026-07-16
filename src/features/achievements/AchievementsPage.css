@@ -1,3 +1,13 @@
+:root {
+  --ach-color-course: var(--primary-main);
+  --ach-color-quiz: color-mix(in srgb, var(--primary-main) 85%, #ffffff);
+  --ach-color-social: color-mix(in srgb, var(--primary-dark) 85%, #ffffff);
+  --ach-color-xp: var(--primary-dark);
+  --ach-color-streak: color-mix(in srgb, var(--primary-main) 70%, #000000);
+  --ach-color-role: color-mix(in srgb, var(--primary-dark) 70%, #000000);
+  --ach-color-engagement: color-mix(in srgb, var(--primary-main) 65%, var(--primary-dark));
+}
+
 .achievements-container {
   background-color: var(--background-default);
   min-height: 100vh;
@@ -19,21 +29,19 @@
 .badge-glow-container {
   position: relative;
   background: transparent;
-  width: 140px;
-  height: 140px;
+  width: 160px;
+  height: 160px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 1.5rem;
   border-radius: 50%;
-  animation: floatHeroIcon 4s ease-in-out infinite;
 }
 
 .hero-trophy-icon {
-  width: 52px !important;
-  height: 52px !important;
+  width: 128px !important;
+  height: 128px !important;
   color: var(--yellow-500);
-  filter: drop-shadow(0 0 15px rgba(255, 181, 71, 0.6));
 }
 
 .hero-title {
@@ -223,6 +231,17 @@
   background: var(--surface-glass-strong) !important;
 }
 
+/* Completed achievement card background tint (Uniform theme-based coloring) */
+.premium-achievement-card.completed {
+  background: color-mix(in srgb, var(--primary-main) 8%, var(--surface-glass)) !important;
+  border-color: color-mix(in srgb, var(--primary-main) 35%, var(--divider)) !important;
+}
+
+.premium-achievement-card.completed:hover {
+  background: color-mix(in srgb, var(--primary-main) 12%, var(--surface-glass-strong)) !important;
+  border-color: color-mix(in srgb, var(--primary-main) 55%, var(--divider)) !important;
+}
+
 /* Custom background glows based on category colors */
 .premium-achievement-card::before {
   content: '';
@@ -329,14 +348,14 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  color: #10b981;
-  background-color: rgba(16, 185, 129, 0.08);
+  color: var(--primary-main);
+  background-color: color-mix(in srgb, var(--primary-main) 12%, transparent);
   padding: 6px 12px;
   border-radius: 1rem;
 }
 
 .unlocked-icon {
-  color: #10b981;
+  color: var(--primary-main);
 }
 
 .achievement-unlocked-status span {
