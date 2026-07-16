@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Info
 } from 'lucide-react';
+import { Select, MenuItem, FormControl } from '@mui/material';
 import './AiAuditorDashboard.css';
 
 /**
@@ -297,6 +298,58 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
 
   // --- SUGGESTION ACTION HANDLERS ---
   const [relevanceFilter, setRelevanceFilter] = useState('all');
+  const [changeIndex, setChangeIndex] = useState(0);
+
+  // Reset pagination index when report or relevance filter changes
+  useEffect(() => {
+    setChangeIndex(0);
+  }, [selectedReportId, relevanceFilter]);
+
+  const selectSx = {
+    width: '100%',
+    borderRadius: '12px',
+    backgroundColor: 'var(--background-paper-alt, rgba(255, 255, 255, 0.05))',
+    color: 'var(--text-primary, #ffffff)',
+    fontSize: '0.85rem',
+    '& .MuiOutlinedInput-notchedOutline': { border: '1px solid var(--divider, rgba(255, 255, 255, 0.1))' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' },
+    '& .MuiSelect-select': { padding: '8px 12px' },
+    '& .MuiSelect-icon': { color: 'var(--text-secondary)' }
+  };
+
+  const menuProps = {
+    PaperProps: {
+      sx: {
+        backgroundColor: 'var(--background-paper, #0b0b1e)',
+        border: '1px solid var(--divider, rgba(255, 255, 255, 0.1))',
+        color: 'var(--text-primary, #ffffff)',
+        borderRadius: '12px',
+        '& .MuiMenuItem-root': {
+          fontSize: '0.85rem',
+          color: 'var(--text-primary, #ffffff)',
+          '&:hover': {
+            backgroundColor: 'transparent !important',
+            color: 'var(--text-primary, #ffffff) !important'
+          },
+          '&.Mui-selected': {
+            backgroundColor: 'rgba(var(--primary-main-rgb), 0.12) !important',
+            '&:hover': {
+              backgroundColor: 'rgba(var(--primary-main-rgb), 0.12) !important'
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const reportSelectSx = {
+    ...selectSx,
+    width: 'auto',
+    borderRadius: '8px',
+    fontSize: '0.8rem',
+    '& .MuiSelect-select': { padding: '6px 12px' },
+  };
 
   const handleApproveSuggestion = async (reportId, index) => {
     const suggestion = activeReport?.suggestedUpdates?.[index];
@@ -493,22 +546,24 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
                     <label className="form-label" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                       Select Section (Optional)
                     </label>
-                    <select
+                    <Select
                       value={selectedSectionId}
                       onChange={(e) => {
                         setSelectedSectionId(e.target.value);
                         setSelectedLessonId('');
                       }}
-                      className="input-select"
-                      style={{ fontSize: '0.85rem', padding: '8px 12px' }}
+                      displayEmpty
+                      size="small"
+                      sx={selectSx}
+                      MenuProps={menuProps}
                     >
-                      <option value="">All Sections (Entire Course)</option>
+                      <MenuItem value="">All Sections (Entire Course)</MenuItem>
                       {sections.map((sec) => (
-                        <option key={sec.id} value={sec.id}>
+                        <MenuItem key={sec.id} value={sec.id}>
                           {sec.title}
-                        </option>
+                        </MenuItem>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   {selectedSectionId && (
@@ -516,19 +571,21 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
                       <label className="form-label" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                         Select Lesson (Optional)
                       </label>
-                      <select
+                      <Select
                         value={selectedLessonId}
                         onChange={(e) => setSelectedLessonId(e.target.value)}
-                        className="input-select"
-                        style={{ fontSize: '0.85rem', padding: '8px 12px' }}
+                        displayEmpty
+                        size="small"
+                        sx={selectSx}
+                        MenuProps={menuProps}
                       >
-                        <option value="">All Lessons in Section</option>
+                        <MenuItem value="">All Lessons in Section</MenuItem>
                         {((sections.find(s => String(s.id) === String(selectedSectionId)) || {}).lessons || []).map((les) => (
-                          <option key={les.id} value={les.id}>
+                          <MenuItem key={les.id} value={les.id}>
                             {les.title}
-                          </option>
+                          </MenuItem>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   )}
                 </div>
@@ -588,17 +645,19 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
                   <Clock className="form-label-icon" />
                   Run Interval
                 </label>
-                <select
+                <Select
                   value={config.auditInterval}
                   onChange={handleIntervalChange}
-                  className="input-select"
+                  size="small"
+                  sx={selectSx}
+                  MenuProps={menuProps}
                 >
-                  <option value="manual">Manual Only (No Auto-Run)</option>
-                  <option value="10m">Every 10 Minutes (Test Mode)</option>
-                  <option value="1h">Every Hour</option>
-                  <option value="1d">Every Day (Recommended)</option>
-                  <option value="7d">Every Week</option>
-                </select>
+                  <MenuItem value="manual">Manual Only (No Auto-Run)</MenuItem>
+                  <MenuItem value="10m">Every 10 Minutes (Test Mode)</MenuItem>
+                  <MenuItem value="1h">Every Hour</MenuItem>
+                  <MenuItem value="1d">Every Day (Recommended)</MenuItem>
+                  <MenuItem value="7d">Every Week</MenuItem>
+                </Select>
               </div>
 
               {/* Keywords Tag Panel */}
@@ -725,17 +784,19 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
             {pendingReports.length > 1 && (
               <div className="report-bar">
                 <span className="report-bar-label">Pending Audits:</span>
-                <select
+                <Select
                   value={selectedReportId}
                   onChange={(e) => setSelectedReportId(e.target.value)}
-                  className="report-bar-select"
+                  size="small"
+                  sx={reportSelectSx}
+                  MenuProps={menuProps}
                 >
                   {pendingReports.map((rep, idx) => (
-                    <option key={rep.id} value={rep.id}>
+                    <MenuItem key={rep.id} value={rep.id}>
                       Audit suggestion #{pendingReports.length - idx} ({new Date(rep.createdAt).toLocaleString()})
-                    </option>
+                    </MenuItem>
                   ))}
-                </select>
+                </Select>
               </div>
             )}
 
@@ -859,114 +920,142 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
                         </div>
                       );
                     }
+                    const maxIdx = Math.max(0, filteredUpdates.length - 1);
+                    const currentIdx = Math.min(changeIndex, maxIdx);
+                    const { update, originalIndex } = filteredUpdates[currentIdx];
 
                     return (
-                      <div className="diff-container" style={{ gap: '20px' }}>
-                        {filteredUpdates.map(({ update, originalIndex }) => (
-                          <div key={originalIndex} className="diff-card">
-                            
-                            {/* Header */}
-                            <div className="diff-card-header" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <span className="diff-card-index">
-                                  Suggestion #{originalIndex + 1}
-                                </span>
-                                {update?.relevance && (
-                                  <span className={`relevance-badge relevance-${update.relevance}`} style={{
-                                    fontSize: '0.7rem',
-                                    fontWeight: '800',
-                                    padding: '2px 8px',
-                                    borderRadius: '4px',
-                                    background: update.relevance === 'high' ? 'rgba(229, 57, 53, 0.15)' : update.relevance === 'medium' ? 'rgba(251, 140, 0, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                                    color: update.relevance === 'high' ? '#ff8a80' : update.relevance === 'medium' ? '#ffd180' : '#cfd8dc',
-                                    border: `1px solid ${update.relevance === 'high' ? 'rgba(229,57,53,0.3)' : update.relevance === 'medium' ? 'rgba(251,140,0,0.3)' : 'rgba(255,255,255,0.15)'}`
-                                  }}>
-                                    {update.relevance.toUpperCase()} IMPORTANCE
-                                  </span>
-                                )}
-                                {update?.action && (
-                                  <span className={`action-badge action-${update.action}`} style={{
-                                    fontSize: '0.7rem',
-                                    fontWeight: '800',
-                                    padding: '2px 8px',
-                                    borderRadius: '4px',
-                                    background: update.action === 'delete_page' ? 'rgba(244, 67, 54, 0.2)' : update.action === 'delete_content' ? 'rgba(255, 152, 0, 0.2)' : 'rgba(76, 175, 80, 0.15)',
-                                    color: update.action === 'delete_page' ? '#ff1744' : update.action === 'delete_content' ? '#ff9100' : '#b9f6ca',
-                                    border: `1px solid ${update.action === 'delete_page' ? 'rgba(244,67,54,0.4)' : update.action === 'delete_content' ? 'rgba(255,152,0,0.4)' : 'rgba(76,175,80,0.3)'}`
-                                  }}>
-                                    {update.action === 'delete_page' ? '⚠️ DELETE PAGE' : update.action === 'delete_content' ? '🗑️ DELETE CONTENT' : 'REPLACE TEXT'}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="diff-card-target">
-                                Target: Lesson Content
+                      <div className="diff-container" style={{ gap: '16px' }}>
+                        {/* Pagination Bar */}
+                        {filteredUpdates.length > 1 && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', background: 'rgba(255, 255, 255, 0.02)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--divider)' }}>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              disabled={currentIdx === 0}
+                              onClick={() => setChangeIndex(prev => prev - 1)}
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', cursor: 'pointer', background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--divider)' }}
+                            >
+                              Previous
+                            </button>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+                              Change {currentIdx + 1} of {filteredUpdates.length}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              disabled={currentIdx === maxIdx}
+                              onClick={() => setChangeIndex(prev => prev + 1)}
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', cursor: 'pointer', background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--divider)' }}
+                            >
+                              Next
+                            </button>
+                          </div>
+                        )}
+
+                        <div key={originalIndex} className="diff-card">
+                          
+                          {/* Header */}
+                          <div className="diff-card-header" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <span className="diff-card-index">
+                                Suggestion #{originalIndex + 1}
                               </span>
+                              {update?.relevance && (
+                                <span className={`relevance-badge relevance-${update.relevance}`} style={{
+                                  fontSize: '0.7rem',
+                                  fontWeight: '800',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  background: update.relevance === 'high' ? 'rgba(229, 57, 53, 0.15)' : update.relevance === 'medium' ? 'rgba(251, 140, 0, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                                  color: update.relevance === 'high' ? '#ff8a80' : update.relevance === 'medium' ? '#ffd180' : '#cfd8dc',
+                                  border: `1px solid ${update.relevance === 'high' ? 'rgba(229,57,53,0.3)' : update.relevance === 'medium' ? 'rgba(251,140,0,0.3)' : 'rgba(255,255,255,0.15)'}`
+                                }}>
+                                  {update.relevance.toUpperCase()} IMPORTANCE
+                                </span>
+                              )}
+                              {update?.action && (
+                                <span className={`action-badge action-${update.action}`} style={{
+                                  fontSize: '0.7rem',
+                                  fontWeight: '800',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  background: update.action === 'delete_page' ? 'rgba(244, 67, 54, 0.2)' : update.action === 'delete_content' ? 'rgba(255, 152, 0, 0.2)' : 'rgba(76, 175, 80, 0.15)',
+                                  color: update.action === 'delete_page' ? '#ff1744' : update.action === 'delete_content' ? '#ff9100' : '#b9f6ca',
+                                  border: `1px solid ${update.action === 'delete_page' ? 'rgba(244,67,54,0.4)' : update.action === 'delete_content' ? 'rgba(255,152,0,0.4)' : 'rgba(76, 175, 80, 0.3)'}`
+                                }}>
+                                  {update.action === 'delete_page' ? '⚠️ DELETE PAGE' : update.action === 'delete_content' ? '🗑️ DELETE CONTENT' : 'REPLACE TEXT'}
+                                </span>
+                              )}
+                            </div>
+                            <span className="diff-card-target">
+                              Target: Lesson Content
+                            </span>
+                          </div>
+
+                          {/* Diff Side-by-side or Stacked grid */}
+                          <div className="diff-grid">
+                            
+                            {/* Current Content (Light Red Background, Red Border) */}
+                            <div className="diff-original">
+                              <div className="diff-label-row red">
+                                <span className="diff-sign red">-</span>
+                                <span>Current Content</span>
+                              </div>
+                              <div className="diff-content-wrapper">
+                                {renderSafeContent(update?.originalTextChunk)}
+                              </div>
                             </div>
 
-                            {/* Diff Side-by-side or Stacked grid */}
-                            <div className="diff-grid">
-                              
-                              {/* Current Content (Light Red Background, Red Border) */}
-                              <div className="diff-original">
-                                <div className="diff-label-row red">
-                                  <span className="diff-sign red">-</span>
-                                  <span>Current Content</span>
-                                </div>
-                                <div className="diff-content-wrapper">
-                                  {renderSafeContent(update?.originalTextChunk)}
-                                </div>
+                            {/* Suggested Replacement (Light Green Background, Green Border) */}
+                            <div className="diff-suggested">
+                              <div className="diff-label-row green">
+                                <span className="diff-sign green">+</span>
+                                <span>Suggested Update</span>
                               </div>
-
-                              {/* Suggested Replacement (Light Green Background, Green Border) */}
-                              <div className="diff-suggested">
-                                <div className="diff-label-row green">
-                                  <span className="diff-sign green">+</span>
-                                  <span>Suggested Update</span>
-                                </div>
-                                <div className="diff-content-wrapper">
-                                  {renderSafeContent(update?.suggestedReplacement)}
-                                </div>
+                              <div className="diff-content-wrapper">
+                                {renderSafeContent(update?.suggestedReplacement)}
                               </div>
-
-                            </div>
-
-                            {/* Footer: Reasoning and Action Buttons */}
-                            <div className="diff-card-footer">
-                              
-                              {/* Reasoning (Neutral Gray Callout) */}
-                              <div className="reasoning-callout">
-                                <HelpCircle className="reasoning-icon" />
-                                <div>
-                                  <span className="reasoning-label">Reasoning: </span>
-                                  {update?.reasoning}
-                                </div>
-                              </div>
-
-                              {/* Actions Group (Approve next to block) */}
-                              <div className="diff-action-group">
-                                <button
-                                  onClick={() => activeReport && handleApproveSuggestion(activeReport.id, originalIndex)}
-                                  disabled={actioningId !== null || !activeReport}
-                                  className="btn btn-success"
-                                >
-                                  {actioningId === `approve-${originalIndex}` ? (
-                                    <>
-                                      <Loader2 className="loading-spinner" style={{ width: '14px', height: '14px', margin: 0 }} />
-                                      <span>Applying...</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Check style={{ width: '14px', height: '14px' }} />
-                                      <span>Approve Change</span>
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-
                             </div>
 
                           </div>
-                        ))}
+
+                          {/* Footer: Reasoning and Action Buttons */}
+                          <div className="diff-card-footer">
+                            
+                            {/* Reasoning (Neutral Gray Callout) */}
+                            <div className="reasoning-callout">
+                              <HelpCircle className="reasoning-icon" />
+                              <div>
+                                <span className="reasoning-label">Reasoning: </span>
+                                {update?.reasoning}
+                              </div>
+                            </div>
+
+                            {/* Actions Group (Approve next to block) */}
+                            <div className="diff-action-group">
+                              <button
+                                onClick={() => activeReport && handleApproveSuggestion(activeReport.id, originalIndex)}
+                                disabled={actioningId !== null || !activeReport}
+                                className="btn btn-success"
+                              >
+                                {actioningId === `approve-${originalIndex}` ? (
+                                  <>
+                                    <Loader2 className="loading-spinner" style={{ width: '14px', height: '14px', margin: 0 }} />
+                                    <span>Applying...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check style={{ width: '14px', height: '14px' }} />
+                                    <span>Approve Change</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+
+                          </div>
+
+                        </div>
                       </div>
                     );
                   })()}

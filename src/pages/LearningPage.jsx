@@ -206,7 +206,12 @@ const LearningPage = () => {
     loadCourses();
   }, []);
 
-  const categories = ['All', 'Technology', 'Science', 'Humanities', 'Design', 'Business'];
+  const categories = useMemo(() => {
+    const domains = courses.map(c => c.domain).filter(Boolean);
+    const uniqueDomains = Array.from(new Set(domains));
+    uniqueDomains.sort();
+    return ['All', ...uniqueDomains];
+  }, [courses]);
 
   const registeredCourseTitles = user?.registeredCourses || [];
 
@@ -381,17 +386,6 @@ const LearningPage = () => {
       </section>
 
       <section className="learning-section">
-        <div className="learning-section-head">
-          <div>
-            <Typography variant="h4" className="learning-section-title">
-              Available Courses
-            </Typography>
-            <Typography variant="body1" className="learning-section-copy">
-              Premium learning modules with immersive layouts, persistent progress, and desktop-first productivity flow.
-            </Typography>
-          </div>
-        </div>
-
         {filteredCourses.length > 0 ? (
           <div className="learning-course-grid">
             {filteredCourses.map((course) => {
@@ -512,11 +506,9 @@ const LearningPage = () => {
       <section className="learning-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', marginTop: '2rem' }}>
         <Box style={{ textAlign: 'center' }}>
           <Typography variant="h4" className="learning-section-title">
-            Coming Soon Specializations
+            Coming Soon
           </Typography>
-          <Typography variant="body1" className="learning-section-copy">
-            Upcoming specializations queued for the next release cycle
-          </Typography>
+          <br />
         </Box>
 
         <Box style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '12px', maxWidth: '800px' }}>

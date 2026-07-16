@@ -687,92 +687,73 @@ const ProfilePage = () => {
                 </Button>
               </Box>
               
-              <Paper sx={{ p: 0, border: '1px solid var(--divider)', borderRadius: 4, overflow: 'hidden', bgcolor: 'transparent' }}>
-                <Stack divider={<Divider />}>
-                  {resolvedAchievements.map(ach => {
-                    const progressPercent = ach.targetValue > 0 ? Math.min(Math.round((ach.currentValue / ach.targetValue) * 100), 100) : 0;
-                    return (
+              <Grid container spacing={2}>
+                {resolvedAchievements.map(ach => (
+                  <Grid item xs={6} sm={4} md={4} key={ach.id}>
+                    <Paper 
+                      sx={{ 
+                        p: 2, 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        textAlign: 'center', 
+                        border: '1px solid var(--divider)', 
+                        borderRadius: 3, 
+                        bgcolor: 'transparent',
+                        opacity: ach.isUnlocked ? 1 : 0.45,
+                        height: '100%',
+                        minHeight: '120px'
+                      }}
+                    >
                       <Box 
-                        key={ach.id}
                         sx={{ 
-                          p: 3, 
-                          display: 'flex',
-                          gap: 3,
-                          alignItems: 'center',
-                          opacity: ach.isUnlocked ? 1 : 0.6}}
+                          width: 48, 
+                          height: 48, 
+                          borderRadius: '50%', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          mb: 1.5,
+                          flexShrink: 0,
+                          bgcolor: ach.isUnlocked ? `color-mix(in srgb, ${ach.associatedColor} 15%, transparent)` : 'rgba(255,255,255,0.03)',
+                          color: ach.isUnlocked ? ach.associatedColor : 'var(--text-disabled)',
+                          border: `2px solid ${ach.isUnlocked ? ach.associatedColor : 'var(--divider)'}`
+                        }}
                       >
-                        <Box 
-                          sx={{ 
-                            width: 64, 
-                            height: 64, 
-                            borderRadius: '50%', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                            bgcolor: ach.isUnlocked ? `color-mix(in srgb, ${ach.associatedColor} 15%, transparent)` : 'rgba(0,0,0,0.05)',
-                            color: ach.isUnlocked ? ach.associatedColor : 'var(--text-disabled)',
-                            border: `2px solid ${ach.isUnlocked ? ach.associatedColor : 'var(--divider)'}`
-                          }}
-                        >
-                          {ach.iconReference === 'school' && <CourseIcon fontSize="large" />}
-                          {ach.iconReference === 'trending_up' && <PathIcon fontSize="large" />}
-                          {ach.iconReference === 'workspace_premium' && <TrophyIcon fontSize="large" />}
-                          {ach.iconReference === 'military_tech' && <TrophyIcon fontSize="large" />}
-                          {ach.iconReference === 'quiz' && <PathIcon fontSize="large" />}
-                          {ach.iconReference === 'emoji_events' && <TrophyIcon fontSize="large" />}
-                          {ach.iconReference === 'verified' && <CheckIcon fontSize="large" />}
-                          {ach.iconReference === 'auto_stories' && <CourseIcon fontSize="large" />}
-                          {ach.iconReference === 'chat_bubble_outline' && <ShareIcon fontSize="large" />}
-                          {ach.iconReference === 'forum' && <ShareIcon fontSize="large" />}
-                          {ach.iconReference === 'thumb_up' && <TrophyIcon fontSize="large" />}
-                          {ach.iconReference === 'stars' && <TrophyIcon fontSize="large" />}
-                          {ach.iconReference === 'star_outline' && <TrophyIcon fontSize="large" />}
-                          {ach.iconReference === 'star' && <TrophyIcon fontSize="large" />}
-                          {ach.iconReference === 'arrow_upward' && <ArrowForwardIcon fontSize="large" />}
-                          {ach.iconReference === 'local_fire_department' && <StreakIcon fontSize="large" />}
-                          {ach.iconReference === 'whatshot' && <StreakIcon fontSize="large" />}
-                          {ach.iconReference === 'flame_member' && <StreakIcon fontSize="large" />}
-                          {ach.iconReference === 'calendar_today' && <CalendarIcon fontSize="large" />}
-                          {ach.iconReference === 'history' && <CalendarIcon fontSize="large" />}
-                          {ach.iconReference === 'assignment_ind' && <PersonIcon fontSize="large" />}
-                          {ach.iconReference === 'group_add' && <PersonIcon fontSize="large" />}
-                          {ach.iconReference === 'groups' && <PersonIcon fontSize="large" />}
-                          {ach.iconReference === 'explore' && <PathIcon fontSize="large" />}
-                          {ach.iconReference === 'rocket' && <BoltIcon fontSize="large" />}
-                        </Box>
-                        
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.5 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--text-primary)' }}>
-                              {ach.name}
-                            </Typography>
-                            <Typography variant="caption" sx={{ fontWeight: 750, color: 'var(--text-secondary)' }}>
-                              {ach.currentValue}/{ach.targetValue}
-                            </Typography>
-                          </Box>
-                          <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mb: 1.5 }}>
-                            {ach.description}
-                          </Typography>
-                          <LinearProgress 
-                            variant="determinate" 
-                            value={progressPercent}
-                            sx={{ 
-                              height: 12, 
-                              borderRadius: 6, 
-                              bgcolor: 'var(--divider)',
-                              '& .MuiLinearProgress-bar': {
-                                bgcolor: ach.isUnlocked ? ach.associatedColor : 'var(--text-disabled)',
-                                borderRadius: 6
-                              }
-                            }}
-                          />
-                        </Box>
+                        {ach.iconReference === 'school' && <CourseIcon fontSize="medium" />}
+                        {ach.iconReference === 'trending_up' && <PathIcon fontSize="medium" />}
+                        {ach.iconReference === 'workspace_premium' && <TrophyIcon fontSize="medium" />}
+                        {ach.iconReference === 'military_tech' && <TrophyIcon fontSize="medium" />}
+                        {ach.iconReference === 'quiz' && <PathIcon fontSize="medium" />}
+                        {ach.iconReference === 'emoji_events' && <TrophyIcon fontSize="medium" />}
+                        {ach.iconReference === 'verified' && <CheckIcon fontSize="medium" />}
+                        {ach.iconReference === 'auto_stories' && <CourseIcon fontSize="medium" />}
+                        {ach.iconReference === 'chat_bubble_outline' && <ShareIcon fontSize="medium" />}
+                        {ach.iconReference === 'forum' && <ShareIcon fontSize="medium" />}
+                        {ach.iconReference === 'thumb_up' && <TrophyIcon fontSize="medium" />}
+                        {ach.iconReference === 'stars' && <TrophyIcon fontSize="medium" />}
+                        {ach.iconReference === 'star_outline' && <TrophyIcon fontSize="medium" />}
+                        {ach.iconReference === 'star' && <TrophyIcon fontSize="medium" />}
+                        {ach.iconReference === 'arrow_upward' && <ArrowForwardIcon fontSize="medium" />}
+                        {ach.iconReference === 'local_fire_department' && <StreakIcon fontSize="medium" />}
+                        {ach.iconReference === 'whatshot' && <StreakIcon fontSize="medium" />}
+                        {ach.iconReference === 'flame_member' && <StreakIcon fontSize="medium" />}
+                        {ach.iconReference === 'calendar_today' && <CalendarIcon fontSize="medium" />}
+                        {ach.iconReference === 'history' && <CalendarIcon fontSize="medium" />}
+                        {ach.iconReference === 'assignment_ind' && <PersonIcon fontSize="medium" />}
+                        {ach.iconReference === 'group_add' && <PersonIcon fontSize="medium" />}
+                        {ach.iconReference === 'groups' && <PersonIcon fontSize="medium" />}
+                        {ach.iconReference === 'explore' && <PathIcon fontSize="medium" />}
+                        {ach.iconReference === 'rocket' && <BoltIcon fontSize="medium" />}
                       </Box>
-                    );
-                  })}
-                </Stack>
-              </Paper>
+                      <Typography variant="body2" sx={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.78rem', lineHeight: 1.2 }}>
+                        {ach.name}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
             </Box>
           </Stack>
         </Grid>

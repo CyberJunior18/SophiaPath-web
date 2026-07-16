@@ -269,7 +269,7 @@
 
 .path-header-sticky {
   position: sticky;
-  top: -1.5rem;
+  top: 0;
   z-index: 100;
   background: var(--surface-glass-strong);
   backdrop-filter: blur(20px);
@@ -287,7 +287,7 @@
 
 @media (max-width: 959px) {
   .path-header-sticky {
-    top: -1rem;
+    top: 0;
     margin-top: -1rem;
     padding: 1.25rem 1rem;
     border-radius: 0 0 16px 16px;

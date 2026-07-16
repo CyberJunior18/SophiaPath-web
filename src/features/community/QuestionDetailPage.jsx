@@ -230,10 +230,10 @@ const RenderReplyNode = ({
                 size="small"
                 startIcon={<ReplyIcon sx={{ fontSize: 12 }} />}
                 onClick={() => {
-                  if (activeReplyId === reply.id) {
+                  if (activeReplyId === `reply-${reply.id}`) {
                     setActiveReplyId(null);
                   } else {
-                    setActiveReplyId(reply.id);
+                    setActiveReplyId(`reply-${reply.id}`);
                     setReplyText('');
                   }
                 }}
@@ -246,7 +246,7 @@ const RenderReplyNode = ({
           )}
 
           {/* Reply Input Box */}
-          {activeReplyId === reply.id && (
+          {activeReplyId === `reply-${reply.id}` && (
             <Box className="reply-input-box animate-fade-in" sx={{ mt: 1 }}>
               <Stack direction="row" spacing={1}>
                 <TextField
@@ -1896,10 +1896,10 @@ const QuestionDetailPage = () => {
                         size="small"
                         startIcon={<ReplyIcon sx={{ fontSize: 12 }} />}
                         onClick={() => {
-                          if (activeReplyId === focusedReply.id) {
+                          if (activeReplyId === `reply-${focusedReply.id}`) {
                             setActiveReplyId(null);
                           } else {
-                            setActiveReplyId(focusedReply.id);
+                            setActiveReplyId(`reply-${focusedReply.id}`);
                             setReplyText('');
                           }
                         }}
@@ -1910,7 +1910,7 @@ const QuestionDetailPage = () => {
                       </Button>
                     </Box>
 
-                    {activeReplyId === focusedReply.id && (
+                    {activeReplyId === `reply-${focusedReply.id}` && (
                       <Box className="reply-input-box animate-fade-in" sx={{ mt: 1 }}>
                         <Stack direction="row" spacing={1}>
                           <TextField
@@ -2142,10 +2142,10 @@ const QuestionDetailPage = () => {
                               size="small"
                               startIcon={<ReplyIcon sx={{ fontSize: 12 }} />}
                               onClick={() => {
-                                if (activeReplyId === comment.id) {
+                                if (activeReplyId === `comment-${comment.id}`) {
                                   setActiveReplyId(null);
                                 } else {
-                                  setActiveReplyId(comment.id);
+                                  setActiveReplyId(`comment-${comment.id}`);
                                   setReplyText('');
                                 }
                               }}
@@ -2158,7 +2158,7 @@ const QuestionDetailPage = () => {
                       )}
  
                       {/* Reply Composer Form */}
-                      {activeReplyId === comment.id && (
+                      {activeReplyId === `comment-${comment.id}` && (
                         <Box className="reply-input-box animate-fade-in" sx={{ mt: 1 }}>
                           <Stack direction="row" spacing={1}>
                             <TextField

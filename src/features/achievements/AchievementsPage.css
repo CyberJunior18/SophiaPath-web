@@ -11,7 +11,7 @@
 .achievements-container {
   background-color: var(--background-default);
   min-height: 100vh;
-  padding: 4rem 0;
+  padding: 1.5rem 0 4rem 0;
   font-family: 'Poppins', sans-serif;
   background-image: 
     none;
@@ -34,14 +34,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.5rem;
+  margin: 0 auto 1.5rem auto;
   border-radius: 50%;
 }
 
 .hero-trophy-icon {
   width: 128px !important;
   height: 128px !important;
-  color: var(--yellow-500);
+  color: var(--primary-main);
+  margin: 0 auto;
 }
 
 .hero-title {
@@ -210,36 +211,68 @@
 }
 
 .premium-achievement-card {
-  padding: 2.25rem 2rem;
-  border-radius: 2rem !important;
-  background: var(--surface-glass) !important;
+  padding: 1.5rem 1.25rem;
+  border-radius: 1.5rem !important;
+  background: color-mix(in srgb, var(--primary-main) var(--difficulty-mix, 5%), var(--surface-glass)) !important;
   backdrop-filter: blur(20px);
-  border: 1px solid var(--divider) !important;
+  border: var(--difficulty-border-width, 1px) solid var(--difficulty-border, var(--divider)) !important;
   position: relative;
   overflow: hidden;
-  height: 100%;
+  height: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   transition: all 0.35s cubic-bezier(0.165, 0.84, 0.44, 1);
+  min-width: 220px;
+  max-width: 250px;
+  flex-shrink: 0;
+  flex-grow: 1;
+}
+
+.achievements-row-container {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 24px;
+  overflow-x: auto;
+  padding: 10px 4px 20px 4px;
+  scroll-behavior: smooth;
+  width: 100%;
+}
+
+.achievements-row-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.achievements-row-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.achievements-row-container::-webkit-scrollbar-thumb {
+  background: var(--divider);
+  border-radius: 3px;
+}
+
+.achievements-row-container::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-main);
 }
 
 .premium-achievement-card:hover {
   transform: translateY(-8px) scale(1.02);
-  border-color: rgba(var(--primary-main-rgb), 0.3) !important;
-  background: var(--surface-glass-strong) !important;
+  border-color: var(--difficulty-hover-border, var(--primary-main)) !important;
+  background: color-mix(in srgb, var(--primary-main) var(--difficulty-hover-mix, 12%), var(--surface-glass-strong)) !important;
 }
 
-/* Completed achievement card background tint (Uniform theme-based coloring) */
+/* Completed achievement card background tint (Difficulty theme-based coloring) */
 .premium-achievement-card.completed {
-  background: color-mix(in srgb, var(--primary-main) 8%, var(--surface-glass)) !important;
-  border-color: color-mix(in srgb, var(--primary-main) 35%, var(--divider)) !important;
+  background: color-mix(in srgb, var(--primary-main) var(--difficulty-mix, 8%), var(--surface-glass)) !important;
+  border: var(--difficulty-border-width-completed, 1.5px) solid var(--difficulty-border, var(--divider)) !important;
 }
 
 .premium-achievement-card.completed:hover {
-  background: color-mix(in srgb, var(--primary-main) 12%, var(--surface-glass-strong)) !important;
-  border-color: color-mix(in srgb, var(--primary-main) 55%, var(--divider)) !important;
+  background: color-mix(in srgb, var(--primary-main) var(--difficulty-hover-mix, 14%), var(--surface-glass-strong)) !important;
+  border-color: var(--difficulty-hover-border, var(--primary-main)) !important;
 }
 
 /* Custom background glows based on category colors */
@@ -273,29 +306,22 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  background: var(--background-paper-alt);
-  padding: 4px 10px;
-  border-radius: 12px;
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--text-disabled);
-  border: 1px solid var(--divider);
 }
 
 .card-lock-icon {
   color: var(--text-disabled);
 }
 
-/* Glow Card Icon wrapper */
+/* Glow Card Icon wrapper (container background removed) */
 .card-icon-wrapper {
-  width: 4.8rem;
-  height: 4.8rem;
-  border-radius: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.0rem;
   transition: transform 0.3s ease;
 }
 
@@ -303,35 +329,33 @@
   transform: scale(1.1);
 }
 
-
 .card-icon-wrapper.in_progress {
-  background-color: var(--background-paper-alt);
   color: var(--primary-main);
 }
 
 .card-icon-wrapper.locked {
-  background-color: var(--background-paper-alt);
   color: var(--text-disabled);
 }
 
 .icon-main {
-  width: 28px !important;
-  height: 28px !important;
+  width: 22px !important;
+  height: 22px !important;
 }
 
 /* Typography styles */
 .premium-card-title {
   font-weight: 800 !important;
   color: var(--text-primary);
-  margin-bottom: 0.6rem !important;
-  font-size: 1.15rem !important;
+  margin-bottom: 0.4rem !important;
+  font-size: 0.95rem !important;
 }
 
 .premium-card-desc {
-  color: var(--text-secondary);
-  font-size: 0.85rem !important;
+  color: var(--text-primary);
+  font-size: 0.82rem !important;
+  font-weight: 500;
   line-height: 1.6 !important;
-  margin-bottom: 1.75rem !important;
+  margin-bottom: 1.25rem !important;
   flex-grow: 1;
 }
 

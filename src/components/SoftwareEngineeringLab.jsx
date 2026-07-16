@@ -286,16 +286,16 @@ const AddEntityDialog = ({ open, onClose, onSubmit, existingEntityNames }) => {
       onClose={onClose}
       PaperProps={{
         style: {
-          background: 'rgba(30, 30, 56, 0.95)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          color: '#ffffff',
+          background: 'var(--background-paper)',
+          border: '1px solid var(--divider)',
+          color: 'var(--text-primary)',
           borderRadius: '16px',
           padding: '12px',
           maxWidth: '600px',
           width: '100%'}
       }}
     >
-      <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+      <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid var(--divider)', paddingBottom: '12px', color: 'var(--text-primary)' }}>
         ✨ Add New Entity
       </DialogTitle>
       <DialogContent style={{ marginTop: '16px' }}>
@@ -309,51 +309,51 @@ const AddEntityDialog = ({ open, onClose, onSubmit, existingEntityNames }) => {
           placeholder="e.g. Employee"
           variant="outlined"
           size="small"
-          InputLabelProps={{ style: { color: 'rgba(255,255,255,0.7)' } }}
-          inputProps={{ style: { color: '#fff' } }}
+          InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
+          inputProps={{ style: { color: 'var(--text-primary)' } }}
           sx={{
             marginBottom: '24px',
             '& .MuiOutlinedInput-root': {
-              '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' },
+              '& fieldset': { borderColor: 'var(--divider)' },
               '&:hover fieldset': { borderColor: 'var(--primary-main)' },
               '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' }}
           }}
         />
 
-        <Typography variant="subtitle2" style={{ fontWeight: 700, marginBottom: '8px', color: 'rgba(255,255,255,0.7)' }}>
+        <Typography variant="subtitle2" style={{ fontWeight: 700, marginBottom: '8px', color: 'var(--text-secondary)' }}>
           Attributes / Fields
         </Typography>
 
-        <Box style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', background: 'rgba(0,0,0,0.2)' }}>
+        <Box style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid var(--divider)', borderRadius: '8px', background: 'rgba(0,0,0,0.15)' }}>
           <Table size="small" stickyHeader style={{ background: 'transparent' }}>
             <TableHead>
               <TableRow>
-                <TableCell style={{ background: '#191932', color: 'rgba(255,255,255,0.7)', borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 'bold' }}>Field Name</TableCell>
-                <TableCell style={{ background: '#191932', color: 'rgba(255,255,255,0.7)', borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 'bold' }}>Type</TableCell>
-                <TableCell style={{ background: '#191932', color: 'rgba(255,255,255,0.7)', borderBottom: '1px solid rgba(255,255,255,0.08)', fontWeight: 'bold' }}>Constraint</TableCell>
-                <TableCell style={{ background: '#191932', color: 'rgba(255,255,255,0.7)', borderBottom: '1px solid rgba(255,255,255,0.08)', width: '50px' }} />
+                <TableCell style={{ background: 'var(--background-default)', color: 'var(--text-primary)', borderBottom: '1px solid var(--divider)', fontWeight: 'bold' }}>Field Name</TableCell>
+                <TableCell style={{ background: 'var(--background-default)', color: 'var(--text-primary)', borderBottom: '1px solid var(--divider)', fontWeight: 'bold' }}>Type</TableCell>
+                <TableCell style={{ background: 'var(--background-default)', color: 'var(--text-primary)', borderBottom: '1px solid var(--divider)', fontWeight: 'bold' }}>Constraint</TableCell>
+                <TableCell style={{ background: 'var(--background-default)', color: 'var(--text-primary)', borderBottom: '1px solid var(--divider)', width: '50px' }} />
               </TableRow>
             </TableHead>
             <TableBody>
               {fields.map((field, idx) => (
                 <TableRow key={idx}>
-                  <TableCell style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <TableCell style={{ borderBottom: '1px solid var(--divider)' }}>
                     <TextField
                       value={field.name}
                       onChange={(e) => handleFieldChange(idx, 'name', e.target.value)}
                       placeholder="e.g. email"
                       variant="standard"
                       size="small"
-                      inputProps={{ style: { color: '#fff', fontSize: '0.85rem' } }}
+                      inputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.85rem' } }}
                       fullWidth
                     />
                   </TableCell>
-                  <TableCell style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <TableCell style={{ borderBottom: '1px solid var(--divider)' }}>
                     <Select
                       value={field.type}
                       onChange={(e) => handleFieldChange(idx, 'type', e.target.value)}
                       variant="standard"
-                      style={{ color: '#fff', fontSize: '0.85rem', width: '100px' }}
+                      style={{ color: 'var(--text-primary)', fontSize: '0.85rem', width: '100px' }}
                     >
                       <MenuItem value="int">int</MenuItem>
                       <MenuItem value="varchar">varchar</MenuItem>
@@ -363,19 +363,19 @@ const AddEntityDialog = ({ open, onClose, onSubmit, existingEntityNames }) => {
                       <MenuItem value="float">float</MenuItem>
                     </Select>
                   </TableCell>
-                  <TableCell style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <TableCell style={{ borderBottom: '1px solid var(--divider)' }}>
                     <Select
                       value={field.key}
                       onChange={(e) => handleFieldChange(idx, 'key', e.target.value)}
                       variant="standard"
-                      style={{ color: '#fff', fontSize: '0.85rem', width: '120px' }}
+                      style={{ color: 'var(--text-primary)', fontSize: '0.85rem', width: '120px' }}
                     >
                       <MenuItem value="">None</MenuItem>
                       <MenuItem value="PK">Primary Key</MenuItem>
                       <MenuItem value="FK">Foreign Key</MenuItem>
                     </Select>
                   </TableCell>
-                  <TableCell style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                  <TableCell style={{ borderBottom: '1px solid var(--divider)', textAlign: 'center' }}>
                     <IconButton size="small" onClick={() => handleRemoveField(idx)} style={{ color: '#ff647c' }} disabled={fields.length <= 1}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -394,8 +394,8 @@ const AddEntityDialog = ({ open, onClose, onSubmit, existingEntityNames }) => {
           Add Attribute
         </Button>
       </DialogContent>
-      <DialogActions style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', gap: '8px' }}>
-        <Button onClick={onClose} style={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>
+      <DialogActions style={{ borderTop: '1px solid var(--divider)', padding: '16px 24px', gap: '8px' }}>
+        <Button onClick={onClose} style={{ color: 'var(--text-secondary)', textTransform: 'none' }}>
           Cancel
         </Button>
         <Button onClick={handleSubmit} variant="contained" style={{ background: 'var(--primary-main)', textTransform: 'none', fontWeight: 'bold' }}>
@@ -699,33 +699,33 @@ const AddTaskDialog = ({ open, onClose, onSubmit, existingTasks }) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} PaperProps={{ style: { background: 'rgba(30, 30, 56, 0.95)', border: '1px solid rgba(255,255,255,0.08)', color: '#ffffff', borderRadius: '16px', padding: '12px', maxWidth: '400px', width: '100%' } }}>
-      <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+    <Dialog open={open} onClose={onClose} PaperProps={{ style: { background: 'var(--background-paper)', border: '1px solid var(--divider)', color: 'var(--text-primary)', borderRadius: '16px', padding: '12px', maxWidth: '400px', width: '100%' } }}>
+      <DialogTitle style={{ fontWeight: 800, fontSize: '1.25rem', borderBottom: '1px solid var(--divider)', paddingBottom: '12px', color: 'var(--text-primary)' }}>
         📅 Add Task
       </DialogTitle>
       <DialogContent style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {error && <Alert severity="error" style={{ borderRadius: '8px' }}>{error}</Alert>}
 
-        <TextField fullWidth label="Task Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Design UI" variant="outlined" size="small" InputLabelProps={{ style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+        <TextField fullWidth label="Task Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Design UI" variant="outlined" size="small" InputLabelProps={{ style: { color: 'var(--text-secondary)' } }} inputProps={{ style: { color: 'var(--text-primary)' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'var(--divider)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
 
         <FormControl component="fieldset" style={{ marginTop: '8px' }}>
-          <RadioGroup row value={mode} onChange={(e) => setMode(e.target.value)} style={{ color: '#fff' }}>
-            <FormControlLabel value="date" control={<Radio style={{ color: 'var(--primary-main)' }} />} label="By Date" />
-            <FormControlLabel value="duration" control={<Radio style={{ color: 'var(--primary-main)' }} />} label="By Duration" />
+          <RadioGroup row value={mode} onChange={(e) => setMode(e.target.value)} style={{ color: 'var(--text-primary)' }}>
+            <FormControlLabel value="date" control={<Radio style={{ color: 'var(--primary-main)' }} />} label="By Date" style={{ color: 'var(--text-primary)' }} />
+            <FormControlLabel value="duration" control={<Radio style={{ color: 'var(--primary-main)' }} />} label="By Duration" style={{ color: 'var(--text-primary)' }} />
           </RadioGroup>
         </FormControl>
 
         <Box style={{ display: 'flex', gap: '16px' }}>
-          <TextField fullWidth label="Start Date" type="date" value={start} onChange={(e) => setStart(e.target.value)} InputLabelProps={{ shrink: true, style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+          <TextField fullWidth label="Start Date" type="date" value={start} onChange={(e) => setStart(e.target.value)} InputLabelProps={{ shrink: true, style: { color: 'var(--text-secondary)' } }} inputProps={{ style: { color: 'var(--text-primary)' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'var(--divider)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
           
           {mode === 'date' ? (
-            <TextField fullWidth label="End Date" type="date" value={end} onChange={(e) => setEnd(e.target.value)} InputLabelProps={{ shrink: true, style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ style: { color: '#fff' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+            <TextField fullWidth label="End Date" type="date" value={end} onChange={(e) => setEnd(e.target.value)} InputLabelProps={{ shrink: true, style: { color: 'var(--text-secondary)' } }} inputProps={{ style: { color: 'var(--text-primary)' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'var(--divider)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
           ) : (
             <>
-              <TextField fullWidth label="Duration" type="number" value={durationValue} onChange={(e) => setDurationValue(Number(e.target.value))} InputLabelProps={{ style: { color: 'rgba(255,255,255,0.7)' } }} inputProps={{ min: 1, style: { color: '#fff' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
+              <TextField fullWidth label="Duration" type="number" value={durationValue} onChange={(e) => setDurationValue(Number(e.target.value))} InputLabelProps={{ style: { color: 'var(--text-secondary)' } }} inputProps={{ min: 1, style: { color: 'var(--text-primary)' } }} size="small" sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'var(--divider)' }, '&:hover fieldset': { borderColor: 'var(--primary-main)' }, '&.Mui-focused fieldset': { borderColor: 'var(--primary-main)' } } }} />
               <FormControl fullWidth size="small">
-                <InputLabel style={{ color: 'rgba(255,255,255,0.7)' }}>Unit</InputLabel>
-                <Select value={durationUnit} label="Unit" onChange={(e) => setDurationUnit(e.target.value)} style={{ color: '#fff' }} sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' } }}>
+                <InputLabel style={{ color: 'var(--text-secondary)' }}>Unit</InputLabel>
+                <Select value={durationUnit} label="Unit" onChange={(e) => setDurationUnit(e.target.value)} style={{ color: 'var(--text-primary)' }} sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' } }}>
                   <MenuItem value="days">Days</MenuItem>
                   <MenuItem value="weeks">Weeks</MenuItem>
                   <MenuItem value="months">Months</MenuItem>
@@ -737,15 +737,15 @@ const AddTaskDialog = ({ open, onClose, onSubmit, existingTasks }) => {
 
         {existingTasks.length > 0 && (
           <FormControl fullWidth size="small">
-            <InputLabel style={{ color: 'rgba(255,255,255,0.7)' }}>Depends On</InputLabel>
-            <Select multiple value={deps} label="Depends On" onChange={(e) => setDeps(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)} style={{ color: '#fff' }} sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' } }}>
+            <InputLabel style={{ color: 'var(--text-secondary)' }}>Depends On</InputLabel>
+            <Select multiple value={deps} label="Depends On" onChange={(e) => setDeps(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)} style={{ color: 'var(--text-primary)' }} sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' } }}>
               {existingTasks.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
             </Select>
           </FormControl>
         )}
       </DialogContent>
-      <DialogActions style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', gap: '8px' }}>
-        <Button onClick={onClose} style={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>Cancel</Button>
+      <DialogActions style={{ borderTop: '1px solid var(--divider)', padding: '16px 24px', gap: '8px' }}>
+        <Button onClick={onClose} style={{ color: 'var(--text-secondary)', textTransform: 'none' }}>Cancel</Button>
         <Button onClick={handleSubmit} variant="contained" style={{ background: 'var(--primary-main)', textTransform: 'none', fontWeight: 'bold' }}>Create Task</Button>
       </DialogActions>
     </Dialog>
@@ -930,21 +930,23 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     }
   }, [previewZoomScale, previewCanvasContainer]);
 
-  // 3. Wheel listener for zooming main canvas
+  // 3. Wheel listener for zooming main canvas (Ctrl + Mousewheel zooming)
   useEffect(() => {
     if (!canvasContainer) return;
 
     const handleWheel = (e) => {
-      e.preventDefault();
-      const rect = canvasContainer.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const x_virtual = (canvasContainer.scrollLeft + mx) / zoomScale;
-      const y_virtual = (canvasContainer.scrollTop + my) / zoomScale;
-      zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const rect = canvasContainer.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const x_virtual = (canvasContainer.scrollLeft + mx) / zoomScale;
+        const y_virtual = (canvasContainer.scrollTop + my) / zoomScale;
+        zoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
 
-      const step = 0.05;
-      setZoomScale(prev => Math.max(0.2, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
+        const step = 0.05;
+        setZoomScale(prev => Math.max(0.2, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
+      }
     };
 
     canvasContainer.addEventListener('wheel', handleWheel, { passive: false });
@@ -953,21 +955,23 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     };
   }, [canvasContainer, zoomScale]);
 
-  // Wheel listener for zooming preview canvas
+  // Wheel listener for zooming preview canvas (Ctrl + Mousewheel zooming)
   useEffect(() => {
     if (!previewCanvasContainer) return;
 
     const handleWheel = (e) => {
-      e.preventDefault();
-      const rect = previewCanvasContainer.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const x_virtual = (previewCanvasContainer.scrollLeft + mx) / previewZoomScale;
-      const y_virtual = (previewCanvasContainer.scrollTop + my) / previewZoomScale;
-      previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const rect = previewCanvasContainer.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const x_virtual = (previewCanvasContainer.scrollLeft + mx) / previewZoomScale;
+        const y_virtual = (previewCanvasContainer.scrollTop + my) / previewZoomScale;
+        previewZoomAnchorRef.current = { x_virtual, y_virtual, mx, my };
 
-      const step = 0.05;
-      setPreviewZoomScale(prev => Math.max(0.2, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
+        const step = 0.05;
+        setPreviewZoomScale(prev => Math.max(0.2, Math.min(2.0, prev + (e.deltaY < 0 ? step : -step))));
+      }
     };
 
     previewCanvasContainer.addEventListener('wheel', handleWheel, { passive: false });
@@ -3868,7 +3872,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                               };
                             }}
                             style={{
-                              background: 'linear-gradient(90deg, var(--primary-main), var(--primary-light))',
+                              background: 'var(--primary-main)',
                               padding: '8px 12px',
                               fontWeight: '800',
                               fontSize: '0.95rem',
@@ -4396,7 +4400,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                         >
                           <div
                             style={{
-                              background: 'linear-gradient(90deg, var(--primary-main), var(--primary-light))',
+                              background: 'var(--primary-main)',
                               padding: '8px 12px',
                               fontWeight: '800',
                               fontSize: '0.95rem',

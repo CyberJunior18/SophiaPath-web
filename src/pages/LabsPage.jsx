@@ -31,6 +31,7 @@ import {
   Ship,
   Compass
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import './LearningPage.css'; // Reuse the excellent glassmorphic dashboard styles
 
 // Import the existing high-fidelity dialog components
@@ -440,199 +441,178 @@ const LabsPage = () => {
         </div>
       </section>
 
-      {/* Render Back Button if in Computer Science detail view */}
-      {activeLabGroupObj && !isSearchingOrFiltering && (
-        <Box style={{ display: 'flex', alignItems: 'center', margin: '2rem 0 1rem 0' }}>
-          <IconButton
-            onClick={() => handleSelectLabGroup(null)}
-            style={{
-              color: 'var(--text-primary)',
-              background: 'rgba(255, 255, 255, 0.05)',
-              marginRight: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}
+      {/* RENDER VIEWS WITH SMOOTH MOTION TRANSITIONS */}
+      <AnimatePresence mode="wait">
+        {activeLabGroupObj && !isSearchingOrFiltering ? (
+          /* COMPUTER SCIENCE LAB DETAIL MODE */
+          <motion.div
+            key="cs-detail-mode"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
           >
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="body1" style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
-            Back to Labs
-          </Typography>
-        </Box>
-      )}
-
-      {/* RENDER VIEWS */}
-      {activeLabGroupObj && !isSearchingOrFiltering ? (
-        /* COMPUTER SCIENCE LAB DETAIL MODE */
-        <section className="learning-section" style={{ marginTop: '0.5rem' }}>
-          <div className="learning-section-head" style={{ alignItems: 'flex-start', textAlign: 'left', marginBottom: '24px' }}>
-            <div>
-              <Typography variant="h4" className="learning-section-title" style={{ fontSize: '1.6rem', color: 'var(--text-primary)' }}>
-                {activeLabGroupObj.title} Playgrounds
-              </Typography>
-              <Typography variant="body1" className="learning-section-copy" style={{ fontSize: '0.92rem', color: 'var(--text-secondary)' }}>
-                {activeLabGroupObj.description}
-              </Typography>
-            </div>
-          </div>
-
-          <div className="learning-course-grid">
-            {activeLabGroupObj.labs.map((lab) => (
-              <Paper
-                key={lab.id}
-                className="learning-course-card glass-panel"
-                elevation={0}
-                onClick={() => handleLabClick(lab.path)}
+            {/* Back Button is now inside the animated card container to transition smoothly */}
+            <Box style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+              <IconButton
+                onClick={() => handleSelectLabGroup(null)}
+                style={{
+                  color: 'var(--text-primary)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  marginRight: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}
               >
-                <div className="learning-course-card-top">
-                  <div className="learning-course-icon">
-                    {getLabIcon(lab.iconName)}
-                  </div>
-                  <div className="cyber-badge" style={{ background: 'rgba(76, 175, 80, 0.15)', color: '#4caf50' }}>
-                    {activeLabGroupObj.category}
-                  </div>
-                </div>
-
-                <Typography variant="h5" className="learning-course-title">
-                  {lab.title}
-                </Typography>
-                <Typography variant="body2" className="learning-course-description">
-                  {lab.description}
-                </Typography>
-
-                <div className="learning-course-footer" style={{ width: '100%', marginTop: 'auto' }}>
-                  <div className="learning-course-cta">
-                    <span>Open Playground</span>
-                    <PlayArrowIcon fontSize="small" />
-                  </div>
-                  <ArrowOutwardIcon className="learning-course-arrow" />
-                </div>
-              </Paper>
-            ))}
-          </div>
-        </section>
-      ) : isSearchingOrFiltering ? (
-        /* SEARCH & FILTER GLOBAL MODE */
-        <section className="learning-section">
-          <div className="learning-section-head" style={{ alignItems: 'flex-start', textAlign: 'left', marginBottom: '24px' }}>
-            <div>
-              <Typography variant="h4" className="learning-section-title" style={{ fontSize: '1.4rem', color: 'var(--text-primary)' }}>
-                Search Results ({filteredLabsAcrossAll.length})
+                <ArrowBackIcon />
+              </IconButton>
+              <Typography variant="body1" style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
+                Back to Labs
               </Typography>
-              <Typography variant="body1" className="learning-section-copy" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                Showing matching interactive tools and sandboxes across all domains.
-              </Typography>
-            </div>
-          </div>
+            </Box>
 
-          {filteredLabsAcrossAll.length > 0 ? (
-            <div className="learning-course-grid">
-              {filteredLabsAcrossAll.map((lab) => (
-                <Paper
-                  key={lab.id}
-                  className="learning-course-card glass-panel"
-                  elevation={0}
-                  onClick={() => handleLabClick(lab.path)}
-                >
-                  <div className="learning-course-card-top">
-                    <div className="learning-course-icon">
-                      {getLabIcon(lab.iconName)}
-                    </div>
-                    <div className="cyber-badge" style={{
-                      background: lab.labCategoryTitle === 'Philosophy'
-                        ? 'rgba(156, 39, 176, 0.15)'
-                        : (lab.labCategoryTitle === 'Computer Science' ? 'rgba(76, 175, 80, 0.15)' : 'rgba(28, 176, 246, 0.15)'),
-                      color: lab.labCategoryTitle === 'Philosophy'
-                        ? '#e040fb'
-                        : (lab.labCategoryTitle === 'Computer Science' ? '#4caf50' : 'var(--primary-main)')
-                    }}>
-                      {lab.labCategoryTitle}
-                    </div>
-                  </div>
-
-                  <Typography variant="h5" className="learning-course-title">
-                    {lab.title}
-                  </Typography>
-                  <Typography variant="body2" className="learning-course-description">
-                    {lab.description}
-                  </Typography>
-
-                  <div className="learning-course-footer" style={{ width: '100%', marginTop: 'auto' }}>
-                    <div className="learning-course-cta">
-                      <span>Launch lab</span>
-                      <PlayArrowIcon fontSize="small" />
-                    </div>
+            <section className="learning-section">
+              <div className="learning-course-grid">
+                {activeLabGroupObj.labs.map((lab) => (
+                  <Paper
+                    key={lab.id}
+                    className="learning-course-card glass-panel lab-card"
+                    elevation={0}
+                    onClick={() => handleLabClick(lab.path)}
+                  >
                     <ArrowOutwardIcon className="learning-course-arrow" />
-                  </div>
+                    <div className="learning-course-card-top">
+                      <div className="learning-course-icon">
+                        {getLabIcon(lab.iconName)}
+                      </div>
+                    </div>
+
+                    <Typography variant="h5" className="learning-course-title">
+                      {lab.title}
+                    </Typography>
+                    <Typography variant="body2" className="learning-course-description">
+                      {lab.description}
+                    </Typography>
+                    <div className="cyber-badge" style={{
+                      background: 'color-mix(in srgb, var(--primary-main) 12%, transparent)',
+                      color: 'var(--primary-main)',
+                      border: '1px solid color-mix(in srgb, var(--primary-main) 22%, transparent)'
+                    }}>
+                      {activeLabGroupObj.category}
+                    </div>
+                  </Paper>
+                ))}
+              </div>
+            </section>
+          </motion.div>
+        ) : isSearchingOrFiltering ? (
+          /* SEARCH & FILTER GLOBAL MODE */
+          <motion.div
+            key="search-filter-mode"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <section className="learning-section">
+              <div className="learning-section-head" style={{ alignItems: 'flex-start', textAlign: 'left', marginBottom: '24px' }}>
+                <div>
+                  <Typography variant="h4" className="learning-section-title" style={{ fontSize: '1.4rem', color: 'var(--text-primary)' }}>
+                    Search Results ({filteredLabsAcrossAll.length})
+                  </Typography>
+                  <Typography variant="body1" className="learning-section-copy" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                    Showing matching interactive tools and sandboxes across all domains.
+                  </Typography>
+                </div>
+              </div>
+
+              {filteredLabsAcrossAll.length > 0 ? (
+                <div className="learning-course-grid">
+                  {filteredLabsAcrossAll.map((lab) => (
+                    <Paper
+                      key={lab.id}
+                      className="learning-course-card glass-panel lab-card"
+                      elevation={0}
+                      onClick={() => handleLabClick(lab.path)}
+                    >
+                      <ArrowOutwardIcon className="learning-course-arrow" />
+                      <div className="learning-course-card-top">
+                        <div className="learning-course-icon">
+                          {getLabIcon(lab.iconName)}
+                        </div>
+                      </div>
+
+                      <Typography variant="h5" className="learning-course-title">
+                        {lab.title}
+                      </Typography>
+                      <Typography variant="body2" className="learning-course-description" style={{ color: 'var(--text-secondary)' }}>
+                        {lab.description}
+                      </Typography>
+                      <div className="cyber-badge" style={{
+                        background: 'color-mix(in srgb, var(--primary-main) 12%, transparent)',
+                        color: 'var(--primary-main)',
+                        border: '1px solid color-mix(in srgb, var(--primary-main) 22%, transparent)'
+                      }}>
+                        {lab.labCategoryTitle}
+                      </div>
+                    </Paper>
+                  ))}
+                </div>
+              ) : (
+                <Paper className="learning-empty-state glass-panel" elevation={0} style={{ width: '100%', padding: '40px', textAlign: 'center' }}>
+                  <Typography variant="h6">No interactive labs found for your search query.</Typography>
+                  <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>
+                    Try typing a different keyword or resetting your filter category chips.
+                  </Typography>
                 </Paper>
-              ))}
-            </div>
-          ) : (
-            <Paper className="learning-empty-state glass-panel" elevation={0} style={{ width: '100%', padding: '40px', textAlign: 'center' }}>
-              <Typography variant="h6">No interactive labs found for your search query.</Typography>
-              <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>
-                Try typing a different keyword or resetting your filter category chips.
-              </Typography>
-            </Paper>
-          )}
-        </section>
-      ) : (
-        /* LABS LANDING MODE (CS, Cyber, Philosophy cards) */
-        <section className="learning-section" style={{ marginTop: '1.5rem' }}>
-          <div className="learning-section-head" style={{ alignItems: 'flex-start', textAlign: 'left', marginBottom: '24px' }}>
-            <div>
-              <Typography variant="h4" className="learning-section-title" style={{ fontSize: '1.6rem', color: 'var(--text-primary)' }}>
-                Select a Lab Category
-              </Typography>
-              <Typography variant="body1" className="learning-section-copy" style={{ fontSize: '0.92rem', color: 'var(--text-secondary)' }}>
-                Choose one of our core topics below to access its corresponding interactive sandbox environments.
-              </Typography>
-            </div>
-          </div>
+              )}
+            </section>
+          </motion.div>
+        ) : (
+          /* LABS LANDING MODE (CS, Cyber, Philosophy cards) */
+          <motion.div
+            key="labs-landing-mode"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <section className="learning-section">
+              <div className="learning-course-grid">
+                {labsData.map((col) => (
+                  <Paper
+                    key={col.title}
+                    className="learning-course-card glass-panel lab-card"
+                    elevation={0}
+                    onClick={() => handleSelectLabGroup(col.title)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <ArrowOutwardIcon className="learning-course-arrow" />
+                    <div className="learning-course-card-top">
+                      <div className="learning-course-icon" style={{ background: 'rgba(28, 176, 246, 0.1)', color: 'var(--primary-main)' }}>
+                        {getLabGroupIcon(col.iconKey)}
+                      </div>
+                    </div>
 
-          <div className="learning-course-grid">
-            {labsData.map((col) => (
-              <Paper
-                key={col.title}
-                className="learning-course-card glass-panel"
-                elevation={0}
-                onClick={() => handleSelectLabGroup(col.title)}
-                style={{ cursor: 'pointer', minHeight: '320px', display: 'flex', flexDirection: 'column' }}
-              >
-                <div className="learning-course-card-top">
-                  <div className="learning-course-icon" style={{ background: 'rgba(28, 176, 246, 0.1)', color: 'var(--primary-main)' }}>
-                    {getLabGroupIcon(col.iconKey)}
-                  </div>
-                  <div className="cyber-badge" style={{
-                    background: col.title === 'Philosophy'
-                      ? 'rgba(156, 39, 176, 0.15)'
-                      : (col.title === 'Computer Science' ? 'rgba(76, 175, 80, 0.15)' : 'rgba(28, 176, 246, 0.15)'),
-                    color: col.title === 'Philosophy'
-                      ? '#e040fb'
-                      : (col.title === 'Computer Science' ? '#4caf50' : 'var(--primary-main)')
-                  }}>
-                    {col.labsCount} {col.title === 'Computer Science' ? 'Playgrounds' : 'Labs'}
-                  </div>
-                </div>
-
-                <Typography variant="h5" className="learning-course-title" style={{ marginTop: '16px' }}>
-                  {col.title}
-                </Typography>
-                <Typography variant="body2" className="learning-course-description" style={{ color: 'var(--text-secondary)', flexGrow: 1 }}>
-                  {col.description}
-                </Typography>
-
-                <div className="learning-course-footer" style={{ width: '100%', marginTop: 'auto' }}>
-                  <div className="learning-course-cta">
-                    <span>{col.title === 'Computer Science' ? 'Open Labs' : 'Launch Lab'}</span>
-                    <PlayArrowIcon fontSize="small" />
-                  </div>
-                  <ArrowOutwardIcon className="learning-course-arrow" />
-                </div>
-              </Paper>
-            ))}
-          </div>
-        </section>
-      )}
+                    <Typography variant="h5" className="learning-course-title">
+                      {col.title}
+                    </Typography>
+                    <Typography variant="body2" className="learning-course-description">
+                      {col.description}
+                    </Typography>
+                    <div className="cyber-badge" style={{
+                      background: 'color-mix(in srgb, var(--primary-main) 12%, transparent)',
+                      color: 'var(--primary-main)',
+                      border: '1px solid color-mix(in srgb, var(--primary-main) 22%, transparent)'
+                    }}>
+                      {col.labsCount} {col.title === 'Computer Science' ? 'Playgrounds' : 'Labs'}
+                    </div>
+                  </Paper>
+                ))}
+              </div>
+            </section>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* RENDER THE HIGH-FIDELITY BUILT-IN PLAYGROUND DIALOGS */}
       <CppPlaygroundDialog

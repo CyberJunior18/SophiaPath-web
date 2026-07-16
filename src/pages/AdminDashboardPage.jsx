@@ -32,7 +32,8 @@ import {
   Avatar,
   Divider,
   Radio,
-  RadioGroup
+  RadioGroup,
+  Collapse
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -53,7 +54,9 @@ import {
   Code as CodeIcon,
   Lock as LockIcon,
   Storage as DatabaseIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  KeyboardArrowRight as KeyboardArrowRightIcon
 } from '@mui/icons-material';
 import { coursesData } from '../data/courses';
 import { useAuth } from '../context/AuthContext';
@@ -100,6 +103,14 @@ const AdminDashboardPage = () => {
   const [courses, setCourses] = useState(coursesData);
   const [loadError, setLoadError] = useState(null);
   const [coursesProgress, setCoursesProgress] = useState({});
+  const [collapsedSections, setCollapsedSections] = useState({});
+
+  const toggleSectionCollapse = (sectionId) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
   
   // Navigation State inside Admin Page
   const [editingCourseDetails, setEditingCourseDetails] = useState(() => {
@@ -413,8 +424,9 @@ const AdminDashboardPage = () => {
               email: u.email,
               roleID: finalRoleId,
               roleName: ROLE_NAMES[finalRoleId] || 'Student',
-              xp: u.xp || 0,
-              level: u.level || 1,
+              xp: u.xp ?? 0,
+              level: u.level ?? 1,
+              levelName: u.levelName ?? 'Beginner',
               assignedCourseIds: finalCourses
             };
           });
@@ -2337,23 +2349,64 @@ const AdminDashboardPage = () => {
             ) : (
               <Box style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {sections.sort((a,b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map((sec) => (
-                  <Card key={sec.id || sec.title} className="glass-panel" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)', overflow: 'visible' }}>
-                    <CardContent style={{ padding: '24px' }}>
-                      {/* Section Title and Controls */}
-                      <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                        <Box style={{ maxWidth: '75%' }}>
-                          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                            <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{sec.title}</Typography>
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: 700 }}>
-                              ({(() => {
-                                const finishedCount = getSectionFinishedCount(sec);
-                                return `${finishedCount} ${finishedCount === 1 ? 'completion' : 'completions'}`;
-                              })()})
-                            </span>
+                  <Card key={sec.id || sec.title} className="glass-panel" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface-glass)', overflow: 'hidden' }}>
+                    <CardContent style={{ padding: '0' }}>
+                      {/* Section Header — fully clickable row */}
+                      <Box
+                        onClick={() => toggleSectionCollapse(sec.id)}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '16px 20px',
+                          cursor: 'pointer',
+                          background: collapsedSections[sec.id] ? 'transparent' : 'rgba(255,255,255,0.02)',
+                          borderBottom: collapsedSections[sec.id] ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                          transition: 'background 0.2s ease',
+                          flexWrap: 'wrap',
+                          gap: '12px',
+                          userSelect: 'none',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                        onMouseLeave={e => e.currentTarget.style.background = collapsedSections[sec.id] ? 'transparent' : 'rgba(255,255,255,0.02)'}
+                      >
+                        {/* Left: arrow + title + completions + description */}
+                        <Box style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                          <Box style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '6px',
+                            background: 'rgba(255,255,255,0.06)',
+                            flexShrink: 0,
+                            transition: 'transform 0.25s ease',
+                            transform: collapsedSections[sec.id] ? 'rotate(-90deg)' : 'rotate(0deg)',
+                          }}>
+                            <KeyboardArrowDownIcon style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }} />
                           </Box>
-                          <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{sec.description}</Typography>
+                          <Box style={{ minWidth: 0 }}>
+                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1rem', lineHeight: 1.3 }}>{sec.title}</Typography>
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, background: 'rgba(255,255,255,0.06)', padding: '1px 8px', borderRadius: '20px' }}>
+                                {(() => {
+                                  const finishedCount = getSectionFinishedCount(sec);
+                                  return `${finishedCount} ${finishedCount === 1 ? 'completion' : 'completions'}`;
+                                })()}
+                              </span>
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, background: 'rgba(255,255,255,0.04)', padding: '1px 8px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                {(sec.lessons || []).length} {(sec.lessons || []).length === 1 ? 'lesson' : 'lessons'}
+                              </span>
+                            </Box>
+                            {sec.description && (
+                              <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '480px' }}>{sec.description}</Typography>
+                            )}
+                          </Box>
                         </Box>
-                        <Box style={{ display: 'flex', gap: '8px' }}>
+
+                        {/* Right: action buttons — stop propagation so clicks don't toggle collapse */}
+                        <Box style={{ display: 'flex', gap: '8px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                           <Button
                             size="small"
                             variant="outlined"
@@ -2366,10 +2419,7 @@ const AdminDashboardPage = () => {
                               color: 'var(--primary-main)',
                               borderColor: 'var(--primary-main)',
                               opacity: 0.85,
-                              '&:hover': {
-                                borderColor: 'var(--primary-main)',
-                                opacity: 1
-                              }
+                              '&:hover': { borderColor: 'var(--primary-main)', opacity: 1 }
                             }}
                           >
                             Add Lesson
@@ -2383,8 +2433,10 @@ const AdminDashboardPage = () => {
                         </Box>
                       </Box>
 
-                      {/* Section Lessons Table */}
-                      {(!sec.lessons || sec.lessons.length === 0) ? (
+                      {/* Section Lessons Table — animated */}
+                      <Collapse in={!collapsedSections[sec.id]} timeout={250} unmountOnExit>
+                        <Box style={{ padding: '20px 20px 20px 20px' }}>
+                        {(!sec.lessons || sec.lessons.length === 0) ? (
                         <Typography style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', paddingLeft: '8px' }}>
                           No lessons added to this section yet.
                         </Typography>
@@ -2460,7 +2512,7 @@ const AdminDashboardPage = () => {
                                 }}
                               >
                                 <MenuItem value="all" style={{ fontSize: '0.82rem' }}>All Categories</MenuItem>
-                                <MenuItem value="lecture" style={{ fontSize: '0.82rem' }}>Lecture</MenuItem>
+                                <MenuItem value="learning" style={{ fontSize: '0.82rem' }}>Lesson</MenuItem>
                                 <MenuItem value="exercise" style={{ fontSize: '0.82rem' }}>Exercise</MenuItem>
                               </Select>
                               <Select
@@ -2539,7 +2591,7 @@ const AdminDashboardPage = () => {
                                           />
                                         ) : (
                                           <Chip
-                                            label="Lecture"
+                                            label="Lesson"
                                             size="small"
                                             style={{
                                               background: 'rgba(255, 255, 255, 0.04)',
@@ -2576,6 +2628,8 @@ const AdminDashboardPage = () => {
                           </>
                         );
                       })()}
+                      </Box>
+                      </Collapse>
                     </CardContent>
                   </Card>
                 ))}
@@ -3249,7 +3303,16 @@ const AdminDashboardPage = () => {
                               {u.roleName}
                             </span>
                           </TableCell>
-                          <TableCell style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{u.xp} XP · Lv.{u.level}</TableCell>
+                          <TableCell style={{ whiteSpace: 'nowrap' }}>
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{u.xp ?? 0} XP</span>
+                            <span style={{ color: 'var(--text-secondary)', margin: '0 4px' }}>·</span>
+                            <span style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>Lv.{u.level ?? 1}</span>
+                            {u.levelName && (
+                              <span style={{ marginLeft: '6px', fontSize: '0.7rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                {u.levelName}
+                              </span>
+                            )}
+                          </TableCell>
                           <TableCell align="right">
                              <IconButton onClick={() => handleOpenUserEdit(u)} style={{ color: 'var(--primary-main)' }} title="Edit user">
                                <EditIcon />

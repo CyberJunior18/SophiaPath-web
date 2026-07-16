@@ -233,7 +233,7 @@ const CourseDetailPage = () => {
              <div className="course-detail-meta">
                <div className="course-detail-meta-item">
                  <BookIcon fontSize="small" />
-                 <span>{course.totalLessons || course.sections?.reduce((sum, s) => sum + (s.lessons?.length || 0), 0) || 6} Comprehensive Lessons</span>
+                 <span>{course.totalLessons || course.sections?.reduce((sum, s) => sum + (s.lessons?.length || 0), 0) || 6} Comprehensive Lessons and Exercises</span>
                </div>
              </div>
           </div>

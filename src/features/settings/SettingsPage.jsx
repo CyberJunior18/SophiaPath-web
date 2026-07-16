@@ -7,6 +7,7 @@ import {
   Switch, 
   List, 
   ListItem, 
+  ListItemButton,
   ListItemText, 
   ListItemIcon, 
   Divider,
@@ -14,7 +15,15 @@ import {
   Avatar,
   Select,
   MenuItem,
-  FormControl
+  FormControl,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  TextField,
+  Alert,
+  Snackbar
 } from '@mui/material';
 import { 
   Notifications as NotificationsIcon,
@@ -38,8 +47,95 @@ import './SettingsPage.css';
 
 const SettingsPage = () => {
   const { themeMode, setThemeMode, customColors, updateCustomColors } = useTheme();
-  const { user, deleteAccount } = useAuth();
+  const { user, deleteAccount, refreshUser } = useAuth();
   const [notifications, setNotifications] = useState(true);
+
+  // Email change dialog states
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
+
+  // Password change dialog states
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
+  // Snackbar feedback states
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+
+  const handleEmailChangeSubmit = async () => {
+    if (!newEmail.trim()) {
+      setEmailError('Email address is required');
+      return;
+    }
+    const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+    try {
+      const res = await fetch('/users/me/change-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ newEmail })
+      });
+      if (res.ok) {
+        setEmailDialogOpen(false);
+        setSnackbarMessage('Email address updated successfully!');
+        setSnackbarOpen(true);
+        refreshUser();
+        setNewEmail('');
+        setEmailError('');
+      } else {
+        const err = await res.json();
+        setEmailError(err.message || 'Failed to update email');
+      }
+    } catch (e) {
+      setEmailError('Network error. Failed to update email.');
+    }
+  };
+
+  const handlePasswordChangeSubmit = async () => {
+    if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
+      setPasswordError('All fields are required');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters long');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Confirm password does not match new password');
+      return;
+    }
+    const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+    try {
+      const res = await fetch('/users/me/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      if (res.ok) {
+        setPasswordDialogOpen(false);
+        setSnackbarMessage('Password updated successfully!');
+        setSnackbarOpen(true);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setPasswordError('');
+      } else {
+        const err = await res.json();
+        setPasswordError(err.message || 'Failed to update password');
+      }
+    } catch (e) {
+      setPasswordError('Network error. Failed to update password.');
+    }
+  };
   const [logoGradient, setLogoGradient] = useState(() => {
     return localStorage.getItem('sophiapath_logo_style') === 'gradient';
   });
@@ -171,15 +267,6 @@ const SettingsPage = () => {
   return (
     <Box className="settings-page">
       <Container maxWidth="md">
-        <Box className="settings-header">
-          <Typography variant="h3" className="settings-title">
-            Settings
-          </Typography>
-          <Typography variant="body1" className="settings-subtitle">
-            Manage your account preferences and app settings.
-          </Typography>
-        </Box>
-
         <Box className="settings-sections">
            <section style={{ opacity: !user ? 0.35 : 1 }}>
             <Typography variant="overline" className="settings-section-label">
@@ -187,7 +274,15 @@ const SettingsPage = () => {
             </Typography>
             <Paper className="settings-card glass-panel" elevation={0} style={{ pointerEvents: !user ? 'none' : 'auto' }}>
               <List disablePadding>
-                <ListItem className="settings-row interactive" disabled={!user}>
+                <ListItemButton 
+                  className="settings-row interactive" 
+                  disabled={!user}
+                  onClick={() => {
+                    setNewEmail(user?.email || '');
+                    setEmailError('');
+                    setEmailDialogOpen(true);
+                  }}
+                >
                   <ListItemIcon className="settings-row-icon">
                     <Avatar sx={{ bgcolor: 'primary.main' }}>
                       <EmailIcon />
@@ -198,10 +293,19 @@ const SettingsPage = () => {
                     secondary={user?.email || 'N/A'}
                   />
                   <ChevronRightIcon className="settings-chevron" />
-
-                </ListItem>
+                </ListItemButton>
                 <Divider />
-                <ListItem className="settings-row interactive" disabled={!user}>
+                <ListItemButton 
+                  className="settings-row interactive" 
+                  disabled={!user}
+                  onClick={() => {
+                    setCurrentPassword('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                    setPasswordError('');
+                    setPasswordDialogOpen(true);
+                  }}
+                >
                   <ListItemIcon className="settings-row-icon">
                     <Avatar sx={{ bgcolor: 'primary.main' }}>
                       <VpnKeyIcon />
@@ -209,10 +313,10 @@ const SettingsPage = () => {
                   </ListItemIcon>
                   <ListItemText 
                     primary={<Typography className="settings-row-title">Password</Typography>}
-                    secondary="Last changed 3 months ago"
+                    secondary="Click to change your password"
                   />
                   <ChevronRightIcon className="settings-chevron" />
-                </ListItem>
+                </ListItemButton>
               </List>
             </Paper>
           </section>
@@ -548,17 +652,6 @@ const SettingsPage = () => {
             </Typography>
             <Paper className="settings-card glass-panel" elevation={0} style={{ pointerEvents: !user ? 'none' : 'auto' }}>
               <List disablePadding>
-                <ListItem className="settings-row interactive" disabled={!user}>
-                  <ListItemIcon className="settings-row-icon">
-                    <CloudIcon className="settings-primary-icon" />
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={<Typography className="settings-row-title">Export Learning Data</Typography>}
-                    secondary="Download a copy of your progress"
-                  />
-                  <Button variant="outlined" size="small" className="settings-action-button" disabled={!user}>Export</Button>
-                </ListItem>
-                <Divider />
                 <ListItem 
                   className="settings-row interactive settings-danger-row"
                   onClick={!user ? undefined : handleDeleteAccount}
@@ -584,6 +677,154 @@ const SettingsPage = () => {
           </Typography>
         </Box>
       </Container>
+
+      {/* Email Dialog */}
+      <Dialog 
+        open={emailDialogOpen} 
+        onClose={() => setEmailDialogOpen(false)}
+        PaperProps={{
+          style: {
+            background: 'var(--background-paper)',
+            border: '1px solid var(--divider)',
+            color: 'var(--text-primary)',
+            borderRadius: '16px'
+          }
+        }}
+      >
+        <DialogTitle style={{ fontWeight: 800, fontFamily: '"Outfit", sans-serif' }}>
+          Change Email Address
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.85rem' }}>
+            Please enter your new email address below.
+          </DialogContentText>
+          {emailError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{emailError}</Alert>}
+          <TextField
+            autoFocus
+            margin="dense"
+            label="New Email Address"
+            type="email"
+            fullWidth
+            variant="outlined"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
+            InputProps={{
+              style: { color: 'var(--text-primary)' },
+              sx: {
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions style={{ padding: '16px 24px' }}>
+          <Button onClick={() => setEmailDialogOpen(false)} sx={{ color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 800 }}>
+            Cancel
+          </Button>
+          <Button onClick={handleEmailChangeSubmit} variant="contained" sx={{ background: 'var(--primary-main)', textTransform: 'none', fontWeight: 800, borderRadius: 2 }}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Password Dialog */}
+      <Dialog 
+        open={passwordDialogOpen} 
+        onClose={() => setPasswordDialogOpen(false)}
+        PaperProps={{
+          style: {
+            background: 'var(--background-paper)',
+            border: '1px solid var(--divider)',
+            color: 'var(--text-primary)',
+            borderRadius: '16px'
+          }
+        }}
+      >
+        <DialogTitle style={{ fontWeight: 800, fontFamily: '"Outfit", sans-serif' }}>
+          Change Password
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.85rem' }}>
+            To update your password, please confirm your current password and specify a new one.
+          </DialogContentText>
+          {passwordError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{passwordError}</Alert>}
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Current Password"
+            type="password"
+            fullWidth
+            variant="outlined"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
+            InputProps={{
+              style: { color: 'var(--text-primary)' },
+              sx: {
+                mb: 1.5,
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }
+              }
+            }}
+          />
+          <TextField
+            margin="dense"
+            label="New Password"
+            type="password"
+            fullWidth
+            variant="outlined"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
+            InputProps={{
+              style: { color: 'var(--text-primary)' },
+              sx: {
+                mb: 1.5,
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }
+              }
+            }}
+          />
+          <TextField
+            margin="dense"
+            label="Confirm New Password"
+            type="password"
+            fullWidth
+            variant="outlined"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            InputLabelProps={{ style: { color: 'var(--text-secondary)' } }}
+            InputProps={{
+              style: { color: 'var(--text-primary)' },
+              sx: {
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--divider)' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions style={{ padding: '16px 24px' }}>
+          <Button onClick={() => setPasswordDialogOpen(false)} sx={{ color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 800 }}>
+            Cancel
+          </Button>
+          <Button onClick={handlePasswordChangeSubmit} variant="contained" sx={{ background: 'var(--primary-main)', textTransform: 'none', fontWeight: 800, borderRadius: 2 }}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Feedback Snackbar */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: '100%', borderRadius: 3 }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

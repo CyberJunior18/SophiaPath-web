@@ -1427,8 +1427,8 @@ const NavigationPage = () => {
           flexDirection: 'column',
           gap: '1.25rem',
           height: '100%',
-          overflow: sidebarCollapsed ? 'hidden' : 'visible',
-          pointerEvents: sidebarCollapsed ? 'none' : 'auto'
+          overflow: 'visible',
+          pointerEvents: 'auto'
         }}
       >
         <motion.div
@@ -1476,20 +1476,29 @@ const NavigationPage = () => {
                   {!user ? 'Guest' : Number(user.roleID) === 3 ? 'Admin' : Number(user.roleID) === 2 ? 'Moderator' : Number(user.roleID) === 1 ? 'Expert' : 'Student'}
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', width: '100%', flexWrap: 'nowrap' }}>
-                <span style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', width: '100%', flexWrap: 'nowrap' }}>
+                <span style={{
+                  fontSize: '0.65rem', fontWeight: 900, color: 'var(--primary-main)',
+                  background: 'rgba(var(--primary-main-rgb), 0.12)',
+                  padding: '1px 6px', borderRadius: '20px',
+                  border: '1px solid rgba(var(--primary-main-rgb), 0.2)',
+                  whiteSpace: 'nowrap', flexShrink: 0
+                }}>
+                  Lv.{user?.level ?? 1}
+                </span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {!user ? 'Novice Seeker' : (user?.levelName || 'Beginner')}
                 </span>
-                <span style={{ fontSize: '0.74rem', color: 'var(--text-disabled)' }}>•</span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                  {!user ? 0 : (user?.xp || 0)} XP
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-disabled)', flexShrink: 0 }}>·</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {user?.xp ?? 0} XP
                 </span>
                 {user && (
                   <Tooltip title="View Level Guide">
                     <IconButton
                       size="small"
                       onClick={handleLevelInfoClick}
-                      style={{ padding: '0 2px', color: 'rgba(255, 255, 255, 0.35)', marginLeft: '2px' }}
+                      style={{ padding: '0 2px', color: 'rgba(255, 255, 255, 0.35)', marginLeft: '1px', flexShrink: 0 }}
                       className="interactive"
                     >
                       <InfoIcon style={{ fontSize: '0.8rem' }} />
@@ -1499,7 +1508,22 @@ const NavigationPage = () => {
               </div>
             </div>
           </motion.div>
-        ) : null}
+        ) : (
+          user && (
+            <motion.div variants={itemVariants} style={{ display: 'flex', justifyContent: 'center' }}>
+              <Tooltip title="View Level Guide">
+                <IconButton onClick={handleLevelInfoClick} style={{ padding: '4px' }}>
+                  <Avatar
+                    src={user?.avatar || ''}
+                    sx={{ width: 36, height: 36, border: '1.5px solid var(--primary-main)' }}
+                  >
+                    {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
+                  </Avatar>
+                </IconButton>
+              </Tooltip>
+            </motion.div>
+          )
+        )}
 
         <Popover
           open={isPopoverOpen}
@@ -1854,23 +1878,22 @@ const NavigationPage = () => {
         </motion.div>
       )}
 
-      {/* Floating Toggle Button (Visible only when sidebar is open) */}
-      {!isMobile && !sidebarCollapsed && (
+      {/* Floating Toggle Button (Visible in both states) */}
+      {!isMobile && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          transition={{ duration: 0.25 }}
+          animate={{
+            left: sidebarCollapsed ? '4.5rem' : '17.2rem',
+          }}
+          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
           style={{
             position: 'fixed',
-            left: '17rem',
             top: '56px',
             transform: 'translate(-50%, -50%)',
             zIndex: 1200}}
         >
           <IconButton
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="nav-sidebar-toggle-btn"
+            className="nav-sidebar-toggle-btn animate-fade-in"
             size="small"
             sx={{
               color: 'var(--text-secondary)',
@@ -1886,7 +1909,7 @@ const NavigationPage = () => {
               }
             }}
           >
-            <ChevronLeftIcon />
+            {sidebarCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
           </IconButton>
         </motion.div>
       )}
@@ -1900,7 +1923,7 @@ const NavigationPage = () => {
               transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] }
             },
             collapsed: {
-              width: 0,
+              width: 64,
               transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] }
             }
           }}

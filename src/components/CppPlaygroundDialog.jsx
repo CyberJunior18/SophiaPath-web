@@ -1303,6 +1303,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [activeTab, setActiveTab] = useState('compiler'); // 'compiler' | 'flowchart'
+
   const fileInputRef = useRef(null);
 
   const handleDownloadFile = () => {
@@ -1920,9 +1921,8 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
           background: 'var(--background-paper)',
           backdropFilter: 'blur(20px)',
           border: '1px solid var(--divider)',
-
-          maxHeight: '95vh',
-          width: '95vw',
+          height: '90vh',
+          minHeight: '650px',
           overflow: 'hidden'
         }
       }}
@@ -1979,12 +1979,12 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
         </IconButton>
       </DialogTitle>
 
-      <DialogContent style={{ padding: '20px 24px', overflowY: 'auto' }}>
+      <DialogContent style={{ padding: '20px 24px', overflowY: 'hidden', display: 'flex', flexDirection: 'column', height: '100%', flexGrow: 1 }}>
         {activeTab === 'compiler' ? (
-          <Box style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '24px', minHeight: '400px', alignItems: 'stretch' }}>
+          <Box style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '24px', flexGrow: 1, minHeight: 0, alignItems: 'stretch', height: '100%' }}>
             {/* Editor Column */}
-            <Box style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0 }}>
-              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0, height: '100%' }}>
+              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '36px' }}>
                 <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Source Code Editor
                 </Typography>
@@ -2016,8 +2016,9 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 overflow: 'hidden',
                 border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
                 backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#fffffe',
-                height: '380px',
-                width: '100%'}}>
+                flexGrow: 1,
+                width: '100%',
+                minHeight: '350px'}}>
                 <Editor
                   height="100%"
                   language="cpp"
@@ -2037,11 +2038,33 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
             </Box>
 
             {/* Console / Terminal Column */}
-            <Box style={{ flex: 0.8, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0 }}>
-              {/* Output terminal */}
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Interactive Terminal Output
-              </Typography>
+            <Box style={{ flex: 0.8, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0, height: '100%' }}>
+              {/* Output terminal header with Run button */}
+              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '36px' }}>
+                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Interactive Terminal Output
+                </Typography>
+                <Button
+                  variant="contained"
+                  disabled={isRunning}
+                  onClick={handleRun}
+                  startIcon={<PlayIcon />}
+                  size="small"
+                  style={{
+                    padding: '6px 16px',
+                    borderRadius: '8px',
+                    fontWeight: 800,
+                    textTransform: 'none',
+                    background: 'var(--hero-gradient)',
+                    color: '#fff',
+                    fontSize: '0.78rem',
+                    boxShadow: 'none'
+                  }}
+                >
+                  {isRunning ? "RUNNING..." : "RUN CODE"}
+                </Button>
+              </Box>
+              
               <Paper
                 elevation={0}
                 style={{
@@ -2055,7 +2078,8 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   color: '#3DDC97',
                   whiteSpace: 'pre-wrap',
                   overflowY: 'auto',
-                  height: '380px',
+                  height: '100%',
+                  minHeight: '350px',
                   
                   display: 'flex',
                   flexDirection: 'column',
@@ -2092,10 +2116,10 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
             </Box>
           </Box>
         ) : (
-          <Box style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '20px', minHeight: '400px' }}>
+          <Box style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '20px', flexGrow: 1, minHeight: 0, alignItems: 'stretch', height: '100%' }}>
             {/* Pseudocode Editor Panel */}
-            <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
+              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '36px' }}>
                 <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Pseudocode Editor
                 </Typography>
@@ -2114,7 +2138,8 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                 value={pseudocode}
                 onChange={(e) => setPseudocode(e.target.value)}
                 variant="outlined"
-                inputProps={{
+                style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}
+                InputProps={{
                   style: {
                     fontFamily: '"Roboto Mono", monospace',
                     fontSize: '0.85rem',
@@ -2124,24 +2149,66 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                     padding: '16px',
                     borderRadius: '14px',
                     border: '1px solid var(--code-border)',
-                    minHeight: '280px'
+                    flexGrow: 1,
+                    alignItems: 'flex-start'
                   }
                 }}
                 sx={{
-                  '& .MuiOutlinedInput-root': { padding: 0, '& fieldset': { border: 'none' } }
+                  height: '100%',
+                  '& .MuiOutlinedInput-root': { padding: 0, height: '100%', '& fieldset': { border: 'none' } }
                 }}
               />
             </Box>
 
             {/* Visual Flowchart Display Panel */}
-            <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Flowchart Visualizer
-              </Typography>
+            <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
+              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '36px' }}>
+                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Flowchart Visualizer
+                </Typography>
+                <Box style={{ display: 'flex', gap: '8px' }}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleDownloadPng}
+                    startIcon={<DownloadIcon />}
+                    size="small"
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '8px',
+                      fontWeight: 800,
+                      textTransform: 'none',
+                      borderColor: 'var(--primary-main)',
+                      color: 'var(--primary-main)',
+                      fontSize: '0.72rem'
+                    }}
+                  >
+                    Download PNG
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={handleGenerateFromCpp}
+                    startIcon={<ResetIcon />}
+                    size="small"
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '8px',
+                      fontWeight: 800,
+                      textTransform: 'none',
+                      borderColor: 'var(--primary-main)',
+                      color: 'var(--primary-main)',
+                      fontSize: '0.72rem'
+                    }}
+                  >
+                    Sync from C++
+                  </Button>
+                </Box>
+              </Box>
               <Paper
                 elevation={0}
                 style={{
-                  height: '320px',
+                  flexGrow: 1,
+                  height: '100%',
+                  minHeight: '320px',
                   padding: '20px',
                   backgroundColor: theme.palette.mode === 'dark' ? '#0A0C16' : '#FAFAFC',
                   borderRadius: '16px',
@@ -2153,73 +2220,13 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
               >
                 {renderFlowchartNodes()}
               </Paper>
+              <Typography variant="caption" style={{ color: 'var(--text-secondary)', textAlign: 'center', display: 'block', marginTop: '4px' }}>
+                Green = START/END, Blue = Input/Output, Grey = Process, Orange/Purple = Branch.
+              </Typography>
             </Box>
           </Box>
         )}
       </DialogContent>
-
-      <DialogActions style={{ padding: '16px 24px', borderTop: '1px solid var(--divider)', display: 'flex', justifyContent: 'space-between' }}>
-        {activeTab === 'compiler' ? (
-          <>
-            <Typography variant="caption" style={{ color: 'var(--text-secondary)' }}>
-              Supports basic variables, arithmetic, cin streams, and cout loops!
-            </Typography>
-            <Button
-              variant="contained"
-              disabled={isRunning}
-              onClick={handleRun}
-              startIcon={<PlayIcon />}
-              style={{
-                padding: '10px 24px',
-                borderRadius: '12px',
-                fontWeight: 800,
-                textTransform: 'none',
-                background: 'var(--hero-gradient)',
-                color: '#fff'}}
-            >
-              {isRunning ? "RUNNING..." : "RUN CODE"}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Typography variant="caption" style={{ color: 'var(--text-secondary)', maxWidth: '70%' }}>
-              Green = START/END, Blue = Input/Output, Grey = Process, Orange/Purple = Branch.
-            </Typography>
-            <Box style={{ display: 'flex', gap: '8px' }}>
-              <Button
-                variant="outlined"
-                onClick={handleDownloadPng}
-                startIcon={<DownloadIcon />}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '12px',
-                  fontWeight: 800,
-                  textTransform: 'none',
-                  borderColor: 'var(--primary-main)',
-                  color: 'var(--primary-main)'
-                }}
-              >
-                Download PNG
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={handleGenerateFromCpp}
-                startIcon={<ResetIcon />}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '12px',
-                  fontWeight: 800,
-                  textTransform: 'none',
-                  borderColor: 'var(--primary-main)',
-                  color: 'var(--primary-main)'
-                }}
-              >
-                Sync from C++
-              </Button>
-            </Box>
-          </>
-        )}
-      </DialogActions>
     </Dialog>
   );
 };

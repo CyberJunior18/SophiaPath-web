@@ -6,7 +6,10 @@ import {
   Grid,
   Paper,
   LinearProgress,
-  Button
+  Button,
+  FormControl,
+  Select,
+  MenuItem
 } from '@mui/material';
 import { 
   Trophy, 
@@ -286,62 +289,18 @@ const AchievementsPage = () => {
   return (
     <Box className="achievements-container">
       <Container maxWidth="lg">
-        
-        {/* Header - Centered & Professional */}
-        <Box className="achievements-hero-section">
-          <Box className="badge-glow-container">
-            <Trophy className="hero-trophy-icon" />
-          </Box>
-          <Typography variant="h2" className="hero-title">
-            Your <span className="highlight-text">Achievements</span>
-          </Typography>
-          <Typography variant="body1" className="hero-subtitle">
-            Track your progress, unlock rewards, and master educational modules. Keep pushing to complete all achievements!
-          </Typography>
-        </Box>
-
-        {/* Dashboard Progress Panel - Centered & Premium */}
-        <Box className="overall-stats-panel-wrapper">
-          <Paper className="overall-stats-panel">
-            <Box className="stats-header">
-              <Box className="circular-progress-glow">
-                <Box className="circular-progress-text">
-                  <Typography variant="h3" className="stats-percent">{overallPercentage}%</Typography>
-                  <Typography variant="caption" className="stats-percent-label">COMPLETED</Typography>
-                </Box>
-              </Box>
-              <Box className="stats-info">
-                <Typography variant="h4" className="stats-headline">
-                  Academy Mastery
-                </Typography>
-                <Typography variant="body2" className="stats-subheadline">
-                  You have unlocked <strong>{unlockedCount}</strong> out of <strong>{achievements.length}</strong> available milestone awards.
-                </Typography>
-                <Box className="progress-bar-container">
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={overallPercentage} 
-                    className="stats-progress-bar"
-                  />
-                  <Box className="progress-bar-labels">
-                    <span>0%</span>
-                    <span>{unlockedCount} unlocked</span>
-                    <span>100%</span>
-                  </Box>
-                </Box>
-              </Box>
-            </Box>
-          </Paper>
+        <Box className="badge-glow-container">
+          <Trophy className="hero-trophy-icon" />
         </Box>
 
         {/* Grid Title & Filter Controls */}
-        <Box className="grid-section-header" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-          <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles className="sparkle-icon" />
-              <Typography variant="h5" className="grid-title">Milestones & Badge Collection</Typography>
+        <Box className="grid-section-header" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+          <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', width: '100%' }}>
+            <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Typography variant="h5" className="grid-title" style={{ textAlign: 'center' }}>Milestones & Badge Collection</Typography>
             </Box>
-            <Box style={{ display: 'flex', gap: '8px' }}>
+            <box></box>
+            <Box style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', width: '100%' }}>
               <Button
                 className="achievements-filter-btn"
                 variant={activeFilter === 'all' ? 'contained' : 'outlined'}
@@ -369,108 +328,167 @@ const AchievementsPage = () => {
               >
                 Locked
               </Button>
+
+              {/* Theme-based Category Dropdown Menu */}
+              <FormControl size="small" style={{ minWidth: '170px', marginLeft: '8px' }}>
+                <Select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  style={{
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    backgroundColor: 'var(--background-paper)',
+                    border: '1px solid var(--divider)',
+                    fontSize: '0.82rem',
+                    fontWeight: 800,
+                    height: '32px'
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        backgroundColor: 'var(--background-paper)',
+                        border: '1px solid var(--divider)',
+                        color: 'var(--text-primary)',
+                        borderRadius: '8px'
+                      }
+                    }
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                    '& .MuiSelect-icon': { color: 'var(--text-secondary)' }
+                  }}
+                >
+                  {categories.map(cat => (
+                    <MenuItem key={cat.id} value={cat.id} style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {cat.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Box>
-          </Box>
-          
-          {/* Category Tabs */}
-          <Box style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', borderBottom: '1px solid var(--divider)', paddingBottom: '16px' }}>
-            {categories.map(cat => (
-              <Button
-                key={cat.id}
-                onClick={() => setCategoryFilter(cat.id)}
-                variant={categoryFilter === cat.id ? 'contained' : 'text'}
-                size="small"
-                style={{
-                  borderRadius: '20px',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.85rem',
-                  padding: '4px 16px',
-                  backgroundColor: categoryFilter === cat.id ? 'var(--primary-main)' : 'transparent',
-                  color: categoryFilter === cat.id ? '#ffffff' : 'var(--text-secondary)',
-                  border: categoryFilter === cat.id ? 'none' : '1px solid var(--divider)',
-                }}
-              >
-                {cat.label}
-              </Button>
-            ))}
           </Box>
         </Box>
 
-        {/* Achievements Grid - Centered & Professional */}
-        <Grid container spacing={3} className="achievements-grid-mui">
-          {filteredAchievements.map((item) => (
-            <Grid item xs={12} sm={6} md={4} key={item.id}>
-              <Paper 
-                className={`premium-achievement-card ${item.status}`}
-                style={{ 
-                  '--card-accent-color': item.color,
-                  borderTop: `4px solid ${item.color}`
-                }}
-              >
-                {/* Lock Overlay for Locked Items */}
-                {item.status === 'locked' && (
-                  <Box className="card-lock-overlay">
-                    <Lock className="card-lock-icon" size={18} />
-                    <span>Locked</span>
-                  </Box>
-                )}
+        {/* Achievements Grouped by Category - One Category Per Row */}
+        {(() => {
+          const categoriesToDisplay = categoryFilter === 'all'
+            ? categories.filter(c => c.id !== 'all')
+            : categories.filter(c => c.id === categoryFilter);
 
-                {/* Card Header with Glowing Icon */}
-                <Box 
-                  className={`card-icon-wrapper ${item.status}`}
-                  style={{ 
-                    backgroundColor: item.status === 'completed' ? `color-mix(in srgb, ${item.color} 15%, transparent)` : undefined,
-                    border: `1px solid color-mix(in srgb, ${item.color} 30%, transparent)`,
-                    color: item.status === 'completed' ? item.color : undefined
-                  }}
-                >
-                  {item.icon}
-                </Box>
+          return categoriesToDisplay.map((cat) => {
+            const catAchievements = filteredAchievements.filter(a => a.categoryType === cat.id);
+            if (catAchievements.length === 0) return null;
 
-                {/* Card Text Content */}
-                <Typography variant="h6" className="premium-card-title">
-                  {item.title}
+            return (
+              <Box key={cat.id} className="category-row-wrapper" style={{ marginBottom: '40px' }}>
+                <Typography variant="h5" style={{ fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'Outfit, sans-serif' }}>
+                  <span style={{ width: '4px', height: '24px', backgroundColor: 'var(--primary-main)', borderRadius: '2px', display: 'inline-block' }}></span>
+                  {cat.label}
                 </Typography>
-                <Typography variant="body2" className="premium-card-desc">
-                  {item.desc}
-                </Typography>
+                
+                <Box className="achievements-row-container">
+                  {catAchievements.map((item, index) => {
+                    const mixPercent = index === 0 ? '5%' : index === 1 ? '12%' : index === 2 ? '22%' : '35%';
+                    const hoverMixPercent = index === 0 ? '9%' : index === 1 ? '18%' : index === 2 ? '30%' : '45%';
+                    
+                    const borderColor = index === 0 
+                      ? 'color-mix(in srgb, var(--primary-main) 20%, var(--divider))'
+                      : index === 1
+                      ? 'color-mix(in srgb, var(--primary-main) 45%, var(--divider))'
+                      : index === 2
+                      ? 'color-mix(in srgb, var(--primary-main) 70%, var(--divider))'
+                      : 'var(--primary-main)';
+                      
+                    const hoverBorderColor = index === 0
+                      ? 'color-mix(in srgb, var(--primary-main) 40%, var(--divider))'
+                      : index === 1
+                      ? 'color-mix(in srgb, var(--primary-main) 65%, var(--divider))'
+                      : index === 2
+                      ? 'color-mix(in srgb, var(--primary-main) 90%, var(--divider))'
+                      : 'var(--primary-main)';
 
-                {/* Card Footer Status Indicator */}
-                <Box className="premium-card-footer">
-                  {item.status === 'completed' ? (
-                    <Box className="achievement-unlocked-status">
-                      <ShieldCheck size={16} className="unlocked-icon" />
-                      <Typography variant="caption">
-                        Unlocked
-                      </Typography>
-                    </Box>
-                  ) : item.status === 'in_progress' ? (
-                    <Box className="achievement-progress-status">
-                      <Box className="progress-text-row">
-                        <span>Progress</span>
-                        <span>{item.currentValue} / {item.targetValue}</span>
+                    const borderWidth = index === 0 ? '1px' : index === 1 ? '1.5px' : index === 2 ? '2px' : '2.5px';
+                    const borderWidthCompleted = index === 0 ? '1.5px' : index === 1 ? '2px' : index === 2 ? '2.5px' : '3px';
+
+                    return (
+                      <Paper 
+                        key={item.id}
+                        className={`premium-achievement-card ${item.status}`}
+                        style={{ 
+                          '--card-accent-color': item.color,
+                          '--difficulty-mix': mixPercent,
+                          '--difficulty-hover-mix': hoverMixPercent,
+                          '--difficulty-border': borderColor,
+                          '--difficulty-hover-border': hoverBorderColor,
+                          '--difficulty-border-width': borderWidth,
+                          '--difficulty-border-width-completed': borderWidthCompleted,
+                          borderTop: `4px solid ${item.color}`
+                        }}
+                      >
+                      {/* Lock Overlay for Locked Items */}
+                      {item.status === 'locked' && (
+                        <Box className="card-lock-overlay">
+                          <Lock className="card-lock-icon" size={18} />
+                          <span>Locked</span>
+                        </Box>
+                      )}
+
+                      {/* Card Header with Glowing Icon (background container removed) */}
+                      <Box 
+                        className={`card-icon-wrapper ${item.status}`}
+                        style={{ 
+                          color: item.status === 'completed' ? item.color : undefined
+                        }}
+                      >
+                        {item.icon}
                       </Box>
-                      <LinearProgress 
-                        variant="determinate" 
-                        value={item.progress} 
-                        className="card-progress-bar"
-                        style={{ '--bar-accent-color': item.color }}
-                      />
-                    </Box>
-                  ) : (
-                    <Box className="achievement-locked-status">
-                      <Lock size={14} className="locked-icon" />
-                      <Typography variant="caption">
-                        Requirement: {item.targetValue}
+
+                      {/* Card Text Content */}
+                      <Typography variant="h6" className="premium-card-title">
+                        {item.title}
                       </Typography>
-                    </Box>
-                  )}
+                      <Typography variant="body2" className="premium-card-desc">
+                        {item.desc}
+                      </Typography>
+
+                      {/* Card Footer Status Indicator */}
+                      <Box className="premium-card-footer">
+                        {item.status === 'completed' ? (
+                          <Box className="achievement-unlocked-status">
+                            <ShieldCheck size={16} className="unlocked-icon" />
+                            <Typography variant="caption">
+                              Unlocked
+                            </Typography>
+                          </Box>
+                        ) : item.status === 'in_progress' ? (
+                          <Box className="achievement-progress-status">
+                            <Box className="progress-text-row">
+                              <span>Progress</span>
+                              <span>{item.currentValue} / {item.targetValue}</span>
+                            </Box>
+                            <LinearProgress 
+                              variant="determinate" 
+                              value={item.progress} 
+                              className="card-progress-bar"
+                              style={{ '--bar-accent-color': item.color }}
+                            />
+                          </Box>
+                        ) : (
+                          <Box className="achievement-locked-status">
+                            <Lock size={14} className="locked-icon" />
+                            <Typography variant="caption">
+                              Requirement: {item.targetValue}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    </Paper>
+                  )})}
                 </Box>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
+              </Box>
+            );
+          });
+        })()}
 
       </Container>
     </Box>

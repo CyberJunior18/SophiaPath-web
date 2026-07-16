@@ -458,6 +458,7 @@ const ChatListPage = () => {
             onChange={(e, val) => {
               setActiveTab(val);
               setSearchQuery('');
+              navigate(`/chats?tab=${val === 1 ? 'groups' : 'dms'}`, { replace: true });
             }}
             textColor="primary"
             indicatorColor="primary"
