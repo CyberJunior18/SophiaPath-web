@@ -181,6 +181,16 @@ const NavigationPage = () => {
   };
   const isPopoverOpen = Boolean(anchorEl);
 
+  const [profileAnchorEl, setProfileAnchorEl] = useState(null);
+  const handleProfileClick = (event) => {
+    event.stopPropagation();
+    setProfileAnchorEl(event.currentTarget);
+  };
+  const handleProfileClose = () => {
+    setProfileAnchorEl(null);
+  };
+  const isProfilePopoverOpen = Boolean(profileAnchorEl);
+
   const [activeTour, setActiveTour] = useState(null); // 'onboarding' | 'page' | null
   const [activeStepIndex, setActiveStepIndex] = useState(null);
   const [spotlightRect, setSpotlightRect] = useState(null);
@@ -1368,72 +1378,29 @@ const NavigationPage = () => {
     setDrawerOpen(false);
   };
 
-
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-
-  const containerVariants = {
-    expanded: {
-      transition: {
-        staggerChildren: 0.05,
-        delayChildren: 0.06
-      }
-    },
-    collapsed: {
-      transition: {
-        staggerChildren: 0.03,
-        staggerDirection: -1
-      }
-    }
-  };
-
-  const itemVariants = {
-    expanded: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      filter: "blur(0px)",
-      transition: {
-        type: "spring",
-        stiffness: 300,
-        damping: 25,
-        mass: 0.8
-      }
-    },
-    collapsed: {
-      opacity: 0,
-      y: 60,
-      scale: 0.9,
-      filter: "blur(4px)",
-      transition: {
-        type: "spring",
-        stiffness: 300,
-        damping: 28
-      }
-    }
-  };
-
   const shellNav = (
-    <motion.div
+    <div
       className={`nav-shell-sidebar ${sidebarCollapsed ? 'is-collapsed' : ''}`}
-      variants={containerVariants}
     >
-      <motion.div
+      <div
         style={{
           display: 'flex',
           flexDirection: 'column',
           gap: '1.25rem',
           height: '100%',
+          width: '100%',
+          boxSizing: 'border-box',
           overflow: 'visible',
           pointerEvents: 'auto'
         }}
       >
-        <motion.div
+        <div
           className="nav-brand"
-          variants={itemVariants}
           style={{
             display: 'flex',
             flexDirection: 'row',
@@ -1452,10 +1419,10 @@ const NavigationPage = () => {
               </Typography>
             </div>
           )}
-        </motion.div>
+        </div>
 
         {!sidebarCollapsed ? (
-          <motion.div className="nav-profile-card" variants={itemVariants} style={{ padding: '0.65rem' }}>
+          <div className="nav-profile-card" style={{ padding: '0.65rem' }}>
             <div className="nav-profile-copy" style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flexGrow: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', flexWrap: 'nowrap' }}>
                 <Typography className="nav-profile-name" style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
@@ -1498,7 +1465,7 @@ const NavigationPage = () => {
                     <IconButton
                       size="small"
                       onClick={handleLevelInfoClick}
-                      style={{ padding: '0 2px', color: 'rgba(255, 255, 255, 0.35)', marginLeft: '1px', flexShrink: 0 }}
+                      style={{ padding: '0 2px', color: 'var(--text-secondary)', marginLeft: '1px', flexShrink: 0 }}
                       className="interactive"
                     >
                       <InfoIcon style={{ fontSize: '0.8rem' }} />
@@ -1507,12 +1474,12 @@ const NavigationPage = () => {
                 )}
               </div>
             </div>
-          </motion.div>
+          </div>
         ) : (
           user && (
-            <motion.div variants={itemVariants} style={{ display: 'flex', justifyContent: 'center' }}>
-              <Tooltip title="View Level Guide">
-                <IconButton onClick={handleLevelInfoClick} style={{ padding: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+              <Tooltip title="View User Profile">
+                <IconButton onClick={handleProfileClick} style={{ padding: '4px' }}>
                   <Avatar
                     src={user?.avatar || ''}
                     sx={{ width: 36, height: 36, border: '1.5px solid var(--primary-main)' }}
@@ -1521,90 +1488,9 @@ const NavigationPage = () => {
                   </Avatar>
                 </IconButton>
               </Tooltip>
-            </motion.div>
+            </div>
           )
         )}
-
-        <Popover
-          open={isPopoverOpen}
-          anchorEl={anchorEl}
-          onClose={handleLevelInfoClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'left'}}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'left'}}
-          PaperProps={{
-            style: {
-              padding: '16px',
-              width: '280px',
-              borderRadius: '16px',
-              background: 'var(--background-paper)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid var(--divider)',
-              color: 'var(--text-primary)'}
-          }}
-        >
-          <Typography variant="subtitle2" style={{ fontWeight: 850, marginBottom: '6px', fontFamily: '"Outfit", sans-serif', color: 'var(--primary-main)' }}>
-            XP & Levels Rank System
-          </Typography>
-          <Typography variant="body2" style={{ fontSize: '0.74rem', opacity: 0.7, marginBottom: '12px', lineHeight: 1.4 }}>
-            Earn XP by finishing lessons and quizzes. Unlock a new rank every 100 XP!
-          </Typography>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto', marginBottom: '12px', paddingRight: '4px' }}>
-            {[
-              { level: 1, name: 'Beginner', range: '0 - 99' },
-              { level: 2, name: 'Learner', range: '100 - 199' },
-              { level: 3, name: 'Explorer', range: '200 - 299' },
-              { level: 4, name: 'Skilled', range: '300 - 399' },
-              { level: 5, name: 'Advanced', range: '400 - 499' },
-              { level: 6, name: 'Expert', range: '500 - 599' },
-              { level: 7, name: 'Veteran', range: '600 - 699' },
-              { level: 8, name: 'Elite', range: '700 - 799' },
-              { level: 9, name: 'Master', range: '800 - 899' },
-              { level: 10, name: 'Legend', range: '900+' },
-            ].map((cfg) => {
-              const currentLvl = user?.level || 1;
-              const isCurrent = currentLvl === cfg.level || (cfg.level === 10 && currentLvl >= 10);
-              return (
-                <div
-                  key={cfg.level}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    padding: '5px 8px',
-                    borderRadius: '8px',
-                    background: isCurrent ? 'rgba(var(--primary-main-rgb), 0.18)' : 'transparent',
-                    border: isCurrent ? '1.5px solid var(--primary-main)' : '1px solid transparent'}}
-                >
-                  <span style={{ fontSize: '0.76rem', fontWeight: isCurrent ? 800 : 500, color: isCurrent ? 'var(--primary-main)' : 'inherit' }}>
-                    Lvl {cfg.level}: {cfg.name}
-                  </span>
-                  <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>
-                    {cfg.range} XP
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {(user?.level || 1) < 10 && (
-            <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <Typography style={{ fontSize: '0.74rem', fontWeight: 800 }}>
-                Next Rank: <span style={{ color: '#3D5CFF' }}>
-                  {[
-                    'Beginner', 'Learner', 'Explorer', 'Skilled', 'Advanced', 'Expert', 'Veteran', 'Elite', 'Master', 'Legend'
-                  ][(user?.level || 1)]}
-                </span>
-              </Typography>
-              <Typography style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '2px' }}>
-                Earn <strong>{((user?.level || 1) * 100) - (user?.xp || 0)} XP</strong> more to level up!
-              </Typography>
-            </div>
-          )}
-        </Popover>
 
         <List className="nav-menu-list">
           {navigationItems.map((item) => {
@@ -1617,7 +1503,7 @@ const NavigationPage = () => {
             const isDisabled = !user && !isGuestAccessible;
 
             return (
-              <motion.div key={item.path} variants={itemVariants}>
+              <div key={item.path} style={{ width: '100%' }}>
                 <ListItemButton
                   selected={active && !isDisabled}
                   className={`nav-menu-item ${active ? 'is-active' : ''} ${isDisabled ? 'is-disabled' : ''}`}
@@ -1626,13 +1512,15 @@ const NavigationPage = () => {
                   sx={{
                     justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                     px: sidebarCollapsed ? 1 : 2,
+                    width: '100%',
+                    boxSizing: 'border-box',
                     color: isDisabled ? 'var(--text-disabled)' : 'inherit',
                     opacity: isDisabled ? 0.35 : 1}}
                 >
                   <ListItemIcon
                     className="nav-menu-icon"
                     sx={{
-                      minWidth: sidebarCollapsed ? 0 : 42,
+                      minWidth: sidebarCollapsed ? 24 : 42,
                       display: 'flex',
                       justifyContent: 'center',
                       color: isDisabled ? 'var(--text-disabled)' : active ? 'var(--primary-main)' : 'inherit',
@@ -1650,14 +1538,183 @@ const NavigationPage = () => {
                     />
                   )}
                 </ListItemButton>
-              </motion.div>
+              </div>
             );
           })}
         </List>
-      </motion.div>
-    </motion.div>
-  );
+      </div>
 
+      <Popover
+        open={isPopoverOpen}
+        anchorEl={anchorEl}
+        onClose={handleLevelInfoClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'left'}}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'left'}}
+        PaperProps={{
+          style: {
+            padding: '16px',
+            width: '280px',
+            borderRadius: '16px',
+            background: 'var(--background-paper)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid var(--divider)',
+            color: 'var(--text-primary)'}
+        }}
+      >
+        <Typography variant="subtitle2" style={{ fontWeight: 850, marginBottom: '6px', fontFamily: '"Outfit", sans-serif', color: 'var(--primary-main)' }}>
+          XP & Levels Rank System
+        </Typography>
+        <Typography variant="body2" style={{ fontSize: '0.74rem', opacity: 0.7, marginBottom: '12px', lineHeight: 1.4 }}>
+          Earn XP by finishing lessons and quizzes. Unlock a new rank every 100 XP!
+        </Typography>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto', marginBottom: '12px', paddingRight: '4px' }}>
+          {[
+            { level: 1, name: 'Beginner', range: '0 - 99' },
+            { level: 2, name: 'Learner', range: '100 - 199' },
+            { level: 3, name: 'Explorer', range: '200 - 299' },
+            { level: 4, name: 'Skilled', range: '300 - 399' },
+            { level: 5, name: 'Advanced', range: '400 - 499' },
+            { level: 6, name: 'Expert', range: '500 - 599' },
+            { level: 7, name: 'Veteran', range: '600 - 699' },
+            { level: 8, name: 'Elite', range: '700 - 799' },
+            { level: 9, name: 'Master', range: '800 - 899' },
+            { level: 10, name: 'Legend', range: '900+' },
+          ].map((cfg) => {
+            const currentLvl = user?.level || 1;
+            const isCurrent = currentLvl === cfg.level || (cfg.level === 10 && currentLvl >= 10);
+            return (
+              <div
+                key={cfg.level}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '5px 8px',
+                  borderRadius: '8px',
+                  background: isCurrent ? 'rgba(var(--primary-main-rgb), 0.18)' : 'transparent',
+                  border: isCurrent ? '1.5px solid var(--primary-main)' : '1px solid transparent'}}
+              >
+                <span style={{ fontSize: '0.76rem', fontWeight: isCurrent ? 800 : 500, color: isCurrent ? 'var(--primary-main)' : 'inherit' }}>
+                  Lvl {cfg.level}: {cfg.name}
+                </span>
+                <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>
+                  {cfg.range} XP
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {(user?.level || 1) < 10 && (
+          <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <Typography style={{ fontSize: '0.74rem', fontWeight: 800 }}>
+              Next Rank: <span style={{ color: '#3D5CFF' }}>
+                {[
+                  'Beginner', 'Learner', 'Explorer', 'Skilled', 'Advanced', 'Expert', 'Veteran', 'Elite', 'Master', 'Legend'
+                ][(user?.level || 1)]}
+              </span>
+            </Typography>
+            <Typography style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '2px' }}>
+              Earn <strong>{((user?.level || 1) * 100) - (user?.xp || 0)} XP</strong> more to level up!
+            </Typography>
+          </div>
+        )}
+      </Popover>
+
+      <Popover
+        open={isProfilePopoverOpen}
+        anchorEl={profileAnchorEl}
+        onClose={handleProfileClose}
+        anchorOrigin={{
+          vertical: 'center',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'center',
+          horizontal: 'left',
+        }}
+        PaperProps={{
+          style: {
+            padding: '16px',
+            width: '280px',
+            borderRadius: '16px',
+            background: 'var(--background-paper)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid var(--divider)',
+            color: 'var(--text-primary)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <Typography style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
+              {userName}
+            </Typography>
+            <span style={{
+              fontSize: '0.56rem',
+              fontWeight: 900,
+              padding: '1px 5px',
+              borderRadius: '4px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              background: !user ? 'rgba(255,255,255,0.08)' : Number(user.roleID) >= 1 ? 'rgba(var(--primary-main-rgb), 0.15)' : 'rgba(255,255,255,0.06)',
+              color: !user ? 'var(--text-secondary)' : Number(user.roleID) >= 1 ? 'var(--primary-main)' : 'var(--text-secondary)',
+              border: '1px solid var(--divider)',
+              flexShrink: 0
+            }}>
+              {!user ? 'Guest' : Number(user.roleID) === 3 ? 'Admin' : Number(user.roleID) === 2 ? 'Moderator' : Number(user.roleID) === 1 ? 'Expert' : 'Student'}
+            </span>
+          </div>
+          <Typography style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+            {user?.email || 'guest@sophiapath.com'}
+          </Typography>
+        </div>
+
+        <Divider style={{ borderColor: 'var(--divider)' }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            fontSize: '0.75rem', fontWeight: 900, color: 'var(--primary-main)',
+            background: 'rgba(var(--primary-main-rgb), 0.12)',
+            padding: '2px 8px', borderRadius: '20px',
+            border: '1px solid rgba(var(--primary-main-rgb), 0.2)',
+            whiteSpace: 'nowrap', flexShrink: 0
+          }}>
+            Lv.{user?.level ?? 1}
+          </span>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            {user?.levelName || 'Beginner'}
+          </span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-disabled)' }}>·</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            {user?.xp ?? 0} XP
+          </span>
+        </div>
+
+        {(user?.level || 1) < 10 && (
+          <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(var(--primary-main-rgb), 0.04)', border: '1px solid var(--divider)' }}>
+            <Typography style={{ fontSize: '0.74rem', fontWeight: 800 }}>
+              Next Rank: <span style={{ color: 'var(--primary-main)' }}>
+                {[
+                  'Beginner', 'Learner', 'Explorer', 'Skilled', 'Advanced', 'Expert', 'Veteran', 'Elite', 'Master', 'Legend'
+                ][(user?.level || 1)]}
+              </span>
+            </Typography>
+            <Typography style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '2px' }}>
+              Earn <strong>{((user?.level || 1) * 100) - (user?.xp || 0)} XP</strong> more to level up!
+            </Typography>
+          </div>
+        )}
+      </Popover>
+    </div>
+  );
   const renderDrawer = () => (
     <Drawer
       anchor="left"
@@ -1665,9 +1722,9 @@ const NavigationPage = () => {
       onClose={() => setDrawerOpen(false)}
       className="nav-mobile-drawer"
     >
-      <motion.div initial="expanded" animate="expanded" style={{ height: '100%' }}>
+      <div style={{ height: '100%' }}>
         {shellNav}
-      </motion.div>
+      </div>
     </Drawer>
   );
 
@@ -1847,7 +1904,7 @@ const NavigationPage = () => {
       {!isMobile && (
         <motion.div
           animate={{
-            left: sidebarCollapsed ? '1.9rem' : '3.5rem',
+            left: sidebarCollapsed ? '2.4rem' : '3.5rem',
             top: sidebarCollapsed ? '2.4rem' : '3.25rem',
             width: sidebarCollapsed ? '2.2rem' : '2.5rem',
             height: sidebarCollapsed ? '2.2rem' : '2.5rem'
@@ -1883,13 +1940,16 @@ const NavigationPage = () => {
         <motion.div
           animate={{
             left: sidebarCollapsed ? '4.5rem' : '17.2rem',
+            opacity: sidebarCollapsed ? 0 : 1,
+            scale: sidebarCollapsed ? 0 : 1
           }}
           transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
           style={{
             position: 'fixed',
             top: '56px',
             transform: 'translate(-50%, -50%)',
-            zIndex: 1200}}
+            zIndex: 1200,
+            pointerEvents: sidebarCollapsed ? 'none' : 'auto'}}
         >
           <IconButton
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -1915,22 +1975,11 @@ const NavigationPage = () => {
       )}
 
       {!isMobile && (
-        <motion.aside
-          animate={sidebarCollapsed ? "collapsed" : "expanded"}
-          variants={{
-            expanded: {
-              width: 260,
-              transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] }
-            },
-            collapsed: {
-              width: 64,
-              transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] }
-            }
-          }}
-          className="nav-desktop-rail"
+        <aside
+          className={`nav-desktop-rail ${sidebarCollapsed ? 'sidebar-collapsed-rail' : ''}`}
         >
           {shellNav}
-        </motion.aside>
+        </aside>
       )}
       {isMobile && renderDrawer()}
 

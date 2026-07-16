@@ -67,7 +67,8 @@ const SettingsPage = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
   const handleEmailChangeSubmit = async () => {
-    if (!newEmail.trim()) {
+    const trimmedEmail = newEmail.trim().toLowerCase();
+    if (!trimmedEmail) {
       setEmailError('Email address is required');
       return;
     }
@@ -79,7 +80,7 @@ const SettingsPage = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ newEmail })
+        body: JSON.stringify({ newEmail: trimmedEmail })
       });
       if (res.ok) {
         setEmailDialogOpen(false);

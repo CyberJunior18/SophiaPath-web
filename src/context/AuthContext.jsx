@@ -156,7 +156,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (identifier, password) => {
     try {
-      let email = identifier;
+      let email = identifier ? identifier.trim().toLowerCase() : '';
 
       // Handle username-to-email conversion
       if (identifier && !identifier.includes('@')) {
@@ -168,7 +168,7 @@ export const AuthProvider = ({ children }) => {
               (u) => u.username && u.username.toLowerCase() === identifier.toLowerCase()
             );
             if (foundUser && foundUser.email) {
-              email = foundUser.email;
+              email = foundUser.email.trim().toLowerCase();
             }
           }
         } catch (e) {
@@ -249,7 +249,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const email = userData.email;
+      const email = userData.email ? userData.email.trim().toLowerCase() : '';
       const password = userData.password;
       const fullname = userData.fullname || userData.name || "Learner";
       
@@ -578,6 +578,8 @@ export const AuthProvider = ({ children }) => {
           if (!prev) return null;
           return {
             ...prev,
+            email: userData.email || prev.email,
+            username: userData.username || prev.username,
             xp: userData.xp ?? 0,
             level: userData.level ?? 1,
             levelName: userData.levelName ?? 'Beginner',

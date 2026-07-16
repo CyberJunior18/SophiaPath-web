@@ -70,7 +70,12 @@ export const SocraticDialogueWidget = () => {
       const res = await fetch('/ai/socrates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText, generateVoice: audioEnabled })});
+        body: JSON.stringify({
+          message: userText,
+          history: messages,
+          generateVoice: audioEnabled
+        })
+      });
 
       if (res.ok) {
         const data = await res.json();
