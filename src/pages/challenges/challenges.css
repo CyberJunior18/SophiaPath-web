@@ -1,0 +1,874 @@
+/* ======================================================
+   challenges.css — Shared styles for all challenge sandboxes
+   Routes: /challenges/search, /challenges/login, /challenges/files
+   ====================================================== */
+
+/* ---------- Reset & Base ---------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0b0d17;
+  color: #e2e8f0;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+code {
+  font-family: 'Fira Code', 'Consolas', 'Courier New', monospace;
+  font-size: 0.875em;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* ---------- Sandbox Wrapper ---------- */
+.challenge-sandbox {
+  min-height: 100vh;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ---------- Header ---------- */
+.challenge-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.75rem 2rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.challenge-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  background: radial-gradient(ellipse at top left, var(--accent-color, #ff6b6b), transparent 60%);
+  pointer-events: none;
+}
+
+/* XSS — red/orange */
+.xss-theme { --accent-color: #ff6b35; background: linear-gradient(135deg, rgba(255, 107, 53, 0.12), rgba(11,13,23,0)); border-color: rgba(255,107,53,0.25); }
+/* SQLi — amber/yellow */
+.sqli-theme { --accent-color: #f59e0b; background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(11,13,23,0)); border-color: rgba(245,158,11,0.25); }
+/* BAC — purple/violet */
+.bac-theme { --accent-color: #8b5cf6; background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(11,13,23,0)); border-color: rgba(139,92,246,0.25); }
+
+.challenge-badge {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  background: rgba(255, 107, 53, 0.2);
+  color: #ff6b35;
+  border: 1.5px solid rgba(255, 107, 53, 0.4);
+  text-transform: uppercase;
+}
+
+.sqli-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.bac-badge {
+  background: rgba(139, 92, 246, 0.2);
+  color: #8b5cf6;
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.challenge-header-text {
+  flex: 1;
+}
+
+.challenge-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  line-height: 1.2;
+  margin-bottom: 0.35rem;
+}
+
+.challenge-subtitle {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+/* ---------- Mission Brief ---------- */
+.challenge-brief {
+  display: flex;
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+}
+
+.brief-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.brief-content h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.6rem;
+}
+
+.brief-content p {
+  font-size: 0.9rem;
+  color: #cbd5e1;
+  line-height: 1.65;
+  margin-bottom: 0.75rem;
+}
+
+.brief-content p:last-of-type {
+  margin-bottom: 0.75rem;
+}
+
+.hint-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 1rem;
+  background: rgba(234, 179, 8, 0.07);
+  border: 1px solid rgba(234, 179, 8, 0.2);
+  border-radius: 10px;
+  font-size: 0.83rem;
+  color: #fbbf24;
+}
+
+.hint-label {
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.inline-code {
+  color: #fde68a;
+  background: rgba(234, 179, 8, 0.1);
+  border-color: rgba(234, 179, 8, 0.2);
+}
+
+/* ---------- Card ---------- */
+.challenge-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.card-icon {
+  font-size: 1.3rem;
+}
+
+.card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  flex: 1;
+}
+
+.system-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  text-transform: uppercase;
+}
+
+.bac-system-badge {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  border-color: rgba(139, 92, 246, 0.25);
+}
+
+/* ---------- Form ---------- */
+.challenge-form {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.input-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.challenge-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #f1f5f9;
+  font-size: 0.95rem;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.challenge-input:focus {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.challenge-input::placeholder {
+  color: #475569;
+}
+
+.input-note {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* ---------- Buttons ---------- */
+.challenge-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 2rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
+  align-self: flex-start;
+}
+
+.challenge-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* XSS button — orange */
+.xss-btn {
+  background: linear-gradient(135deg, #ff6b35, #e85d04);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(255, 107, 53, 0.3);
+}
+
+.xss-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(255, 107, 53, 0.45);
+}
+
+/* SQLi button — amber */
+.sqli-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #0f172a;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3);
+}
+
+.sqli-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(245, 158, 11, 0.45);
+}
+
+/* Download button */
+.download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: #fff;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.3);
+  transition: all 0.2s;
+}
+
+.download-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.45);
+}
+
+/* ---------- Result Area ---------- */
+.result-area {
+  margin: 0 1.5rem 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  overflow: hidden;
+  animation: fadeSlideIn 0.3s ease;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.result-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.vuln-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.status-ok {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.status-err {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.result-body {
+  padding: 1rem;
+}
+
+.result-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.meta-label {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.reflected-query {
+  font-size: 0.9rem;
+  color: #fbbf24;
+}
+
+.result-count {
+  font-size: 0.85rem;
+  color: #475569;
+  font-style: italic;
+}
+
+/* ---------- JSON Response Pre ---------- */
+.response-pre {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #a5f3fc;
+  background: rgba(0, 0, 0, 0.3);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.response-success {
+  color: #86efac;
+}
+
+.response-fail {
+  color: #fca5a5;
+}
+
+.exploit-success-banner {
+  padding: 0.9rem 1.25rem;
+  background: rgba(34, 197, 94, 0.1);
+  border-top: 1px solid rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ---------- SQL Query Display ---------- */
+.query-card .challenge-form,
+.query-card > div:not(.card-header) {
+  padding: 1.25rem 1.5rem;
+}
+
+.sql-query-box {
+  margin: 1.25rem 1.5rem;
+  padding: 1rem 1.25rem;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.85rem;
+  line-height: 2;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #cbd5e1;
+  overflow-x: auto;
+}
+
+.sql-kw {
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+.sql-vuln {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border-radius: 3px;
+  padding: 1px 3px;
+}
+
+.query-note {
+  padding: 0 1.5rem 1.25rem;
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* ---------- Error Box ---------- */
+.error-box {
+  margin: 0 1.5rem 1.5rem;
+  padding: 0.9rem 1.1rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 10px;
+  color: #f87171;
+  font-size: 0.88rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* ---------- BAC: User Identity Strip ---------- */
+.user-identity-strip {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.user-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.user-info {
+  flex: 1;
+}
+
+.user-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.user-role-tag {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.access-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.access-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 6px #4ade80;
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ---------- File List ---------- */
+.file-list {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.file-list-header {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.25rem;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.03);
+  transition: background 0.2s;
+}
+
+.file-row.accessible:hover {
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.file-icon-col {
+  flex-shrink: 0;
+}
+
+.file-icon {
+  width: 46px;
+  height: 52px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.pdf-icon {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1.5px solid rgba(239, 68, 68, 0.25);
+}
+
+.file-details {
+  flex: 1;
+}
+
+.file-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 0.35rem;
+}
+
+.file-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.file-id-tag {
+  font-size: 0.72rem;
+  font-family: monospace;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.file-access-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.accessible-tag {
+  color: #4ade80;
+}
+
+.file-desc {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.file-action-col {
+  flex-shrink: 0;
+}
+
+/* ---------- URL Pattern Hint ---------- */
+.url-pattern-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px dashed rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.url-pattern {
+  color: #818cf8;
+  font-family: monospace;
+}
+
+.url-id-highlight {
+  color: #a78bfa;
+  font-weight: 800;
+}
+
+.url-hint-label {
+  color: #64748b;
+  font-style: italic;
+}
+
+/* ---------- Download Log ---------- */
+.download-log {
+  padding: 0.85rem 1rem;
+}
+
+.log-line {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.log-time { color: #475569; }
+.log-method { font-weight: 700; }
+.get-method { color: #4ade80; }
+.log-url { color: #a5f3fc; }
+.ok-status { color: #4ade80; }
+
+.log-note {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  line-height: 1.65;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border-left: 3px solid rgba(99, 102, 241, 0.4);
+}
+
+/* ---------- Goal Card — File Table ---------- */
+.goal-card .card-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.file-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 1.25rem 0 0;
+}
+
+.file-table th {
+  padding: 0.6rem 1.25rem;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.file-table td {
+  padding: 0.75rem 1.25rem;
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.file-table tr:last-child td { border-bottom: none; }
+
+.row-ok td { background: rgba(34, 197, 94, 0.03); }
+.row-secret td { background: rgba(239, 68, 68, 0.04); }
+
+.classification {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.classification.public { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+.classification.confidential { background: rgba(239, 68, 68, 0.12); color: #f87171; }
+
+.redacted {
+  letter-spacing: 0.15em;
+  color: #ef4444;
+  opacity: 0.6;
+}
+
+.table-note {
+  padding: 0.85rem 1.25rem 1.25rem;
+  font-size: 0.82rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* ---------- Footer ---------- */
+.challenge-footer {
+  padding: 1.25rem 1.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.footer-vuln-explain h4 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.5rem;
+}
+
+.footer-vuln-explain p {
+  font-size: 0.83rem;
+  color: #94a3b8;
+  line-height: 1.65;
+}
+
+.backend-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.backend-badge {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  letter-spacing: 0.06em;
+}
+
+.post-badge {
+  background: rgba(251, 146, 60, 0.15);
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.25);
+}
+
+.backend-payload {
+  font-size: 0.82rem;
+  color: #475569;
+  font-family: monospace;
+}
+
+/* ---------- Loading animation ---------- */
+.loading-dots span {
+  animation: blink 1.2s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 600px) {
+  .challenge-sandbox { padding: 1rem 1rem 3rem; }
+  .challenge-header { flex-direction: column; align-items: flex-start; }
+  .challenge-title { font-size: 1.3rem; }
+  .file-row { flex-direction: column; align-items: flex-start; }
+  .file-table { font-size: 0.78rem; }
+  .file-table th, .file-table td { padding: 0.5rem 0.75rem; }
+}

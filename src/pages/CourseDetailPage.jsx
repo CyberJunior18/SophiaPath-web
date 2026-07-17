@@ -26,8 +26,36 @@ import {
   EmojiEvents as TrophyIcon,
   DeleteOutline as DeleteIcon,
   ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon
+  ExpandLess as ExpandLessIcon,
+  Shield as ShieldIcon,
+  VpnKey as VpnKeyIcon,
+  BugReport as BugReportIcon,
+  Code as CodeIcon,
+  Class as ClassIcon,
+  Schema as SchemaIcon,
+  Psychology as PsychologyIcon
 } from '@mui/icons-material';
+
+import IntroToCybersecurityIcon from '../assets/IntroToCybersecurity.png';
+import CryptographyIcon from '../assets/cryptography.png';
+import CommonVulnerabilitiesIcon from '../assets/commonVulnerabilities.png';
+import CppIcon from '../assets/cpp.png';
+import OopIcon from '../assets/oop.png';
+import DataStructuresIcon from '../assets/datast.png';
+import IntroToPhilosophyIcon from '../assets/IntroToPhilosophy.png';
+
+const getSectionIcon = (title) => {
+  if (!title) return null;
+  const t = title.toLowerCase();
+  if (t.includes('cybersecurity') || t.includes('security')) return IntroToCybersecurityIcon;
+  if (t.includes('cryptography') || t.includes('encryption')) return CryptographyIcon;
+  if (t.includes('vulnerabilities') || t.includes('vuln') || t.includes('hack')) return CommonVulnerabilitiesIcon;
+  if (t.includes('c++') || t.includes('cpp')) return CppIcon;
+  if (t.includes('oop') || t.includes('object')) return OopIcon;
+  if (t.includes('data structures') || t.includes('structure')) return DataStructuresIcon;
+  if (t.includes('philosophy') || t.includes('logic')) return IntroToPhilosophyIcon;
+  return null;
+};
 
 const CourseDetailPage = () => {
   const { courseId } = useParams();
@@ -276,8 +304,14 @@ const CourseDetailPage = () => {
                         onClick={() => handleToggleSection(section.id)}
                         style={{ display: 'flex', alignItems: 'center', padding: '1.75rem 2rem', cursor: 'pointer', width: '100%', boxSizing: 'border-box' }}
                       >
-                        <div className="course-section-number">
-                          {index + 1}
+                        <div style={{ width: '4.5rem', height: '4.5rem', marginRight: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {(() => {
+                            const iconPath = section.iconUrl || section.icon || getSectionIcon(section.title);
+                            if (iconPath) {
+                              return <img src={iconPath} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />;
+                            }
+                            return <BookIcon style={{ fontSize: '3rem', color: 'var(--primary-main)' }} />;
+                          })()}
                         </div>
                         <div className="course-section-content">
                           <Typography className="course-section-title">

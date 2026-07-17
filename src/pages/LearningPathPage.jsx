@@ -34,8 +34,36 @@ import {
   ArrowUpward as ArrowUpwardIcon,
   ArrowDownward as ArrowDownwardIcon,
   Terminal as TerminalIcon,
-  ArrowBack as ArrowBackIcon
+  ArrowBack as ArrowBackIcon,
+  Shield as ShieldIcon,
+  VpnKey as VpnKeyIcon,
+  BugReport as BugReportIcon,
+  Code as CodeIcon,
+  Class as ClassIcon,
+  Schema as SchemaIcon,
+  Psychology as PsychologyIcon
 } from '@mui/icons-material';
+
+import IntroToCybersecurityIcon from '../assets/IntroToCybersecurity.png';
+import CryptographyIcon from '../assets/cryptography.png';
+import CommonVulnerabilitiesIcon from '../assets/commonVulnerabilities.png';
+import CppIcon from '../assets/cpp.png';
+import OopIcon from '../assets/oop.png';
+import DataStructuresIcon from '../assets/datast.png';
+import IntroToPhilosophyIcon from '../assets/IntroToPhilosophy.png';
+
+const getSectionIcon = (title) => {
+  if (!title) return null;
+  const t = title.toLowerCase();
+  if (t.includes('cybersecurity') || t.includes('security')) return IntroToCybersecurityIcon;
+  if (t.includes('cryptography') || t.includes('encryption')) return CryptographyIcon;
+  if (t.includes('vulnerabilities') || t.includes('vuln') || t.includes('hack')) return CommonVulnerabilitiesIcon;
+  if (t.includes('c++') || t.includes('cpp')) return CppIcon;
+  if (t.includes('oop') || t.includes('object')) return OopIcon;
+  if (t.includes('data structures') || t.includes('structure')) return DataStructuresIcon;
+  if (t.includes('philosophy') || t.includes('logic')) return IntroToPhilosophyIcon;
+  return null;
+};
 
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -109,7 +137,8 @@ const LearningPathPage = () => {
                 category: les.category || 'learning',
                 chapterName: les.chapterName || '',
                 title: les.title || 'Untitled Lesson',
-                orderIndex: les.orderIndex || 0}))
+                orderIndex: les.orderIndex || 0
+              }))
             }))
           }));
 
@@ -329,6 +358,34 @@ const LearningPathPage = () => {
     }
   }, [location.state, updateQuizScore]);
 
+  const uniqueChapterNames = useMemo(() => {
+    const list = [];
+    lessons.forEach(l => {
+      const raw = l.chapterName || 'General';
+      const name = raw.trim().length > 0 ? raw.trim() : 'General';
+      if (!list.includes(name)) {
+        list.push(name);
+      }
+    });
+    return list;
+  }, [lessons]);
+
+  const { numLessons, numExercises } = useMemo(() => {
+    let lessonsCount = 0;
+    let exercisesCount = 0;
+
+    lessons.forEach(l => {
+      if (l.category === 'learning' || !l.category) {
+        lessonsCount++;
+      } else {
+        const pagesLength = Array.isArray(l.pages) ? l.pages.length : 0;
+        exercisesCount += Math.max(pagesLength, 1);
+      }
+    });
+
+    return { numLessons: lessonsCount, numExercises: exercisesCount };
+  }, [lessons]);
+
   const nodes = useMemo(() => {
     const rawList = (activeSection && backendLessons[activeSection.id]) || activeSection?.lessons || [];
     let currentY = 0;
@@ -372,7 +429,7 @@ const LearningPathPage = () => {
         }
       }
 
-      currentY += index === 0 ? 160 : (isNewChapter ? 360 : 150);
+      currentY += index === 0 ? 190 : (isNewChapter ? 360 : 150);
 
       const x = index % 2 === 0 ? 45 : 255; // Larger horizontal zigzag within 300px visual container
       const y = currentY;
@@ -654,21 +711,25 @@ const LearningPathPage = () => {
     if (node.category === 'learning' || !node.score) {
       return {
         background: 'var(--success-main)',
-        color: 'white'};
+        color: 'white'
+      };
     }
 
     if (node.score >= 80) {
       return {
         background: 'var(--success-main)',
-        color: 'white'};
+        color: 'white'
+      };
     } else if (node.score >= 50) {
       return {
         background: 'var(--yellow-500)',
-        color: 'white'};
+        color: 'white'
+      };
     } else {
       return {
         background: 'var(--danger-main)',
-        color: 'white'};
+        color: 'white'
+      };
     }
   };
 
@@ -682,18 +743,18 @@ const LearningPathPage = () => {
 
   return (
     <Box className="path-page">
-      <Container maxWidth="md">
+      <Container maxWidth="xl" sx={{ maxWidth: '1300px !important' }}>
 
         <Box className="path-header-sticky">
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <IconButton 
+              <IconButton
                 onClick={() => {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                   setTimeout(() => {
                     navigate(`/course/${course?.id || courseId}`);
                   }, 250);
-                }} 
+                }}
                 sx={{ color: 'var(--text-primary)', mr: 1 }}
               >
                 <ArrowBackIcon />
@@ -819,6 +880,13 @@ const LearningPathPage = () => {
                 key={section.id}
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {(() => {
+                      const iconPath = section.iconUrl || section.icon || getSectionIcon(section.title);
+                      if (iconPath) {
+                        return <img src={iconPath} alt="" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />;
+                      }
+                      return <BookIcon sx={{ fontSize: 18 }} />;
+                    })()}
                     {section.title}
                     {!section.isUnlocked && <LockIcon sx={{ fontSize: 16 }} />}
                   </Box>
@@ -835,71 +903,176 @@ const LearningPathPage = () => {
           </Alert>
         )}
 
-        <Box className="path-visual-shell glass-panel-strong" style={{ padding: nodes.length === 0 ? '64px 24px' : '0' }}>
-          {nodes.length === 0 ? (
-            <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', textAlign: 'center' }}>
-              <Typography variant="h5" style={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
-                Coming Soon
-              </Typography>
-              <Typography variant="body2" style={{ color: 'var(--text-secondary)', maxWidth: '400px' }}>
-                We are currently crafting high-quality interactive lessons for this chapter. Stay tuned!
-              </Typography>
-            </Box>
-          ) : (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeSectionIndex}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
-                className="path-visual"
-                style={{ height: `${pathHeight}px` }}
-              >
-                <svg
-                  width="300"
-                  height={pathHeight}
-                  className="path-svg"
-                  viewBox={`0 0 300 ${pathHeight}`}
-                >
-                  <path
-                    d={generatePath()}
-                    fill="none"
-                    stroke="var(--divider)"
-                    strokeWidth="12"
-                    strokeLinecap="round"
-                    strokeDasharray="15 15"
-                  />
-                </svg>
-
-              {nodes.map((node, index) => (
-                <React.Fragment key={node.id}>
-                  {node.isNewChapter && (
-                    <Box
-                      style={{
-                        position: 'absolute',
-                        left: '150px',
-                        top: `${node.pos.y - (index === 0 ? 126 : 220)}px`,
-                        transform: 'translateX(-50%)',
-                        zIndex: 5,
-                        width: '1200px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        pointerEvents: 'none',
-                        gap: '24px'
-                      }}
-                    >
-                      {index > 0 && (
-                        <Box style={{ width: '100%', height: '0', borderTop: '3px dotted var(--text-secondary)', opacity: 0.4 }} />
-                      )}
-                      <Typography
-                        variant="h5"
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: { xs: 'center', md: 'flex-start' },
+            justifyContent: 'center',
+            gap: { xs: 4, md: 6 },
+            width: '100%',
+            position: 'relative'
+          }}
+        >
+          {/* Left Side: Section Info Card */}
+          {nodes.length > 0 && (
+            <Box
+              sx={{
+                width: { xs: '100%', md: '420px' },
+                maxWidth: { xs: '100%', md: '420px' },
+                position: { xs: 'static', md: 'sticky' },
+                top: '200px',
+                background: 'var(--surface-glass)',
+                borderRadius: '24px',
+                border: '1px solid var(--divider)',
+                padding: '32px',
+                backdropFilter: 'blur(20px)',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 2.5,
+                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.25)',
+                zIndex: 10
+              }}
+            >
+              {/* Section Icon */}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-start', width: '100%', mb: 0.5 }}>
+                {(() => {
+                  const iconPath = activeSection?.iconUrl || activeSection?.icon || getSectionIcon(activeSection?.title);
+                  if (iconPath) {
+                    return (
+                      <img
+                        src={iconPath}
+                        alt={activeSection?.title || ''}
                         style={{
+                          width: '96px',
+                          height: '96px',
+                          objectFit: 'contain',
+                          filter: 'drop-shadow(0px 8px 16px rgba(0,0,0,0.3))'
+                        }}
+                      />
+                    );
+                  }
+                  return <BookIcon sx={{ fontSize: 96, color: 'var(--primary-main)' }} />;
+                })()}
+              </Box>
+
+              {/* Title and Description */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, width: '100%' }}>
+                <Typography
+                  variant="h4"
+                  sx={{
+                    fontWeight: 800,
+                    color: 'var(--text-primary)',
+                    fontFamily: '"Outfit", sans-serif',
+                    fontSize: '2rem',
+                    letterSpacing: '-0.02em',
+                    textAlign: 'left'
+                  }}
+                >
+                  {activeSection?.title}
+                </Typography>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    color: 'var(--text-secondary)',
+                    lineHeight: 1.6,
+                    fontSize: '1rem',
+                    textAlign: 'left'
+                  }}
+                >
+                  {activeSection?.description || `Master the concepts and practical exercises of ${activeSection?.title || ''}.`}
+                </Typography>
+              </Box>
+
+              {/* Stats Row */}
+              <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 4, width: '100%', mt: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <BookIcon sx={{ color: 'var(--primary-main)', fontSize: 20 }} />
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                    {numLessons} Lessons
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ExerciseIcon sx={{ color: '#c084fc', fontSize: 20 }} />
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                    {numExercises} Exercises
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          )}
+
+          {/* Sibling Container: The path-visual-shell (path block) */}
+          <Box
+            className="path-visual-shell glass-panel-strong"
+            sx={{
+              flex: 1,
+              width: '100%',
+              padding: nodes.length === 0 ? '64px 24px' : { xs: '16px 16px 32px 16px', md: '20px 48px 48px 48px' },
+              display: 'flex',
+              justifyContent: 'center',
+              boxSizing: 'border-box'
+            }}
+          >
+            {nodes.length === 0 ? (
+              <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', textAlign: 'center' }}>
+                <Typography variant="h5" style={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
+                  Coming Soon
+                </Typography>
+                <Typography variant="body2" style={{ color: 'var(--text-secondary)', maxWidth: '400px' }}>
+                  We are currently crafting high-quality interactive lessons for this chapter. Stay tuned!
+                </Typography>
+              </Box>
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeSectionIndex}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.25, ease: 'easeInOut' }}
+                  className="path-visual"
+                  style={{ height: `${pathHeight}px`, width: '300px' }}
+                >
+                  <svg
+                    width="300"
+                    height={pathHeight}
+                    className="path-svg"
+                    viewBox={`0 0 300 ${pathHeight}`}
+                  >
+                    <path
+                      d={generatePath()}
+                      fill="none"
+                      stroke="var(--divider)"
+                      strokeWidth="12"
+                      strokeLinecap="round"
+                      strokeDasharray="15 15"
+                    />
+                  </svg>
+
+                  {nodes.map((node, index) => (
+                    <React.Fragment key={node.id}>
+                      {node.isNewChapter && (() => {
+                        const chapterIndex = uniqueChapterNames.indexOf(node.chapterName) + 1;
+                        const chapterNodes = nodes.filter(n => n.chapterName === node.chapterName);
+                        const allCompleted = chapterNodes.every(n => n.status === 'completed');
+                        const hasActive = chapterNodes.some(n => n.status === 'active');
+                        const hasCompleted = chapterNodes.some(n => n.status === 'completed');
+
+                        let chapterStatus = 'upcoming';
+                        if (allCompleted) {
+                          chapterStatus = 'completed';
+                        } else if (hasActive || hasCompleted) {
+                          chapterStatus = 'active';
+                        }
+
+                        let containerStyle = {
                           fontWeight: 900,
                           color: 'var(--text-primary)',
                           background: 'var(--surface-glass)',
-                          padding: '12px 32px',
+                          padding: '16px 32px',
                           borderRadius: '30px',
                           border: '1px solid var(--divider)',
                           backdropFilter: 'blur(12px)',
@@ -907,97 +1080,148 @@ const LearningPathPage = () => {
                           textAlign: 'center',
                           textTransform: 'uppercase',
                           letterSpacing: '1.5px',
-                          fontSize: '1.35rem'
-                        }}
-                      >
-                        {node.chapterName}
-                      </Typography>
-                    </Box>
-                  )}
+                          fontSize: '0.95rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '8px',
+                          width: '400px',
+                          boxSizing: 'border-box',
+                          transition: 'all 0.3s ease-in-out'
+                        };
 
+                        let labelColor = 'var(--text-secondary)';
 
-                  <Box
-                    id={node.id === nextActiveNode?.id ? "current-active-node-shell" : undefined}
-                    className="path-node-shell"
-                    style={{
-                      left: `${node.pos.x}px`,
-                      top: `${node.pos.y}px`,
-                      transform: 'translate(-50%, -50%)'
-                    }}
-                    onClick={(e) => handleNodeClick(e, node)}
-                  >
-                    <Box className="path-node-wrapper">
-                      {node.status === 'active' && (
-                        <Box className="path-node-pulse" />
-                      )}
+                        if (chapterStatus === 'completed') {
+                          labelColor = '#10b981';
+                          containerStyle.border = '1px solid rgba(16, 185, 129, 0.4)';
+                        } else if (chapterStatus === 'active') {
+                          labelColor = 'var(--primary-main)';
+                          containerStyle.border = '1px solid var(--primary-main)';
+                          containerStyle.boxShadow = '0 0 25px rgba(var(--primary-main-rgb, 59, 130, 246), 0.45), inset 0 0 10px rgba(var(--primary-main-rgb, 59, 130, 246), 0.2)';
+                        }
 
-                      <Box 
-                        className={`path-node path-node-${node.status}`}
-                        style={getNodeStyle(node)}
-                      >
-                        {getNodeIcon(node)}
-                      </Box>
-
-                      {/* Top-right completed check badge matching mobile app */}
-                      {node.status === 'completed' && (
-                        <Box
-                          style={{
-                            position: 'absolute',
-                            top: '-4px',
-                            right: '-4px',
-                            width: '22px',
-                            height: '22px',
-                            borderRadius: '50%',
-                            backgroundColor: '#fff',
-                            border: '2.5px solid #29c57b',
-                            display: 'grid',
-                            placeItems: 'center',
-                            zIndex: 10
-                          }}
-                        >
-                          <CheckIcon style={{ color: '#29c57b', fontSize: '12px', fontWeight: 'bold' }} />
-                        </Box>
-                      )}
-
-                      {/* Bottom percentage badge matching mobile app */}
-                      {node.status === 'completed' && node.score > 0 && node.category !== 'learning' && (
-                        <Box
-                          style={{
-                            position: 'absolute',
-                            bottom: '-8px',
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            padding: '2px 8px',
-                            borderRadius: '10px',
-                            backgroundColor: node.score < 50 ? '#ff4d4d' : node.score < 80 ? '#ff9900' : '#29c57b',
-                            border: '1.5px solid #fff',
-                            zIndex: 10
-                          }}
-                        >
-                          <Typography
+                        return (
+                          <Box
                             style={{
-                              color: '#fff',
-                              fontWeight: 900,
-                              fontSize: '0.68rem',
-                              lineHeight: 1,
-                              fontFamily: '"Nunito", sans-serif'
+                              position: 'absolute',
+                              left: '50%',
+                              top: `${node.pos.y - (index === 0 ? 160 : 220)}px`,
+                              transform: 'translateX(-50%)',
+                              zIndex: 5,
+                              width: '100%',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              pointerEvents: 'none',
+                              gap: '24px'
                             }}
                           >
-                            {node.score}%
+
+                            <Typography
+                              variant="h5"
+                              style={containerStyle}
+                            >
+                              <span style={{
+                                fontSize: '0.625rem',
+                                fontWeight: 800,
+                                letterSpacing: '2px',
+                                color: labelColor,
+                                textTransform: 'uppercase',
+                                marginBottom: '4px'
+                              }}>
+                                Chapter {chapterIndex}
+                              </span>
+                              {node.chapterName}
+                            </Typography>
+                          </Box>
+                        );
+                      })()}
+
+
+                      <Box
+                        id={node.id === nextActiveNode?.id ? "current-active-node-shell" : undefined}
+                        className="path-node-shell"
+                        style={{
+                          left: `${node.pos.x}px`,
+                          top: `${node.pos.y}px`,
+                          transform: 'translate(-50%, -50%)'
+                        }}
+                        onClick={(e) => handleNodeClick(e, node)}
+                      >
+                        <Box className="path-node-wrapper">
+                          {node.status === 'active' && (
+                            <Box className="path-node-pulse" />
+                          )}
+
+                          <Box
+                            className={`path-node path-node-${node.status}`}
+                            style={getNodeStyle(node)}
+                          >
+                            {getNodeIcon(node)}
+                          </Box>
+
+                          {/* Top-right completed check badge matching mobile app */}
+                          {node.status === 'completed' && (
+                            <Box
+                              style={{
+                                position: 'absolute',
+                                top: '-4px',
+                                right: '-4px',
+                                width: '22px',
+                                height: '22px',
+                                borderRadius: '50%',
+                                backgroundColor: '#fff',
+                                border: '2.5px solid #29c57b',
+                                display: 'grid',
+                                placeItems: 'center',
+                                zIndex: 10
+                              }}
+                            >
+                              <CheckIcon style={{ color: '#29c57b', fontSize: '12px', fontWeight: 'bold' }} />
+                            </Box>
+                          )}
+
+                          {/* Bottom percentage badge matching mobile app */}
+                          {node.status === 'completed' && node.score > 0 && node.category !== 'learning' && (
+                            <Box
+                              style={{
+                                position: 'absolute',
+                                bottom: '-8px',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                padding: '2px 8px',
+                                borderRadius: '10px',
+                                backgroundColor: node.score < 50 ? '#ff4d4d' : node.score < 80 ? '#ff9900' : '#29c57b',
+                                border: '1.5px solid #fff',
+                                zIndex: 10
+                              }}
+                            >
+                              <Typography
+                                style={{
+                                  color: '#fff',
+                                  fontWeight: 900,
+                                  fontSize: '0.68rem',
+                                  lineHeight: 1,
+                                  fontFamily: '"Nunito", sans-serif'
+                                }}
+                              >
+                                {node.score}%
+                              </Typography>
+                            </Box>
+                          )}
+
+                          <Typography className={`path-node-caption-title status-${node.status}`}>
+                            {node.title}
                           </Typography>
                         </Box>
-                      )}
-
-                      <Typography className={`path-node-caption-title status-${node.status}`}>
-                        {node.title}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </React.Fragment>
-              ))}
-              </motion.div>
-            </AnimatePresence>
-          )}
+                      </Box>
+                    </React.Fragment>
+                  ))}
+                </motion.div>
+              </AnimatePresence>
+            )}
+          </Box>
         </Box>
 
         {nodes.length > 0 && (
@@ -1044,10 +1268,12 @@ const LearningPathPage = () => {
           onClose={handleClosePreview}
           anchorOrigin={{
             vertical: 'center',
-            horizontal: 'right'}}
+            horizontal: 'right'
+          }}
           transformOrigin={{
             vertical: 'center',
-            horizontal: 'left'}}
+            horizontal: 'left'
+          }}
           PaperProps={{
             style: {
               borderRadius: '24px',
@@ -1060,7 +1286,8 @@ const LearningPathPage = () => {
                 ? (theme.palette.mode === 'dark' ? 'rgba(31, 45, 31, 0.96)' : 'rgba(242, 251, 240, 0.96)')
                 : 'var(--surface-glass)',
               backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)'}
+              WebkitBackdropFilter: 'blur(20px)'
+            }
           }}
         >
           {renderPreviewContent()}
@@ -1083,7 +1310,8 @@ const LearningPathPage = () => {
                 ? (theme.palette.mode === 'dark' ? 'rgba(31, 45, 31, 0.96)' : 'rgba(242, 251, 240, 0.96)')
                 : 'var(--surface-glass)',
               backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)'}
+              WebkitBackdropFilter: 'blur(20px)'
+            }
           }}
         >
           {renderPreviewContent()}

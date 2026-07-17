@@ -4,6 +4,9 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { CustomThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import NavigationPage from './pages/NavigationPage';
+import XssChallenge from './pages/challenges/XssChallenge';
+import SqliChallenge from './pages/challenges/SqliChallenge';
+import BacChallenge from './pages/challenges/BacChallenge';
 
 import ScrollToTop from './components/ScrollToTop';
 import logoImg from './assets/sp-logo.png';
@@ -186,6 +189,10 @@ function App() {
         <Router>
           <ScrollToTop />
           <Routes>
+            {/* Standalone challenge sandbox routes — render outside the Navigation layout */}
+            <Route path="/challenges/search" element={<XssChallenge />} />
+            <Route path="/challenges/login" element={<SqliChallenge />} />
+            <Route path="/challenges/files" element={<BacChallenge />} />
             {/* All other routes go through the Navigation layout */}
             <Route path="*" element={<NavigationPage />} />
           </Routes>

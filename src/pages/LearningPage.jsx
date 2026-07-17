@@ -35,6 +35,7 @@ import { ArrowOutward as ArrowOutwardIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { coursesData } from '../data/courses';
 import './LearningPage.css';
+import philosophyLogo from '../assets/philosophy.jpg';
 
 const getCourseDomain = (title) => {
   const t = title.toLowerCase();
@@ -395,6 +396,7 @@ const LearningPage = () => {
               const progress = totalLessons > 0 ? (lessonsFinished / totalLessons) * 100 : 0;
 
               const isCybersecurity = course.title.toLowerCase().includes('cybersecurity');
+              const isPhilosophy = course.title.toLowerCase() === 'philosophy';
 
               return (
                 <Paper
@@ -450,7 +452,7 @@ const LearningPage = () => {
                   )}
 
                   <div className="learning-course-header">
-                    <div className="learning-course-icon-wrapper">
+                    <div className={`learning-course-icon-wrapper learning-course-icon ${isPhilosophy ? 'philosophy-icon' : ''}`}>
                       {getCourseIcon(course.title)}
                     </div>
                     <div className="cyber-badge">{course.domain}</div>

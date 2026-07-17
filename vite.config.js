@@ -41,6 +41,34 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
+      // Use regex proxies so Vite only forwards actual API calls, NOT bare SPA route loads.
+      // The frontend routes /challenges/search, /challenges/login, /challenges/files
+      // must be handled by React Router — they cannot be intercepted by this proxy.
+      '^/challenges/search': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        bypass: (req) => {
+          // Only proxy if there is a query string (real API call: ?q=...)
+          // Otherwise let React Router handle the bare /challenges/search SPA route
+          if (!req.url.includes('?')) return req.url;
+        },
+      },
+      '^/challenges/login$': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        bypass: (req) => {
+          // Only proxy POST requests; GET /challenges/login is the SPA route
+          if (req.method === 'GET') return req.url;
+        },
+      },
+      '^/challenges/files/\\d+': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '^/challenges/\\d': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
     },
   },
 })

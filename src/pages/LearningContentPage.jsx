@@ -63,6 +63,7 @@ import DistributedDenialOfServiceLab from './labs/DistributedDenialOfServiceLab'
 import RansomwareLab from './labs/RansomwareLab';
 import SocialEngineeringLab from './labs/SocialEngineeringLab';
 import InsiderThreatLab from './labs/InsiderThreatLab';
+import VulnerabilityChallengeWidget from '../components/course/VulnerabilityChallengeWidget';
 
 const parseFormattedText = (text, allowNewlines = false) => {
   if (!text) return '';
@@ -2098,6 +2099,15 @@ const LearningContentPage = () => {
   };
 
   const renderBlock = (block, idx) => {
+    // Recursively render container blocks that wrap other blocks
+    if (!block.type && block.blocks && Array.isArray(block.blocks)) {
+      return (
+        <Box key={idx}>
+          {block.blocks.map((childBlock, childIdx) => renderBlock(childBlock, `${idx}-${childIdx}`))}
+        </Box>
+      );
+    }
+
     switch (block.type) {
       case 'Cyber': {
         const value = block.value || '';
@@ -2178,6 +2188,16 @@ const LearningContentPage = () => {
           </Box>
         );
       }
+
+      case 'vulnerability_challenge':
+        return (
+          <VulnerabilityChallengeWidget
+            key={idx}
+            chapterId={Number(lessonId)}
+            block={block}
+            isDarkMode={isDarkMode}
+          />
+        );
 
       case 'socratic_dialogue':
         return <SocraticDialogueWidget key={idx} isDarkMode={isDarkMode} />;

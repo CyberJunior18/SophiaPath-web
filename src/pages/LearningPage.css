@@ -254,6 +254,7 @@
 }
 
 
+.learning-course-icon-wrapper,
 .learning-course-icon {
   width: 3.5rem;
   height: 3.5rem;
@@ -262,7 +263,41 @@
   border-radius: 20px;
   background: rgba(var(--primary-main-rgb), 0.16);
   color: var(--primary-main);
+  transition: all 0.3s ease;
 }
+
+.learning-course-icon-wrapper.philosophy-icon,
+.learning-course-icon.philosophy-icon {
+  background-image: url('../assets/philosophy.jpg');
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.learning-course-icon-wrapper.philosophy-icon::before,
+.learning-course-icon.philosophy-icon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  transition: background 0.3s ease;
+  z-index: 0;
+}
+
+.learning-course-card:hover .philosophy-icon::before {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.learning-course-icon-wrapper.philosophy-icon svg,
+.learning-course-icon.philosophy-icon svg {
+  position: relative;
+  z-index: 1;
+  color: #ffffff !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
+
 
 .learning-course-title {
   margin-top: 1.25rem;
