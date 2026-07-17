@@ -71,10 +71,10 @@ course_id : int FOREIGN KEY
 semester : string
 grade : string
 
-RELATIONSHIP Student MANY TO Enrollment ONE
-RELATIONSHIP Course MANY TO Enrollment ONE
+RELATIONSHIP Student MANY Enrolls Enrollment ONE
+RELATIONSHIP Course MANY Has Enrollment ONE
 
-RELATIONSHIP Instructor ONE TO Course MANY`,
+RELATIONSHIP Instructor ONE Teaches Course MANY`,
   usecase: `SYSTEM SophiaPath
 
 ACTOR Guest
@@ -409,16 +409,18 @@ const AddEntityDialog = ({ open, onClose, onSubmit, existingEntityNames }) => {
 const CreateRelationDialog = ({ open, onClose, source, target, onSubmit }) => {
   const [sourceCard, setSourceCard] = useState('MANY');
   const [targetCard, setTargetCard] = useState('ONE');
+  const [relationName, setRelationName] = useState('TO');
 
   useEffect(() => {
     if (open) {
       setSourceCard('MANY');
       setTargetCard('ONE');
+      setRelationName('TO');
     }
   }, [open]);
 
   const handleSubmit = () => {
-    onSubmit(source, target, sourceCard, targetCard);
+    onSubmit(source, target, sourceCard, targetCard, relationName);
   };
 
   return (
@@ -440,9 +442,27 @@ const CreateRelationDialog = ({ open, onClose, source, target, onSubmit }) => {
         🔗 Create Relationship
       </DialogTitle>
       <DialogContent style={{ marginTop: '16px' }}>
-        <Typography variant="body2" style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '24px' }}>
-          Define the cardinality constraint between the connected entities:
+        <Typography variant="body2" style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '16px' }}>
+          Define the cardinality constraint and the relationship label name:
         </Typography>
+
+        <Box style={{ marginBottom: '24px' }}>
+          <TextField
+            fullWidth
+            label="Relationship Name (e.g. enrolls, orders, TO)"
+            variant="outlined"
+            size="small"
+            value={relationName}
+            onChange={(e) => setRelationName(e.target.value)}
+            InputLabelProps={{ style: { color: 'rgba(255,255,255,0.6)' } }}
+            inputProps={{ style: { color: '#ffffff' } }}
+            sx={{
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--primary-main)' }
+            }}
+          />
+        </Box>
 
         <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '16px' }}>
           <Box style={{ flex: 1, padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', textAlign: 'center' }}>
@@ -876,16 +896,19 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       let updated = false;
 
       if (activeTabKey === 'er') {
-        const { entities } = parseER(code);
-        entities.forEach((entity, idx) => {
-          if (!next[entity.name]) {
-            next[entity.name] = {
-              x: (idx % 3) * 320 + 80,
-              y: Math.floor(idx / 3) * 260 + 80
-            };
-            updated = true;
-          }
-        });
+        const { entities, relationships } = parseER(code);
+        const needsLayout = entities.some(e => !next[e.name]);
+        if (needsLayout) {
+          const autoPositions = computeERAutoLayout(entities, relationships);
+          let anyNew = false;
+          Object.entries(autoPositions).forEach(([id, pos]) => {
+            if (!next[id]) {
+              next[id] = pos;
+              anyNew = true;
+            }
+          });
+          if (anyNew) updated = true;
+        }
       } else if (activeTabKey === 'usecase') {
         const { actors, usecases, links } = parseUseCase(code);
         // Check if any nodes need positions assigned
@@ -1047,19 +1070,54 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
         animationFrameId = null;
 
         if (draggingNode) {
-          const newX = Math.max(0, e.clientX / zoomScale - dragStartOffset.current.x);
+          let minX = 0;
+          let minY = 0;
+
+          if (draggingNode.includes('::attr::')) {
+            minX = 42; // attribute oval rx
+            minY = 18; // attribute oval ry
+          } else if (draggingNode.includes('::rel::')) {
+            minX = 40; // relationship diamond half-width
+            minY = 22; // relationship diamond half-height
+          }
+
+          const newX = Math.max(minX, e.clientX / zoomScale - dragStartOffset.current.x);
           const yOffsetVal = e.clientY / zoomScale - dragStartOffset.current.y;
-          const newY = Math.max(0, yOffsetVal);
+          const newY = Math.max(minY, yOffsetVal);
 
           setNodePositions(prev => {
             const current = prev[draggingNode];
             if (current && Math.abs(current.x - newX) < 0.5 && Math.abs(current.y - newY) < 0.5) {
               return prev;
             }
-            return {
+            
+            const next = {
               ...prev,
               [draggingNode]: { x: newX, y: newY }
             };
+
+            // If dragging a parent entity (meaning no "::" in the node key)
+            if (!draggingNode.includes('::')) {
+              const deltaX = newX - (current ? current.x : newX);
+              const deltaY = newY - (current ? current.y : newY);
+              
+              if (Math.abs(deltaX) > 0.01 || Math.abs(deltaY) > 0.01) {
+                // Shift all attribute keys belonging to this entity
+                Object.keys(prev).forEach(key => {
+                  if (key.startsWith(`${draggingNode}::attr::`)) {
+                    const attrPos = prev[key];
+                    if (attrPos) {
+                      next[key] = {
+                        x: attrPos.x + deltaX,
+                        y: attrPos.y + deltaY
+                      };
+                    }
+                  }
+                });
+              }
+            }
+
+            return next;
           });
         } else if (draggingWaypoint) {
           const rect = canvasContainerRef.current?.getBoundingClientRect();
@@ -1233,24 +1291,110 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
       entityStr += `${field.name} : ${field.type}${keyType}\n`;
     });
 
-    setCode(prevCode => prevCode + entityStr);
+    setCode(prevCode => {
+      const newCode = prevCode + entityStr;
+      return organizeERCode(newCode);
+    });
 
-    const count = Object.keys(nodePositions).length;
-    const newX = (count % 3) * 320 + 80;
-    const newY = Math.floor(count / 3) * 260 + 80;
+    // Find first empty space in the 450x360 grid starting at (200, 200)
+    let foundSpace = false;
+    let col = 0;
+    let row = 0;
+    let newX = 200;
+    let newY = 200;
 
-    setNodePositions(prev => ({
-      ...prev,
-      [entityName]: { x: newX, y: newY }
-    }));
+    while (!foundSpace) {
+      newX = col * 450 + 200;
+      newY = row * 360 + 200;
+
+      // Check if any existing entity overlaps with this position (threshold 250px)
+      const isOccupied = Object.entries(nodePositions).some(([nodeName, pos]) => {
+        if (nodeName.includes('::')) return false; 
+        const dist = Math.sqrt(Math.pow(pos.x - newX, 2) + Math.pow(pos.y - newY, 2));
+        return dist < 250;
+      });
+
+      if (!isOccupied) {
+        foundSpace = true;
+      } else {
+        col++;
+        if (col >= 3) {
+          col = 0;
+          row++;
+        }
+      }
+    }
+
+    const entityW = 150;
+    const entityH = 50;
+
+    setNodePositions(prev => {
+      const next = {
+        ...prev,
+        [entityName]: { x: newX, y: newY }
+      };
+
+      const cx = newX + entityW / 2;
+      const cy = newY + entityH / 2;
+      const validFields = fields.filter(f => f.name);
+      const numFields = validFields.length;
+      
+      let currentFieldIdx = 0;
+      let layerIndex = 0;
+      
+      while (currentFieldIdx < numFields) {
+        const R = 120 + layerIndex * 90;
+        const maxInLayer = Math.floor((2 * Math.PI * R) / 95);
+        const countInThisLayer = Math.min(maxInLayer, numFields - currentFieldIdx);
+        
+        for (let j = 0; j < countInThisLayer; j++) {
+          const f = validFields[currentFieldIdx + j];
+          const attrKey = `${entityName}::attr::${f.name}`;
+          const startAngle = -Math.PI / 2 + (layerIndex * Math.PI / 6);
+          const angle = startAngle + (2 * Math.PI * j) / countInThisLayer;
+          next[attrKey] = {
+            x: cx + R * Math.cos(angle),
+            y: cy + R * Math.sin(angle)
+          };
+        }
+        currentFieldIdx += countInThisLayer;
+        layerIndex++;
+      }
+
+      return next;
+    });
 
     setIsAddEntityOpen(false);
   };
 
-  const handleCreateRelationship = (source, target, sourceCard, targetCard) => {
+  const handleCreateRelationship = (source, target, sourceCard, targetCard, relationName) => {
     if (!source || !target) return;
-    const relStr = `\n\nRELATIONSHIP ${source} ${sourceCard} TO ${target} ${targetCard}`;
-    setCode(prevCode => prevCode + relStr);
+    const actualRelName = relationName.trim() || 'TO';
+    const relStr = `\n\nRELATIONSHIP ${source} ${sourceCard} ${actualRelName} ${target} ${targetCard}`;
+    
+    setCode(prevCode => {
+      const newCode = prevCode + relStr;
+      return organizeERCode(newCode);
+    });
+
+    const relKey = `${source}::rel::${target}`;
+    const start = nodePositions[source] || { x: 200, y: 200 };
+    const end = nodePositions[target] || { x: 200, y: 200 };
+    const entityW = 150;
+    const entityH = 50;
+    const cx1 = start.x + entityW / 2;
+    const cy1 = start.y + entityH / 2;
+    const cx2 = end.x + entityW / 2;
+    const cy2 = end.y + entityH / 2;
+
+    setNodePositions(prev => ({
+      ...prev,
+      [relKey]: {
+        x: (cx1 + cx2) / 2,
+        y: (cy1 + cy2) / 2
+      }
+    }));
+
     setPendingRelationSource(null);
     setRelationTarget(null);
     setIsRelationDialogOpen(false);
@@ -1338,16 +1482,46 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     let hasCoords = false;
 
     if (tabKey === 'er') {
-      const { entities } = parseER(diagramCode);
+      const { entities, relationships } = parseER(diagramCode);
       let xs = [];
       let ys = [];
-      entities.forEach((ent, idx) => {
-        const pos = nodePositions[ent.name] || { x: (idx % 3) * 320 + 80, y: Math.floor(idx / 3) * 260 + 80 };
-        xs.push(pos.x);
-        xs.push(pos.x + 250); // entity card width
-        ys.push(pos.y);
-        ys.push(pos.y + 180); // estimated height
+
+      entities.forEach((entity) => {
+        // Entity card bounds (150x50)
+        const entPos = nodePositions[entity.name];
+        if (entPos) {
+          xs.push(entPos.x);
+          xs.push(entPos.x + 150);
+          ys.push(entPos.y);
+          ys.push(entPos.y + 50);
+        }
+
+        // Attributes bounds (radius 42x18)
+        const fields = entity.fields || [];
+        fields.forEach(f => {
+          const attrKey = `${entity.name}::attr::${f.name}`;
+          const attrPos = nodePositions[attrKey];
+          if (attrPos) {
+            xs.push(attrPos.x - 42);
+            xs.push(attrPos.x + 42);
+            ys.push(attrPos.y - 18);
+            ys.push(attrPos.y + 18);
+          }
+        });
       });
+
+      // Relationships bounds (diamond half-width 40x22)
+      relationships.forEach(rel => {
+        const relKey = `${rel.source}::rel::${rel.target}`;
+        const relPos = nodePositions[relKey];
+        if (relPos) {
+          xs.push(relPos.x - 40);
+          xs.push(relPos.x + 40);
+          ys.push(relPos.y - 22);
+          ys.push(relPos.y + 22);
+        }
+      });
+
       if (xs.length > 0) {
         minX = Math.min(...xs);
         maxX = Math.max(...xs);
@@ -1521,9 +1695,23 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           const wrapper = clonedDoc.getElementById('se-preview-capture-content');
           const inner = clonedDoc.getElementById('se-preview-canvas-inner');
           if (wrapper && inner) {
-            wrapper.style.width = Math.max(1400, bounds.width + 200) + 'px';
-            wrapper.style.height = Math.max(1100, bounds.height + 200) + 'px';
             inner.style.transform = 'none';
+            const reqW = (bounds.width + bounds.x + 100) + 'px';
+            const reqH = (bounds.height + bounds.y + 100) + 'px';
+            wrapper.style.width = reqW;
+            wrapper.style.height = reqH;
+            inner.style.width = reqW;
+            inner.style.height = reqH;
+
+            let parent = wrapper.parentElement;
+            while (parent && parent.tagName !== 'BODY') {
+              parent.style.overflow = 'visible';
+              parent.style.maxHeight = 'none';
+              parent.style.maxWidth = 'none';
+              parent.style.height = 'auto';
+              parent.style.width = 'auto';
+              parent = parent.parentElement;
+            }
           }
         }
       });
@@ -1668,9 +1856,23 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
           const wrapper = clonedDoc.getElementById('se-main-capture-content');
           const inner = clonedDoc.getElementById('se-main-canvas-inner');
           if (wrapper && inner) {
-            wrapper.style.width = Math.max(1400, bounds.width + 200) + 'px';
-            wrapper.style.height = Math.max(1100, bounds.height + 200) + 'px';
             inner.style.transform = 'none';
+            const reqW = (bounds.width + bounds.x + 100) + 'px';
+            const reqH = (bounds.height + bounds.y + 100) + 'px';
+            wrapper.style.width = reqW;
+            wrapper.style.height = reqH;
+            inner.style.width = reqW;
+            inner.style.height = reqH;
+
+            let parent = wrapper.parentElement;
+            while (parent && parent.tagName !== 'BODY') {
+              parent.style.overflow = 'visible';
+              parent.style.maxHeight = 'none';
+              parent.style.maxWidth = 'none';
+              parent.style.height = 'auto';
+              parent.style.width = 'auto';
+              parent = parent.parentElement;
+            }
           }
         }
       });
@@ -1812,16 +2014,17 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
         return;
       }
 
-      const relMatch = trimmed.match(/^RELATIONSHIP\s+([A-Za-z0-9_-]+)\s+(ONE|MANY)\s+TO\s+([A-Za-z0-9_-]+)\s+(ONE|MANY)/i);
+      const relMatch = trimmed.match(/^RELATIONSHIP\s+([A-Za-z0-9_-]+)\s+(ONE|MANY)\s+([A-Za-z0-9_-]+)\s+([A-Za-z0-9_-]+)\s+(ONE|MANY)/i);
       if (relMatch) {
         inAttributes = false;
         currentEntity = null;
+        const relLabel = relMatch[3].toUpperCase() === 'TO' ? '' : relMatch[3];
         relationships.push({
           source: relMatch[1],
           sourceCard: relMatch[2].toUpperCase(),
-          target: relMatch[3],
-          targetCard: relMatch[4].toUpperCase(),
-          label: ''
+          target: relMatch[4],
+          targetCard: relMatch[5].toUpperCase(),
+          label: relLabel
         });
         return;
       }
@@ -1839,6 +2042,33 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     });
 
     return { entities, relationships };
+  }
+
+  function organizeERCode(codeText) {
+    const { entities, relationships } = parseER(codeText);
+    
+    let organizedText = '';
+    
+    // 1. Write Entities
+    entities.forEach((entity) => {
+      organizedText += `ENTITY ${entity.name}\n`;
+      if (entity.fields && entity.fields.length > 0) {
+        organizedText += `ATTRIBUTES\n`;
+        entity.fields.forEach(f => {
+          const keyType = f.key === 'PK' ? ' PRIMARY KEY' : (f.key === 'FK' ? ' FOREIGN KEY' : '');
+          organizedText += `  ${f.name} : ${f.type}${keyType}\n`;
+        });
+      }
+      organizedText += `\n`;
+    });
+    
+    // 2. Write Relationships
+    relationships.forEach(rel => {
+      const relName = rel.label || 'TO';
+      organizedText += `RELATIONSHIP ${rel.source} ${rel.sourceCard} ${relName} ${rel.target} ${rel.targetCard}\n`;
+    });
+    
+    return organizedText.trim();
   }
 
   function parseUseCase(text) {
@@ -1914,6 +2144,197 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     });
 
     return { systemName, actors, usecases, links };
+  }
+
+  function computeERAutoLayout(entities, relationships) {
+    const positions = {};
+    const entityW = 150;
+    const entityH = 50;
+
+    // Helper to calculate maximum radius of attributes for an entity
+    function getEntityRadius(entity) {
+      const numFields = entity.fields ? entity.fields.length : 0;
+      if (numFields === 0) return 40; // minimum radius
+      
+      let currentFieldIdx = 0;
+      let layerIndex = 0;
+      while (currentFieldIdx < numFields) {
+        const R = 120 + layerIndex * 90;
+        const maxInLayer = Math.floor((2 * Math.PI * R) / 95);
+        const countInThisLayer = Math.min(maxInLayer, numFields - currentFieldIdx);
+        currentFieldIdx += countInThisLayer;
+        layerIndex++;
+      }
+      return 120 + (layerIndex - 1) * 90 + 50; // radius plus padding
+    }
+
+    // Precalculate radii
+    const radii = {};
+    entities.forEach(ent => {
+      radii[ent.name] = getEntityRadius(ent);
+    });
+    
+    // 1. Initialize positions in a larger circle to prevent initial overlapping
+    const N = entities.length;
+    entities.forEach((entity, idx) => {
+      const angle = (2 * Math.PI * idx) / Math.max(1, N);
+      const R = 600; // Increased starting radius
+      positions[entity.name] = {
+        x: 800 + R * Math.cos(angle),
+        y: 800 + R * Math.sin(angle)
+      };
+    });
+
+    // 2. Build connection list
+    const adj = {};
+    entities.forEach(ent => adj[ent.name] = []);
+    relationships.forEach(rel => {
+      if (adj[rel.source] && adj[rel.target]) {
+        adj[rel.source].push(rel.target);
+        adj[rel.target].push(rel.source);
+      }
+    });
+
+    // 3. Force-directed iterations
+    const iterations = 150; // Increased iterations for stability
+    const repScale = 300000; // Increased repulsion scale
+    const attScale = 0.08;
+
+    for (let iter = 0; iter < iterations; iter++) {
+      const dx = {};
+      const dy = {};
+      entities.forEach(e => {
+        dx[e.name] = 0;
+        dy[e.name] = 0;
+      });
+
+      // Calculate repulsive forces between all pairs of nodes
+      for (let i = 0; i < N; i++) {
+        for (let j = i + 1; j < N; j++) {
+          const u = entities[i].name;
+          const v = entities[j].name;
+          const xDist = positions[u].x - positions[v].x;
+          const yDist = positions[u].y - positions[v].y;
+          const dist = Math.sqrt(xDist * xDist + yDist * yDist) + 1;
+
+          const minDist = radii[u] + radii[v] + 60; // Minimum safe distance based on attributes
+          if (dist < minDist) {
+            // Apply extremely strong push if overlapping boundaries
+            const force = (repScale * 3) * (minDist - dist) / dist;
+            const fx = (xDist / dist) * force;
+            const fy = (yDist / dist) * force;
+            dx[u] += fx;
+            dy[u] += fy;
+            dx[v] -= fx;
+            dy[v] -= fy;
+          } else {
+            const force = repScale / (dist * dist);
+            const fx = (xDist / dist) * force;
+            const fy = (yDist / dist) * force;
+            dx[u] += fx;
+            dy[u] += fy;
+            dx[v] -= fx;
+            dy[v] -= fy;
+          }
+        }
+      }
+
+      // Calculate attractive forces along relationships
+      relationships.forEach(rel => {
+        const u = rel.source;
+        const v = rel.target;
+        if (!positions[u] || !positions[v]) return;
+        const xDist = positions[u].x - positions[v].x;
+        const yDist = positions[u].y - positions[v].y;
+        const dist = Math.sqrt(xDist * xDist + yDist * yDist) + 1;
+
+        const k = radii[u] + radii[v] + 80; // Ideal distance based on entity sizes
+        const force = (dist - k) * attScale;
+        const fx = (xDist / dist) * force;
+        const fy = (yDist / dist) * force;
+
+        dx[u] -= fx;
+        dy[u] -= fy;
+        dx[v] += fx;
+        dy[v] += fy;
+      });
+
+      // Update positions with cooling temperature
+      const temp = Math.max(1, 20 * (1 - iter / iterations));
+      entities.forEach(e => {
+        const name = e.name;
+        const dispX = Math.max(-temp * 15, Math.min(temp * 15, dx[name]));
+        const dispY = Math.max(-temp * 15, Math.min(temp * 15, dy[name]));
+        
+        positions[name].x += dispX;
+        positions[name].y += dispY;
+      });
+    }
+
+    // 4. Shift and normalize coordinates to fit beautifully on the canvas starting at (200, 200)
+    let minX = Infinity;
+    let minY = Infinity;
+    entities.forEach(e => {
+      if (positions[e.name].x < minX) minX = positions[e.name].x;
+      if (positions[e.name].y < minY) minY = positions[e.name].y;
+    });
+
+    const shiftX = 200 - minX;
+    const shiftY = 200 - minY;
+
+    entities.forEach(e => {
+      positions[e.name].x += shiftX;
+      positions[e.name].y += shiftY;
+    });
+
+    // 5. Layout the attributes radially around each entity card
+    entities.forEach(entity => {
+      const coord = positions[entity.name];
+      const cx = coord.x + entityW / 2;
+      const cy = coord.y + entityH / 2;
+      const fields = entity.fields || [];
+      const numFields = fields.length;
+      
+      let currentFieldIdx = 0;
+      let layerIndex = 0;
+      
+      while (currentFieldIdx < numFields) {
+        const R = 120 + layerIndex * 90;
+        const maxInLayer = Math.floor((2 * Math.PI * R) / 95);
+        const countInThisLayer = Math.min(maxInLayer, numFields - currentFieldIdx);
+        
+        for (let j = 0; j < countInThisLayer; j++) {
+          const f = fields[currentFieldIdx + j];
+          const attrKey = `${entity.name}::attr::${f.name}`;
+          const startAngle = -Math.PI / 2 + (layerIndex * Math.PI / 6);
+          const angle = startAngle + (2 * Math.PI * j) / countInThisLayer;
+          positions[attrKey] = {
+            x: cx + R * Math.cos(angle),
+            y: cy + R * Math.sin(angle)
+          };
+        }
+        currentFieldIdx += countInThisLayer;
+        layerIndex++;
+      }
+    });
+
+    // 6. Layout relationship diamonds at the midpoints
+    relationships.forEach(rel => {
+      const relKey = `${rel.source}::rel::${rel.target}`;
+      const start = positions[rel.source] || { x: 200, y: 200 };
+      const end = positions[rel.target] || { x: 200, y: 200 };
+      const cx1 = start.x + entityW / 2;
+      const cy1 = start.y + entityH / 2;
+      const cx2 = end.x + entityW / 2;
+      const cy2 = end.y + entityH / 2;
+
+      positions[relKey] = {
+        x: (cx1 + cx2) / 2,
+        y: (cy1 + cy2) / 2
+      };
+    });
+
+    return positions;
   }
 
   /**
@@ -2755,56 +3176,246 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
     return `M ${start.x} ${start.y} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${end.x} ${end.y}`;
   };
 
-  // Render ER Diagram relationships
+  // Context-aware relationship labels matching standard models
+  const getRelationshipLabel = (source, target) => {
+    const s = source.toLowerCase();
+    const t = target.toLowerCase();
+    if ((s === 'student' && t === 'enrollment') || (s === 'enrollment' && t === 'student')) return 'Enrolls';
+    if ((s === 'course' && t === 'enrollment') || (s === 'enrollment' && t === 'course')) return 'Has';
+    if ((s === 'instructor' && t === 'course') || (s === 'course' && t === 'instructor')) return 'Teaches';
+    if ((s === 'user' && t === 'profile') || (s === 'profile' && t === 'user')) return 'Has';
+    if ((s === 'customer' && t === 'order') || (s === 'order' && t === 'customer')) return 'Orders';
+    if ((s === 'order' && t === 'item') || (s === 'item' && t === 'order')) return 'Contains';
+    return 'Related';
+  };
+
+  // Render ER Diagram relationships & attributes in Chen Notation
   const renderERDiagram = () => {
     const { entities, relationships } = parseER(code);
+    const entityW = 150;
+    const entityH = 50;
 
-    const getEntityHeight = (name) => {
-      const ent = entities.find(e => e.name === name);
-      const fieldsCount = ent?.fields?.length || 0;
-      return 38 + 12 + fieldsCount * 28 + 8;
-    };
+    // Compute all node coordinates first
+    const computedAttributes = [];
+    entities.forEach((entity, entIdx) => {
+      const coord = nodePositions[entity.name] || { x: (entIdx % 3) * 450 + 200, y: Math.floor(entIdx / 3) * 360 + 200 };
+      const cx = coord.x + entityW / 2;
+      const cy = coord.y + entityH / 2;
+      const fields = entity.fields || [];
+      const numFields = fields.length;
+      
+      // Calculate concentric default positions to prevent overlaps
+      let currentFieldIdx = 0;
+      let layerIndex = 0;
+      const defaultPositions = {};
+      
+      while (currentFieldIdx < numFields) {
+        const R = 120 + layerIndex * 90;
+        const maxInLayer = Math.floor((2 * Math.PI * R) / 95);
+        const countInThisLayer = Math.min(maxInLayer, numFields - currentFieldIdx);
+        
+        for (let j = 0; j < countInThisLayer; j++) {
+          const f = fields[currentFieldIdx + j];
+          const startAngle = -Math.PI / 2 + (layerIndex * Math.PI / 6);
+          const angle = startAngle + (2 * Math.PI * j) / countInThisLayer;
+          defaultPositions[f.name] = {
+            x: cx + R * Math.cos(angle),
+            y: cy + R * Math.sin(angle)
+          };
+        }
+        currentFieldIdx += countInThisLayer;
+        layerIndex++;
+      }
+
+      fields.forEach((f, fIdx) => {
+        const attrKey = `${entity.name}::attr::${f.name}`;
+        const defPos = defaultPositions[f.name] || { x: cx, y: cy };
+        const attrX = nodePositions[attrKey]?.x ?? defPos.x;
+        const attrY = nodePositions[attrKey]?.y ?? defPos.y;
+
+        computedAttributes.push({
+          entityName: entity.name,
+          fieldName: f.name,
+          key: attrKey,
+          cx,
+          cy,
+          attrX,
+          attrY,
+          isPK: f.key === 'PK',
+          fIdx
+        });
+      });
+    });
+
+    const computedRelationships = [];
+    relationships.forEach((rel, idx) => {
+      const start = nodePositions[rel.source] || { x: 80, y: 80 };
+      const end = nodePositions[rel.target] || { x: 320, y: 80 };
+
+      const cx1 = start.x + entityW / 2;
+      const cy1 = start.y + entityH / 2;
+      const cx2 = end.x + entityW / 2;
+      const cy2 = end.y + entityH / 2;
+
+      const defaultMx = (cx1 + cx2) / 2;
+      const defaultMy = (cy1 + cy2) / 2;
+
+      const relKey = `${rel.source}::rel::${rel.target}`;
+      const mx = nodePositions[relKey]?.x ?? defaultMx;
+      const my = nodePositions[relKey]?.y ?? defaultMy;
+
+      const pts1 = getBestConnectionPoints(start, { x: mx, y: my }, entityW, entityH, 0, 0);
+      const pts2 = getBestConnectionPoints({ x: mx, y: my }, end, 0, 0, entityW, entityH);
+
+      const markerStart = rel.sourceCard === 'MANY' ? 'url(#crow-foot-many)' : 'url(#crow-foot-one)';
+      const markerEnd = rel.targetCard === 'MANY' ? 'url(#crow-foot-many)' : 'url(#crow-foot-one)';
+
+      const label = rel.label || getRelationshipLabel(rel.source, rel.target);
+
+      computedRelationships.push({
+        source: rel.source,
+        target: rel.target,
+        key: relKey,
+        mx,
+        my,
+        pts1,
+        pts2,
+        markerStart,
+        markerEnd,
+        label,
+        idx
+      });
+    });
 
     return (
       <>
-        {relationships.map((rel, idx) => {
-          const start = nodePositions[rel.source];
-          const end = nodePositions[rel.target];
-          if (!start || !end) return null;
+        {/* Pass 1: Draw ALL connector lines underneath */}
+        <g id="er-connector-lines">
+          {/* Attribute lines */}
+          {computedAttributes.map((attr, idx) => (
+            <line
+              key={`attr-line-${idx}`}
+              x1={attr.cx}
+              y1={attr.cy}
+              x2={attr.attrX}
+              y2={attr.attrY}
+              stroke="var(--text-disabled)"
+              strokeWidth="1.5"
+              strokeDasharray="3,3"
+              style={{ pointerEvents: 'none' }}
+            />
+          ))}
 
-          const h1 = getEntityHeight(rel.source);
-          const h2 = getEntityHeight(rel.target);
-          const pts = getBestConnectionPoints(start, end, 250, h1, 250, h2, relationships, rel);
-          const path = getBezierPath(pts.start, pts.end);
-
-          const markerStart = rel.sourceCard === 'MANY' ? 'url(#crow-foot-many)' : 'url(#crow-foot-one)';
-          const markerEnd = rel.targetCard === 'MANY' ? 'url(#crow-foot-many)' : 'url(#crow-foot-one)';
-
-          return (
-            <g key={idx}>
+          {/* Relationship lines */}
+          {computedRelationships.map((rel, idx) => (
+            <g key={`rel-lines-${idx}`}>
               <path
-                d={path}
+                d={`M ${rel.pts1.start.x} ${rel.pts1.start.y} L ${rel.mx} ${rel.my}`}
                 stroke="var(--primary-main)"
                 strokeWidth="2"
                 fill="none"
-                opacity="0.8"
-                markerStart={markerStart}
-                markerEnd={markerEnd}
+                opacity="0.85"
+                markerStart={rel.markerStart}
+                style={{ pointerEvents: 'none' }}
               />
-              <circle cx={(pts.start.x + pts.end.x) / 2} cy={(pts.start.y + pts.end.y) / 2} r="14" fill="#1e1e38" stroke="rgba(255,255,255,0.1)" />
+              <path
+                d={`M ${rel.mx} ${rel.my} L ${rel.pts2.end.x} ${rel.pts2.end.y}`}
+                stroke="var(--primary-main)"
+                strokeWidth="2"
+                fill="none"
+                opacity="0.85"
+                markerEnd={rel.markerEnd}
+                style={{ pointerEvents: 'none' }}
+              />
+            </g>
+          ))}
+        </g>
+
+        {/* Pass 2: Draw ALL shape components (ovals & diamonds) on top */}
+        <g id="er-shape-components">
+          {/* Attribute ovals */}
+          {computedAttributes.map((attr, idx) => (
+            <g
+              key={`attr-shape-${idx}`}
+              opacity="0.9"
+              style={{ pointerEvents: 'auto', cursor: draggingNode === attr.key ? 'grabbing' : 'grab' }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                setDraggingNode(attr.key);
+                dragStartOffset.current = {
+                  x: e.clientX / zoomScale - attr.attrX,
+                  y: e.clientY / zoomScale - attr.attrY
+                };
+              }}
+            >
+              <ellipse
+                cx={attr.attrX}
+                cy={attr.attrY}
+                rx="42"
+                ry="18"
+                fill="var(--background-paper)"
+                stroke="var(--primary-main)"
+                strokeWidth="1.5"
+              />
               <text
-                x={(pts.start.x + pts.end.x) / 2}
-                y={(pts.start.y + pts.end.y) / 2 + 4}
-                fill="#ffffff"
-                fontSize="9"
-                fontWeight="bold"
+                x={attr.attrX}
+                y={attr.isPK ? attr.attrY - 1 : attr.attrY + 3}
                 textAnchor="middle"
+                fontSize="9.5"
+                fill="var(--text-primary)"
+                fontWeight={attr.isPK ? 'bold' : 'normal'}
+                style={{ pointerEvents: 'none', fontFamily: 'Outfit, sans-serif' }}
               >
-                {rel.sourceCard === 'MANY' ? 'M' : '1'}:{rel.targetCard === 'MANY' ? 'N' : '1'}
+                {attr.fieldName}
+              </text>
+              {attr.isPK && (
+                <line
+                  x1={attr.attrX - 22}
+                  y1={attr.attrY + 4}
+                  x2={attr.attrX + 22}
+                  y2={attr.attrY + 4}
+                  stroke="var(--text-primary)"
+                  strokeWidth="1"
+                  style={{ pointerEvents: 'none' }}
+                />
+              )}
+            </g>
+          ))}
+
+          {/* Relationship diamonds */}
+          {computedRelationships.map((rel, idx) => (
+            <g
+              key={`rel-shape-${idx}`}
+              style={{ pointerEvents: 'auto', cursor: draggingNode === rel.key ? 'grabbing' : 'grab' }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                setDraggingNode(rel.key);
+                dragStartOffset.current = {
+                  x: e.clientX / zoomScale - rel.mx,
+                  y: e.clientY / zoomScale - rel.my
+                };
+              }}
+            >
+              <polygon
+                points={`${rel.mx},${rel.my - 22} ${rel.mx + 40},${rel.my} ${rel.mx},${rel.my + 22} ${rel.mx - 40},${rel.my}`}
+                fill="var(--background-paper)"
+                stroke="var(--primary-dark)"
+                strokeWidth="2"
+              />
+              <text
+                x={rel.mx}
+                y={rel.my + 3}
+                fill="var(--primary-main)"
+                fontSize="9"
+                fontWeight="800"
+                textAnchor="middle"
+                style={{ pointerEvents: 'none', fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+              >
+                {rel.label}
               </text>
             </g>
-          );
-        })}
+          ))}
+        </g>
       </>
     );
   };
@@ -3466,8 +4077,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               flexGrow: 1,
               borderRadius: '12px',
               overflow: 'hidden',
-              border: activeTabKey === 'gantt' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.05)',
-              background: activeTabKey === 'gantt' ? 'transparent' : '#1e1e1e',
+              border: activeTabKey === 'gantt' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid var(--divider)',
+              background: activeTabKey === 'gantt' ? 'transparent' : (isDarkMode ? '#1e1e1e' : '#ffffff'),
               height: 'calc(100% - 30px)',
               position: 'relative'
             }}>
@@ -3484,7 +4095,7 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
               <Editor
                 height="100%"
                 language="markdown"
-                theme="vs-dark"
+                theme={isDarkMode ? "vs-dark" : "vs"}
                 value={editorCode}
                 onChange={(val) => setCode(val || '')}
                 options={{
@@ -3590,15 +4201,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                         variant="outlined"
                         size="small"
                         onClick={() => {
-                          const { entities } = parseER(code);
-                          const autoPositions = {};
-                          entities.forEach((entity, idx) => {
-                            autoPositions[entity.name] = {
-                              x: (idx % 3) * 320 + 80,
-                              y: Math.floor(idx / 3) * 260 + 80
-                            };
-                          });
-                          setNodePositions(prev => ({ ...prev, ...autoPositions }));
+                          const { entities, relationships } = parseER(code);
+                          const autoPositions = computeERAutoLayout(entities, relationships);
+                          setNodePositions(autoPositions);
                         }}
                         style={{
                           marginRight: '8px',
@@ -3792,9 +4397,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     {activeTabKey === 'sequence' && renderSequenceDiagram()}
                     {activeTabKey === 'gantt' && renderGanttChart()}
 
-                    {/* DRAGGABLE NODE CARDS OVERLAY (HTML sibings for ER and Use Case) */}
+                    {/* DRAGGABLE NODE CARDS OVERLAY (HTML siblings for ER and Use Case) */}
                     {activeTabKey === 'er' && parseER(code).entities.map((entity, idx) => {
-                      const coord = nodePositions[entity.name] || { x: (idx % 3) * 320 + 80, y: Math.floor(idx / 3) * 260 + 80 };
+                      const coord = nodePositions[entity.name] || { x: (idx % 3) * 450 + 200, y: Math.floor(idx / 3) * 360 + 200 };
                       const isPendingSource = pendingRelationSource === entity.name;
                       const isCandidateTarget = pendingRelationSource && pendingRelationSource !== entity.name;
                       return (
@@ -3811,7 +4416,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             position: 'absolute',
                             left: `${coord.x}px`,
                             top: `${coord.y}px`,
-                            width: '250px',
+                            width: '150px',
+                            height: '50px',
                             background: 'var(--background-paper)',
                             border: isPendingSource ? '2px solid #00FFCC' : '2px solid var(--primary-main)',
                             borderRadius: '12px',
@@ -3822,46 +4428,6 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             transition: 'border 0.2s ease'
                           }}
                         >
-                          {/* Connection Dot */}
-                          <div
-                            className="relation-dot"
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              handleRelationDotClick(entity.name);
-                            }}
-                            title={isPendingSource ? "Cancel Connection" : "Start Connection"}
-                            style={{
-                              position: 'absolute',
-                              right: '-10px',
-                              top: 'calc(50% - 10px)',
-                              width: '20px',
-                              height: '20px',
-                              borderRadius: '50%',
-                              backgroundColor: isPendingSource ? '#00FFCC' : 'var(--primary-main)',
-                              border: '3px solid var(--background-paper)',
-                              cursor: 'pointer',
-                              zIndex: 15,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              
-                              transition: 'all 0.2s ease',
-                              transform: isPendingSource ? 'scale(1.2)' : 'scale(1)'}}
-                          >
-                            <div
-                              style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                backgroundColor: '#fff'}}
-                            />
-                          </div>
-
                           <div
                             onMouseDown={(e) => {
                               if (e.target.closest('button') || e.target.closest('.relation-dot')) return;
@@ -3873,30 +4439,23 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             }}
                             style={{
                               background: 'var(--primary-main)',
-                              padding: '8px 12px',
+                              padding: '12px 8px',
                               fontWeight: '800',
                               fontSize: '0.95rem',
                               letterSpacing: '0.5px',
                               color: '#fff',
-                              borderBottom: '1px solid var(--divider)',
                               cursor: draggingNode === entity.name ? 'grabbing' : 'grab',
-                              borderTopLeftRadius: '10px',
-                              borderTopRightRadius: '10px',
-                              userSelect: 'none'
+                              borderRadius: '10px',
+                              userSelect: 'none',
+                              textAlign: 'center',
+                              height: '100%',
+                              boxSizing: 'border-box',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
                             }}
                           >
-                            🔑 {entity.name}
-                          </div>
-                          <div style={{ padding: '10px', maxHeight: '160px', overflowY: 'auto' }}>
-                            {entity.fields.map((f, fIdx) => (
-                              <div key={fIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '4px 0', borderBottom: '1px solid var(--divider)' }}>
-                                <span>
-                                  <span style={{ color: 'var(--primary-main)', marginRight: '6px' }}>{f.type}</span>
-                                  <span style={{ fontWeight: 600 }}>{f.name}</span>
-                                </span>
-                                {f.key && <span style={{ color: 'var(--text-secondary)', fontWeight: 'bold', fontSize: '0.75rem' }}>{f.key}</span>}
-                              </div>
-                            ))}
+                            {entity.name}
                           </div>
                         </div>
                       );
@@ -4380,9 +4939,9 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                     {activeTabKey === 'sequence' && renderSequenceDiagram()}
                     {activeTabKey === 'gantt' && renderGanttChart()}
 
-                    {/* DRAGGABLE NODE CARDS OVERLAY (HTML sibings for ER and Use Case) */}
+                    {/* DRAGGABLE NODE CARDS OVERLAY (HTML siblings for ER and Use Case) */}
                     {activeTabKey === 'er' && parseER(code).entities.map((entity, idx) => {
-                      const coord = nodePositions[entity.name] || { x: (idx % 3) * 320 + 80, y: Math.floor(idx / 3) * 260 + 80 };
+                      const coord = nodePositions[entity.name] || { x: (idx % 3) * 450 + 200, y: Math.floor(idx / 3) * 360 + 200 };
                       return (
                         <div
                           key={idx}
@@ -4391,39 +4950,34 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             position: 'absolute',
                             left: `${coord.x}px`,
                             top: `${coord.y}px`,
-                            width: '250px',
+                            width: '150px',
+                            height: '50px',
                             background: 'var(--background-paper)',
                             border: '2px solid var(--primary-main)',
                             borderRadius: '12px',
                             color: 'var(--text-primary)',
-                            fontFamily: 'Outfit, sans-serif'}}
+                            fontFamily: 'Outfit, sans-serif',
+                            zIndex: 3}}
                         >
                           <div
                             style={{
                               background: 'var(--primary-main)',
-                              padding: '8px 12px',
+                              padding: '12px 8px',
                               fontWeight: '800',
                               fontSize: '0.95rem',
                               letterSpacing: '0.5px',
                               color: '#fff',
-                              borderBottom: '1px solid var(--divider)',
-                              borderTopLeftRadius: '10px',
-                              borderTopRightRadius: '10px',
-                              userSelect: 'none'
+                              borderRadius: '10px',
+                              userSelect: 'none',
+                              textAlign: 'center',
+                              height: '100%',
+                              boxSizing: 'border-box',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
                             }}
                           >
-                            🔑 {entity.name}
-                          </div>
-                          <div style={{ padding: '10px', maxHeight: '160px', overflowY: 'auto' }}>
-                            {entity.fields.map((f, fIdx) => (
-                              <div key={fIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '4px 0', borderBottom: '1px solid var(--divider)' }}>
-                                <span>
-                                  <span style={{ color: 'var(--primary-main)', marginRight: '6px' }}>{f.type}</span>
-                                  <span style={{ fontWeight: 600 }}>{f.name}</span>
-                                </span>
-                                {f.key && <span style={{ color: 'var(--text-secondary)', fontWeight: 'bold', fontSize: '0.75rem' }}>{f.key}</span>}
-                              </div>
-                            ))}
+                            {entity.name}
                           </div>
                         </div>
                       );
@@ -4442,7 +4996,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
-                            userSelect: 'none'
+                            userSelect: 'none',
+                            zIndex: 3
                           }}
                         >
                           <svg width="60" height="100" viewBox="-30 -50 60 100" style={{ overflow: 'visible' }}>
@@ -4480,7 +5035,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
                             justifyContent: 'center',
                             padding: '0 10px',
                             textAlign: 'center',
-                            userSelect: 'none'
+                            userSelect: 'none',
+                            zIndex: 3
                           }}
                         >
                           <span style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: 0, padding: 0, lineHeight: 1.2, textAlign: 'center' }}>

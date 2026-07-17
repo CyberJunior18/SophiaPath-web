@@ -99,7 +99,7 @@
 }
 
 .chat-list-item-new {
-  padding: 1rem 1.5rem !important;
+  padding: 1rem 3.5rem 1rem 1.5rem !important;
   border-radius: 20px !important;
   margin: 0.25rem 1rem !important;
   transition: all 0.25s ease !important;
@@ -114,17 +114,24 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
 }
 
 .chat-item-name {
   font-weight: 800 !important;
   font-size: 1.05rem !important;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 1rem;
+  flex: 1;
 }
 
 .chat-item-time {
   color: var(--text-disabled);
   font-size: 0.75rem !important;
+  flex-shrink: 0;
 }
 
 .chat-item-preview {
@@ -138,6 +145,11 @@
   height: 52px !important;
   border: 2px solid transparent;
   transition: all 0.3s ease;
+}
+
+.chat-list-item-new .MuiListItemAvatar-root {
+  min-width: auto !important;
+  margin-right: 0.75rem !important;
 }
 
 .chat-list-item-new:hover .chat-avatar {
