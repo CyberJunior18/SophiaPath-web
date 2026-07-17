@@ -1085,7 +1085,7 @@ const LearningPathPage = () => {
                           flexDirection: 'column',
                           alignItems: 'center',
                           gap: '8px',
-                          width: '400px',
+                          width: '330px',
                           boxSizing: 'border-box',
                           transition: 'all 0.3s ease-in-out'
                         };
