@@ -35,7 +35,24 @@ import { ArrowOutward as ArrowOutwardIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { coursesData } from '../data/courses';
 import './LearningPage.css';
-import philosophyLogo from '../assets/philosophy.jpg';
+
+import computerScienceIcon from '../assets/courses/computerScience.png';
+import cybersecurityIcon from '../assets/courses/cybersecurity.png';
+import philosophyCourseIcon from '../assets/courses/philosophy.png';
+
+const getCourseImage = (title) => {
+  const t = (title || '').toLowerCase();
+  if (t.includes('cyber') || t.includes('security')) {
+    return cybersecurityIcon;
+  }
+  if (t.includes('philosoph')) {
+    return philosophyCourseIcon;
+  }
+  if (t.includes('computer') || t.includes('science') || t.includes('c++') || t.includes('programming') || t.includes('oop')) {
+    return computerScienceIcon;
+  }
+  return computerScienceIcon; // Default fallback
+};
 
 const getCourseDomain = (title) => {
   const t = title.toLowerCase();
@@ -451,45 +468,39 @@ const LearningPage = () => {
                     </IconButton>
                   )}
 
-                  <div className="learning-course-header">
-                    <div className={`learning-course-icon-wrapper learning-course-icon ${isPhilosophy ? 'philosophy-icon' : ''}`}>
-                      {getCourseIcon(course.title)}
-                    </div>
-                    <div className="cyber-badge">{course.domain}</div>
-                  </div>
-                  
-                  <Typography variant="h5" className="learning-course-title">
-                    {course.title}
-                  </Typography>
-                  <Typography variant="body2" className="learning-course-description">
-                    {course.description}
-                  </Typography>
+                  <img
+                    src={getCourseImage(course.title)}
+                    alt=""
+                    className={`learning-course-card-bg ${
+                      (course.title || '').toLowerCase().includes('science') || (course.title || '').toLowerCase().includes('computer') || (course.title || '').toLowerCase().includes('c++') ? 'cs-icon-bg' :
+                      (course.title || '').toLowerCase().includes('philosoph') ? 'philosophy-icon-bg' : ''
+                    }`}
+                  />
 
-                  <div className="learning-course-tags">
-                    <Chip label={`${totalLessons} lessons`} className="learning-course-tag" />
-                    {isRegistered && <Chip label="Registered" className="learning-course-tag is-success" />}
-                  </div>
+                  <div className="learning-course-content-box">
+                    <Typography variant="h5" className="learning-course-title">
+                      {course.title}
+                    </Typography>
 
-                  <div className="learning-course-footer">
-                    {isRegistered ? (
-                      <div className="learning-course-progress">
-                        <div className="learning-course-progress-head">
-                          <span>Progress:</span>
-                          <span>{Math.round(progress)}%</span>
+                    <div className="learning-course-footer">
+                      {isRegistered ? (
+                        <div className="learning-course-progress">
+                          <LinearProgress
+                            variant="determinate"
+                            value={progress}
+                            className="learning-course-progress-bar"
+                          />
+                          <span className="learning-course-progress-text">
+                            {Math.round(progress)}%
+                          </span>
                         </div>
-                        <LinearProgress
-                          variant="determinate"
-                          value={progress}
-                          className="learning-course-progress-bar"
-                        />
-                      </div>
-                    ) : (
-                      <div className="learning-course-cta">
-                        <span>Start learning</span>
-                        <PlayArrowIcon fontSize="small" />
-                      </div>
-                    )}
-                    <ArrowOutwardIcon className="learning-course-arrow" />
+                      ) : (
+                        <div className="learning-course-cta">
+                          <span>Start learning</span>
+                          <PlayArrowIcon fontSize="small" />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </Paper>
               );

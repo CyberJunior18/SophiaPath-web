@@ -102,19 +102,29 @@
 
 .path-node-caption-title {
   position: absolute;
-  top: 5.5rem;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 6.5rem;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 0.85rem;
   font-weight: 800;
-  text-align: center;
+  text-align: left;
   color: var(--text-primary);
-  width: 140px;
+  width: 160px;
   line-height: 1.35;
   font-family: 'Outfit', sans-serif;
   transition: color 0.2s ease, opacity 0.2s ease;
   white-space: normal;
   word-wrap: break-word;
+}
+
+@media (max-width: 599px) {
+  .path-node-caption-title {
+    left: 50%;
+    top: 5.5rem;
+    transform: translateX(-50%);
+    text-align: center;
+    width: 140px;
+  }
 }
 
 .path-node-caption-title.status-upcoming {

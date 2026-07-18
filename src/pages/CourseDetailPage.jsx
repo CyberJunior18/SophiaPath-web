@@ -109,7 +109,9 @@ const CourseDetailPage = () => {
                     category: les.category || 'learning',
                     chapterName: les.chapterName || '',
                     title: les.title || 'Untitled Lesson',
-                    orderIndex: les.orderIndex || 0});
+                    orderIndex: les.orderIndex || 0,
+                    pages: les.pages || []
+                  });
                 }
               });
 
@@ -290,21 +292,37 @@ const CourseDetailPage = () => {
               <br></br>
               <div className="course-section-list">
                 {course.sections?.map((section, index) => {
-                  const lessonCount = section.lessons?.length || 0;
                   const isExpanded = expandedSection === section.id;
+
+                  let lessonsCount = 0;
+                  let exercisesCount = 0;
+                  (section.lessons || []).forEach(l => {
+                    if (l.category === 'learning' || !l.category) {
+                      lessonsCount++;
+                    } else {
+                      const pagesLength = Array.isArray(l.pages) ? l.pages.length : 0;
+                      exercisesCount += Math.max(pagesLength, 1);
+                    }
+                  });
+
+                  const isComingSoon = lessonsCount === 0;
 
                   return (
                     <div
                       key={section.id}
-                      className="course-section-item"
+                      className={`course-section-item ${isComingSoon ? 'coming-soon-section' : ''}`}
                       style={{ flexDirection: 'column', alignItems: 'stretch', padding: 0, overflow: 'hidden' }}
                     >
                       {/* Section Header (Clickable) */}
                       <div
-                        onClick={() => handleToggleSection(section.id)}
-                        style={{ display: 'flex', alignItems: 'center', padding: '1.75rem 2rem', cursor: 'pointer', width: '100%', boxSizing: 'border-box' }}
+                        onClick={() => {
+                          if (!isComingSoon) {
+                            handleToggleSection(section.id);
+                          }
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', padding: '1.75rem 2rem', cursor: isComingSoon ? 'not-allowed' : 'pointer', width: '100%', boxSizing: 'border-box' }}
                       >
-                        <div style={{ width: '4.5rem', height: '4.5rem', marginRight: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <div style={{ width: '4.5rem', height: '4.5rem', marginRight: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: isComingSoon ? 0.5 : 1 }}>
                           {(() => {
                             const iconPath = section.iconUrl || section.icon || getSectionIcon(section.title);
                             if (iconPath) {
@@ -314,16 +332,34 @@ const CourseDetailPage = () => {
                           })()}
                         </div>
                         <div className="course-section-content">
-                          <Typography className="course-section-title">
+                          <Typography className="course-section-title" style={{ opacity: isComingSoon ? 0.7 : 1 }}>
                             {section.title}
                           </Typography>
-                           <div className="course-section-meta">
-                             <span className="course-section-meta-label">{lessonCount} Lessons</span>
+                           <div className="course-section-meta" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                             {isComingSoon ? (
+                               <span className="course-section-meta-label" style={{ color: 'var(--text-disabled)', fontWeight: 800 }}>Coming Soon</span>
+                             ) : (
+                               <>
+                                 <span className="course-section-meta-label">{lessonsCount} Lessons</span>
+                                 {exercisesCount > 0 && (
+                                   <>
+                                     <span style={{ color: 'var(--text-disabled)', fontSize: '0.65rem', opacity: 0.7 }}>•</span>
+                                     <span className="course-section-meta-label" style={{ color: '#c084fc' }}>{exercisesCount} Exercises</span>
+                                   </>
+                                 )}
+                               </>
+                             )}
                            </div>
                         </div>
                         <div className="course-section-action" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                           <div style={{ color: 'var(--text-secondary)' }}>
-                            {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                            {isComingSoon ? (
+                              <TimeIcon style={{ fontSize: '1.35rem', color: 'var(--text-disabled)' }} />
+                            ) : isExpanded ? (
+                              <ExpandLessIcon />
+                            ) : (
+                              <ExpandMoreIcon />
+                            )}
                           </div>
                         </div>
                       </div>

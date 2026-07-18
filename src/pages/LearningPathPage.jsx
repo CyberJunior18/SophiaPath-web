@@ -41,7 +41,8 @@ import {
   Code as CodeIcon,
   Class as ClassIcon,
   Schema as SchemaIcon,
-  Psychology as PsychologyIcon
+  Psychology as PsychologyIcon,
+  InfoOutlined as InfoOutlinedIcon
 } from '@mui/icons-material';
 
 import IntroToCybersecurityIcon from '../assets/IntroToCybersecurity.png';
@@ -107,6 +108,7 @@ const LearningPathPage = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
 
   // FAB scrolling states
   const [showScrollArrow, setShowScrollArrow] = useState(false);
@@ -429,7 +431,7 @@ const LearningPathPage = () => {
         }
       }
 
-      currentY += index === 0 ? 190 : (isNewChapter ? 360 : 150);
+      currentY += index === 0 ? 220 : (isNewChapter ? 250 : 150);
 
       const x = index % 2 === 0 ? 45 : 255; // Larger horizontal zigzag within 300px visual container
       const y = currentY;
@@ -681,6 +683,14 @@ const LearningPathPage = () => {
     );
   };
 
+  const nextActiveNode = useMemo(() => {
+    if (location.state?.targetLessonId) {
+      const matchedNode = nodes.find(n => Number(n.id) === Number(location.state.targetLessonId));
+      if (matchedNode) return matchedNode;
+    }
+    return nodes.find(n => n.status === 'active') || nodes[nodes.length - 1];
+  }, [nodes, location.state]);
+
   if (courseLoading) {
     return (
       <div className="course-not-found" style={{ display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -733,19 +743,14 @@ const LearningPathPage = () => {
     }
   };
 
-  const nextActiveNode = useMemo(() => {
-    if (location.state?.targetLessonId) {
-      const matchedNode = nodes.find(n => Number(n.id) === Number(location.state.targetLessonId));
-      if (matchedNode) return matchedNode;
-    }
-    return nodes.find(n => n.status === 'active') || nodes[nodes.length - 1];
-  }, [nodes, location.state]);
+
 
   return (
     <Box className="path-page">
       <Container maxWidth="xl" sx={{ maxWidth: '1300px !important' }}>
 
-        <Box className="path-header-sticky">
+        <Box sx={{ maxWidth: '980px', margin: '0 auto', width: '100%' }}>
+          <Box className="path-header-sticky">
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <IconButton
@@ -897,125 +902,48 @@ const LearningPathPage = () => {
           </Tabs>
         </Box>
 
-        {!activeSection?.isUnlocked && (
-          <Alert severity="warning" sx={{ mb: 4, borderRadius: 3 }}>
-            Complete the previous section to unlock this path.
-          </Alert>
-        )}
-
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            alignItems: { xs: 'center', md: 'flex-start' },
-            justifyContent: 'center',
-            gap: { xs: 4, md: 6 },
-            width: '100%',
-            position: 'relative'
-          }}
-        >
-          {/* Left Side: Section Info Card */}
-          {nodes.length > 0 && (
-            <Box
-              sx={{
-                width: { xs: '100%', md: '420px' },
-                maxWidth: { xs: '100%', md: '420px' },
-                position: { xs: 'static', md: 'sticky' },
-                top: '200px',
-                background: 'var(--surface-glass)',
-                borderRadius: '24px',
-                border: '1px solid var(--divider)',
-                padding: '32px',
-                backdropFilter: 'blur(20px)',
-                boxSizing: 'border-box',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                gap: 2.5,
-                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.25)',
-                zIndex: 10
-              }}
-            >
-              {/* Section Icon */}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-start', width: '100%', mb: 0.5 }}>
-                {(() => {
-                  const iconPath = activeSection?.iconUrl || activeSection?.icon || getSectionIcon(activeSection?.title);
-                  if (iconPath) {
-                    return (
-                      <img
-                        src={iconPath}
-                        alt={activeSection?.title || ''}
-                        style={{
-                          width: '96px',
-                          height: '96px',
-                          objectFit: 'contain',
-                          filter: 'drop-shadow(0px 8px 16px rgba(0,0,0,0.3))'
-                        }}
-                      />
-                    );
-                  }
-                  return <BookIcon sx={{ fontSize: 96, color: 'var(--primary-main)' }} />;
-                })()}
-              </Box>
-
-              {/* Title and Description */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, width: '100%' }}>
-                <Typography
-                  variant="h4"
-                  sx={{
-                    fontWeight: 800,
-                    color: 'var(--text-primary)',
-                    fontFamily: '"Outfit", sans-serif',
-                    fontSize: '2rem',
-                    letterSpacing: '-0.02em',
-                    textAlign: 'left'
-                  }}
-                >
-                  {activeSection?.title}
-                </Typography>
-                <Typography
-                  variant="body1"
-                  sx={{
-                    color: 'var(--text-secondary)',
-                    lineHeight: 1.6,
-                    fontSize: '1rem',
-                    textAlign: 'left'
-                  }}
-                >
-                  {activeSection?.description || `Master the concepts and practical exercises of ${activeSection?.title || ''}.`}
-                </Typography>
-              </Box>
-
-              {/* Stats Row */}
-              <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 4, width: '100%', mt: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <BookIcon sx={{ color: 'var(--primary-main)', fontSize: 20 }} />
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
-                    {numLessons} Lessons
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ExerciseIcon sx={{ color: '#c084fc', fontSize: 20 }} />
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
-                    {numExercises} Exercises
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
+          {!activeSection?.isUnlocked && (
+            <Alert severity="warning" sx={{ mb: 4, borderRadius: 3 }}>
+              Complete the previous section to unlock this path.
+            </Alert>
           )}
 
           {/* Sibling Container: The path-visual-shell (path block) */}
           <Box
             className="path-visual-shell glass-panel-strong"
             sx={{
-              flex: 1,
               width: '100%',
               padding: nodes.length === 0 ? '64px 24px' : { xs: '16px 16px 32px 16px', md: '20px 48px 48px 48px' },
               display: 'flex',
               justifyContent: 'center',
-              boxSizing: 'border-box'
+              boxSizing: 'border-box',
+              position: 'relative'
             }}
           >
+            {nodes.length > 0 && (
+              <IconButton
+                onClick={() => setIsInfoDialogOpen(true)}
+                sx={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  color: 'var(--text-secondary)',
+                  background: 'var(--surface-glass)',
+                  border: '1px solid var(--divider)',
+                  borderRadius: '12px',
+                  padding: '10px',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: 'var(--text-primary)',
+                    transform: 'scale(1.05)'
+                  },
+                  transition: 'all 0.2s ease',
+                  zIndex: 100
+                }}
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 22 }} />
+              </IconButton>
+            )}
             {nodes.length === 0 ? (
               <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', textAlign: 'center' }}>
                 <Typography variant="h5" style={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
@@ -1098,7 +1026,6 @@ const LearningPathPage = () => {
                         } else if (chapterStatus === 'active') {
                           labelColor = 'var(--primary-main)';
                           containerStyle.border = '1px solid var(--primary-main)';
-                          containerStyle.boxShadow = '0 0 25px rgba(var(--primary-main-rgb, 59, 130, 246), 0.45), inset 0 0 10px rgba(var(--primary-main-rgb, 59, 130, 246), 0.2)';
                         }
 
                         return (
@@ -1106,8 +1033,8 @@ const LearningPathPage = () => {
                             style={{
                               position: 'absolute',
                               left: '50%',
-                              top: `${node.pos.y - (index === 0 ? 160 : 220)}px`,
-                              transform: 'translateX(-50%)',
+                              top: index === 0 ? '30px' : `${(nodes[index - 1].pos.y + node.pos.y) / 2}px`,
+                              transform: 'translate(-50%, -50%)',
                               zIndex: 5,
                               width: '100%',
                               display: 'flex',
@@ -1222,7 +1149,6 @@ const LearningPathPage = () => {
               </AnimatePresence>
             )}
           </Box>
-        </Box>
 
         {nodes.length > 0 && (
           <Box className="path-footer glass-panel">
@@ -1260,6 +1186,7 @@ const LearningPathPage = () => {
             </Box>
           </Box>
         )}
+      </Box>
 
         {/* Roadmap Node Preview - Desktop Floating Popover */}
         <Popover
@@ -1337,6 +1264,105 @@ const LearningPathPage = () => {
         open={isJavaUmlPlaygroundOpen}
         onClose={() => setIsJavaUmlPlaygroundOpen(false)}
       />
+      <Dialog
+        open={isInfoDialogOpen}
+        onClose={() => setIsInfoDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'var(--background-paper)',
+            backgroundImage: 'none',
+            borderRadius: '24px',
+            border: '1px solid var(--divider)',
+            padding: '32px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            position: 'relative'
+          }
+        }}
+      >
+        <IconButton
+          onClick={() => setIsInfoDialogOpen(false)}
+          sx={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            color: 'var(--text-secondary)',
+            '&:hover': { color: 'var(--text-primary)' }
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, textAlign: 'center', mt: 1 }}>
+          {/* Section Icon */}
+          {(() => {
+            const iconPath = activeSection?.iconUrl || activeSection?.icon || getSectionIcon(activeSection?.title);
+            if (iconPath) {
+              return (
+                <img 
+                  src={iconPath} 
+                  alt={activeSection?.title || ''} 
+                  style={{ 
+                    width: '100px', 
+                    height: '100px', 
+                    objectFit: 'contain',
+                    filter: 'drop-shadow(0px 8px 16px rgba(0,0,0,0.3))' 
+                  }} 
+                />
+              );
+            }
+            return <BookIcon sx={{ fontSize: 100, color: 'var(--primary-main)' }} />;
+          })()}
+
+          {/* Title and Description */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, width: '100%' }}>
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                fontWeight: 800, 
+                color: 'var(--text-primary)',
+                fontFamily: '"Outfit", sans-serif',
+                fontSize: '2.25rem',
+                letterSpacing: '-0.02em'
+              }}
+            >
+              {activeSection?.title}
+            </Typography>
+            <Typography 
+              variant="body1" 
+              sx={{ 
+                color: 'var(--text-secondary)',
+                lineHeight: 1.7,
+                fontSize: '1.05rem',
+                maxWidth: '460px',
+                margin: '0 auto'
+              }}
+            >
+              {activeSection?.description || `Master the concepts and practical exercises of ${activeSection?.title || ''}.`}
+            </Typography>
+          </Box>
+
+          {/* Divider */}
+          <Box sx={{ width: '100%', height: '1px', background: 'var(--divider)', my: 1 }} />
+
+          {/* Stats Row */}
+          <Box sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, width: '100%' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <BookIcon sx={{ color: 'var(--primary-main)', fontSize: 24 }} />
+              <Typography variant="body1" sx={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.1rem' }}>
+                {numLessons} Lessons
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <ExerciseIcon sx={{ color: '#c084fc', fontSize: 24 }} />
+              <Typography variant="body1" sx={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.1rem' }}>
+                {numExercises} Exercises
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Dialog>
     </Box>
   );
 };

@@ -233,6 +233,7 @@
   align-items: center;
   gap: 1rem;
   color: var(--text-secondary);
+  margin-top: 0.4rem;
 }
 
 .course-section-meta-item {
@@ -244,8 +245,8 @@
 }
 
 .course-section-meta-label {
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.68rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.14em;
 }
@@ -392,4 +393,17 @@
 .course-lesson-row-interactive:hover {
   background-color: var(--action-hover, rgba(255, 255, 255, 0.05));
   transform: translateX(6px);
+}
+
+.course-section-item.coming-soon-section {
+  opacity: 0.55;
+  background: rgba(255, 255, 255, 0.01) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  cursor: not-allowed !important;
+}
+
+.course-section-item.coming-soon-section:hover {
+  transform: none !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.01) !important;
 }
