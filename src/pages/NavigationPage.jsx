@@ -75,6 +75,7 @@ import RegisterPage from './RegisterPage';
 import ConstellationBackground from '../components/ConstellationBackground';
 import { coursesData } from '../data/courses';
 import { ProtectedRoute } from '../components/ProtectedRoute';
+import { formatLog } from '../utils/dateUtils';
 
 
 const AnimatedPage = ({ children }) => (
@@ -2127,7 +2128,7 @@ const NavigationPage = () => {
                                       {notif.type === 'chat' && notif.originalIds?.length > 1 ? 'New Chat Messages' : notif.type === 'group_chat' && notif.originalIds?.length > 1 ? 'New Group Messages' : notif.title}
                                     </Typography>
                                     <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '9px', whiteSpace: 'nowrap' }}>
-                                      {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      {notif.createdAt ? `[${formatLog(notif.createdAt)}]` : ''}
                                     </Typography>
                                   </Box>
                                 }

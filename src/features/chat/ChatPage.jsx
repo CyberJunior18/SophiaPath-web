@@ -57,6 +57,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
 import ImageEditorModal from './ImageEditorModal';
+import { parseSafeDate, parseSafeTime, formatTime, formatDate, formatDateDivider, formatLog } from '../../utils/dateUtils';
 import './Chat.css';
 
 const ChatPage = () => {
@@ -74,6 +75,7 @@ const ChatPage = () => {
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState('');
+  const [lightboxName, setLightboxName] = useState('');
   const [lightboxIsProfile, setLightboxIsProfile] = useState(false);
   
   const hasInitialScrolled = useRef(false);
@@ -85,7 +87,6 @@ const ChatPage = () => {
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorImageSrc, setEditorImageSrc] = useState('');
-  const [editorShowSend, setEditorShowSend] = useState(false);
   const [pendingImagesQueue, setPendingImagesQueue] = useState([]);
 
   // New Chat States
@@ -108,7 +109,7 @@ const ChatPage = () => {
   const [emojiUsage, setEmojiUsage] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('sophiapath_emoji_usage') || '{}');
-    } catch (e) {
+    } catch {
       return {};
     }
   });
@@ -124,10 +125,20 @@ const ChatPage = () => {
   const initialMessageIds = useRef(new Set());
 
   const displayedMessages = useMemo(() => {
+    const clearMsgId = localStorage.getItem(`sophiapath_clear_msg_id_${user?.id}_${userId}`);
     const clearTime = localStorage.getItem(`sophiapath_clear_time_${user?.id}_${userId}`);
-    const filtered = clearTime
-      ? messages.filter(m => new Date(m.timestamp).getTime() > new Date(clearTime).getTime())
-      : messages;
+    
+    let filtered = messages;
+    if (clearMsgId) {
+      const clearIdx = messages.findIndex(m => String(m.id) === String(clearMsgId));
+      if (clearIdx !== -1) {
+        filtered = messages.slice(clearIdx + 1);
+      } else if (clearTime) {
+        filtered = messages.filter(m => parseSafeTime(m.timestamp) > parseSafeTime(clearTime));
+      }
+    } else if (clearTime) {
+      filtered = messages.filter(m => parseSafeTime(m.timestamp) > parseSafeTime(clearTime));
+    }
 
     if (filtered.length > 0 && initialMessageIds.current.size === 0) {
       filtered.forEach(m => initialMessageIds.current.add(String(m.id)));
@@ -298,9 +309,23 @@ const ChatPage = () => {
 
           const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_chats_${user.id}`) || '{}');
           const deleteTime = deletedObj[userId];
-          const filtered = deleteTime
-            ? mapped.filter(msg => new Date(msg.timestamp).getTime() > new Date(deleteTime).getTime())
-            : mapped;
+          const clearMsgId = localStorage.getItem(`sophiapath_clear_msg_id_${user.id}_${userId}`);
+          const clearTime = localStorage.getItem(`sophiapath_clear_time_${user.id}_${userId}`);
+          
+          let filtered = mapped;
+          if (deleteTime) {
+            filtered = filtered.filter(msg => parseSafeTime(msg.timestamp) > parseSafeTime(deleteTime));
+          }
+          if (clearMsgId) {
+            const clearIdx = filtered.findIndex(m => String(m.id) === String(clearMsgId));
+            if (clearIdx !== -1) {
+              filtered = filtered.slice(clearIdx + 1);
+            } else if (clearTime) {
+              filtered = filtered.filter(msg => parseSafeTime(msg.timestamp) > parseSafeTime(clearTime));
+            }
+          } else if (clearTime) {
+            filtered = filtered.filter(msg => parseSafeTime(msg.timestamp) > parseSafeTime(clearTime));
+          }
 
           setMessages(filtered);
         }
@@ -593,34 +618,7 @@ const ChatPage = () => {
     setOpenForwardDialog(true);
   };
 
-  const handleMultiForwardSubmit = async (recipient) => {
-    let count = 0;
-    const senderName = user.fullname || user.name || user.username || "You";
-
-    for (const id of Array.from(selectedMessageIds)) {
-      const msg = messages.find(m => String(m.id) === String(id));
-      if (msg && !msg.deleted) {
-        await socialStore.sendDirectMessage(
-          user.id,
-          recipient.id,
-          msg.text,
-          senderName,
-          user.avatar || '',
-          null,
-          null,
-          null,
-          true
-        );
-        count++;
-      }
-    }
-
-    setSnackbarMessage(`Forwarded ${count} messages to ${recipient.fullname || recipient.username}`);
-    setOpenSnackbar(true);
-    setOpenForwardDialog(false);
-    setSelectedMessageIds(new Set());
-    setSelectionMode(false);
-  };
+  // Multi forward functionality integrated directly into handleForwardMessage
 
   // Auto scroll to message from query parameter on load
   const queryParams = new URLSearchParams(location.search);
@@ -695,28 +693,54 @@ const ChatPage = () => {
   };
 
   const handleForwardMessage = async (recipient) => {
-    if (!menuMessage) return;
-    const cleanText = menuMessage.text;
     const senderName = user.fullname || user.name || user.username || "You";
 
-    const res = await socialStore.sendDirectMessage(
-      user.id,
-      recipient.id,
-      cleanText,
-      senderName,
-      user.avatar || '',
-      null,
-      null,
-      null,
-      true
-    );
-
-    if (res && res.success) {
-      setSnackbarMessage(`Forwarded to ${recipient.fullname || recipient.username}`);
+    if (selectionMode) {
+      let count = 0;
+      for (const id of Array.from(selectedMessageIds)) {
+        const msg = messages.find(m => String(m.id) === String(id));
+        if (msg && !msg.deleted) {
+          await socialStore.sendDirectMessage(
+            user.id,
+            recipient.id,
+            msg.text,
+            senderName,
+            user.avatar || '',
+            null,
+            null,
+            null,
+            true
+          );
+          count++;
+        }
+      }
+      setSnackbarMessage(`Forwarded ${count} messages to ${recipient.fullname || recipient.username}`);
       setOpenSnackbar(true);
+      setSelectedMessageIds(new Set());
+      setSelectionMode(false);
+    } else {
+      if (!menuMessage) return;
+      const cleanText = menuMessage.text;
+
+      const res = await socialStore.sendDirectMessage(
+        user.id,
+        recipient.id,
+        cleanText,
+        senderName,
+        user.avatar || '',
+        null,
+        null,
+        null,
+        true
+      );
+
+      if (res && res.success) {
+        setSnackbarMessage(`Forwarded to ${recipient.fullname || recipient.username}`);
+        setOpenSnackbar(true);
+      }
+      setMenuMessage(null);
     }
     setOpenForwardDialog(false);
-    setMenuMessage(null);
   };
 
   const handleReplyClick = () => {
@@ -766,10 +790,10 @@ const ChatPage = () => {
           }
         }
         localStorage.setItem('starred_messages_list', JSON.stringify(cleaned));
-      } catch (retryErr) {
+      } catch {
         try {
           localStorage.setItem('starred_messages_list', JSON.stringify(cleaned.slice(-10)));
-        } catch (e) {
+        } catch {
           localStorage.removeItem('starred_messages_list');
         }
       }
@@ -869,7 +893,7 @@ const ChatPage = () => {
 
   const isUserOnline = (otherUser) => {
     if (!otherUser || !otherUser.lastActiveTime) return false;
-    const diffMs = Date.now() - new Date(otherUser.lastActiveTime).getTime();
+    const diffMs = Date.now() - parseSafeTime(otherUser.lastActiveTime);
     return diffMs < 12000;
   };
 
@@ -1036,15 +1060,28 @@ const ChatPage = () => {
         >
           {(() => {
             let renderedUnseenBar = false;
+            let prevDateStr = null;
             const lastSeenIndex = sessionLastSeenId
               ? displayedMessages.findIndex(m => String(m.id) === String(sessionLastSeenId))
               : -1;
 
             return displayedMessages.map((msg, msgIdx) => {
+              const d = parseSafeDate(msg.timestamp);
+              const dateStr = d ? d.toDateString() : '';
+              const showDateDivider = dateStr && dateStr !== prevDateStr;
+              prevDateStr = dateStr;
+
               const isSystem = Number(msg.senderId) === 0 || msg.senderName === 'System';
               if (isSystem) {
                 return (
                   <React.Fragment key={msg.id}>
+                    {showDateDivider && (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', my: 2 }}>
+                        <Box sx={{ bgcolor: 'action.hover', color: 'text.secondary', px: 2, py: 0.5, borderRadius: 3, fontSize: '0.75rem', fontWeight: 600 }}>
+                          {formatDateDivider(msg.timestamp)}
+                        </Box>
+                      </Box>
+                    )}
                     <Box
                       id={`msg-${msg.id}`}
                       sx={{
@@ -1090,7 +1127,7 @@ const ChatPage = () => {
               const isAfterLastSeen = lastSeenIndex !== -1
                 ? msgIdx > lastSeenIndex
                 : sessionLastSeen
-                  ? new Date(msg.timestamp).getTime() > new Date(sessionLastSeen).getTime()
+                  ? parseSafeTime(msg.timestamp) > parseSafeTime(sessionLastSeen)
                   : false;
 
               const isUnseen = !isMe && isAfterLastSeen && initialMessageIds.current.has(String(msg.id));
@@ -1101,6 +1138,13 @@ const ChatPage = () => {
 
               return (
                 <React.Fragment key={msg.id}>
+                  {showDateDivider && (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', my: 2 }}>
+                      <Box sx={{ bgcolor: 'action.hover', color: 'text.secondary', px: 2, py: 0.5, borderRadius: 3, fontSize: '0.75rem', fontWeight: 600 }}>
+                        {formatDateDivider(msg.timestamp)}
+                      </Box>
+                    </Box>
+                  )}
                   {showUnseenBar && (
                     <Box 
                       className="unseen-messages-bar" 
@@ -1248,9 +1292,9 @@ const ChatPage = () => {
                         {msg.pinned && (
                           <PushPinIcon sx={{ fontSize: 11, color: isMe ? 'rgba(255,255,255,0.7)' : 'text.secondary', transform: 'rotate(45deg)' }} />
                         )}
-                        <Typography variant="caption" className="message-time" sx={{ m: 0 }}>
+                        <Typography variant="caption" className="message-time">
                           {msg.edited && <span style={{ marginRight: 4, fontStyle: 'italic', opacity: 0.8 }}>(edited)</span>}
-                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          [{formatLog(msg.timestamp)}]
                         </Typography>
                         {isMe && !msg.deleted && (
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1335,7 +1379,6 @@ const ChatPage = () => {
               size="small" 
               onClick={() => {
                 setEditorImageSrc(selectedImage);
-                setEditorShowSend(false);
                 setEditorOpen(true);
               }}
               sx={{ mr: 0.5 }}
@@ -1558,7 +1601,7 @@ const ChatPage = () => {
                   <Box>
                     <Typography variant="caption" color="text.secondary">Joined</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {targetUserDetails?.dateTime ? new Date(targetUserDetails.dateTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Recently'}
+                      {targetUserDetails?.dateTime ? formatDate(targetUserDetails.dateTime) : 'Recently'}
                     </Typography>
                   </Box>
                 </Box>
@@ -1654,7 +1697,7 @@ const ChatPage = () => {
         }}
       >
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-          {displayName}
+          {lightboxName || displayName}
         </Typography>
         {lightboxUrl ? (
           <img 
@@ -1679,7 +1722,6 @@ const ChatPage = () => {
             <Button
               onClick={() => {
                 setEditorImageSrc(lightboxUrl);
-                setEditorShowSend(true);
                 setEditorOpen(true);
                 setLightboxOpen(false);
               }}
@@ -1786,7 +1828,7 @@ const ChatPage = () => {
                     </ListItemAvatar>
                     <ListItemText 
                       primary={cleanText}
-                      secondary={`${senderName} • ${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                      secondary={`${senderName} • [${formatLog(msg.timestamp)}]`}
                       primaryTypographyProps={{ variant: 'body2', noWrap: true, sx: { fontWeight: 500 } }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />
@@ -1888,7 +1930,14 @@ const ChatPage = () => {
             variant="contained" 
             color="error"
             onClick={() => {
-              localStorage.setItem(`sophiapath_clear_time_${user.id}_${userId}`, new Date().toISOString());
+              const lastMsg = messages[messages.length - 1];
+              if (lastMsg) {
+                localStorage.setItem(`sophiapath_clear_msg_id_${user.id}_${userId}`, String(lastMsg.id));
+                localStorage.setItem(`sophiapath_clear_time_${user.id}_${userId}`, lastMsg.timestamp);
+              } else {
+                localStorage.setItem(`sophiapath_clear_time_${user.id}_${userId}`, new Date(0).toISOString());
+                localStorage.removeItem(`sophiapath_clear_msg_id_${user.id}_${userId}`);
+              }
               setClearTrigger(prev => prev + 1);
               setOpenClearConfirm(false);
             }}

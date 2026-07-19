@@ -40,6 +40,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
+import { parseSafeTime, formatTime, formatDate, formatLog } from '../../utils/dateUtils';
 import './Chat.css';
 
 const ChatListPage = () => {
@@ -119,7 +120,7 @@ const ChatListPage = () => {
 
   const isUserOnline = (otherUser) => {
     if (!otherUser || !otherUser.lastActiveTime) return false;
-    const diffMs = Date.now() - new Date(otherUser.lastActiveTime).getTime();
+    const diffMs = Date.now() - parseSafeTime(otherUser.lastActiveTime);
     return diffMs < 12000;
   };
 
@@ -157,13 +158,29 @@ const ChatListPage = () => {
       const msgTimes = {};
       conversations.forEach(c => {
         const otherId = c.userId1 === user.id ? c.userId2 : c.userId1;
-        msgTimes[otherId] = c.lastMessageTime;
+        const clearMsgId = localStorage.getItem(`sophiapath_clear_msg_id_${user.id}_${otherId}`);
+        const clearTime = localStorage.getItem(`sophiapath_clear_time_${user.id}_${otherId}`);
+        
+        let isCleared = false;
         if (c.lastMessage) {
-          const isImg = c.lastMessage.message?.startsWith('[IMAGE]:');
-          const cleanText = isImg ? '📷 Photo' : c.lastMessage.message;
-          msgPreviews[otherId] = c.lastMessage.senderId === user.id
-            ? `You: ${cleanText}`
-            : cleanText;
+          if (clearMsgId && String(c.lastMessage.id) === String(clearMsgId)) {
+            isCleared = true;
+          } else if (clearTime && parseSafeTime(c.lastMessageTime) <= parseSafeTime(clearTime)) {
+            isCleared = true;
+          }
+        } else if (clearTime && parseSafeTime(c.lastMessageTime) <= parseSafeTime(clearTime)) {
+          isCleared = true;
+        }
+        
+        if (!isCleared) {
+          msgTimes[otherId] = c.lastMessageTime;
+          if (c.lastMessage) {
+            const isImg = c.lastMessage.message?.startsWith('[IMAGE]:');
+            const cleanText = isImg ? '📷 Photo' : c.lastMessage.message;
+            msgPreviews[otherId] = c.lastMessage.senderId === user.id
+              ? `You: ${cleanText}`
+              : cleanText;
+          }
         }
       });
 
@@ -173,7 +190,22 @@ const ChatListPage = () => {
         try {
           const res = await fetch(`/api/chat/conversation/${user.id}/${otherId}`, { headers });
           if (res.ok) {
-            const msgs = await res.json();
+            const rawMsgs = await res.json();
+            const clearMsgId = localStorage.getItem(`sophiapath_clear_msg_id_${user.id}_${otherId}`);
+            const clearTime = localStorage.getItem(`sophiapath_clear_time_${user.id}_${otherId}`);
+            
+            let msgs = rawMsgs;
+            if (clearMsgId) {
+              const clearIdx = rawMsgs.findIndex(m => String(m.id) === String(clearMsgId));
+              if (clearIdx !== -1) {
+                msgs = rawMsgs.slice(clearIdx + 1);
+              } else if (clearTime) {
+                msgs = rawMsgs.filter(m => parseSafeTime(m.timestamp) > parseSafeTime(clearTime));
+              }
+            } else if (clearTime) {
+              msgs = rawMsgs.filter(m => parseSafeTime(m.timestamp) > parseSafeTime(clearTime));
+            }
+
             let lastSeenId = localStorage.getItem(`sophiapath_last_seen_id_${user.id}_${otherId}`);
             let lastSeen = localStorage.getItem(`sophiapath_last_seen_${user.id}_${otherId}`);
             
@@ -193,7 +225,7 @@ const ChatListPage = () => {
               ? msgs.slice(lastSeenIdx + 1).filter(m => Number(m.senderId) !== Number(user.id)).length
               : msgs.filter(m => 
                   Number(m.senderId) !== Number(user.id) && 
-                  new Date(m.timestamp).getTime() > new Date(lastSeen).getTime()
+                  parseSafeTime(m.timestamp) > parseSafeTime(lastSeen)
                 ).length;
             dmUnseenCountsObj[otherId] = unseenCount;
           }
@@ -249,7 +281,7 @@ const ChatListPage = () => {
       // Check if deleted
       const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_chats_${user.id}`) || '{}');
       const deleteTime = deletedObj[otherId];
-      if (deleteTime && new Date(lastMsgTime).getTime() <= new Date(deleteTime).getTime()) {
+      if (deleteTime && parseSafeTime(lastMsgTime) <= parseSafeTime(deleteTime)) {
         return false;
       }
 
@@ -276,7 +308,7 @@ const ChatListPage = () => {
       // Check if deleted
       const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_chats_${user.id}`) || '{}');
       const deleteTime = deletedObj[otherId];
-      if (deleteTime && new Date(lastMsgTime).getTime() <= new Date(deleteTime).getTime()) {
+      if (deleteTime && parseSafeTime(lastMsgTime) <= parseSafeTime(deleteTime)) {
         return false;
       }
 
@@ -289,8 +321,8 @@ const ChatListPage = () => {
     if (!q) {
       // Return active chats sorted by last message time (newest first)
       return [...activeDms].sort((a, b) => {
-        const timeA = lastMessageTimes[a.id] ? new Date(lastMessageTimes[a.id]).getTime() : 0;
-        const timeB = lastMessageTimes[b.id] ? new Date(lastMessageTimes[b.id]).getTime() : 0;
+        const timeA = parseSafeTime(lastMessageTimes[a.id]);
+        const timeB = parseSafeTime(lastMessageTimes[b.id]);
         return timeB - timeA;
       });
     }
@@ -301,8 +333,8 @@ const ChatListPage = () => {
 
     // Sort by last message time (newest first)
     return matches.sort((a, b) => {
-      const timeA = lastMessageTimes[a.id] ? new Date(lastMessageTimes[a.id]).getTime() : 0;
-      const timeB = lastMessageTimes[b.id] ? new Date(lastMessageTimes[b.id]).getTime() : 0;
+      const timeA = parseSafeTime(lastMessageTimes[a.id]);
+      const timeB = parseSafeTime(lastMessageTimes[b.id]);
       if (timeA !== timeB) return timeB - timeA;
       const nameA = (a.fullname || a.name || a.username || '').toLowerCase();
       const nameB = (b.fullname || b.name || b.username || '').toLowerCase();
@@ -316,11 +348,11 @@ const ChatListPage = () => {
       const deleteTime = deletedObj[g.id];
       if (deleteTime) {
         const sortedMsgs = g.messages && g.messages.length > 0
-          ? [...g.messages].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+          ? [...g.messages].sort((a, b) => parseSafeTime(a.timestamp) - parseSafeTime(b.timestamp))
           : [];
         const lastMessage = sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null;
         const lastMsgTime = lastMessage ? lastMessage.timestamp : g.createdAt || new Date(0).toISOString();
-        if (new Date(lastMsgTime).getTime() <= new Date(deleteTime).getTime()) {
+        if (parseSafeTime(lastMsgTime) <= parseSafeTime(deleteTime)) {
           return false;
         }
       }
@@ -380,7 +412,8 @@ const ChatListPage = () => {
   const handleDeleteChat = () => {
     if (!chatMenuTargetUserId) return;
     const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_chats_${user.id}`) || '{}');
-    deletedObj[chatMenuTargetUserId] = new Date().toISOString();
+    const lastMsgTime = lastMessageTimes[chatMenuTargetUserId];
+    deletedObj[chatMenuTargetUserId] = lastMsgTime || new Date(0).toISOString();
     localStorage.setItem(`sophiapath_deleted_chats_${user.id}`, JSON.stringify(deletedObj));
     // Remove starred messages for this chat
     let starred = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
@@ -405,7 +438,16 @@ const ChatListPage = () => {
   const handleDeleteGroup = () => {
     if (!groupMenuTargetId) return;
     const deletedObj = JSON.parse(localStorage.getItem(`sophiapath_deleted_groups_${user.id}`) || '{}');
-    deletedObj[groupMenuTargetId] = new Date().toISOString();
+    const g = groups.find(group => group.id === groupMenuTargetId);
+    let lastMsgTime = null;
+    if (g) {
+      const sortedMsgs = g.messages && g.messages.length > 0
+        ? [...g.messages].sort((a, b) => parseSafeTime(a.timestamp) - parseSafeTime(b.timestamp))
+        : [];
+      const lastMessage = sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null;
+      lastMsgTime = lastMessage ? lastMessage.timestamp : g.createdAt;
+    }
+    deletedObj[groupMenuTargetId] = lastMsgTime || new Date(0).toISOString();
     localStorage.setItem(`sophiapath_deleted_groups_${user.id}`, JSON.stringify(deletedObj));
     // Remove starred messages for this group
     let starred = JSON.parse(localStorage.getItem('starred_messages_list') || '[]');
@@ -633,68 +675,48 @@ const ChatListPage = () => {
                             </Avatar>
                           </Badge>
                         </ListItemAvatar>
-                        <ListItemText 
+                        <ListItemText
                           primary={
                             <Box className="chat-item-header">
-                              <Typography className="chat-item-name" sx={{ color: (isBlockedByTarget || isBlockedByMe) ? 'var(--text-disabled)' : 'var(--text-primary)' }}>
-                                {displayName} {isBlockedByMe && " (Blocked)"} {isBlockedByTarget && " (You were blocked)"}
+                              <Typography className="chat-item-name" variant="subtitle2"
+                                sx={{ color: (isBlockedByTarget || isBlockedByMe) ? 'var(--text-disabled)' : 'var(--text-primary)', fontWeight: 700 }}
+                              >
+                                {displayName}
+                                {isBlockedByMe && ' (Blocked)'}
+                                {isBlockedByTarget && ' (You were blocked)'}
                               </Typography>
                               {!isBlockedByTarget && !isBlockedByMe && lastMessageTimes[otherUser.id] && (
                                 <Typography variant="caption" className="chat-item-time">
-                                  {new Date(lastMessageTimes[otherUser.id]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  [{formatLog(lastMessageTimes[otherUser.id])}]
                                 </Typography>
                               )}
                             </Box>
-                          } 
+                          }
                           secondary={
-                            isBlockedByMe ? "You blocked this user." :
-                            isBlockedByTarget ? "You cannot message this user." : (
-                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                                <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1, pr: 1, fontSize: 'inherit', color: 'inherit' }}>
-                                  {activeTypingStates.directTyping[otherUser.id] ? (
-                                    <span style={{ color: '#2e7d32', fontWeight: 600 }}>Typing...</span>
-                                  ) : localStorage.getItem(`sophiapath_draft_chat_${user.id}_${otherUser.id}`) ? (
-                                    <span>
-                                      <span style={{ color: '#2e7d32', fontWeight: 600 }}>Draft: </span>
-                                      <span style={{ color: 'var(--text-secondary)' }}>
-                                        {localStorage.getItem(`sophiapath_draft_chat_${user.id}_${otherUser.id}`)}
-                                      </span>
-                                    </span>
-                                  ) : (
-                                    getLastMessage(otherUser.id)
-                                  )}
-                                </Typography>
-                                {dmUnseenCounts[otherUser.id] > 0 && (
-                                  <Box 
-                                    className="unseen-messages-badge"
-                                    sx={{ 
-                                      minWidth: 20, 
-                                      height: 20, 
-                                      borderRadius: '10px', 
-                                      bgcolor: 'primary.main', 
-                                      color: 'white', 
-                                      display: 'flex', 
-                                      alignItems: 'center', 
-                                      justifyContent: 'center', 
-                                      fontSize: '0.7rem', 
-                                      fontWeight: 800, 
-                                      px: 0.6,
-                                      
-                                      flexShrink: 0
-                                    }}
-                                  >
-                                    {dmUnseenCounts[otherUser.id]}
-                                  </Box>
-                                )}
-                              </Box>
-                            )
-                          } 
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                              <Typography variant="body2" noWrap sx={{ flex: 1, pr: 1, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                                {isBlockedByMe ? 'You blocked this user.' :
+                                 isBlockedByTarget ? 'You cannot message this user.' :
+                                 activeTypingStates.directTyping[otherUser.id] ? (
+                                   <span style={{ color: '#2e7d32', fontWeight: 600 }}>Typing...</span>
+                                 ) : localStorage.getItem(`sophiapath_draft_chat_${user.id}_${otherUser.id}`) ? (
+                                   <span>
+                                     <span style={{ color: '#2e7d32', fontWeight: 600 }}>Draft: </span>
+                                     <span style={{ color: 'var(--text-secondary)' }}>
+                                       {localStorage.getItem(`sophiapath_draft_chat_${user.id}_${otherUser.id}`)}
+                                     </span>
+                                   </span>
+                                 ) : getLastMessage(otherUser.id)}
+                              </Typography>
+                              {dmUnseenCounts[otherUser.id] > 0 && (
+                                <Box sx={{ minWidth: 20, height: 20, borderRadius: '10px', bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 800, px: 0.6, flexShrink: 0 }}>
+                                  {dmUnseenCounts[otherUser.id]}
+                                </Box>
+                              )}
+                            </Box>
+                          }
                           primaryTypographyProps={{ component: 'div' }}
-                          secondaryTypographyProps={{ 
-                            className: 'chat-item-preview',
-                            noWrap: true,
-                            component: 'div'
-                          }}
+                          secondaryTypographyProps={{ component: 'div' }}
                         />
                       </ListItemButton>
                     </ListItem>
@@ -750,7 +772,7 @@ const ChatListPage = () => {
                                       {displayName}
                                     </Typography>
                                     <Typography variant="caption" className="chat-item-time">
-                                      {new Date(msg.timestamp).toLocaleDateString()} {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      [{formatLog(msg.timestamp)}]
                                     </Typography>
                                   </Box>
                                 }
@@ -837,10 +859,25 @@ const ChatListPage = () => {
               filteredGroupsList.map((group) => {
                 const displayName = group.name || '?';
                 const initials = displayName.substring(0, 2).toUpperCase();
-                const sortedMsgs = group.messages && group.messages.length > 0
-                  ? [...group.messages].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                const clearMsgId = localStorage.getItem(`sophiapath_clear_msg_id_${user.id}_${group.id}`);
+                const clearTime = localStorage.getItem(`sophiapath_clear_time_${user.id}_${group.id}`);
+                
+                let clearedMsgs = group.messages || [];
+                if (clearMsgId) {
+                  const clearIdx = clearedMsgs.findIndex(m => String(m.id) === String(clearMsgId));
+                  if (clearIdx !== -1) {
+                    clearedMsgs = clearedMsgs.slice(clearIdx + 1);
+                  } else if (clearTime) {
+                    clearedMsgs = clearedMsgs.filter(m => parseSafeTime(m.timestamp) > parseSafeTime(clearTime));
+                  }
+                } else if (clearTime) {
+                  clearedMsgs = clearedMsgs.filter(m => parseSafeTime(m.timestamp) > parseSafeTime(clearTime));
+                }
+                const sortedMsgs = clearedMsgs.length > 0
+                  ? [...clearedMsgs].sort((a, b) => parseSafeTime(a.timestamp) - parseSafeTime(b.timestamp))
                   : [];
                 const lastMessage = sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null;
+                const lastMsgTime = lastMessage ? lastMessage.timestamp : null;
                 const isImg = lastMessage?.text?.startsWith('[IMAGE]:');
                 const cleanText = isImg ? '📷 Photo' : (lastMessage?.text || '');
                 const lastMsgText = lastMessage 
@@ -854,7 +891,6 @@ const ChatListPage = () => {
                   const nowStr = new Date().toISOString();
                   localStorage.setItem(`sophiapath_last_seen_${user.id}_${group.id}`, nowStr);
                   lastSeen = nowStr;
-                  const groupMsgs = group.messages || [];
                   if (sortedMsgs.length > 0) {
                     const lastMsgId = String(sortedMsgs[sortedMsgs.length - 1].id);
                     localStorage.setItem(`sophiapath_last_seen_id_${user.id}_${group.id}`, lastMsgId);
@@ -867,7 +903,7 @@ const ChatListPage = () => {
                   ? sortedMsgs.slice(lastSeenIdx + 1).filter(m => Number(m.senderId) !== Number(user.id)).length
                   : sortedMsgs.filter(m => 
                       Number(m.senderId) !== Number(user.id) && 
-                      new Date(m.timestamp).getTime() > new Date(lastSeen).getTime()
+                      parseSafeTime(m.timestamp) > parseSafeTime(lastSeen)
                     ).length;
 
                 return (
@@ -899,21 +935,27 @@ const ChatListPage = () => {
                           {!group.avatar && initials}
                         </Avatar>
                       </ListItemAvatar>
-                      <ListItemText 
+                      <ListItemText
                         primary={
                           <Box className="chat-item-header">
-                            <Typography className="chat-item-name">
+                            <Typography className="chat-item-name" variant="subtitle2" sx={{ fontWeight: 700 }}>
                               {displayName}
                             </Typography>
-                            <Typography variant="caption" className="chat-item-time" sx={{ bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 2, fontSize: '0.7rem' }}>
-                              {group.members.length} members
-                            </Typography>
+                            {lastMsgTime ? (
+                              <Typography variant="caption" className="chat-item-time">
+                                [{formatLog(lastMsgTime)}]
+                              </Typography>
+                            ) : (
+                              <Typography variant="caption" className="chat-item-time" sx={{ bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 2 }}>
+                                {group.members.length} members
+                              </Typography>
+                            )}
                           </Box>
-                        } 
+                        }
                         secondary={
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                            <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1, pr: 1, fontSize: 'inherit', color: 'inherit' }}>
-                              {activeTypingStates.groupTyping[group.id] && activeTypingStates.groupTyping[group.id].length > 0 ? (
+                            <Typography variant="body2" noWrap sx={{ flex: 1, pr: 1, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                              {activeTypingStates.groupTyping[group.id]?.length > 0 ? (
                                 <span style={{ color: '#2e7d32', fontWeight: 600 }}>
                                   {activeTypingStates.groupTyping[group.id].map(u => u.username).join(', ')} {activeTypingStates.groupTyping[group.id].length === 1 ? 'is' : 'are'} typing...
                                 </span>
@@ -924,40 +966,17 @@ const ChatListPage = () => {
                                     {localStorage.getItem(`sophiapath_draft_group_${user.id}_${group.id}`)}
                                   </span>
                                 </span>
-                              ) : (
-                                lastMsgText
-                              )}
+                              ) : lastMsgText}
                             </Typography>
                             {groupUnseenCount > 0 && (
-                              <Box 
-                                className="unseen-messages-badge"
-                                sx={{ 
-                                  minWidth: 20, 
-                                  height: 20, 
-                                  borderRadius: '10px', 
-                                  bgcolor: 'primary.main', 
-                                  color: 'white', 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  justifyContent: 'center', 
-                                  fontSize: '0.7rem', 
-                                  fontWeight: 800, 
-                                  px: 0.6,
-                                  
-                                  flexShrink: 0
-                                }}
-                              >
+                              <Box sx={{ minWidth: 20, height: 20, borderRadius: '10px', bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 800, px: 0.6, flexShrink: 0 }}>
                                 {groupUnseenCount}
                               </Box>
                             )}
                           </Box>
-                        } 
+                        }
                         primaryTypographyProps={{ component: 'div' }}
-                        secondaryTypographyProps={{ 
-                          className: 'chat-item-preview',
-                          noWrap: true,
-                          component: 'div'
-                        }}
+                        secondaryTypographyProps={{ component: 'div' }}
                       />
                     </ListItemButton>
                   </ListItem>

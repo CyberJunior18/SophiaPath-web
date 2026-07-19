@@ -64,6 +64,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
 import ImageEditorModal from './ImageEditorModal';
+import { parseSafeDate, parseSafeTime, formatTime, formatDate, formatDateDivider, formatLog } from '../../utils/dateUtils';
 import './Chat.css';
 
 const GroupChatPage = () => {
@@ -99,7 +100,7 @@ const GroupChatPage = () => {
   const [emojiUsage, setEmojiUsage] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('sophiapath_emoji_usage') || '{}');
-    } catch (e) {
+    } catch {
       return {};
     }
   });
@@ -125,10 +126,20 @@ const GroupChatPage = () => {
   const initialMessageIds = useRef(new Set());
 
   const displayedMessages = useMemo(() => {
+    const clearMsgId = localStorage.getItem(`sophiapath_clear_msg_id_${user?.id}_${groupId}`);
     const clearTime = localStorage.getItem(`sophiapath_clear_time_${user?.id}_${groupId}`);
-    const filtered = clearTime
-      ? messages.filter(m => new Date(m.timestamp).getTime() > new Date(clearTime).getTime())
-      : messages;
+    
+    let filtered = messages;
+    if (clearMsgId) {
+      const clearIdx = messages.findIndex(m => String(m.id) === String(clearMsgId));
+      if (clearIdx !== -1) {
+        filtered = messages.slice(clearIdx + 1);
+      } else if (clearTime) {
+        filtered = messages.filter(m => parseSafeTime(m.timestamp) > parseSafeTime(clearTime));
+      }
+    } else if (clearTime) {
+      filtered = messages.filter(m => parseSafeTime(m.timestamp) > parseSafeTime(clearTime));
+    }
 
     if (filtered.length > 0 && initialMessageIds.current.size === 0) {
       filtered.forEach(m => initialMessageIds.current.add(String(m.id)));
@@ -280,7 +291,6 @@ const GroupChatPage = () => {
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorImageSrc, setEditorImageSrc] = useState('');
-  const [editorShowSend, setEditorShowSend] = useState(false);
   const [pendingImagesQueue, setPendingImagesQueue] = useState([]);
 
   const sendBase64ImageMessage = async (editedBase64) => {
@@ -482,10 +492,10 @@ const GroupChatPage = () => {
           }
         }
         localStorage.setItem('starred_messages_list', JSON.stringify(cleaned));
-      } catch (retryErr) {
+      } catch {
         try {
           localStorage.setItem('starred_messages_list', JSON.stringify(cleaned.slice(-10)));
-        } catch (e) {
+        } catch {
           localStorage.removeItem('starred_messages_list');
         }
       }
@@ -628,7 +638,7 @@ const GroupChatPage = () => {
           const joinTimes = data.memberJoinTimes ? JSON.parse(data.memberJoinTimes) : {};
           const userJoinTime = joinTimes[user.id];
           if (userJoinTime) {
-            if (!storedClearTime || new Date(storedClearTime).getTime() < new Date(userJoinTime).getTime()) {
+            if (!storedClearTime || parseSafeTime(storedClearTime) < parseSafeTime(userJoinTime)) {
               localStorage.setItem(clearKey, userJoinTime);
               setClearTrigger(prev => prev + 1);
             }
@@ -638,7 +648,7 @@ const GroupChatPage = () => {
               setClearTrigger(prev => prev + 1);
             }
           }
-        } catch (e) {
+        } catch {
           if (!storedClearTime) {
             localStorage.setItem(clearKey, new Date().toISOString());
             setClearTrigger(prev => prev + 1);
@@ -1293,15 +1303,28 @@ const GroupChatPage = () => {
         >
           {(() => {
             let renderedUnseenBar = false;
+            let prevDateStr = null;
             const lastSeenIndex = sessionLastSeenId
               ? displayedMessages.findIndex(m => String(m.id) === String(sessionLastSeenId))
               : -1;
 
             return displayedMessages.map((msg, msgIdx) => {
+              const d = parseSafeDate(msg.timestamp);
+              const dateStr = d ? d.toDateString() : '';
+              const showDateDivider = dateStr && dateStr !== prevDateStr;
+              prevDateStr = dateStr;
+
               const isSystem = Number(msg.senderId) === 0 || msg.senderName === 'System';
               if (isSystem) {
                 return (
                   <React.Fragment key={msg.id}>
+                    {showDateDivider && (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', my: 2 }}>
+                        <Box sx={{ bgcolor: 'action.hover', color: 'text.secondary', px: 2, py: 0.5, borderRadius: 3, fontSize: '0.75rem', fontWeight: 600 }}>
+                          {formatDateDivider(msg.timestamp)}
+                        </Box>
+                      </Box>
+                    )}
                     <Box
                       id={`msg-${msg.id}`}
                       sx={{
@@ -1339,7 +1362,7 @@ const GroupChatPage = () => {
               const isAfterLastSeen = lastSeenIndex !== -1
                 ? msgIdx > lastSeenIndex
                 : sessionLastSeen
-                  ? new Date(msg.timestamp).getTime() > new Date(sessionLastSeen).getTime()
+                  ? parseSafeTime(msg.timestamp) > parseSafeTime(sessionLastSeen)
                   : false;
 
               const isUnseen = !isMe && isAfterLastSeen && initialMessageIds.current.has(String(msg.id));
@@ -1350,6 +1373,13 @@ const GroupChatPage = () => {
 
               return (
                 <React.Fragment key={msg.id}>
+                  {showDateDivider && (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', my: 2 }}>
+                      <Box sx={{ bgcolor: 'action.hover', color: 'text.secondary', px: 2, py: 0.5, borderRadius: 3, fontSize: '0.75rem', fontWeight: 600 }}>
+                        {formatDateDivider(msg.timestamp)}
+                      </Box>
+                    </Box>
+                  )}
                   {showUnseenBar && (
                     <Box 
                       className="unseen-messages-bar" 
@@ -1499,14 +1529,14 @@ const GroupChatPage = () => {
                           let opts = [];
                           try {
                             opts = typeof msg.pollOptions === 'string' ? JSON.parse(msg.pollOptions) : msg.pollOptions;
-                          } catch (e) {
+                          } catch {
                             opts = msg.pollOptions || [];
                           }
 
                           let votes = {};
                           try {
                             votes = typeof msg.pollVotes === 'string' ? JSON.parse(msg.pollVotes) : msg.pollVotes || {};
-                          } catch (e) {
+                          } catch {
                             votes = {};
                           }
 
@@ -1622,9 +1652,9 @@ const GroupChatPage = () => {
                           {msg.pinned && (
                             <PushPinIcon sx={{ fontSize: 11, color: isMe ? 'rgba(255,255,255,0.7)' : 'text.secondary', transform: 'rotate(45deg)' }} />
                           )}
-                          <Typography variant="caption" className="message-time" sx={{ m: 0 }}>
+                          <Typography variant="caption" className="message-time">
                             {msg.edited && <span style={{ marginRight: 4, fontStyle: 'italic', opacity: 0.8 }}>(edited)</span>}
-                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {formatTime(msg.timestamp)}
                           </Typography>
                         </Box>
                       </Paper>
@@ -1699,7 +1729,6 @@ const GroupChatPage = () => {
               size="small" 
               onClick={() => {
                 setEditorImageSrc(selectedImage);
-                setEditorShowSend(false);
                 setEditorOpen(true);
               }}
               sx={{ mr: 0.5 }}
@@ -2474,7 +2503,7 @@ const GroupChatPage = () => {
               <Box>
                 <Typography variant="caption" color="text.secondary">Joined</Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {selectedMemberInfo?.dateTime ? new Date(selectedMemberInfo.dateTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Recently'}
+                  {selectedMemberInfo?.dateTime ? formatDate(selectedMemberInfo.dateTime) : 'Recently'}
                 </Typography>
               </Box>
             </Box>
@@ -2536,7 +2565,6 @@ const GroupChatPage = () => {
             <Button
               onClick={() => {
                 setEditorImageSrc(lightboxUrl);
-                setEditorShowSend(true);
                 setEditorOpen(true);
                 setLightboxOpen(false);
               }}
@@ -2643,7 +2671,7 @@ const GroupChatPage = () => {
                     </ListItemAvatar>
                     <ListItemText 
                       primary={cleanText}
-                      secondary={`${senderName} • ${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                      secondary={`${senderName} • ${formatTime(msg.timestamp)}`}
                       primaryTypographyProps={{ variant: 'body2', noWrap: true, sx: { fontWeight: 500 } }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />
@@ -2828,7 +2856,14 @@ const GroupChatPage = () => {
             variant="contained" 
             color="error"
             onClick={() => {
-              localStorage.setItem(`sophiapath_clear_time_${user.id}_${groupId}`, new Date().toISOString());
+              const lastMsg = messages[messages.length - 1];
+              if (lastMsg) {
+                localStorage.setItem(`sophiapath_clear_msg_id_${user.id}_${groupId}`, String(lastMsg.id));
+                localStorage.setItem(`sophiapath_clear_time_${user.id}_${groupId}`, lastMsg.timestamp);
+              } else {
+                localStorage.setItem(`sophiapath_clear_time_${user.id}_${groupId}`, new Date(0).toISOString());
+                localStorage.removeItem(`sophiapath_clear_msg_id_${user.id}_${groupId}`);
+              }
               setClearTrigger(prev => prev + 1);
               setOpenClearConfirm(false);
             }}
