@@ -853,3 +853,7 @@
   color: var(--primary-main);
 }
 
+.learning-slide-container.wider {
+  max-width: 1200px;
+}
+

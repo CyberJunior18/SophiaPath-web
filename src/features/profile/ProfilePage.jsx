@@ -41,6 +41,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { achievementsData } from '../../data/achievements';
+import { safeFormatDate } from '../../utils/dateUtils';
 import './ProfilePage.css';
 
 const AVATAR_OPTIONS = [
@@ -479,7 +480,7 @@ const ProfilePage = () => {
                       <Box>
                         <Typography variant="caption" color="text.secondary">Joined</Typography>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {user?.joinedDate ? new Date(user.joinedDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Recently'}
+                          {safeFormatDate(user?.joinedDate, { year: 'numeric', month: 'long', day: 'numeric' }, 'Recently')}
                         </Typography>
                       </Box>
                     </Box>

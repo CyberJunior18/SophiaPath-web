@@ -62,11 +62,13 @@ import CommunityListPage from '../features/community/CommunityListPage';
 import CommunityDetailPage from '../features/community/CommunityDetailPage';
 import QuestionDetailPage from '../features/community/QuestionDetailPage';
 import LabsPage from './LabsPage';
+import SecurityChallenges from './labs/SecurityChallenges';
 
 
 import { useNavigate, Routes, Route, useLocation, Navigate, useParams } from 'react-router-dom';
 import { socialStore } from '../data/socialStore';
 import logoImg from '../assets/sp-logo.png';
+import { safeFormatTime } from '../utils/dateUtils';
 import './NavigationPage.css';
 import { useTheme as useAppTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -2128,7 +2130,11 @@ const NavigationPage = () => {
                                       {notif.type === 'chat' && notif.originalIds?.length > 1 ? 'New Chat Messages' : notif.type === 'group_chat' && notif.originalIds?.length > 1 ? 'New Group Messages' : notif.title}
                                     </Typography>
                                     <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '9px', whiteSpace: 'nowrap' }}>
+<<<<<<< HEAD
                                       {notif.createdAt ? `[${formatLog(notif.createdAt)}]` : ''}
+=======
+                                      {safeFormatTime(notif.createdAt)}
+>>>>>>> 9e854a82ba11ca21277a5e9b9cb93c1bf6d165bf
                                     </Typography>
                                   </Box>
                                 }
@@ -2179,6 +2185,7 @@ const NavigationPage = () => {
               <Route path="/learning/:courseId/:sectionId/:lessonId" element={<AnimatedPage><LearningContentPage /></AnimatedPage>} />
               <Route path="/philosophy-lab" element={<AnimatedPage><PhilosophyLabPage /></AnimatedPage>} />
               <Route path="/cyber-lab" element={<AnimatedPage><CyberLabPage /></AnimatedPage>} />
+              <Route path="/security-challenges" element={<AnimatedPage><SecurityChallenges /></AnimatedPage>} />
               <Route path="/communities/join-invite/:communityId" element={<AnimatedPage><JoinInviteHandler /></AnimatedPage>} />
               <Route path="/group/join/:token" element={<AnimatedPage><GroupJoinLinkHandler /></AnimatedPage>} />
               <Route path="*" element={<Navigate to="/" />} />

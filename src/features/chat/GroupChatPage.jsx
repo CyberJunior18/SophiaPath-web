@@ -63,6 +63,7 @@ import {
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
+import { safeFormatTime, safeFormatDate, isSameDay, formatChatSeparatorDate } from '../../utils/dateUtils';
 import ImageEditorModal from './ImageEditorModal';
 import { parseSafeDate, parseSafeTime, formatTime, formatDate, formatDateDivider, formatLog } from '../../utils/dateUtils';
 import './Chat.css';
@@ -1371,12 +1372,59 @@ const GroupChatPage = () => {
                 renderedUnseenBar = true;
               }
 
+              const prevMsg = msgIdx > 0 ? displayedMessages[msgIdx - 1] : null;
+              const showDateSeparator = !prevMsg || !isSameDay(msg.timestamp, prevMsg.timestamp);
+              const separatorText = showDateSeparator ? formatChatSeparatorDate(msg.timestamp) : '';
+
               return (
                 <React.Fragment key={msg.id}>
+<<<<<<< HEAD
                   {showDateDivider && (
                     <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', my: 2 }}>
                       <Box sx={{ bgcolor: 'action.hover', color: 'text.secondary', px: 2, py: 0.5, borderRadius: 3, fontSize: '0.75rem', fontWeight: 600 }}>
                         {formatDateDivider(msg.timestamp)}
+=======
+                  {separatorText && (
+                    <Box 
+                      className="chat-date-separator" 
+                      sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        alignItems: 'center',
+                        width: '100%', 
+                        my: 2.5, 
+                        position: 'relative'
+                      }}
+                    >
+                      <Box 
+                        sx={{ 
+                          position: 'absolute', 
+                          left: 16, 
+                          right: 16, 
+                          height: '1px', 
+                          bgcolor: 'var(--divider)', 
+                          zIndex: 1,
+                          opacity: 0.5
+                        }} 
+                      />
+                      <Box 
+                        sx={{ 
+                          bgcolor: 'var(--background-paper, #fff)', 
+                          color: 'var(--text-secondary)', 
+                          px: 2, 
+                          py: 0.5, 
+                          borderRadius: 4, 
+                          fontSize: '0.75rem', 
+                          fontWeight: 600, 
+                          border: '1px solid var(--divider)',
+                          zIndex: 2,
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.03em'
+                        }}
+                      >
+                        {separatorText}
+>>>>>>> 9e854a82ba11ca21277a5e9b9cb93c1bf6d165bf
                       </Box>
                     </Box>
                   )}
@@ -1654,7 +1702,11 @@ const GroupChatPage = () => {
                           )}
                           <Typography variant="caption" className="message-time">
                             {msg.edited && <span style={{ marginRight: 4, fontStyle: 'italic', opacity: 0.8 }}>(edited)</span>}
+<<<<<<< HEAD
                             {formatTime(msg.timestamp)}
+=======
+                            {safeFormatTime(msg.timestamp)}
+>>>>>>> 9e854a82ba11ca21277a5e9b9cb93c1bf6d165bf
                           </Typography>
                         </Box>
                       </Paper>
@@ -2503,7 +2555,11 @@ const GroupChatPage = () => {
               <Box>
                 <Typography variant="caption" color="text.secondary">Joined</Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
+<<<<<<< HEAD
                   {selectedMemberInfo?.dateTime ? formatDate(selectedMemberInfo.dateTime) : 'Recently'}
+=======
+                  {safeFormatDate(selectedMemberInfo?.dateTime, { year: 'numeric', month: 'long', day: 'numeric' }, 'Recently')}
+>>>>>>> 9e854a82ba11ca21277a5e9b9cb93c1bf6d165bf
                 </Typography>
               </Box>
             </Box>
@@ -2671,7 +2727,11 @@ const GroupChatPage = () => {
                     </ListItemAvatar>
                     <ListItemText 
                       primary={cleanText}
+<<<<<<< HEAD
                       secondary={`${senderName} • ${formatTime(msg.timestamp)}`}
+=======
+                      secondary={`${senderName} • ${safeFormatTime(msg.timestamp)}`}
+>>>>>>> 9e854a82ba11ca21277a5e9b9cb93c1bf6d165bf
                       primaryTypographyProps={{ variant: 'body2', noWrap: true, sx: { fontWeight: 500 } }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />

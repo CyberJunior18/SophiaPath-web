@@ -40,7 +40,6 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
-import { parseSafeTime, formatTime, formatDate, formatLog } from '../../utils/dateUtils';
 import './Chat.css';
 
 const ChatListPage = () => {
@@ -687,7 +686,7 @@ const ChatListPage = () => {
                               </Typography>
                               {!isBlockedByTarget && !isBlockedByMe && lastMessageTimes[otherUser.id] && (
                                 <Typography variant="caption" className="chat-item-time">
-                                  [{formatLog(lastMessageTimes[otherUser.id])}]
+                                  {new Date(lastMessageTimes[otherUser.id]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </Typography>
                               )}
                             </Box>
@@ -772,7 +771,7 @@ const ChatListPage = () => {
                                       {displayName}
                                     </Typography>
                                     <Typography variant="caption" className="chat-item-time">
-                                      [{formatLog(msg.timestamp)}]
+                                      {new Date(msg.timestamp).toLocaleDateString()} {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </Typography>
                                   </Box>
                                 }
@@ -938,18 +937,12 @@ const ChatListPage = () => {
                       <ListItemText
                         primary={
                           <Box className="chat-item-header">
-                            <Typography className="chat-item-name" variant="subtitle2" sx={{ fontWeight: 700 }}>
+                            <Typography className="chat-item-name">
                               {displayName}
                             </Typography>
-                            {lastMsgTime ? (
-                              <Typography variant="caption" className="chat-item-time">
-                                [{formatLog(lastMsgTime)}]
-                              </Typography>
-                            ) : (
-                              <Typography variant="caption" className="chat-item-time" sx={{ bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 2 }}>
-                                {group.members.length} members
-                              </Typography>
-                            )}
+                            <Typography variant="caption" className="chat-item-time" sx={{ bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 2, fontSize: '0.7rem' }}>
+                              {group.members.length} members
+                            </Typography>
                           </Box>
                         }
                         secondary={

@@ -55,6 +55,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
 import { COMMUNITY_CATEGORIES, CATEGORY_STYLES } from './CommunityListPage';
+import { safeFormatDate } from '../../utils/dateUtils';
 import './Community.css';
 const formatMemberCount = (count) => {
   if (!count) return '0';
@@ -948,7 +949,7 @@ const CommunityDetailPage = () => {
                         );
                       })()}
                       <span>•</span>
-                      <span>{new Date(q.timestamp).toLocaleDateString()}</span>
+                      <span>{safeFormatDate(q.timestamp)}</span>
                       {!q.approved && (
                         <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.12)', padding: '2px 6px', borderRadius: 4, marginLeft: 8 }}>
                           Pending Approval
@@ -2594,7 +2595,7 @@ const CommunityDetailPage = () => {
                     <Box>
                       <Typography variant="caption" color="text.secondary">Joined Platform</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {profileMember.dateTime ? new Date(profileMember.dateTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Recently'}
+                        {safeFormatDate(profileMember?.dateTime, { year: 'numeric', month: 'long', day: 'numeric' }, 'Recently')}
                       </Typography>
                     </Box>
                   </Box>

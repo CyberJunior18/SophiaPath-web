@@ -159,6 +159,23 @@ function XSSLab({ isSecure, showAlert }) {
           {xssType === 'reflected' && (
             <div className="xss-panel">
               <h4 className="xss-panel-title">Search Catalog (URL Parameter)</h4>
+              <Button
+                variant="outlined"
+                color="secondary"
+                size="small"
+                onClick={() => window.open('/challenges/search', '_blank')}
+                style={{
+                  marginTop: '8px',
+                  marginBottom: '16px',
+                  textTransform: 'none',
+                  fontWeight: 800,
+                  borderColor: 'var(--primary-main)',
+                  color: 'var(--primary-main)',
+                  alignSelf: 'flex-start'
+                }}
+              >
+                🚀 Launch Live Reflected XSS Sandbox Target
+              </Button>
               <form onSubmit={handleReflected} className="xss-form" style={{ marginBottom: '1rem', marginTop: 0 }}>
                 <input 
                   type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
@@ -316,6 +333,23 @@ function SQLiLab({ isSecure }) {
           {sqliType === 'inband' ? (
             <div className="sqli-panel">
               <h4 className="sqli-panel-title">Login Portal</h4>
+              <Button
+                variant="outlined"
+                color="secondary"
+                size="small"
+                onClick={() => window.open('/challenges/login', '_blank')}
+                style={{
+                  marginTop: '8px',
+                  marginBottom: '16px',
+                  textTransform: 'none',
+                  fontWeight: 800,
+                  borderColor: 'var(--primary-main)',
+                  color: 'var(--primary-main)',
+                  alignSelf: 'flex-start'
+                }}
+              >
+                🚀 Launch Live SQLi Sandbox Target
+              </Button>
               <form onSubmit={handleLogin} className="sqli-form">
                 <div className="sqli-input-group">
                   <label className="sqli-label">Username</label>
@@ -730,6 +764,23 @@ function AccessControlLab({ isSecure }) {
         <div className={`ac-grid ${acType === 'idor' ? 'ac-grid-horizontal' : 'ac-grid-vertical'}`} style={acType === 'idor' ? { display: 'block' } : {}}>
           {acType === 'idor' ? (
             <div className="cyber-browser-mock" style={{ width: '50%', margin: '0 auto', minHeight: '380px', backgroundColor: 'var(--background-paper)', border: '1px solid var(--divider)', borderRadius: '8px', overflow: 'hidden' }}>
+              <div style={{ padding: '12px', display: 'flex', justifyContent: 'center', background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid var(--divider)' }}>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  size="small"
+                  onClick={() => window.open('/challenges/files', '_blank')}
+                  style={{
+                    textTransform: 'none',
+                    fontWeight: 800,
+                    borderColor: 'var(--primary-main)',
+                    color: 'var(--primary-main)',
+                    width: '100%'
+                  }}
+                >
+                  🚀 Launch Live IDOR Sandbox Target
+                </Button>
+              </div>
               <div className="cyber-browser-header" style={{ background: 'var(--background-default)', color: 'var(--text-primary)', borderBottom: '1px solid var(--divider)', padding: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                  <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>Browser URL:</span>
                  <div style={{ display: 'flex', background: 'var(--background-default)', border: '1px solid var(--divider)', borderRadius: '6px', overflow: 'hidden', flex: 1 }}>
