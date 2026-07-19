@@ -52,6 +52,7 @@ import {
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
+import { safeFormatDate } from '../../utils/dateUtils';
 import './Community.css';
 
 const countReplies = (node) => {
@@ -2560,7 +2561,7 @@ const QuestionDetailPage = () => {
                     <Box>
                       <Typography variant="caption" color="text.secondary">Joined Platform</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {profileMember.dateTime ? new Date(profileMember.dateTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Recently'}
+                        {safeFormatDate(profileMember?.dateTime, { year: 'numeric', month: 'long', day: 'numeric' }, 'Recently')}
                       </Typography>
                     </Box>
                   </Box>

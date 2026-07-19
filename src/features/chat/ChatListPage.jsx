@@ -40,6 +40,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
+import { safeFormatTime, safeFormatDate, formatLastMessageTime } from '../../utils/dateUtils';
 import './Chat.css';
 
 const ChatListPage = () => {
@@ -641,7 +642,7 @@ const ChatListPage = () => {
                               </Typography>
                               {!isBlockedByTarget && !isBlockedByMe && lastMessageTimes[otherUser.id] && (
                                 <Typography variant="caption" className="chat-item-time">
-                                  {new Date(lastMessageTimes[otherUser.id]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  {formatLastMessageTime(lastMessageTimes[otherUser.id])}
                                 </Typography>
                               )}
                             </Box>
@@ -750,7 +751,7 @@ const ChatListPage = () => {
                                       {displayName}
                                     </Typography>
                                     <Typography variant="caption" className="chat-item-time">
-                                      {new Date(msg.timestamp).toLocaleDateString()} {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      {safeFormatDate(msg.timestamp)} {safeFormatTime(msg.timestamp)}
                                     </Typography>
                                   </Box>
                                 }
@@ -902,12 +903,19 @@ const ChatListPage = () => {
                       <ListItemText 
                         primary={
                           <Box className="chat-item-header">
-                            <Typography className="chat-item-name">
-                              {displayName}
-                            </Typography>
-                            <Typography variant="caption" className="chat-item-time" sx={{ bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 2, fontSize: '0.7rem' }}>
-                              {group.members.length} members
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography className="chat-item-name" sx={{ mr: 0 }}>
+                                {displayName}
+                              </Typography>
+                              <Typography variant="caption" sx={{ bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 2, fontSize: '0.7rem', color: 'text.secondary' }}>
+                                {group.members.length} members
+                              </Typography>
+                            </Box>
+                            {lastMessage && (
+                              <Typography variant="caption" className="chat-item-time">
+                                {formatLastMessageTime(lastMessage.timestamp)}
+                              </Typography>
+                            )}
                           </Box>
                         } 
                         secondary={

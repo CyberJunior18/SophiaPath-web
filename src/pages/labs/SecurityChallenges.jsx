@@ -6,7 +6,7 @@ import {
   TextField,
   Button,
   Divider,
-  Grid2 as Grid,
+  Grid,
   Alert,
   CircularProgress
 } from '@mui/material';
@@ -95,7 +95,7 @@ export default function SecurityChallenges() {
     <Box className="security-challenges-container">
       <Grid container spacing={4}>
         {/* Left Column - XSS and SQLi */}
-        <Grid size={{ xs: 12, md: 6 }} style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+        <Grid item xs={12} md={6} style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
           
           {/* XSS Challenge Section */}
           <Paper className="challenge-card glass-panel" elevation={0}>
@@ -215,7 +215,7 @@ export default function SecurityChallenges() {
         </Grid>
 
         {/* Right Column - BAC/IDOR */}
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid item xs={12} md={6}>
           
           {/* BAC Challenge Section */}
           <Paper className="challenge-card glass-panel" elevation={0} style={{ height: '100%' }}>

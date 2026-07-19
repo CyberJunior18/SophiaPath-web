@@ -1701,6 +1701,11 @@ const LearningContentPage = () => {
         if (exerciseAnswers[key] === undefined) {
           return false;
         }
+      } else if (block.type === 'vulnerability_challenge') {
+        const key = _blockKey(pageIdx, idx);
+        if (exerciseAnswers[key] !== true) {
+          return false;
+        }
       }
     }
     return true;
@@ -2189,15 +2194,21 @@ const LearningContentPage = () => {
         );
       }
 
-      case 'vulnerability_challenge':
+      case 'vulnerability_challenge': {
+        const key = _blockKey(currentPageIndex, idx);
         return (
           <VulnerabilityChallengeWidget
             key={idx}
             chapterId={Number(lessonId)}
             block={block}
             isDarkMode={isDarkMode}
+            onAnswered={(isCorrect) => {
+              setExerciseAnswers(prev => ({ ...prev, [key]: isCorrect }));
+            }}
+            initiallyAnswered={exerciseAnswers[key] === true}
           />
         );
+      }
 
       case 'socratic_dialogue':
         return <SocraticDialogueWidget key={idx} isDarkMode={isDarkMode} />;
@@ -3287,6 +3298,8 @@ const LearningContentPage = () => {
     );
   }
 
+  const hasVulnerabilityChallenge = !!(currentPage && currentPage.blocks && currentPage.blocks.some(b => b.type === 'vulnerability_challenge'));
+
   return (
     <Box className="learning-content-page">
       <header className="learning-content-header glass-panel">
@@ -3336,7 +3349,7 @@ const LearningContentPage = () => {
         />
       </header>
 
-      <Container maxWidth="md" className="learning-slide-deck">
+      <Container maxWidth={hasVulnerabilityChallenge ? "lg" : "md"} className="learning-slide-deck">
         <AnimatePresence mode="wait">
           {currentPage && (
             <motion.div
@@ -3345,7 +3358,7 @@ const LearningContentPage = () => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -30 }}
               transition={{ duration: 0.28, ease: 'easeOut' }}
-              className="learning-slide-container"
+              className={`learning-slide-container ${hasVulnerabilityChallenge ? 'wider' : ''}`}
             >
               <Paper className="learning-slide-paper glass-panel-strong" elevation={0}>
                 {currentPage.pageTitle && (

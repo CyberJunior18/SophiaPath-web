@@ -217,6 +217,15 @@ const SEARCHABLE_LABS = [
     labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
+  {
+    id: 'security-challenges',
+    title: 'Interactive Security Challenges',
+    description: 'Exploit live Reflected XSS, SQL Injection, and Broken Access Control targets connected to a live PostgreSQL database and get AI-evaluated reports.',
+    path: '/security-challenges',
+    iconName: 'lock',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
   // Philosophy
   {
     id: 'dialogue',

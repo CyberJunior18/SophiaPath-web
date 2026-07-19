@@ -56,6 +56,7 @@ import {
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
+import { safeFormatTime, safeFormatDate, isSameDay, formatChatSeparatorDate } from '../../utils/dateUtils';
 import ImageEditorModal from './ImageEditorModal';
 import './Chat.css';
 
@@ -1099,8 +1100,55 @@ const ChatPage = () => {
                 renderedUnseenBar = true;
               }
 
+              const prevMsg = msgIdx > 0 ? displayedMessages[msgIdx - 1] : null;
+              const showDateSeparator = !prevMsg || !isSameDay(msg.timestamp, prevMsg.timestamp);
+              const separatorText = showDateSeparator ? formatChatSeparatorDate(msg.timestamp) : '';
+
               return (
                 <React.Fragment key={msg.id}>
+                  {separatorText && (
+                    <Box 
+                      className="chat-date-separator" 
+                      sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        alignItems: 'center',
+                        width: '100%', 
+                        my: 2.5, 
+                        position: 'relative'
+                      }}
+                    >
+                      <Box 
+                        sx={{ 
+                          position: 'absolute', 
+                          left: 16, 
+                          right: 16, 
+                          height: '1px', 
+                          bgcolor: 'var(--divider)', 
+                          zIndex: 1,
+                          opacity: 0.5
+                        }} 
+                      />
+                      <Box 
+                        sx={{ 
+                          bgcolor: 'var(--background-paper, #fff)', 
+                          color: 'var(--text-secondary)', 
+                          px: 2, 
+                          py: 0.5, 
+                          borderRadius: 4, 
+                          fontSize: '0.75rem', 
+                          fontWeight: 600, 
+                          border: '1px solid var(--divider)',
+                          zIndex: 2,
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.03em'
+                        }}
+                      >
+                        {separatorText}
+                      </Box>
+                    </Box>
+                  )}
                   {showUnseenBar && (
                     <Box 
                       className="unseen-messages-bar" 
@@ -1250,7 +1298,7 @@ const ChatPage = () => {
                         )}
                         <Typography variant="caption" className="message-time" sx={{ m: 0 }}>
                           {msg.edited && <span style={{ marginRight: 4, fontStyle: 'italic', opacity: 0.8 }}>(edited)</span>}
-                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {safeFormatTime(msg.timestamp)}
                         </Typography>
                         {isMe && !msg.deleted && (
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1558,7 +1606,7 @@ const ChatPage = () => {
                   <Box>
                     <Typography variant="caption" color="text.secondary">Joined</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {targetUserDetails?.dateTime ? new Date(targetUserDetails.dateTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Recently'}
+                      {safeFormatDate(targetUserDetails?.dateTime, { year: 'numeric', month: 'long', day: 'numeric' }, 'Recently')}
                     </Typography>
                   </Box>
                 </Box>
@@ -1786,7 +1834,7 @@ const ChatPage = () => {
                     </ListItemAvatar>
                     <ListItemText 
                       primary={cleanText}
-                      secondary={`${senderName} • ${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                      secondary={`${senderName} • ${safeFormatTime(msg.timestamp)}`}
                       primaryTypographyProps={{ variant: 'body2', noWrap: true, sx: { fontWeight: 500 } }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />
