@@ -23,7 +23,8 @@ import {
   DialogActions,
   TextField,
   Alert,
-  Snackbar
+  Snackbar,
+  useMediaQuery
 } from '@mui/material';
 import { 
   Notifications as NotificationsIcon,
@@ -38,7 +39,9 @@ import {
   TextFields as TextIcon,
   TouchApp as CursorIcon,
   Wallpaper as WallpaperIcon,
-  AutoAwesome as AutoAwesomeIcon
+  AutoAwesome as AutoAwesomeIcon,
+  KeyboardArrowDown as ExpandMoreIcon,
+  KeyboardArrowUp as ExpandLessIcon
 } from '@mui/icons-material';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -46,7 +49,7 @@ import './SettingsPage.css';
 
 
 const SettingsPage = () => {
-  const { themeMode, setThemeMode, customColors, updateCustomColors } = useTheme();
+  const { themeMode, setThemeMode } = useTheme();
   const { user, deleteAccount, refreshUser } = useAuth();
   const [notifications, setNotifications] = useState(true);
 
@@ -137,6 +140,11 @@ const SettingsPage = () => {
       setPasswordError('Network error. Failed to update password.');
     }
   };
+
+  const isTouchOrMobileDevice = useMediaQuery('(pointer: coarse), (max-width: 899px)');
+  const isSmallScreen = useMediaQuery('(max-width: 899px)');
+  const [showAllThemes, setShowAllThemes] = useState(false);
+
   const [logoGradient, setLogoGradient] = useState(() => {
     return localStorage.getItem('sophiapath_logo_style') === 'gradient';
   });
@@ -222,41 +230,7 @@ const SettingsPage = () => {
     { id: 'clay', name: 'Clay Slate', bg: '#fafafa', border: '#4b556333', text: '#111827', dot: '#4b5563' },
     { id: 'kitty', name: 'Hello Kitty', bg: '#ffebf0', border: '#ff6b8b33', text: '#4a1525', dot: '#ff6b8b' },
     { id: 'midnight', name: 'Midnight Gold', bg: '#101726', border: '#fbc02d33', text: '#ffffff', dot: '#fbc02d' },
-    {
-      id: 'custom',
-      name: 'Custom Theme',
-      bg: customColors?.bgPaper || '#FFFFFF',
-      border: 'rgba(0,0,0,0.12)',
-      text: customColors?.textPrimary || '#2D2D4D',
-      dot: customColors?.primaryMain || '#3D5CFF'
-    },
   ];
-
-  const defaultCustomColors = {
-    primaryMain: '#3D5CFF',
-    primaryDark: '#2E49D1',
-    primaryLight: '#7C8DFF',
-    bgDefault: '#F5F7FA',
-    bgPaper: '#FFFFFF',
-    bgPaperAlt: '#F0F4F8',
-    textPrimary: '#2D2D4D',
-    textSecondary: '#64748b',
-    divider: '#3d5cff15',
-    codeBg: '#f8f9fa'
-  };
-
-  const handleColorChange = (key, value) => {
-    const updated = {
-      ...defaultCustomColors,
-      ...customColors,
-      [key]: value
-    };
-    if (key === 'primaryMain') {
-      updated.primaryDark = value;
-      updated.primaryLight = value;
-    }
-    updateCustomColors(updated);
-  };
 
   const handleDeleteAccount = () => {
     if (window.confirm('Are you sure you want to delete your account? This action is permanent.')) {
@@ -336,174 +310,70 @@ const SettingsPage = () => {
                       secondary="Customize the visual colors and appearance of the application"
                     />
                   </Box>
-                  <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginTop: '8px', width: '100%' }}>
-                    {themes.map((t) => (
-                      <Box
-                        key={t.id}
-                        onClick={() => setThemeMode(t.id)}
-                        style={{
-                          cursor: 'pointer',
-                          padding: '16px 12px',
-                          borderRadius: '16px',
-                          background: t.bg,
-                          border: themeMode === t.id ? `2px solid ${t.dot}` : '1.5px solid var(--divider)',
-                          
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          gap: '8px',
-                          transition: 'all 0.2s ease',
-                          textAlign: 'center'
-                        }}
-                      >
-                        <Box style={{ width: '20px', height: '20px', borderRadius: '50%', background: t.dot, border: '2.5px solid #fff'}} />
-                        <Typography style={{ fontSize: '0.8rem', fontWeight: 800, color: t.text }}>{t.name}</Typography>
-                      </Box>
-                    ))}
-                  </Box>
+                  {(() => {
+                    const INITIAL_THEME_COUNT = 6;
+                    const displayedThemes = (isSmallScreen && !showAllThemes) 
+                      ? themes.slice(0, INITIAL_THEME_COUNT) 
+                      : themes;
 
-                  {themeMode === 'custom' && (
-                    <Box style={{ marginTop: '24px', padding: '20px', borderRadius: '16px', border: '1px solid var(--divider)', background: 'var(--background-default)', width: '100%' }}>
-                      <Typography variant="subtitle2" style={{ fontWeight: 800, marginBottom: '16px', fontFamily: '"Outfit", sans-serif' }}>
-                        Customize Theme Colors
-                      </Typography>
-                      <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        
-                        {/* Grid of Color Selectors */}
-                        <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
-                          
-                          {/* Primary Color */}
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <Typography variant="caption" style={{ fontWeight: 800 }}>Primary Main Color</Typography>
-                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="color"
-                                value={customColors.primaryMain || '#3D5CFF'}
-                                onChange={(e) => handleColorChange('primaryMain', e.target.value)}
-                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
-                              />
-                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                {customColors.primaryMain || '#3D5CFF'}
+                    return (
+                      <>
+                        <Box style={{ 
+                          display: 'grid', 
+                          gridTemplateColumns: isSmallScreen ? 'repeat(auto-fill, minmax(88px, 1fr))' : 'repeat(auto-fit, minmax(130px, 1fr))', 
+                          gap: isSmallScreen ? '8px' : '12px', 
+                          marginTop: '8px', 
+                          width: '100%' 
+                        }}>
+                          {displayedThemes.map((t) => (
+                            <Box
+                              key={t.id}
+                              onClick={() => setThemeMode(t.id)}
+                              style={{
+                                cursor: 'pointer',
+                                padding: isSmallScreen ? '10px 6px' : '16px 12px',
+                                borderRadius: isSmallScreen ? '12px' : '16px',
+                                background: t.bg,
+                                border: themeMode === t.id ? `2px solid ${t.dot}` : '1.5px solid var(--divider)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: isSmallScreen ? '4px' : '8px',
+                                transition: 'all 0.2s ease',
+                                textAlign: 'center'
+                              }}
+                            >
+                              <Box style={{ width: isSmallScreen ? '14px' : '20px', height: isSmallScreen ? '14px' : '20px', borderRadius: '50%', background: t.dot, border: isSmallScreen ? '1.5px solid #fff' : '2.5px solid #fff'}} />
+                              <Typography style={{ fontSize: isSmallScreen ? '0.68rem' : '0.8rem', fontWeight: 800, color: t.text, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {t.name}
                               </Typography>
                             </Box>
-                          </Box>
-
-                          {/* Page Background */}
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <Typography variant="caption" style={{ fontWeight: 800 }}>Page Background</Typography>
-                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="color"
-                                value={customColors.bgDefault || '#F5F7FA'}
-                                onChange={(e) => handleColorChange('bgDefault', e.target.value)}
-                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
-                              />
-                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                {customColors.bgDefault || '#F5F7FA'}
-                              </Typography>
-                            </Box>
-                          </Box>
-
-                          {/* Card Background */}
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <Typography variant="caption" style={{ fontWeight: 800 }}>Card Background</Typography>
-                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="color"
-                                value={customColors.bgPaper || '#FFFFFF'}
-                                onChange={(e) => handleColorChange('bgPaper', e.target.value)}
-                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
-                              />
-                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                {customColors.bgPaper || '#FFFFFF'}
-                              </Typography>
-                            </Box>
-                          </Box>
-
-                          {/* Nested Card Background */}
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <Typography variant="caption" style={{ fontWeight: 800 }}>Nested Card Background</Typography>
-                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="color"
-                                value={customColors.bgPaperAlt || '#F0F4F8'}
-                                onChange={(e) => handleColorChange('bgPaperAlt', e.target.value)}
-                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
-                              />
-                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                {customColors.bgPaperAlt || '#F0F4F8'}
-                              </Typography>
-                            </Box>
-                          </Box>
-
-                          {/* Text Color */}
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <Typography variant="caption" style={{ fontWeight: 800 }}>Text Color</Typography>
-                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="color"
-                                value={customColors.textPrimary || '#2D2D4D'}
-                                onChange={(e) => handleColorChange('textPrimary', e.target.value)}
-                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
-                              />
-                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                {customColors.textPrimary || '#2D2D4D'}
-                              </Typography>
-                            </Box>
-                          </Box>
-
-                          {/* Secondary Text Color */}
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <Typography variant="caption" style={{ fontWeight: 800 }}>Secondary Text Color</Typography>
-                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="color"
-                                value={customColors.textSecondary || '#64748b'}
-                                onChange={(e) => handleColorChange('textSecondary', e.target.value)}
-                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
-                              />
-                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                {customColors.textSecondary || '#64748b'}
-                              </Typography>
-                            </Box>
-                          </Box>
-
-                          {/* Border & Divider Color */}
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <Typography variant="caption" style={{ fontWeight: 800 }}>Border & Divider Color</Typography>
-                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="color"
-                                value={customColors.divider || '#3d5cff15'}
-                                onChange={(e) => handleColorChange('divider', e.target.value)}
-                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
-                              />
-                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                {customColors.divider || '#3d5cff15'}
-                              </Typography>
-                            </Box>
-                          </Box>
-
-                          {/* Code Editor Background */}
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <Typography variant="caption" style={{ fontWeight: 800 }}>Code Editor Background</Typography>
-                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="color"
-                                value={customColors.codeBg || '#f8f9fa'}
-                                onChange={(e) => handleColorChange('codeBg', e.target.value)}
-                                style={{ width: '40px', height: '40px', border: 'none', borderRadius: '8px', cursor: 'pointer', outline: 'none', background: 'transparent' }}
-                              />
-                              <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                {customColors.codeBg || '#f8f9fa'}
-                              </Typography>
-                            </Box>
-                          </Box>
-
+                          ))}
                         </Box>
-                      </Box>
-                    </Box>
-                  )}
+
+                        {isSmallScreen && (
+                          <Button
+                            onClick={() => setShowAllThemes(!showAllThemes)}
+                            variant="text"
+                            size="small"
+                            endIcon={showAllThemes ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                            style={{
+                              marginTop: '10px',
+                              alignSelf: 'center',
+                              borderRadius: '12px',
+                              color: 'var(--primary-main)',
+                              fontWeight: 800,
+                              fontSize: '0.78rem',
+                              textTransform: 'none'
+                            }}
+                          >
+                            {showAllThemes ? 'View Less' : `View More (${themes.length - INITIAL_THEME_COUNT} themes)`}
+                          </Button>
+                        )}
+                      </>
+                    );
+                  })()}
+
                 </ListItem>
                 <Divider />
                 <ListItem className="settings-row">
@@ -516,41 +386,45 @@ const SettingsPage = () => {
                   />
                   <Switch checked={logoGradient} onChange={handleLogoStyleChange} color="primary" />
                 </ListItem>
-                <Divider />
-                <ListItem className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px', padding: '20px 24px' }}>
-                  <Box style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <CursorIcon className="settings-primary-icon" />
-                    <ListItemText 
-                      primary={<Typography className="settings-row-title">Custom Pointer Styles</Typography>}
-                      secondary="Select an interactive cursor pointer for your philosophical journey"
-                    />
-                  </Box>
-                  <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', marginTop: '4px', width: '100%' }}>
-                    {cursors.map((c) => (
-                      <Box
-                        key={c.id}
-                        onClick={() => handleCursorChange(c.id)}
-                        style={{
-                          cursor: 'pointer',
-                          padding: '12px 8px',
-                          borderRadius: '12px',
-                          background: 'rgba(255, 255, 255, 0.02)',
-                          border: customCursor === c.id ? `2px solid var(--primary-main)` : '1.5px solid var(--divider)',
-
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          gap: '6px',
-                          transition: 'all 0.2s ease',
-                          textAlign: 'center'
-                        }}
-                      >
-                        <span style={{ fontSize: '1.4rem' }}>{c.char}</span>
-                        <Typography style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--text-primary)' }}>{c.name}</Typography>
+                {!isTouchOrMobileDevice && (
+                  <>
+                    <Divider />
+                    <ListItem className="settings-row settings-pointer-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px', padding: '20px 24px' }}>
+                      <Box style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <CursorIcon className="settings-primary-icon" />
+                        <ListItemText 
+                          primary={<Typography className="settings-row-title">Custom Pointer Styles</Typography>}
+                          secondary="Select an interactive cursor pointer for your philosophical journey"
+                        />
                       </Box>
-                    ))}
-                  </Box>
-                </ListItem>
+                      <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', marginTop: '4px', width: '100%' }}>
+                        {cursors.map((c) => (
+                          <Box
+                            key={c.id}
+                            onClick={() => handleCursorChange(c.id)}
+                            style={{
+                              cursor: 'pointer',
+                              padding: '12px 8px',
+                              borderRadius: '12px',
+                              background: 'rgba(255, 255, 255, 0.02)',
+                              border: customCursor === c.id ? `2px solid var(--primary-main)` : '1.5px solid var(--divider)',
+
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '6px',
+                              transition: 'all 0.2s ease',
+                              textAlign: 'center'
+                            }}
+                          >
+                            <span style={{ fontSize: '1.4rem' }}>{c.char}</span>
+                            <Typography style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--text-primary)' }}>{c.name}</Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    </ListItem>
+                  </>
+                )}
                 <Divider />
                 <ListItem className="settings-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -562,7 +436,7 @@ const SettingsPage = () => {
                       secondary="Select user interface typeface to customize reading layouts"
                     />
                   </div>
-                  <FormControl size="small" style={{ minWidth: '160px' }}>
+                  <FormControl size="small" style={{ minWidth: isSmallScreen ? '110px' : '160px', maxWidth: isSmallScreen ? '140px' : '220px' }}>
                     <Select
                       value={fontPreference}
                       onChange={handleFontChange}
@@ -608,7 +482,7 @@ const SettingsPage = () => {
                           secondary="Choose an animation style for the global website background"
                         />
                       </div>
-                      <FormControl size="small" style={{ minWidth: '220px' }}>
+                      <FormControl size="small" style={{ minWidth: isSmallScreen ? '110px' : '200px', maxWidth: isSmallScreen ? '140px' : '240px' }}>
                         <Select
                           value={bgStyle}
                           onChange={handleBgStyleChange}

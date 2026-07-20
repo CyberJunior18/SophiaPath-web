@@ -34,6 +34,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './LearningContentPage.css'; // Reuses existing glassmorphic page styles
 import { ReligionTreeMap } from '../components/ReligionTreeMap';
 import SocratesAvatar from '../components/SocratesAvatar';
+import BiggerScreenRequired from '../components/BiggerScreenRequired';
 import logoImg from '../assets/sp-logo.png';
 
 // 1. Upgraded Socratic Dialogue Widget (AI Chat Only)
@@ -4255,6 +4256,14 @@ export const PoliticalCompassWidget = () => {
 
 // Main Philosophy Lab Page
 const PhilosophyLabPage = () => {
+  return (
+    <BiggerScreenRequired pageName="The Philosophy Lab">
+      <PhilosophyLabContent />
+    </BiggerScreenRequired>
+  );
+};
+
+const PhilosophyLabContent = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab');

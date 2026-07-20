@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { CppPlaygroundDialog } from '../components/CppPlaygroundDialog';
 import { JavaOopUmlPlayground } from '../components/JavaOopUmlPlayground';
@@ -42,7 +42,8 @@ import {
   Class as ClassIcon,
   Schema as SchemaIcon,
   Psychology as PsychologyIcon,
-  InfoOutlined as InfoOutlinedIcon
+  InfoOutlined as InfoOutlinedIcon,
+  DesktopWindows as LaptopIcon
 } from '@mui/icons-material';
 
 import IntroToCybersecurityIcon from '../assets/IntroToCybersecurity.png';
@@ -114,11 +115,13 @@ const LearningPathPage = () => {
   const [selectedNode, setSelectedNode] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
+  const [resultModalData, setResultModalData] = useState(null);
 
   // FAB scrolling states
   const [showScrollArrow, setShowScrollArrow] = useState(false);
   const [scrollDirection, setScrollDirection] = useState('up');
   const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
+  const scrolledLocationStateRef = useRef(null);
 
   // Dynamic database course loading
   useEffect(() => {
@@ -357,13 +360,56 @@ const LearningPathPage = () => {
     return uniqueLessons;
   }, [activeSection, backendLessons]);
 
-  // Sync results from QuizPage if any
+  const syncedLocationStateRef = useRef(null);
+
+  // Sync results from QuizPage or LessonContentPage if any and open score dialog for exercises
   useEffect(() => {
-    if (location.state?.quizResult) {
-      const { lessonId, percentage } = location.state.quizResult;
-      updateQuizScore(lessonId, percentage);
+    const finishedKey = location.state?.quizResult 
+      ? `quiz-${location.state.quizResult.lessonId}-${location.state.quizResult.percentage}`
+      : location.state?.lessonFinished
+      ? `lesson-${location.state.lessonFinished.lessonId}-${location.state.lessonFinished.score}`
+      : null;
+
+    if (finishedKey && syncedLocationStateRef.current !== finishedKey) {
+      syncedLocationStateRef.current = finishedKey;
+      let scoreVal = 0;
+      let targetLessonId = null;
+
+      if (location.state?.quizResult) {
+        const { lessonId, percentage, score } = location.state.quizResult;
+        scoreVal = percentage !== undefined ? Number(percentage) : (score !== undefined ? Number(score) : 0);
+        targetLessonId = lessonId;
+        updateQuizScore(lessonId, scoreVal);
+      } else if (location.state?.lessonFinished) {
+        const { lessonId, score } = location.state.lessonFinished;
+        scoreVal = score !== undefined ? Number(score) : (scores[lessonId] !== undefined ? Number(scores[lessonId]) : 0);
+        targetLessonId = lessonId;
+        updateQuizScore(lessonId, scoreVal);
+      }
+
+      if (targetLessonId && lessons.length > 0) {
+        const targetLesson = lessons.find(l => String(l.id) === String(targetLessonId));
+        const tTitleLower = (targetLesson?.title || '').toLowerCase();
+        const isExerciseOrQuiz = Boolean(location.state?.quizResult) || 
+          targetLesson?.category === 'exercise' || 
+          targetLesson?.category === 'quiz' || 
+          targetLesson?.category === 'mcq' || 
+          tTitleLower.includes('quiz') || 
+          tTitleLower.includes('exercise') || 
+          tTitleLower.includes('test') || 
+          tTitleLower.includes('practice');
+
+        if (isExerciseOrQuiz) {
+          setResultModalData({
+            lessonId: targetLessonId,
+            title: targetLesson?.title || 'Exercise Result',
+            score: scoreVal,
+            category: targetLesson?.category || 'exercise'
+          });
+        }
+      }
     }
-  }, [location.state, updateQuizScore]);
+  }, [location.state, updateQuizScore, lessons]);
 
   const uniqueChapterNames = useMemo(() => {
     const list = [];
@@ -400,21 +446,42 @@ const LearningPathPage = () => {
     return lessons.map((lesson, index) => {
       // Find all database duplicates of this unique lesson title
       const duplicates = rawList.filter(dl => (dl.title || '').trim().toLowerCase() === (lesson.title || '').trim().toLowerCase());
+      const allMatching = [lesson, ...duplicates];
 
-      // Consolidate the highest score among duplicates
+      // Consolidate highest score among matching instances
       let score = 0;
-      duplicates.forEach(dl => {
-        const s = scores[dl.id] || 0;
-        if (s > score) score = s;
+      allMatching.forEach(dl => {
+        if (scores[dl.id] !== undefined && scores[dl.id] !== null) {
+          const numS = Number(scores[dl.id]);
+          if (numS > score) score = numS;
+        }
       });
 
-      const isPassed = score >= 70;
+      // Auto-detect category for exercises & quizzes if not explicitly set
+      const titleLower = (lesson.title || '').toLowerCase();
+      const hasQuestions = (lesson.questions && lesson.questions.length > 0) || (lesson.questionCount && lesson.questionCount > 0);
+      const isQuizTitle = titleLower.includes('quiz') || titleLower.includes('exercise') || titleLower.includes('test') || titleLower.includes('mcq') || titleLower.includes('assessment') || titleLower.includes('practice');
+
+      let category = lesson.category || 'learning';
+      if (category === 'learning' && (hasQuestions || isQuizTitle)) {
+        category = 'exercise';
+      }
+
+      // Passing condition: for exercises/quizzes, passing threshold is >= 70% matching mobile app. For reading lessons, score > 0 is passed.
+      const isQuizOrExercise = category !== 'learning' || isQuizTitle || hasQuestions;
+      const isPassed = isQuizOrExercise ? score >= 70 : score > 0;
 
       let isPreviousPassed = index === 0;
       if (index > 0) {
         const prevLesson = lessons[index - 1];
         const prevDuplicates = rawList.filter(dl => (dl.title || '').trim().toLowerCase() === (prevLesson.title || '').trim().toLowerCase());
-        isPreviousPassed = prevDuplicates.some(dl => (scores[dl.id] || 0) >= 70);
+        const prevMatching = [prevLesson, ...prevDuplicates];
+        isPreviousPassed = prevMatching.some(dl => {
+          const s = scores[dl.id] || 0;
+          const pTitleLower = (dl.title || '').toLowerCase();
+          const pIsQuiz = pTitleLower.includes('quiz') || pTitleLower.includes('exercise') || pTitleLower.includes('test') || pTitleLower.includes('mcq');
+          return pIsQuiz ? s >= 70 : s > 0;
+        });
       }
 
       let status = 'upcoming';
@@ -440,7 +507,6 @@ const LearningPathPage = () => {
 
       const x = index % 2 === 0 ? 45 : 255; // Larger horizontal zigzag within 300px visual container
       const y = currentY;
-      const category = lesson.category || 'learning';
 
       return {
         ...lesson,
@@ -455,19 +521,49 @@ const LearningPathPage = () => {
     });
   }, [lessons, scores, activeSection, backendLessons]);
 
-  // 1. Automatically scroll to the current/active node shell when course or lessons finish loading
+  const isSectionComplete = useMemo(() => {
+    return nodes.length > 0 && nodes.every(n => n.status === 'completed');
+  }, [nodes]);
+
+  // 1. Automatically scroll to the current/active node shell on load, after finishing a lesson/exercise, or on section switch
   useEffect(() => {
-    if (nodes.length > 0 && !courseLoading && !loadingLessons && !hasInitialScrolled) {
+    if (nodes.length > 0 && !courseLoading && !loadingLessons && !isSectionComplete) {
+      const finishedKey = location.state?.quizResult?.lessonId || location.state?.lessonFinished?.lessonId;
+      const isFinishedReturn = Boolean(finishedKey) && scrolledLocationStateRef.current !== finishedKey;
+
+      if (!hasInitialScrolled || isFinishedReturn) {
+        if (finishedKey) {
+          scrolledLocationStateRef.current = finishedKey;
+        }
+        const timer = setTimeout(() => {
+          const activeNodeEl = document.getElementById('current-active-node-shell');
+          if (activeNodeEl) {
+            activeNodeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          if (!hasInitialScrolled) {
+            setHasInitialScrolled(true);
+          }
+        }, 350);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [nodes, courseLoading, loadingLessons, hasInitialScrolled, location.state, isSectionComplete]);
+
+  useEffect(() => {
+    if (nodes.length > 0 && !courseLoading && !loadingLessons && !isSectionComplete) {
       const timer = setTimeout(() => {
         const activeNodeEl = document.getElementById('current-active-node-shell');
         if (activeNodeEl) {
           activeNodeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          setHasInitialScrolled(true);
         }
       }, 350);
       return () => clearTimeout(timer);
     }
-  }, [nodes, courseLoading, loadingLessons, hasInitialScrolled]);
+  }, [activeSectionIndex, isSectionComplete]);
+
+  const generatePath = useCallback(() => {
+    return "";
+  }, []);
 
   // 2. Track viewport scrolling to toggle the fixed "Go to Current" FAB arrow
   useEffect(() => {
@@ -513,22 +609,50 @@ const LearningPathPage = () => {
     return nodes[nodes.length - 1].pos.y + 110;
   }, [nodes]);
 
-  const generatePath = () => {
-    if (nodes.length < 2) return "";
-    let d = `M ${nodes[0].pos.x} ${nodes[0].pos.y}`;
+  const generatePathSegments = useMemo(() => {
+    if (nodes.length < 2) return [];
+    const segments = [];
     for (let i = 1; i < nodes.length; i++) {
-      const curr = nodes[i].pos;
-      if (nodes[i].isNewChapter) {
-        d += ` M ${curr.x} ${curr.y}`;
+      if (nodes[i].isNewChapter) continue;
+      const prev = nodes[i - 1];
+      const curr = nodes[i];
+      const prevPos = prev.pos;
+      const currPos = curr.pos;
+      const cp1y = prevPos.y + (currPos.y - prevPos.y) * 0.5;
+      const cp2y = prevPos.y + (currPos.y - prevPos.y) * 0.5;
+      const d = `M ${prevPos.x} ${prevPos.y} C ${prevPos.x} ${cp1y}, ${currPos.x} ${cp2y}, ${currPos.x} ${currPos.y}`;
+
+      let stroke = 'var(--divider)';
+      let strokeDasharray = '10 10';
+      let strokeWidth = 10;
+
+      if (prev.status === 'completed' && curr.status === 'completed') {
+        stroke = '#58cc02'; // Green for completed path segments
+        strokeDasharray = '15 15';
+        strokeWidth = 12;
+      } else if (
+        (prev.status === 'completed' && curr.status === 'active') ||
+        (prev.status === 'active' && curr.status === 'completed')
+      ) {
+        stroke = 'var(--primary-main)'; // Theme-based primary color for active path leading to current lesson
+        strokeDasharray = '15 15';
+        strokeWidth = 12;
       } else {
-        const prev = nodes[i - 1].pos;
-        const cp1y = prev.y + (curr.y - prev.y) * 0.5;
-        const cp2y = prev.y + (curr.y - prev.y) * 0.5;
-        d += ` C ${prev.x} ${cp1y}, ${curr.x} ${cp2y}, ${curr.x} ${curr.y}`;
+        stroke = 'var(--divider)'; // Locked grey dashed line for upcoming lessons like before
+        strokeDasharray = '15 15';
+        strokeWidth = 12;
       }
+
+      segments.push({
+        id: `${prev.id || i - 1}-${curr.id || i}`,
+        d,
+        stroke,
+        strokeDasharray,
+        strokeWidth
+      });
     }
-    return d;
-  };
+    return segments;
+  }, [nodes]);
 
   // Click handler: opens preview box instead of immediate navigation
   const handleNodeClick = (event, node) => {
@@ -639,22 +763,47 @@ const LearningPathPage = () => {
           {description}
         </Typography>
 
-        {isCompleted && selectedNode.score > 0 && selectedNode.category !== 'learning' && (
+        {selectedNode.score > 0 && selectedNode.category !== 'learning' && (() => {
+          const scoreColor = selectedNode.score >= 70 ? '#58cc02' : selectedNode.score >= 50 ? 'var(--primary-main)' : 'var(--error-main, #ef4444)';
+          return (
+            <Box
+              style={{
+                marginTop: '14px',
+                padding: '8px 12px',
+                backgroundColor: 'var(--surface-glass)',
+                border: `1px solid ${scoreColor}`,
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <CheckCircleIcon style={{ color: scoreColor, fontSize: '18px' }} />
+              <Typography variant="body2" style={{ color: scoreColor, fontWeight: 700, fontSize: '0.85rem' }}>
+                High Score: {selectedNode.score}%
+              </Typography>
+            </Box>
+          );
+        })()}
+
+        {/* Mobile non-blocking desktop recommendation banner for exercises */}
+        {isMobileViewport && selectedNode.category !== 'learning' && (
           <Box
             style={{
               marginTop: '14px',
-              padding: '8px 12px',
-              backgroundColor: 'rgba(88, 204, 2, 0.1)',
-              border: '1px solid rgba(88, 204, 2, 0.2)',
-              borderRadius: '12px',
+              padding: '10px 14px',
+              backgroundColor: 'rgba(255, 179, 0, 0.12)',
+              border: '1px solid rgba(255, 179, 0, 0.3)',
+              borderRadius: '14px',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              gap: '10px',
+              textAlign: 'left'
             }}
           >
-            <CheckCircleIcon style={{ color: '#58CC02', fontSize: '18px' }} />
-            <Typography variant="body2" style={{ color: '#58CC02', fontWeight: 700, fontSize: '0.85rem' }}>
-              High Score: {selectedNode.score}%
+            <LaptopIcon style={{ color: '#ffb300', fontSize: '22px', flexShrink: 0 }} />
+            <Typography variant="caption" style={{ color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.4, fontSize: '0.8rem' }}>
+              <strong style={{ color: '#ffb300' }}>Desktop Recommended:</strong> This exercise involves code or lab tools and is best experienced on a computer screen.
             </Typography>
           </Box>
         )}
@@ -698,9 +847,9 @@ const LearningPathPage = () => {
 
   if (courseLoading) {
     return (
-      <div className="course-not-found" style={{ display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+      <div className="course-not-found" style={{ display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 80px)', width: '100%', boxSizing: 'border-box' }}>
         <div className="loading-spinner" style={{ width: '50px', height: '50px', borderRadius: '50%', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary-main)', animation: 'spin 1s linear infinite' }} />
-        <Typography variant="h6" style={{ color: 'var(--text-secondary)' }}>Loading Learning Path...</Typography>
+        <Typography variant="h6" style={{ color: 'var(--text-secondary)', fontFamily: '"Outfit", sans-serif', fontWeight: 600 }}>Loading Learning Path...</Typography>
         <style>{`
           @keyframes spin {
             to { transform: rotate(360deg); }
@@ -979,14 +1128,17 @@ const LearningPathPage = () => {
                     className="path-svg"
                     viewBox={`0 0 300 ${pathHeight}`}
                   >
-                    <path
-                      d={generatePath()}
-                      fill="none"
-                      stroke="var(--divider)"
-                      strokeWidth="12"
-                      strokeLinecap="round"
-                      strokeDasharray="15 15"
-                    />
+                    {generatePathSegments.map(seg => (
+                      <path
+                        key={seg.id}
+                        d={seg.d}
+                        fill="none"
+                        stroke={seg.stroke}
+                        strokeWidth={seg.strokeWidth}
+                        strokeLinecap="round"
+                        strokeDasharray={seg.strokeDasharray !== 'none' ? seg.strokeDasharray : undefined}
+                      />
+                    ))}
                   </svg>
 
                   {nodes.map((node, index) => (
@@ -1119,7 +1271,7 @@ const LearningPathPage = () => {
                           )}
 
                           {/* Bottom percentage badge matching mobile app */}
-                          {node.status === 'completed' && node.score > 0 && node.category !== 'learning' && (
+                          {node.score > 0 && node.category !== 'learning' && (
                             <Box
                               style={{
                                 position: 'absolute',
@@ -1128,7 +1280,7 @@ const LearningPathPage = () => {
                                 transform: 'translateX(-50%)',
                                 padding: '2px 8px',
                                 borderRadius: '10px',
-                                backgroundColor: node.score < 50 ? '#ff4d4d' : node.score < 80 ? '#ff9900' : '#29c57b',
+                                backgroundColor: node.score >= 70 ? '#58cc02' : node.score >= 50 ? 'var(--primary-main)' : 'var(--error-main, #ef4444)',
                                 border: '1.5px solid #fff',
                                 zIndex: 10
                               }}
@@ -1371,6 +1523,113 @@ const LearningPathPage = () => {
             </Box>
           </Box>
         </Box>
+      </Dialog>
+
+      {/* Completion Score Result Dialog for Exercises */}
+      <Dialog
+        open={Boolean(resultModalData)}
+        onClose={() => setResultModalData(null)}
+        PaperProps={{
+          style: {
+            borderRadius: '28px',
+            padding: '28px 24px',
+            maxWidth: '420px',
+            width: '100%',
+            background: 'var(--background-paper)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid var(--divider)',
+            boxShadow: 'none',
+            textAlign: 'center'
+          }
+        }}
+      >
+        {resultModalData && (() => {
+          const score = resultModalData.score;
+          const isPassed = score >= 70;
+          const themeScoreColor = score >= 70 ? '#58cc02' : score >= 50 ? 'var(--primary-main)' : 'var(--error-main, #ef4444)';
+          const titleMsg = score >= 90 ? 'Outstanding Performance! 🏆' : score >= 70 ? 'Great Job! You Passed! 👍' : score >= 50 ? 'Good Effort! 👏' : 'Keep Practicing! 💪';
+          const subMsg = isPassed 
+            ? 'You achieved a passing score and unlocked the next lesson!'
+            : 'Passing score is 70%. Retake the exercise to unlock the next lesson!';
+
+          return (
+            <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+              {/* Circular Theme-Based Score Badge */}
+              <Box
+                style={{
+                  width: '110px',
+                  height: '110px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'var(--surface-glass)',
+                  border: `4px solid ${themeScoreColor}`,
+                  boxShadow: 'none',
+                  marginTop: '8px'
+                }}
+              >
+                <Typography style={{ fontSize: '2.2rem', fontWeight: 900, color: themeScoreColor, lineHeight: 1, fontFamily: '"Outfit", sans-serif' }}>
+                  {score}%
+                </Typography>
+                <Typography style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginTop: '4px', letterSpacing: '1px' }}>
+                  Score
+                </Typography>
+              </Box>
+
+              <Typography variant="h5" style={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif', marginTop: '6px' }}>
+                {titleMsg}
+              </Typography>
+
+              <Typography variant="body2" style={{ color: 'var(--text-secondary)', lineHeight: 1.5, fontSize: '0.92rem' }}>
+                {subMsg}
+              </Typography>
+
+              <Box style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={() => setResultModalData(null)}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '14px',
+                    fontWeight: 800,
+                    fontSize: '1rem',
+                    textTransform: 'none',
+                    background: 'var(--primary-main)',
+                    color: '#fff',
+                    boxShadow: 'none'
+                  }}
+                >
+                  Continue Learning
+                </Button>
+                {!isPassed && (
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    onClick={() => {
+                      const lid = resultModalData.lessonId;
+                      setResultModalData(null);
+                      navigate(`/learning/${courseId}/1/${lid}`);
+                    }}
+                    style={{
+                      padding: '10px',
+                      borderRadius: '14px',
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                      textTransform: 'none',
+                      borderColor: 'var(--divider)',
+                      color: 'var(--text-primary)'
+                    }}
+                  >
+                    Retake Exercise
+                  </Button>
+                )}
+              </Box>
+            </Box>
+          );
+        })()}
       </Dialog>
     </Box>
   );

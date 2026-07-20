@@ -594,6 +594,7 @@ const QuizPage = () => {
   const [selectedAnswerId, setSelectedAnswerId] = useState(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
+  const userAnswersRef = useRef({});
   const [showResult, setShowResult] = useState(false);
 
   // Coding interactive exercise specific states
@@ -915,8 +916,10 @@ const QuizPage = () => {
     setSelectedAnswerId(answerId);
     setIsAnswered(true);
 
-    const answer = currentQuestion.answers.find(a => a.id === answerId);
-    if (answer?.isCorrect) {
+    const answer = currentQuestion?.answers?.find(a => a.id === answerId);
+    const isCorrect = Boolean(answer?.isCorrect || answer?.is_correct || answer?.correct);
+    userAnswersRef.current[currentQuestionIndex] = isCorrect;
+    if (isCorrect) {
       setScore(prev => prev + 1);
     }
   };
@@ -1015,6 +1018,7 @@ const QuizPage = () => {
     setBlankStatuses(statuses);
     setIsAnswered(true);
 
+    userAnswersRef.current[currentQuestionIndex] = allCorrect;
     if (allCorrect) {
       setScore(prev => prev + 1);
     }
@@ -1087,13 +1091,20 @@ const QuizPage = () => {
       return;
     }
     setIsAnswered(true);
+    userAnswersRef.current[currentQuestionIndex] = allCasesPassed;
     if (allCasesPassed) {
       setScore(prev => prev + 1);
     }
   };
 
   const handleNext = () => {
-    const percentage = Math.round((score / quizQuestions.length) * 100);
+    let calculatedScore = 0;
+    Object.values(userAnswersRef.current).forEach(isCorrect => {
+      if (isCorrect) calculatedScore++;
+    });
+
+    const totalQuestions = quizQuestions.length || 1;
+    const percentage = Math.round((calculatedScore / totalQuestions) * 100);
 
     if (currentQuestionIndex < quizQuestions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
@@ -1101,6 +1112,7 @@ const QuizPage = () => {
       setIsAnswered(false);
     } else {
       setShowResult(true);
+      setScore(calculatedScore);
       
       // Find all duplicate quiz lessons inside this course that share the same title
       let allLessons = [];
@@ -1134,7 +1146,7 @@ const QuizPage = () => {
             body: JSON.stringify({ grade: percentage })
           });
 
-          if (percentage >= 70) {
+          if (percentage > 0) {
             await fetch(`/courses/me/lessons/${lid}/done`, {
               method: 'PATCH',
               headers: {
@@ -1154,6 +1166,7 @@ const QuizPage = () => {
   };
 
   const handleRestart = () => {
+    userAnswersRef.current = {};
     setCurrentQuestionIndex(0);
     setSelectedAnswerId(null);
     setIsAnswered(false);
@@ -1163,9 +1176,9 @@ const QuizPage = () => {
 
   if (courseLoading || !currentQuestion) {
     return (
-      <Box className="quiz-page-loader" style={{ display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+      <Box className="quiz-page-loader" style={{ display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 80px)', width: '100%', boxSizing: 'border-box' }}>
         <div className="loading-spinner" style={{ width: '50px', height: '50px', borderRadius: '50%', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary-main)', animation: 'spin 1s linear infinite' }} />
-        <Typography variant="h6" style={{ color: 'var(--text-secondary)' }}>Preparing Quiz Content...</Typography>
+        <Typography variant="h6" style={{ color: 'var(--text-secondary)', fontFamily: '"Outfit", sans-serif', fontWeight: 600 }}>Preparing Quiz Content...</Typography>
         <style>{`
           @keyframes spin {
             to { transform: rotate(360deg); }

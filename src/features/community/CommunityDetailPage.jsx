@@ -233,6 +233,7 @@ const CommunityDetailPage = () => {
   const [timeoutTargetUsername, setTimeoutTargetUsername] = useState('');
   const [timeoutDuration, setTimeoutDuration] = useState(5);
   const [isMyStatusTimedOut, setIsMyStatusTimedOut] = useState(false);
+  const [isMyStatusBanned, setIsMyStatusBanned] = useState(false);
   const [banDialogOpen, setBanDialogOpen] = useState(false);
   const [banTargetUserId, setBanTargetUserId] = useState(null);
   const [banTargetUsername, setBanTargetUsername] = useState('');
@@ -274,6 +275,7 @@ const CommunityDetailPage = () => {
         try {
           const status = await socialStore.getMyStatus(communityId);
           setIsMyStatusTimedOut(status?.isTimedOut || false);
+          setIsMyStatusBanned(status?.isBanned || false);
         } catch (e) {
           console.error("Failed to load user status:", e);
         }
@@ -783,7 +785,21 @@ const CommunityDetailPage = () => {
 
       {/* RIGHT SIDEBAR: Questions Feed */}
       <Box className="community-feed">
-        {isMyStatusTimedOut && (
+        {isMyStatusBanned && (
+          <Alert 
+            severity="error" 
+            variant="filled"
+            sx={{ 
+              mb: 2, 
+              borderRadius: 2, 
+              fontWeight: 600, 
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: '#fff'}}
+          >
+            🚫 You have been banned from participating in this community. You cannot create posts, comment, or interact with content.
+          </Alert>
+        )}
+        {isMyStatusTimedOut && !isMyStatusBanned && (
           <Alert 
             severity="warning" 
             variant="filled"
@@ -880,7 +896,7 @@ const CommunityDetailPage = () => {
                 }
                 setOpenAskQuestion(true);
               }}
-              disabled={!community.isJoined || isMyStatusTimedOut}
+              disabled={!community.isJoined || isMyStatusTimedOut || isMyStatusBanned}
               sx={{ borderRadius: 3, textTransform: 'none', fontWeight: 600 }}
             >
               Ask Post

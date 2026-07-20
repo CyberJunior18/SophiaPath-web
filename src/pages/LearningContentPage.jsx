@@ -2029,31 +2029,29 @@ const LearningContentPage = () => {
   }, [currentPageIndex, pages.length, isPageCompleted, handleNext, handlePrevious]);
 
   const handleFinish = async () => {
+    let grade = 100;
+    let totalCount = 0;
+    let correctCount = 0;
+    pages.forEach((page, pageIdx) => {
+      if (page.blocks) {
+        page.blocks.forEach((block, blockIdx) => {
+          if (['mcq', 'fill_code', 'write_line', 'find_error', 'code_challenge', 'vulnerability_challenge'].includes(block.type)) {
+            totalCount++;
+            const key = _blockKey(pageIdx, blockIdx);
+            if (exerciseAnswers[key] === true) {
+              correctCount++;
+            }
+          }
+        });
+      }
+    });
+    if (totalCount > 0) {
+      grade = Math.round((correctCount / totalCount) * 100);
+    }
+
     if (!completionSaved && lesson?.id) {
       setCompletionSaved(true);
       const token = localStorage.getItem('token');
-      
-      let grade = 100;
-      if (lesson.category === 'exercise') {
-        let totalCount = 0;
-        let correctCount = 0;
-        pages.forEach((page, pageIdx) => {
-          if (page.blocks) {
-            page.blocks.forEach((block, blockIdx) => {
-              if (['mcq', 'fill_code', 'write_line', 'find_error', 'code_challenge'].includes(block.type)) {
-                totalCount++;
-                const key = _blockKey(pageIdx, blockIdx);
-                if (exerciseAnswers[key] === true) {
-                  correctCount++;
-                }
-              }
-            });
-          }
-        });
-        if (totalCount > 0) {
-          grade = Math.round((correctCount / totalCount) * 100);
-        }
-      }
 
       // Find all duplicate C++ lessons inside this course that share the same title
       let allLessons = [];
@@ -2100,7 +2098,7 @@ const LearningContentPage = () => {
     }
     
     const originalCourseId = location.state?.course?.id || courseId;
-    navigate(`/learning-path/${originalCourseId}`, { state: { ...location.state, lessonFinished: { lessonId: lesson.id } } });
+    navigate(`/learning-path/${originalCourseId}`, { state: { ...location.state, lessonFinished: { lessonId: lesson.id, score: grade } } });
   };
 
   const renderBlock = (block, idx) => {

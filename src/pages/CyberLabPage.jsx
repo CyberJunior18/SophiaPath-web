@@ -17,6 +17,7 @@ import XORVisualizer from './labs/XORVisualizer';
 import RansomwareLab from './labs/RansomwareLab';
 import SocialEngineeringLab from './labs/SocialEngineeringLab';
 import InsiderThreatLab from './labs/InsiderThreatLab';
+import BiggerScreenRequired from '../components/BiggerScreenRequired';
 import './CyberLabPage.css';
 
 // Explanation box
@@ -890,6 +891,14 @@ import { useSearchParams } from 'react-router-dom';
 
 // Main App Component
 export default function CyberLabPage() {
+  return (
+    <BiggerScreenRequired pageName="The Cybersecurity Lab">
+      <CyberLabContent />
+    </BiggerScreenRequired>
+  );
+}
+
+function CyberLabContent() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'xss');
   const [isSecure, setIsSecure] = useState(false);

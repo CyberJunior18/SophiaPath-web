@@ -61,6 +61,7 @@ import {
 import { coursesData } from '../data/courses';
 import { useAuth } from '../context/AuthContext';
 import AiAuditorDashboard from '../components/course/AiAuditorDashboard';
+import BiggerScreenRequired from '../components/BiggerScreenRequired';
 
 
 // Available cyber lab values
@@ -91,6 +92,16 @@ const adminFetch = (url, options = {}) => {
 };
 
 const AdminDashboardPage = () => {
+  const { user } = useAuth();
+
+  return (
+    <BiggerScreenRequired pageName="The Administration Dashboard">
+      <AdminDashboardContent />
+    </BiggerScreenRequired>
+  );
+};
+
+const AdminDashboardContent = () => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -3924,3 +3935,4 @@ const AdminDashboardPage = () => {
 };
 
 export default AdminDashboardPage;
+

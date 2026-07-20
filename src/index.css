@@ -213,6 +213,63 @@ button,
   }
 }
 
+/* ==========================================
+   GLOBAL DROPDOWN SELECT & MENU LIST ADAPTATIONS
+   ========================================== */
+
+.MuiMenu-paper,
+.MuiPopover-paper {
+  max-height: clamp(240px, 45vh, 400px) !important;
+  border-radius: 14px !important;
+  background: var(--background-paper) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid var(--divider) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+}
+
+.MuiMenuItem-root {
+  font-size: clamp(0.75rem, 1.5vw, 0.875rem) !important;
+  padding: 8px 14px !important;
+  min-height: 38px !important;
+  font-family: inherit !important;
+}
+
+@media (max-width: 899px) {
+  .MuiSelect-select {
+    font-size: 0.8rem !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  .MuiMenuItem-root {
+    padding: 6px 10px !important;
+    min-height: 34px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .MuiFormControl-root {
+    max-width: 100% !important;
+  }
+
+  .settings-row .MuiFormControl-root {
+    min-width: 110px !important;
+    max-width: 145px !important;
+  }
+}
+
+@media (max-width: 599px) {
+  .MuiMenu-paper,
+  .MuiPopover-paper {
+    max-height: clamp(200px, 40vh, 320px) !important;
+    max-width: 90vw !important;
+  }
+
+  .settings-row .MuiFormControl-root {
+    min-width: 100px !important;
+    max-width: 130px !important;
+  }
+}
+
 .slide-inline-code {
   font-family: 'Roboto Mono', monospace;
   font-size: 0.9em;

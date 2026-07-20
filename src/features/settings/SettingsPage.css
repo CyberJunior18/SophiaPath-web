@@ -89,3 +89,23 @@
 .settings-footer-copy {
   color: var(--text-secondary);
 }
+
+@media (max-width: 899px) {
+  .MuiListItemText-secondary,
+  .settings-subtitle,
+  .settings-row-description {
+    display: none !important;
+  }
+
+  .settings-row {
+    padding: 0.9rem 1.1rem !important;
+  }
+
+  .settings-header {
+    margin-bottom: 1.5rem !important;
+  }
+
+  .settings-pointer-row {
+    display: none !important;
+  }
+}

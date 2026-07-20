@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }) => {
             grades.forEach(g => {
               if (g.done || g.grade !== null) {
                 // Map to frontend lessonId score structure
-                quizScores[g.lessonId] = g.grade !== null ? Number(g.grade) : 100;
+                quizScores[g.lessonId] = (g.grade !== null && g.grade !== undefined) ? Number(g.grade) : (g.done ? 100 : 0);
               }
             });
           }
@@ -304,6 +304,27 @@ export const AuthProvider = ({ children }) => {
 
   const updateQuizScore = async (lessonId, score) => {
     if (!user) return;
+    const numScore = Number(score);
+
+    // Optimistically update local AuthContext state with high score
+    setUser(prev => {
+      if (!prev) return prev;
+      const currentScores = prev.quizScores || {};
+      const previousHighScore = currentScores[lessonId] !== undefined ? currentScores[lessonId] : 0;
+      const newHighScore = Math.max(previousHighScore, numScore);
+
+      if (currentScores[lessonId] !== newHighScore) {
+        return {
+          ...prev,
+          quizScores: {
+            ...currentScores,
+            [lessonId]: newHighScore
+          }
+        };
+      }
+      return prev;
+    });
+
     const token = getStoredToken();
     if (!token) return;
 
@@ -314,24 +335,10 @@ export const AuthProvider = ({ children }) => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ grade: Number(score) })
+        body: JSON.stringify({ grade: numScore })
       });
 
       if (res.ok) {
-        setUser(prev => {
-          const currentScores = prev.quizScores || {};
-          const previousHighScore = currentScores[lessonId] || 0;
-          if (score > previousHighScore) {
-            return {
-              ...prev,
-              quizScores: {
-                ...currentScores,
-                [lessonId]: score
-              }
-            };
-          }
-          return prev;
-        });
         await refreshUser();
       } else if (res.status === 401) {
         handleAuthError();

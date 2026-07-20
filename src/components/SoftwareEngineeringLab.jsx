@@ -25,7 +25,8 @@ import {
   InputLabel,
   Radio,
   RadioGroup,
-  FormControlLabel
+  FormControlLabel,
+  useMediaQuery
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -774,6 +775,7 @@ const AddTaskDialog = ({ open, onClose, onSubmit, existingTasks }) => {
 
 export const SoftwareEngineeringLab = ({ open, onClose }) => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isDarkMode = theme.palette.mode === 'dark';
   const { themeMode } = useContext(ThemeContext);
 
@@ -4673,25 +4675,35 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
         onClose={onClose}
         maxWidth="xl"
         fullWidth
+        fullScreen={isMobile}
         disableEnforceFocus
         disableRestoreFocus
         PaperProps={{
           elevation: 0,
           style: {
-            borderRadius: '24px',
+            borderRadius: isMobile ? 0 : '24px',
             background: 'var(--background-paper)',
             backdropFilter: 'blur(20px)',
-            border: '1px solid var(--divider)',
+            border: isMobile ? 'none' : '1px solid var(--divider)',
             
-            height: '92vh',
-            maxHeight: '92vh',
-            width: '95vw',
+            height: isMobile ? '100dvh' : '92vh',
+            maxHeight: isMobile ? '100dvh' : '92vh',
+            width: isMobile ? '100vw' : '95vw',
             display: 'flex',
             flexDirection: 'column'
           }
         }}
       >
-        <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexWrap: 'wrap', gap: '12px' }}>
+        {isMobile ? (
+          <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 24, padding: '32px 24px', textAlign: 'center', background: 'var(--background-default)' }}>
+            <Box style={{ fontSize: 64 }}>⚙️</Box>
+            <Typography variant="h6" style={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>Bigger Screen Required</Typography>
+            <Typography variant="body2" style={{ color: 'var(--text-secondary)', maxWidth: 280, lineHeight: 1.7 }}>The Software Engineering Lab is designed for desktop use. Please open it on a larger screen for the full experience.</Typography>
+            <Button onClick={onClose} variant="outlined" style={{ borderRadius: 14, borderColor: 'var(--divider)', color: 'var(--text-primary)', textTransform: 'none', fontWeight: 700, marginTop: 8 }}>Close</Button>
+          </Box>
+        ) : (
+          <>
+            <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexWrap: 'wrap', gap: '12px' }}>
           <Box>
             <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--primary-main)' }}>
               Software Engineering Lab
@@ -5098,6 +5110,8 @@ export const SoftwareEngineeringLab = ({ open, onClose }) => {
             </Box>
           </DialogContent>
         </Dialog>
+        </>
+      )}
       </Dialog>
     );
   }

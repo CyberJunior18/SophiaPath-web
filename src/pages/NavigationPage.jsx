@@ -1926,8 +1926,10 @@ const NavigationPage = () => {
     );
   }
 
+  const isChatRoute = location.pathname.startsWith('/chat') || location.pathname.startsWith('/group');
+
   return (
-    <Box className={`nav-shell ${isStickyFooterPage ? 'has-sticky-footer' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+    <Box className={`nav-shell ${isStickyFooterPage ? 'has-sticky-footer' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${isChatRoute ? 'is-chat-page' : ''}`}>
       {showGlobalBg && <ConstellationBackground styleType={bgStyle} />}
       {/* Floating Animated Brand Logo */}
       {!isMobile && (
@@ -2032,9 +2034,9 @@ const NavigationPage = () => {
                 variant="outlined"
                 startIcon={<Brightness6Icon />}
                 onClick={toggleTheme}
-                className="nav-topbar-button"
+                className="nav-topbar-button nav-topbar-theme-btn"
               >
-                {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+                <span className="nav-theme-label">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
               </Button>
               {!user ? (
                 <Button

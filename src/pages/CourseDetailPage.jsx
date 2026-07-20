@@ -429,7 +429,7 @@ const CourseDetailPage = () => {
                 onClick={handleEnroll}
                 className="course-enroll-button"
               >
-                {!user ? "Sign In to Register" : isRegistered ? "Continue Learning" : "Register Now"}
+                {!user ? "Sign In to Register" : isRegistered ? "Continue" : "Register Now"}
               </Button>
 
               {isRegistered && (
@@ -439,7 +439,7 @@ const CourseDetailPage = () => {
                     style={{ color: 'var(--danger-main)', textTransform: 'none' }}
                     onClick={handleUnregister}
                   >
-                    Unenroll from Course
+                    Unenroll
                   </Button>
                 </div>
               )}

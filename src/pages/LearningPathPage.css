@@ -65,7 +65,7 @@
   width: 96px;
   height: 96px;
   border-radius: 50%;
-  background: rgba(28, 176, 246, 0.2);
+  background: rgba(var(--primary-main-rgb, 28, 176, 246), 0.25);
   animation: pulseNode 2.2s infinite;
   pointer-events: none;
   z-index: -1;
@@ -101,9 +101,9 @@
 }
 
 .path-node-active {
-  --node-bg: #1cb0f6;
-  --node-border: #1cb0f6;
-  --node-shadow: #0a8ed1;
+  --node-bg: var(--primary-main);
+  --node-border: var(--primary-main);
+  --node-shadow: var(--primary-dark);
 }
 
 .path-node-upcoming {
@@ -268,30 +268,53 @@
   border: 2px solid rgba(255, 255, 255, 0.4) !important;
   color: white !important;
   cursor: pointer !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .path-floating-action-btn:hover {
-  border-color: rgba(255, 255, 255, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.7) !important;
   transform: translateY(-50%) scale(1.1) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5) !important;
 }
 
-@media (max-width: 767px) {
-
-  .path-visual-shell,
-  .path-footer {
-    padding: 1.4rem;
-  }
-
+/* Medium Desktop & Laptops (< 1150px): anchor to right edge */
+@media (max-width: 1149px) {
   .path-floating-action-btn {
-    right: 24px !important;
     left: auto !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
+    right: 28px !important;
+  }
+}
+
+/* Tablets & Small Laptops (< 899px): adjust size and position */
+@media (max-width: 899px) {
+  .path-floating-action-btn {
+    width: 48px !important;
+    height: 48px !important;
+    right: 20px !important;
+  }
+}
+
+/* Mobile Screens (< 599px): position bottom-right for easy thumb reach */
+@media (max-width: 599px) {
+  .path-floating-action-btn {
+    top: auto !important;
+    bottom: 24px !important;
+    right: 16px !important;
+    width: 44px !important;
+    height: 44px !important;
+    transform: none !important;
   }
 
   .path-floating-action-btn:hover {
-    transform: translateY(-50%) scale(1.1) !important;
+    transform: scale(1.08) !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .path-visual-shell,
+  .path-footer {
+    padding: 1.4rem;
   }
 }
 
