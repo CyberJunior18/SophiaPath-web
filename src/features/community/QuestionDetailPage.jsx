@@ -52,7 +52,16 @@ import {
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
-import { safeFormatDate } from '../../utils/dateUtils';
+// Local date helper
+const safeFormatDate = (timestamp, options = {}, fallback = '') => {
+  if (!timestamp || timestamp === 'null' || timestamp === 'undefined') return fallback;
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return fallback;
+  if (Object.keys(options).length === 0) {
+    return date.toLocaleDateString();
+  }
+  return date.toLocaleDateString(undefined, options);
+};
 import './Community.css';
 
 const countReplies = (node) => {

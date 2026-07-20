@@ -62,42 +62,55 @@
 
 .path-node-pulse {
   position: absolute;
-  width: 6rem;
-  height: 6rem;
-  border-radius: 999px;
-  background: rgba(var(--primary-main-rgb), 0.2);
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: rgba(28, 176, 246, 0.2);
   animation: pulseNode 2.2s infinite;
+  pointer-events: none;
+  z-index: -1;
 }
+
+
 
 .path-node {
-  width: 5rem;
-  height: 5rem;
-  border-radius: 1.6rem;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
-  transition: transform 0.3s ease;
+  position: relative;
+  border: 2px solid var(--node-border);
+  box-shadow: 0 6px 0 var(--node-shadow);
+  background-color: var(--node-bg);
+  color: white;
+  transition: all 0.15s ease;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
-.path-node:hover {
-  transform: scale(1.08);
+.path-node:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--node-shadow);
 }
 
 .path-node-completed {
-  background: #29c57b;
-  color: white;
+  --node-bg: #58cc02;
+  --node-border: #58cc02;
+  --node-shadow: #46a302;
 }
 
 .path-node-active {
-  background: var(--hero-gradient);
-  color: white;
+  --node-bg: #1cb0f6;
+  --node-border: #1cb0f6;
+  --node-shadow: #0a8ed1;
 }
 
 .path-node-upcoming {
-  background: var(--background-paper);
-  color: var(--text-disabled);
-  border: 1px solid var(--divider);
-  filter: grayscale(0.15);
+  --node-bg: var(--background-paper);
+  --node-border: var(--divider);
+  --node-shadow: var(--background-default);
+  color: var(--text-secondary);
 }
 
 .path-node-caption-title {

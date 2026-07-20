@@ -40,6 +40,40 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { socialStore } from '../../data/socialStore';
+// Local date formatting helpers
+const parseSafeTime = (dateVal) => {
+  if (!dateVal) return 0;
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+};
+
+const formatLogTime = (dateVal) => {
+  if (!dateVal) return '';
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return '';
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const isSameDay = (d1, d2) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
+
+  if (isSameDay(d, today)) {
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  } else if (isSameDay(d, yesterday)) {
+    return 'Yesterday';
+  } else {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+};
 import './Chat.css';
 
 const ChatListPage = () => {
@@ -686,7 +720,7 @@ const ChatListPage = () => {
                               </Typography>
                               {!isBlockedByTarget && !isBlockedByMe && lastMessageTimes[otherUser.id] && (
                                 <Typography variant="caption" className="chat-item-time">
-                                  {new Date(lastMessageTimes[otherUser.id]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  {formatLogTime(lastMessageTimes[otherUser.id])}
                                 </Typography>
                               )}
                             </Box>
@@ -771,7 +805,7 @@ const ChatListPage = () => {
                                       {displayName}
                                     </Typography>
                                     <Typography variant="caption" className="chat-item-time">
-                                      {new Date(msg.timestamp).toLocaleDateString()} {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      {formatLogTime(msg.timestamp)}
                                     </Typography>
                                   </Box>
                                 }
@@ -934,15 +968,21 @@ const ChatListPage = () => {
                           {!group.avatar && initials}
                         </Avatar>
                       </ListItemAvatar>
-                      <ListItemText
+                      <ListItemText 
                         primary={
                           <Box className="chat-item-header">
-                            <Typography className="chat-item-name">
+                            <Typography className="chat-item-name" variant="subtitle2" sx={{ fontWeight: 700 }}>
                               {displayName}
                             </Typography>
-                            <Typography variant="caption" className="chat-item-time" sx={{ bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 2, fontSize: '0.7rem' }}>
-                              {group.members.length} members
-                            </Typography>
+                            {lastMsgTime ? (
+                              <Typography variant="caption" className="chat-item-time">
+                                {formatLogTime(lastMsgTime)}
+                              </Typography>
+                            ) : (
+                              <Typography variant="caption" className="chat-item-time" sx={{ bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 2, fontSize: '0.7rem' }}>
+                                {group.members.length} members
+                              </Typography>
+                            )}
                           </Box>
                         }
                         secondary={

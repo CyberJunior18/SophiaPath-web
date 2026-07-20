@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -94,6 +94,8 @@ const AdminDashboardPage = () => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  
+  const logsContainerRef = useRef(null);
   
   // Tab and Editing States initialized from LocalStorage to survive page refreshes
   const [adminTab, setAdminTab] = useState(() => {
@@ -448,8 +450,21 @@ const AdminDashboardPage = () => {
       const res = await adminFetch('/users/logs');
       if (res.ok) {
         const data = await res.json();
+        
+        // Deduplicate logs within the same minute
+        const unique = [];
+        const seen = new Set();
+        (data || []).forEach(item => {
+          const timeKey = item.timestamp ? new Date(item.timestamp).toISOString().substring(0, 16) : '';
+          const key = `${item.event}_${timeKey}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(item);
+          }
+        });
+
         // Convert timestamp to clean format
-        const formatted = (data || []).map(item => ({
+        const formatted = unique.map(item => ({
           ...item,
           timestamp: new Date(item.timestamp).toISOString().replace('T', ' ').substring(0, 19)
         }));
@@ -465,6 +480,13 @@ const AdminDashboardPage = () => {
       loadLogs();
     }
   }, [adminTab, loadLogs]);
+
+  // Auto-scroll logs to bottom
+  useEffect(() => {
+    if (logsContainerRef.current) {
+      logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+    }
+  }, [logs]);
 
   // Log simple helper
   const addLog = async (event, level = 'info') => {
@@ -3608,11 +3630,11 @@ const AdminDashboardPage = () => {
             </Button>
           </Box>
 
-          <Box style={{ background: 'rgba(0,0,0,0.25)', borderRadius: '12px', padding: '16px', fontFamily: 'monospace', maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Box ref={logsContainerRef} style={{ background: 'rgba(0,0,0,0.25)', borderRadius: '12px', padding: '16px', fontFamily: 'monospace', maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {logs.length === 0 ? (
               <Typography style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>Logs are empty</Typography>
             ) : (
-              logs.map((log) => {
+              [...logs].reverse().map((log) => {
                 const colorMap = {
                   info: '#1CB0F6',
                   action: '#4caf50',
@@ -3622,7 +3644,7 @@ const AdminDashboardPage = () => {
                 return (
                   <Box key={log.id} style={{ display: 'flex', gap: '12px', fontSize: '0.82rem' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>[{log.timestamp}]</span>
-                    <span style={{ color: colorMap[log.level] || 'var(--text-primary)', fontWeight: 800, textTransform: 'uppercase' }}>{log.level}</span>
+                    <span style={{ color: colorMap[log.level] || 'var(--text-primary)', fontWeight: 800 }}>[{log.level ? log.level.toUpperCase() : ''}]</span>
                     <span style={{ color: 'var(--text-primary)' }}>{log.event}</span>
                   </Box>
                 );

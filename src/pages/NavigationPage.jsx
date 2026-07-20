@@ -68,7 +68,33 @@ import SecurityChallenges from './labs/SecurityChallenges';
 import { useNavigate, Routes, Route, useLocation, Navigate, useParams } from 'react-router-dom';
 import { socialStore } from '../data/socialStore';
 import logoImg from '../assets/sp-logo.png';
-import { safeFormatTime } from '../utils/dateUtils';
+const formatLogTime = (dateVal) => {
+  if (!dateVal) return '';
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return '';
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const isSameDay = (d1, d2) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
+
+  if (isSameDay(d, today)) {
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  } else if (isSameDay(d, yesterday)) {
+    return 'Yesterday';
+  } else {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+};
 import './NavigationPage.css';
 import { useTheme as useAppTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -77,7 +103,7 @@ import RegisterPage from './RegisterPage';
 import ConstellationBackground from '../components/ConstellationBackground';
 import { coursesData } from '../data/courses';
 import { ProtectedRoute } from '../components/ProtectedRoute';
-import { formatLog } from '../utils/dateUtils';
+
 
 
 const AnimatedPage = ({ children }) => (
@@ -2130,11 +2156,7 @@ const NavigationPage = () => {
                                       {notif.type === 'chat' && notif.originalIds?.length > 1 ? 'New Chat Messages' : notif.type === 'group_chat' && notif.originalIds?.length > 1 ? 'New Group Messages' : notif.title}
                                     </Typography>
                                     <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontSize: '9px', whiteSpace: 'nowrap' }}>
-<<<<<<< HEAD
-                                      {notif.createdAt ? `[${formatLog(notif.createdAt)}]` : ''}
-=======
-                                      {safeFormatTime(notif.createdAt)}
->>>>>>> 9e854a82ba11ca21277a5e9b9cb93c1bf6d165bf
+                                      {formatLogTime(notif.createdAt)}
                                     </Typography>
                                   </Box>
                                 }

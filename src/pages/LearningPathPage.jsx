@@ -74,17 +74,22 @@ import './LearningPathPage.css';
 
 const getNodeIcon = (node) => {
   if (node.status === 'upcoming') {
-    return <LockIcon sx={{ fontSize: 24 }} />;
+    return <LockIcon sx={{ fontSize: 22 }} />;
+  }
+
+  const titleLower = (node.title || '').toLowerCase();
+  if (titleLower.startsWith('chapter test')) {
+    return <TrophyIcon sx={{ fontSize: 26 }} />;
   }
 
   const cat = node.category?.toLowerCase() || 'learning';
   if (cat === 'exercise' || cat === 'quiz' || cat === 'mcq') {
-    return <ExerciseIcon sx={{ fontSize: 28 }} />;
+    return <ExerciseIcon sx={{ fontSize: 26 }} />;
   }
   if (cat === 'assessment' || cat === 'test' || cat === 'exam') {
-    return <AssessmentIcon sx={{ fontSize: 28 }} />;
+    return <AssessmentIcon sx={{ fontSize: 26 }} />;
   }
-  return <BookIcon sx={{ fontSize: 28 }} />;
+  return <BookIcon sx={{ fontSize: 26 }} />;
 };
 
 const LearningPathPage = () => {
@@ -717,28 +722,32 @@ const LearningPathPage = () => {
   const getNodeStyle = (node) => {
     if (node.status !== 'completed') return {};
 
-    // For learning categories (lessons), use default success color
+    // For learning categories (lessons), use default Duolingo success green
     if (node.category === 'learning' || !node.score) {
       return {
-        background: 'var(--success-main)',
-        color: 'white'
+        '--node-bg': '#58cc02',
+        '--node-border': '#58cc02',
+        '--node-shadow': '#46a302',
       };
     }
 
     if (node.score >= 80) {
       return {
-        background: 'var(--success-main)',
-        color: 'white'
+        '--node-bg': '#58cc02',
+        '--node-border': '#58cc02',
+        '--node-shadow': '#46a302',
       };
     } else if (node.score >= 50) {
       return {
-        background: 'var(--yellow-500)',
-        color: 'white'
+        '--node-bg': '#ff9900',
+        '--node-border': '#ff9900',
+        '--node-shadow': '#cc7a00',
       };
     } else {
       return {
-        background: 'var(--danger-main)',
-        color: 'white'
+        '--node-bg': '#ff4d4d',
+        '--node-border': '#ff4d4d',
+        '--node-shadow': '#cc3d3d',
       };
     }
   };
