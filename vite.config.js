@@ -61,6 +61,10 @@ export default defineConfig({
           if (req.method === 'GET') return req.url;
         },
       },
+      '^/challenges/reports/evaluate': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
       '^/challenges/files/\\d+': {
         target: 'http://localhost:3000',
         changeOrigin: true,

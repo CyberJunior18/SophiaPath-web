@@ -440,6 +440,7 @@ const SettingsPage = () => {
                     <Select
                       value={fontPreference}
                       onChange={handleFontChange}
+                      MenuProps={{ disableRestoreFocus: true }}
                       sx={{
                         color: 'var(--text-primary)',
                         backgroundColor: 'rgba(255, 255, 255, 0.03)',
@@ -486,6 +487,7 @@ const SettingsPage = () => {
                         <Select
                           value={bgStyle}
                           onChange={handleBgStyleChange}
+                          MenuProps={{ disableRestoreFocus: true }}
                           sx={{
                             color: 'var(--text-primary)',
                             backgroundColor: 'rgba(255, 255, 255, 0.03)',
