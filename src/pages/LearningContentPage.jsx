@@ -3367,13 +3367,34 @@ const LearningContentPage = () => {
                 <div className="slide-blocks-list">
                   {currentPage.blocks?.map((block, idx) => renderBlock(block, idx))}
                 </div>
+                {pages.length === 1 && (
+                  <Box style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '32px' }}>
+                    <Button
+                      variant="contained"
+                      onClick={handleFinish}
+                      disabled={!isPageCompleted(currentPageIndex)}
+                      style={{
+                        background: 'var(--hero-gradient)',
+                        color: '#fff',
+                        fontWeight: 800,
+                        padding: '12px 28px',
+                        borderRadius: '12px',
+                        border: 'none',
+                        textTransform: 'none',
+                        fontSize: '0.95rem'
+                      }}
+                    >
+                      Finish Lesson
+                    </Button>
+                  </Box>
+                )}
               </Paper>
             </motion.div>
           )}
         </AnimatePresence>
       </Container>
 
-      {portalElement ? createPortal(
+      {pages.length > 1 && (portalElement ? createPortal(
         <footer className="learning-content-footer glass-panel">
           <Container maxWidth="md" className="learning-footer-content">
             <Button
@@ -3420,7 +3441,7 @@ const LearningContentPage = () => {
             </Button>
           </Container>
         </footer>
-      )}
+      ))}
 
       <CppPlaygroundDialog
         open={isCompilerOpen}
