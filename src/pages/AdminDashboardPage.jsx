@@ -2362,7 +2362,7 @@ const AdminDashboardContent = () => {
             }}
           >
             <Tab value="syllabus" label="Syllabus Builder" />
-            <Tab value="auditor" label="AI Content Auditor" />
+            <Tab value="auditor" label="Bumblebee" />
           </Tabs>
         </Paper>
 

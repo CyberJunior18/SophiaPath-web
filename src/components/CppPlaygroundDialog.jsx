@@ -194,6 +194,22 @@ const translateCppToJs = (cppCode, inputStr) => {
   // 4. Set up helper variables and context in the generated JS
   let js = `
     const stdout = [];
+    let _precision = -1;
+    const fixed = "";
+    const setprecision = (n) => {
+      _precision = n;
+      return "";
+    };
+    
+    const printHelper = (val) => {
+      if (val === undefined || val === "") return;
+      if (typeof val === 'number' && _precision >= 0) {
+        stdout.push(val.toFixed(_precision));
+      } else {
+        stdout.push(val === null ? "null" : val);
+      }
+    };
+
     const inputTokens = ${JSON.stringify(inputStr.trim().split(/\s+/).filter(t => t.length > 0))};
     let inputPtr = 0;
     
@@ -212,8 +228,22 @@ const translateCppToJs = (cppCode, inputStr) => {
     };
   `;
 
+  // Array replacements first
+  body = body.replace(/\b(int|double|float|string|bool|char|auto)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]+)\}\s*;/g, 'let $2 = [$3];');
+  body = body.replace(/\b(int|double|float|string|bool|char|auto)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*([^\]]+)\s*\]\s*;/g, 'let $2 = new Array($3).fill(0);');
+
+  // Range-based for loop: for (Type val : collection) -> for (let val of collection)
+  body = body.replace(/for\s*\(\s*(int|double|float|string|bool|char|auto)\s+([a-zA-Z0-9_$]+)\s*:\s*([^)]+)\)/g, 'for (let $2 of $3)');
+
+  // Type casts: (double)(val) -> Number(val)
+  body = body.replace(/\((double|float)\)\s*\(([^)]+)\)/g, 'Number($2)');
+  body = body.replace(/\((double|float)\)\s*([a-zA-Z0-9_$.]+(?:\([^)]*\))?)/g, 'Number($2)');
+  body = body.replace(/\(int\)\s*\(([^)]+)\)/g, 'Math.trunc($1)');
+  body = body.replace(/\(int\)\s*([a-zA-Z0-9_$.]+(?:\([^)]*\))?)/g, 'Math.trunc($1)');
+
   // 5. Clean namespace prefixes
   body = body.replace(/std::cout/g, "cout").replace(/std::cin/g, "cin").replace(/std::endl/g, "endl");
+  body = body.replace(/\.length\s*\(\s*\)/g, ".length").replace(/\.size\s*\(\s*\)/g, ".length");
 
   // 6. Translate C++ variable declarations
   const types = ['int', 'double', 'float', 'string', 'bool', 'char', 'auto'];
@@ -237,7 +267,7 @@ const translateCppToJs = (cppCode, inputStr) => {
       if (part === 'endl' || part === '"\\n"' || part === "'\\n'") {
         return `stdout.push("\\n");`;
       }
-      return `stdout.push(${part});`;
+      return `printHelper(${part});`;
     });
     return pushes.join(' ');
   });
