@@ -3377,7 +3377,7 @@ const LearningContentPage = () => {
         />
       </header>
 
-      <Container maxWidth={hasVulnerabilityChallenge ? "lg" : "md"} className="learning-slide-deck">
+      <Container maxWidth={false} style={hasVulnerabilityChallenge ? { maxWidth: '1240px' } : { maxWidth: '900px' }} className="learning-slide-deck">
         <AnimatePresence mode="wait">
           {currentPage && (
             <motion.div
@@ -3397,7 +3397,7 @@ const LearningContentPage = () => {
                 <div className="slide-blocks-list">
                   {currentPage.blocks?.map((block, idx) => renderBlock(block, idx))}
                 </div>
-                {pages.length === 1 && (
+                {pages.length === 1 && (!currentPage?.blocks?.some(b => b.type === 'vulnerability_challenge') || isPageCompleted(currentPageIndex)) && (
                   <Box style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '32px' }}>
                     <Button
                       variant="contained"
@@ -3436,15 +3436,29 @@ const LearningContentPage = () => {
             >
               Previous
             </Button>
-            <Button
-              variant="outlined"
-              onClick={handleNext}
-              disabled={!isPageCompleted(currentPageIndex)}
-              endIcon={<RightIcon />}
-              className="footer-nav-btn"
-            >
-              {currentPageIndex === pages.length - 1 ? 'Finish Lesson' : 'Next'}
-            </Button>
+            {currentPageIndex === pages.length - 1 ? (
+              (!currentPage?.blocks?.some(b => b.type === 'vulnerability_challenge') || isPageCompleted(currentPageIndex)) && (
+                <Button
+                  variant="outlined"
+                  onClick={handleNext}
+                  disabled={!isPageCompleted(currentPageIndex)}
+                  endIcon={<RightIcon />}
+                  className="footer-nav-btn"
+                >
+                  Finish Lesson
+                </Button>
+              )
+            ) : (
+              <Button
+                variant="outlined"
+                onClick={handleNext}
+                disabled={!isPageCompleted(currentPageIndex)}
+                endIcon={<RightIcon />}
+                className="footer-nav-btn"
+              >
+                Next
+              </Button>
+            )}
           </Container>
         </footer>,
         portalElement
@@ -3460,15 +3474,29 @@ const LearningContentPage = () => {
             >
               Previous
             </Button>
-            <Button
-              variant="outlined"
-              onClick={handleNext}
-              disabled={!isPageCompleted(currentPageIndex)}
-              endIcon={<RightIcon />}
-              className="footer-nav-btn"
-            >
-              {currentPageIndex === pages.length - 1 ? 'Finish Lesson' : 'Next'}
-            </Button>
+            {currentPageIndex === pages.length - 1 ? (
+              (!currentPage?.blocks?.some(b => b.type === 'vulnerability_challenge') || isPageCompleted(currentPageIndex)) && (
+                <Button
+                  variant="outlined"
+                  onClick={handleNext}
+                  disabled={!isPageCompleted(currentPageIndex)}
+                  endIcon={<RightIcon />}
+                  className="footer-nav-btn"
+                >
+                  Finish Lesson
+                </Button>
+              )
+            ) : (
+              <Button
+                variant="outlined"
+                onClick={handleNext}
+                disabled={!isPageCompleted(currentPageIndex)}
+                endIcon={<RightIcon />}
+                className="footer-nav-btn"
+              >
+                Next
+              </Button>
+            )}
           </Container>
         </footer>
       ))}

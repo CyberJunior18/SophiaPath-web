@@ -4,6 +4,11 @@
   gap: 1.5rem;
   padding: 1.5rem;
   height: 100%;
+  zoom: 1.08;
+  -webkit-zoom: 1.08;
+  width: 100%;
+  max-width: 1250px;
+  margin: 0 auto;
 }
 
 .challenge-layout {
@@ -21,6 +26,11 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  zoom: 1.08;
+  -webkit-zoom: 1.08;
+  width: 100%;
+  max-width: 1250px;
+  margin: 0 auto;
 }
 
 .badge-outline {
@@ -48,7 +58,7 @@
 .challenge-grid {
   display: grid;
   grid-template-columns: 1.25fr 0.75fr;
-  min-height: 550px;
+  min-height: auto;
 }
 
 @media (max-width: 900px) {
@@ -76,7 +86,7 @@
   gap: 2rem;
   background: rgba(var(--primary-main-rgb), 0.01);
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 /* Custom list styling for tasks */

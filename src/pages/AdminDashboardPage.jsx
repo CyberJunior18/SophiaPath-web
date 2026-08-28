@@ -33,7 +33,8 @@ import {
   Divider,
   Radio,
   RadioGroup,
-  Collapse
+  Collapse,
+  LinearProgress
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -56,12 +57,14 @@ import {
   Storage as DatabaseIcon,
   Search as SearchIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
-  KeyboardArrowRight as KeyboardArrowRightIcon
+  KeyboardArrowRight as KeyboardArrowRightIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { coursesData } from '../data/courses';
 import { useAuth } from '../context/AuthContext';
 import AiAuditorDashboard from '../components/course/AiAuditorDashboard';
 import BiggerScreenRequired from '../components/BiggerScreenRequired';
+import './LearningContentPage.css';
 
 
 // Available cyber lab values
@@ -839,6 +842,18 @@ const AdminDashboardContent = () => {
     setActiveSlideIndex(editingLesson.pages.length);
   };
 
+  const handleUpdateSlideTitle = (newTitle) => {
+    setEditingLesson(prev => {
+      const newPages = [...prev.pages];
+      newPages[activeSlideIndex] = {
+        ...newPages[activeSlideIndex],
+        pageTitle: newTitle,
+        title: newTitle
+      };
+      return { ...prev, pages: newPages };
+    });
+  };
+
   const handleDeleteSlide = (indexToDelete) => {
     if (editingLesson.pages.length <= 1) {
       alert('Cannot delete the last slide! A lesson must contain at least 1 slide.');
@@ -1185,350 +1200,15 @@ const AdminDashboardContent = () => {
           />
         </Paper>
 
-        {/* Split Screen Design Canvas */}
+        {/* Split Screen Design Canvas: Left = Editing Controls, Right = Student View Simulator */}
         <Grid container spacing={3} style={{ flex: 1 }}>
           
-          {/* LEFT PANEL: Student Mockup Slide Preview (Centered design elements) */}
-          <Grid item xs={12} lg={7}>
-            <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <VerifiedIcon style={{ fontSize: '1.1rem', color: 'var(--primary-main)' }} />
-                Real-Time Student View Simulator
-              </Typography>
-              
-              <Paper 
-                style={{
-                  flex: 1,
-                  padding: '40px',
-                  background: 'radial-gradient(circle at top left, rgba(20, 24, 40, 0.95), rgba(10, 12, 18, 0.98))',
-                  border: '1px solid rgba(28, 176, 246, 0.25)',
-                  borderRadius: '20px',
-                  minHeight: '600px',
-                  position: 'sticky',
-                  top: '24px',
-                  
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '24px',
-                  overflowY: 'auto'
-                }}
-              >
-                {/* Simulated Header */}
-                <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '16px' }}>
-                  <Box>
-                    <Typography style={{ color: 'var(--primary-main)', fontWeight: 900, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                      {editingLesson.chapterName} • Slide {activeSlideIndex + 1} of {editingLesson.pages.length}
-                    </Typography>
-                    <Typography variant="h4" style={{ fontWeight: 900, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif', marginTop: '4px' }}>
-                      {activeSlide.pageTitle || 'Untitled Slide'}
-                    </Typography>
-                  </Box>
-                  <Chip 
-                    label={editingLesson.category.toUpperCase()} 
-                    size="small" 
-                    style={{ background: 'rgba(28,176,246,0.1)', color: 'var(--primary-main)', border: '1px solid rgba(28,176,246,0.3)', fontWeight: 800, fontSize: '0.65rem' }} 
-                  />
-                </Box>
-
-                {/* Simulated Page Content Blocks Rendering (Centered content layout) */}
-                <Box style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: 1, justifyContent: 'center', alignItems: 'center', textAlign: 'center', width: '100%', maxWidth: '650px', margin: '0 auto', padding: '20px 0' }}>
-                  {(!activeSlide.blocks || activeSlide.blocks.length === 0) ? (
-                    <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px', minHeight: '300px' }}>
-                      <DatabaseIcon style={{ fontSize: '3rem', color: 'rgba(255,255,255,0.05)' }} />
-                      <Typography style={{ color: 'rgba(255,255,255,0.25)', fontStyle: 'italic', fontSize: '0.9rem' }}>
-                        This slide is currently empty. Use the Inspector on the right to add block components.
-                      </Typography>
-                    </Box>
-                  ) : (
-                    activeSlide.blocks.map((block, idx) => {
-                      switch (block.type) {
-                        case 'heading': {
-                          const level = block.level || 1;
-                          const fontSize = level === 1 ? '1.8rem' : level === 2 ? '1.4rem' : '1.15rem';
-                          return (
-                            <Box key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%' }}>
-                              <Typography 
-                                style={{ 
-                                  color: 'var(--text-primary)', 
-                                  fontWeight: 900, 
-                                  fontSize, 
-                                  fontFamily: '"Outfit", sans-serif'
-                                }}
-                              >
-                                {block.text || 'Section Heading'}
-                              </Typography>
-                              <Box style={{ width: '40px', height: '4px', background: 'var(--primary-main)', borderRadius: '2px' }} />
-                            </Box>
-                          );
-                        }
-                        
-                        case 'paragraph':
-                          return (
-                            <Typography key={idx} variant="body1" style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.7, fontSize: '0.96rem', textAlign: 'center' }}>
-                              {block.text || 'Paragraph body content...'}
-                            </Typography>
-                          );
-
-                        case 'bullet_list':
-                          return (
-                            <Box key={idx} style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                              <ul style={{ paddingLeft: '0', listStyleType: 'none', color: 'rgba(255,255,255,0.8)', display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left', margin: '0 auto' }}>
-                                {(block.items || []).map((item, bulletIdx) => {
-                                  const itemText = typeof item === 'object' ? (item.text || '') : item;
-                                  const itemBold = typeof item === 'object' ? (item.bold || '') : '';
-                                  return (
-                                    <li key={bulletIdx} style={{ fontSize: '0.95rem', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                      <span style={{ color: 'var(--primary-main)', fontWeight: 900 }}>•</span>
-                                      <Box>
-                                        {itemBold && <strong style={{ color: 'var(--primary-main)', fontWeight: 800, marginRight: '4px' }}>{itemBold}</strong>}
-                                        {itemText}
-                                      </Box>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            </Box>
-                          );
-
-                        case 'callout': {
-                          const colorMap = {
-                            info: { border: '#1CB0F6', bg: 'rgba(28, 176, 246, 0.08)', icon: <InfoIcon style={{ color: '#1CB0F6' }} /> },
-                            warning: { border: '#ff9800', bg: 'rgba(255, 152, 0, 0.08)', icon: <WarningIcon style={{ color: '#ff9800' }} /> },
-                            success: { border: '#4caf50', bg: 'rgba(76, 175, 80, 0.08)', icon: <SuccessIcon style={{ color: '#4caf50' }} /> },
-                            error: { border: '#f44336', bg: 'rgba(244, 67, 54, 0.08)', icon: <ErrorIcon style={{ color: '#f44336' }} /> }
-                          };
-                          const conf = colorMap[block.variant || 'info'] || colorMap.info;
-                          return (
-                            <Box 
-                              key={idx} 
-                              style={{ 
-                                display: 'flex', 
-                                gap: '14px', 
-                                padding: '16px', 
-                                background: conf.bg, 
-                                borderLeft: '4px solid ' + conf.border, 
-                                borderRadius: '0 8px 8px 0',
-                                alignItems: 'center',
-                                textAlign: 'left',
-                                width: '100%'
-                              }}
-                            >
-                              {conf.icon}
-                              <Typography variant="body2" style={{ color: 'rgba(255,255,255,0.85)', lineHeight: 1.5, fontSize: '0.88rem' }}>
-                                {block.text || 'Callout information box details...'}
-                              </Typography>
-                            </Box>
-                          );
-                        }
-
-                        case 'table':
-                          return (
-                            <TableContainer key={idx} style={{ borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.15)', width: '100%' }}>
-                              <Table size="small">
-                                <TableHead style={{ background: 'rgba(255,255,255,0.02)' }}>
-                                  <TableRow>
-                                    {(block.headers || []).map((h, hIdx) => (
-                                      <TableCell key={hIdx} style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 800, fontSize: '0.78rem', borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
-                                        {h}
-                                      </TableCell>
-                                    ))}
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {(block.rows || []).map((row, rowIdx) => (
-                                    <TableRow key={rowIdx} style={{ background: rowIdx % 2 === 0 ? 'rgba(0,0,0,0.1)' : 'transparent' }}>
-                                      {row.map((cell, cellIdx) => {
-                                        const cellText = typeof cell === 'object' ? (cell.text || cell.bold || '') : cell;
-                                        const isBold = typeof cell === 'object' && cell.bold !== undefined;
-                                        return (
-                                          <TableCell key={cellIdx} style={{ color: 'var(--text-primary)', fontSize: '0.82rem', borderBottom: '1px solid rgba(255,255,255,0.03)', fontWeight: isBold ? 800 : 400, textAlign: 'center' }}>
-                                            {cellText}
-                                          </TableCell>
-                                        );
-                                      })}
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </TableContainer>
-                          );
-
-                        case 'mcq':
-                          return (
-                            <Paper key={idx} style={{ padding: '24px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', width: '100%', textAlign: 'center' }}>
-                              <Typography style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '1.05rem', marginBottom: '16px', fontFamily: '"Outfit", sans-serif' }}>
-                                Q: {block.question || 'Multiple Choice Question'}
-                              </Typography>
-                              <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {(block.options || []).map((opt, optIdx) => {
-                                  const isCorrect = block.correctOptionIndex === optIdx;
-                                  return (
-                                    <Box 
-                                      key={optIdx} 
-                                      style={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        justifyContent: 'center',
-                                        padding: '12px 16px', 
-                                        borderRadius: '10px', 
-                                        border: isCorrect ? '1px solid #4caf50' : '1px solid rgba(255,255,255,0.06)', 
-                                        background: isCorrect ? 'rgba(76, 175, 80, 0.08)' : 'rgba(0,0,0,0.1)',
-                                        position: 'relative'
-                                      }}
-                                    >
-                                      <Typography style={{ fontSize: '0.88rem', color: isCorrect ? '#4caf50' : 'rgba(255,255,255,0.7)', fontWeight: isCorrect ? 800 : 500 }}>
-                                        {optIdx + 1}. {opt}
-                                      </Typography>
-                                      {isCorrect && <SuccessIcon style={{ fontSize: '1.1rem', color: '#4caf50', position: 'absolute', right: '16px' }} />}
-                                    </Box>
-                                  );
-                                })}
-                              </Box>
-                            </Paper>
-                          );
-
-                        case 'fill_code':
-                        case 'write_line':
-                          return (
-                            <Box key={idx} style={{ background: '#090d16', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px', fontFamily: 'monospace', width: '100%' }}>
-                              <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.3)', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                Interactive Console ({block.language || 'javascript'})
-                              </Typography>
-                              <Box style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '0.88rem' }}>
-                                {(block.codeLines || []).map((line, lIdx) => {
-                                  if (line.type === 'code') {
-                                    return <span key={lIdx} style={{ color: 'var(--text-primary)', whiteSpace: 'pre' }}>{line.content}</span>;
-                                  } else {
-                                    return (
-                                      <span 
-                                        key={lIdx} 
-                                        style={{ 
-                                          background: 'rgba(255, 152, 0, 0.15)', 
-                                          color: '#ff9800', 
-                                          borderBottom: '2px solid #ff9800', 
-                                          padding: '2px 8px', 
-                                          fontWeight: 800,
-                                          borderRadius: '4px',
-                                          fontSize: '0.8rem'
-                                        }}
-                                      >
-                                        [ {line.expectedAnswer || 'blank'} ]
-                                      </span>
-                                    );
-                                  }
-                                })}
-                              </Box>
-                            </Box>
-                          );
-
-                        case 'find_error':
-                        case 'code_challenge':
-                          return (
-                            <Box key={idx} style={{ background: '#090d16', border: '1px solid rgba(28, 176, 246, 0.2)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', textAlign: 'left' }}>
-                              <Box style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <CodeIcon style={{ color: 'var(--primary-main)', fontSize: '1rem' }} />
-                                <Typography style={{ color: 'var(--primary-main)', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                                  Challenge Workspace ({block.language || 'javascript'})
-                                </Typography>
-                              </Box>
-                              {block.type === 'find_error' ? (
-                                <Box style={{ width: '100%' }}>
-                                  <Typography style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', marginBottom: '8px' }}>Find the Syntax Error:</Typography>
-                                  <pre style={{ margin: 0, padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', color: '#e5e9f0', fontSize: '0.8rem', overflowX: 'auto' }}>
-                                    <code>{block.code}</code>
-                                  </pre>
-                                  <Typography style={{ color: '#ff9800', fontSize: '0.78rem', marginTop: '6px', fontWeight: 800 }}>Error Line: {block.errorLine} • Fix: {block.expectedFix}</Typography>
-                                </Box>
-                              ) : (
-                                <Box style={{ width: '100%' }}>
-                                  <Typography style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem', marginBottom: '8px', lineHeight: 1.4 }}>
-                                    {block.problemDescription}
-                                  </Typography>
-                                  <pre style={{ margin: 0, padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', color: '#a3be8c', fontSize: '0.8rem', overflowX: 'auto', fontFamily: 'monospace' }}>
-                                    <code>{block.initialCode}</code>
-                                  </pre>
-                                  <Typography style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginTop: '8px', fontWeight: 800 }}>
-                                    Testcases: {(block.testcases || []).length} mapped
-                                  </Typography>
-                                </Box>
-                              )}
-                            </Box>
-                          );
-
-                        case 'Cyber':
-                          return (
-                            <Paper 
-                              key={idx} 
-                              className="glass-panel" 
-                              style={{ 
-                                padding: '24px', 
-                                border: '1px solid rgba(28, 176, 246, 0.3)', 
-                                borderRadius: '16px', 
-                                background: 'linear-gradient(135deg, rgba(28, 176, 246, 0.05) 0%, rgba(0,0,0,0.3) 100%)', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '20px',
-                                width: '100%'
-                              }}
-                            >
-                              <Avatar style={{ background: 'rgba(28, 176, 246, 0.15)', color: '#1CB0F6', width: '56px', height: '56px' }}>
-                                <LockIcon style={{ fontSize: '1.8rem' }} />
-                              </Avatar>
-                              <Box style={{ textAlign: 'left' }}>
-                                <Typography style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '1.05rem', fontFamily: '"Outfit", sans-serif' }}>
-                                  {(CYBER_LABS.find(l => l.value === block.value) || { label: 'Interactive Security Lab' }).label}
-                                </Typography>
-                                <Typography style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginTop: '2px', fontWeight: 700 }}>
-                                  Embedded SecLab Sandbox Component ({block.value})
-                                </Typography>
-                              </Box>
-                              <Chip 
-                                label="ACTIVE LAB" 
-                                size="small" 
-                                style={{ background: '#4caf50', color: 'var(--text-primary)', fontWeight: 900, fontSize: '0.6rem', marginLeft: 'auto' }} 
-                              />
-                            </Paper>
-                          );
-
-                        default:
-                          return null;
-                      }
-                    })
-                  )}
-                </Box>
-
-                {/* Simulated Footer / Slide visual switcher navigation */}
-                <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px', marginTop: 'auto' }}>
-                  <Button
-                    size="small"
-                    disabled={activeSlideIndex === 0}
-                    onClick={() => setActiveSlideIndex(prev => Math.max(0, prev - 1))}
-                    style={{ textTransform: 'none', color: activeSlideIndex === 0 ? 'rgba(255,255,255,0.2)' : 'var(--primary-main)', fontWeight: 800 }}
-                  >
-                    ← Prev Slide
-                  </Button>
-                  <Typography style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem', fontWeight: 700 }}>
-                    Slide {activeSlideIndex + 1} of {editingLesson.pages.length}
-                  </Typography>
-                  <Button
-                    size="small"
-                    disabled={activeSlideIndex === editingLesson.pages.length - 1}
-                    onClick={() => setActiveSlideIndex(prev => Math.min(editingLesson.pages.length - 1, prev + 1))}
-                    style={{ textTransform: 'none', color: activeSlideIndex === editingLesson.pages.length - 1 ? 'rgba(255,255,255,0.2)' : 'var(--primary-main)', fontWeight: 800 }}
-                  >
-                    Next Slide →
-                  </Button>
-                </Box>
-              </Paper>
-            </Box>
-          </Grid>
-          
-          {/* RIGHT PANEL: Slide Deck Outline + Interactive Block Properties Inspector */}
-          <Grid item xs={12} lg={5} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Outline horizontal scroll navigator with switchable items and delete icons */}
-            <Paper className="glass-panel" style={{ padding: '16px', border: '1px solid rgba(255,255,255,0.06)', background: 'var(--surface-glass)', borderRadius: '16px' }}>
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Slides Deck Outline</Typography>
-              <Box style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
+          {/* LEFT PANEL: Compact Editor Sidebar (Slide Outline + Inspector + Block Appender) */}
+          <Grid item xs={12} md={5} lg={4.5} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Outline horizontal scroll navigator */}
+            <Paper className="glass-panel" style={{ padding: '12px', border: '1px solid rgba(255,255,255,0.06)', background: 'var(--surface-glass)', borderRadius: '14px' }}>
+              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Slides Deck Outline</Typography>
+              <Box style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
                 {editingLesson.pages.map((slide, idx) => {
                   const isBeingDragged = draggedSlideIdx === idx;
                   const isDragOver = dragOverSlideIdx === idx;
@@ -1565,9 +1245,9 @@ const AdminDashboardContent = () => {
                       }}
                       style={{
                         flexShrink: 0,
-                        width: '120px',
-                        height: '85px',
-                        borderRadius: '10px',
+                        width: '85px',
+                        height: '62px',
+                        borderRadius: '8px',
                         cursor: 'grab',
                         opacity: isBeingDragged ? 0.3 : 1,
                         background: isDragOver 
@@ -1576,57 +1256,43 @@ const AdminDashboardContent = () => {
                         border: isDragOver
                           ? '2px dashed var(--primary-main)'
                           : (isActive ? '2px solid var(--primary-main)' : '1px solid rgba(255,255,255,0.08)'),
-                        padding: '10px',
+                        padding: '6px',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
                         position: 'relative',
                         transition: 'all 0.2s',
-                        transform: isDragOver ? 'scale(1.05) translateY(-2px)' : 'none',
-                        
+                        transform: isDragOver ? 'scale(1.03) translateY(-2px)' : 'none',
                         zIndex: isDragOver ? 10 : 1
                       }}
-                      onMouseEnter={(e) => {
-                        if (!isActive && !isDragOver) {
-                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)';
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive && !isDragOver) {
-                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
-                          e.currentTarget.style.background = 'rgba(0,0,0,0.3)';
-                        }
-                      }}
                     >
-                      {/* Delete Icon absolute positioned on top right */}
                       <IconButton
                         size="small"
                         onClick={(e) => {
-                          e.stopPropagation(); // prevent switching to the slide
+                          e.stopPropagation();
                           handleDeleteSlide(idx);
                         }}
                         style={{
                           position: 'absolute',
-                          top: '4px',
-                          right: '4px',
+                          top: '2px',
+                          right: '2px',
                           color: 'rgba(255,255,255,0.4)',
-                          padding: '2px',
+                          padding: '1px',
                           background: 'rgba(0,0,0,0.4)',
                           border: '1px solid rgba(255,255,255,0.05)'
                         }}
                         onMouseEnter={(e) => { e.currentTarget.style.color = '#ff4d4d'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}
                       >
-                        <DeleteIcon style={{ fontSize: '0.85rem' }} />
+                        <DeleteIcon style={{ fontSize: '0.75rem' }} />
                       </IconButton>
 
-                      <Typography style={{ color: isActive ? 'var(--primary-main)' : 'rgba(255,255,255,0.4)', fontWeight: 900, fontSize: '0.62rem' }}>SLIDE {idx+1}</Typography>
-                      <Typography noWrap style={{ color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 800, maxWidth: '80%' }}>{slide.pageTitle || slide.title || 'Untitled'}</Typography>
+                      <Typography style={{ color: isActive ? 'var(--primary-main)' : 'rgba(255,255,255,0.4)', fontWeight: 900, fontSize: '0.58rem' }}>SLIDE {idx+1}</Typography>
+                      <Typography noWrap style={{ color: 'var(--text-primary)', fontSize: '0.68rem', fontWeight: 800, maxWidth: '75%' }}>{slide.pageTitle || slide.title || 'Untitled'}</Typography>
                       
                       <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.58rem', fontWeight: 700 }}>{(slide.blocks || []).length} blocks</Typography>
-                        <DragHandleIcon style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.3)', cursor: 'grab' }} />
+                        <Typography style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.52rem', fontWeight: 700 }}>{(slide.blocks || []).length} bks</Typography>
+                        <DragHandleIcon style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', cursor: 'grab' }} />
                       </Box>
                     </Box>
                   );
@@ -1636,9 +1302,9 @@ const AdminDashboardContent = () => {
                   onClick={handleAddSlide}
                   style={{
                     flexShrink: 0,
-                    width: '120px',
-                    height: '85px',
-                    borderRadius: '10px',
+                    width: '85px',
+                    height: '62px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
                     background: 'rgba(255,255,255,0.02)',
                     border: '1px dashed rgba(255,255,255,0.2)',
@@ -1649,22 +1315,58 @@ const AdminDashboardContent = () => {
                     color: 'rgba(255,255,255,0.5)',
                     transition: 'all 0.2s'
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary-main)'; e.currentTarget.style.color = 'var(--primary-main)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--primary-main)';
+                    e.currentTarget.style.color = 'var(--primary-main)';
+                    e.currentTarget.style.background = 'rgba(28,176,246,0.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                  }}
                 >
                   <AddIcon style={{ fontSize: '1.2rem' }} />
-                  <Typography style={{ fontSize: '0.62rem', fontWeight: 800, marginTop: '4px' }}>Add Slide</Typography>
+                  <Typography style={{ fontSize: '0.62rem', fontWeight: 800, marginTop: '1px' }}>+ Add Slide</Typography>
                 </Box>
               </Box>
             </Paper>
 
+            {/* Active Slide Header & Page Config */}
+            <Paper className="glass-panel" style={{ padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)', background: 'var(--surface-glass)', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Active Slide Config (Slide {activeSlideIndex + 1})
+                </Typography>
+                <Button
+                  size="small"
+                  disabled={activeSlideIndex === editingLesson.pages.length - 1}
+                  onClick={() => setActiveSlideIndex(prev => Math.min(editingLesson.pages.length - 1, prev + 1))}
+                  style={{ textTransform: 'none', color: activeSlideIndex === editingLesson.pages.length - 1 ? 'rgba(255,255,255,0.2)' : 'var(--primary-main)', fontWeight: 800, fontSize: '0.72rem', padding: '0 4px' }}
+                >
+                  Next →
+                </Button>
+              </Box>
+
+              <TextField
+                fullWidth
+                size="small"
+                label="Slide Title / Main Headline"
+                value={activeSlide.pageTitle || ''}
+                onChange={(e) => handleUpdateSlideTitle(e.target.value)}
+                InputLabelProps={{ style: { color: 'rgba(255,255,255,0.5)', fontWeight: 700, fontSize: '0.78rem' } }}
+                InputProps={{ style: { color: 'var(--text-primary)', fontWeight: 800, fontSize: '0.82rem' } }}
+                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' } }}
+              />
+            </Paper>
+
             {/* Blocks inspector property panels */}
-            <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.75rem' }}>Active Slide Inspector</Typography>
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.7rem' }}>Active Slide Inspector</Typography>
               
               {(!activeSlide.blocks || activeSlide.blocks.length === 0) ? (
-                <Paper className="glass-panel" style={{ padding: '30px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.15)', borderRadius: '12px' }}>
-                  <Typography style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem' }}>No blocks on this slide yet. Append a layout block below!</Typography>
+                <Paper className="glass-panel" style={{ padding: '20px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.15)', borderRadius: '12px' }}>
+                  <Typography style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem' }}>No blocks on this slide yet. Append a block below!</Typography>
                 </Paper>
               ) : (
                 activeSlide.blocks.map((block, blockIdx) => {
@@ -1689,112 +1391,95 @@ const AdminDashboardContent = () => {
                   const isBlockDragOver = dragOverBlockIdx === blockIdx;
 
                   return (
-                      <Paper
-                        key={blockIdx}
-                        draggable={true}
-                        onDragStart={(e) => {
-                          const targetTag = e.target.tagName.toLowerCase();
-                          if (targetTag === 'input' || targetTag === 'textarea' || targetTag === 'select' || e.target.closest('button')) {
-                            e.preventDefault();
-                            return;
-                          }
-                          setDraggedBlockIdx(blockIdx);
-                          e.dataTransfer.effectAllowed = 'move';
-                          e.dataTransfer.setData('text/plain', blockIdx.toString());
-                        }}
-                        onDragEnd={() => {
-                          setDraggedBlockIdx(null);
-                          setDragOverBlockIdx(null);
-                        }}
-                        onDragOver={(e) => {
+                    <Paper
+                      key={blockIdx}
+                      draggable={true}
+                      onDragStart={(e) => {
+                        const targetTag = e.target.tagName.toLowerCase();
+                        if (targetTag === 'input' || targetTag === 'textarea' || targetTag === 'select' || e.target.closest('button')) {
                           e.preventDefault();
-                          if (draggedBlockIdx !== blockIdx) {
-                            setDragOverBlockIdx(blockIdx);
-                          }
-                        }}
-                        onDragLeave={() => {
-                          setDragOverBlockIdx(null);
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          handleReorderBlocks(draggedBlockIdx, blockIdx);
-                          setDraggedBlockIdx(null);
-                          setDragOverBlockIdx(null);
-                        }}
-                        style={{
-                          background: isBlockDragOver 
-                            ? 'rgba(28, 176, 246, 0.08)' 
-                            : 'rgba(20, 20, 30, 0.55)',
-                          border: isBlockDragOver
-                            ? '2px dashed var(--primary-main)'
-                            : '1px solid rgba(255,255,255,0.06)',
-                          borderRadius: '16px',
-                          padding: '16px',
-                          display: 'flex',
-                          gap: '16px',
-                          position: 'relative',
-                          opacity: isBlockDragged ? 0.25 : 1,
-                          transform: isBlockDragOver ? 'translateY(-4px)' : 'none',
-                          transition: 'all 0.2s',
-                          cursor: 'grab',
-                          zIndex: isBlockDragOver ? 10 : 1
-                        }}
-                      >
-                      {/* Left Gradient Strip */}
-                      <Box style={{ width: '4px', background: borderGradient, borderRadius: '4px', alignSelf: 'stretch' }} />
+                          return;
+                        }
+                        setDraggedBlockIdx(blockIdx);
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', blockIdx.toString());
+                      }}
+                      onDragEnd={() => {
+                        setDraggedBlockIdx(null);
+                        setDragOverBlockIdx(null);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (draggedBlockIdx !== blockIdx) {
+                          setDragOverBlockIdx(blockIdx);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        setDragOverBlockIdx(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleReorderBlocks(draggedBlockIdx, blockIdx);
+                        setDraggedBlockIdx(null);
+                        setDragOverBlockIdx(null);
+                      }}
+                      style={{
+                        background: isBlockDragOver 
+                          ? 'rgba(28, 176, 246, 0.08)' 
+                          : 'rgba(20, 20, 30, 0.55)',
+                        border: isBlockDragOver
+                          ? '2px dashed var(--primary-main)'
+                          : '1px solid rgba(255,255,255,0.06)',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        display: 'flex',
+                        gap: '10px',
+                        position: 'relative',
+                        transition: 'all 0.2s',
+                        opacity: isBlockDragged ? 0.3 : 1
+                      }}
+                    >
+                      <Box style={{ width: '4px', borderRadius: '4px', background: borderGradient, flexShrink: 0 }} />
 
-                      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        {/* Header toolbar */}
+                      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Chip
-                            label={block.type.toUpperCase()}
-                            size="small"
-                            style={{
-                              background: 'rgba(255,255,255,0.05)',
-                              color: 'var(--text-primary)',
-                              fontWeight: 900,
-                              fontSize: '0.62rem',
-                              border: '1px solid rgba(255,255,255,0.1)'
-                            }}
-                          />
-                          <Box style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <DragHandleIcon style={{ fontSize: '1.1rem', color: 'rgba(255,255,255,0.3)', cursor: 'grab' }} />
-                            <IconButton size="small" onClick={() => handleDeleteBlock(blockIdx)} style={{ color: '#f44336', padding: '2px' }}>
-                              <DeleteIcon style={{ fontSize: '1rem' }} />
+                          <Box style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <DragHandleIcon style={{ color: 'rgba(255,255,255,0.3)', cursor: 'grab', fontSize: '0.9rem' }} />
+                            <Chip 
+                              label={`#${blockIdx + 1} ${block.type.toUpperCase()}`} 
+                              size="small" 
+                              style={{ height: '20px', fontSize: '0.62rem', fontWeight: 800, background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)' }} 
+                            />
+                          </Box>
+
+                          <Box style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                            <IconButton 
+                              size="small"
+                              onClick={() => handleDeleteBlock(blockIdx)}
+                              style={{ color: 'rgba(255,77,77,0.7)', padding: '2px' }}
+                            >
+                              <DeleteIcon style={{ fontSize: '0.85rem' }} />
                             </IconButton>
                           </Box>
                         </Box>
-                        {block.type === 'paragraph' && (
-                          <TextField
-                            fullWidth
-                            multiline
-                            rows={3}
-                            label="Paragraph Text"
-                            placeholder="Enter paragraph text..."
-                            value={block.text || ''}
-                            onChange={(e) => handleUpdateBlock(blockIdx, { text: e.target.value })}
-                            InputLabelProps={{ style: { color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' } }}
-                            InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.88rem' } }}
-                            sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
-                          />
-                        )}
 
+                        {/* Block Type Fields */}
                         {block.type === 'heading' && (
-                          <Box style={{ display: 'flex', gap: '10px' }}>
+                          <Box style={{ display: 'flex', gap: '8px' }}>
                             <TextField
                               fullWidth
+                              size="small"
                               label="Heading Text"
                               value={block.text || ''}
                               onChange={(e) => handleUpdateBlock(blockIdx, { text: e.target.value })}
-                              InputLabelProps={{ style: { color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' } }}
-                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.88rem' } }}
+                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.8rem' } }}
                               sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             />
                             <Select
+                              size="small"
                               value={block.level || 1}
                               onChange={(e) => handleUpdateBlock(blockIdx, { level: Number(e.target.value) })}
-                              size="small"
-                              sx={{ color: 'var(--text-primary)', fontWeight: 800, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
+                              sx={{ width: '80px', color: 'var(--text-primary)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             >
                               <MenuItem value={1}>H1</MenuItem>
                               <MenuItem value={2}>H2</MenuItem>
@@ -1803,406 +1488,131 @@ const AdminDashboardContent = () => {
                           </Box>
                         )}
 
+                        {block.type === 'paragraph' && (
+                          <TextField
+                            fullWidth
+                            multiline
+                            rows={2}
+                            size="small"
+                            label="Paragraph Text"
+                            value={block.text || ''}
+                            onChange={(e) => handleUpdateBlock(blockIdx, { text: e.target.value })}
+                            InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.8rem' } }}
+                            sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
+                          />
+                        )}
+
                         {block.type === 'bullet_list' && (
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 800 }}>Bullet Points</Typography>
                             {(block.items || []).map((item, itemIdx) => {
                               const itemText = typeof item === 'object' ? (item.text || '') : item;
                               const itemBold = typeof item === 'object' ? (item.bold || '') : '';
+
                               return (
-                                <Box key={itemIdx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <Box key={itemIdx} style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                                   <TextField
                                     size="small"
-                                    placeholder="Bold tag..."
+                                    placeholder="Bold prefix"
                                     value={itemBold}
                                     onChange={(e) => {
                                       const newItems = [...block.items];
-                                      if (typeof newItems[itemIdx] !== 'object') {
-                                        newItems[itemIdx] = { bold: e.target.value, text: itemText };
-                                      } else {
-                                        newItems[itemIdx] = { ...newItems[itemIdx], bold: e.target.value };
-                                      }
+                                      newItems[itemIdx] = typeof newItems[itemIdx] === 'object' ? { ...newItems[itemIdx], bold: e.target.value } : { bold: e.target.value, text: itemText };
                                       handleUpdateBlock(blockIdx, { items: newItems });
                                     }}
-                                    style={{ width: '100px' }}
-                                    InputProps={{ style: { color: 'var(--primary-main)', fontWeight: 800, fontSize: '0.8rem' } }}
+                                    style={{ width: '90px' }}
+                                    InputProps={{ style: { color: 'var(--primary-main)', fontWeight: 800, fontSize: '0.75rem' } }}
                                     sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                                   />
                                   <TextField
                                     fullWidth
                                     size="small"
-                                    placeholder="Content..."
+                                    placeholder="Bullet text..."
                                     value={itemText}
                                     onChange={(e) => {
                                       const newItems = [...block.items];
-                                      if (typeof newItems[itemIdx] !== 'object') {
-                                        newItems[itemIdx] = { bold: itemBold, text: e.target.value };
-                                      } else {
-                                        newItems[itemIdx] = { ...newItems[itemIdx], text: e.target.value };
-                                      }
+                                      newItems[itemIdx] = typeof newItems[itemIdx] === 'object' ? { ...newItems[itemIdx], text: e.target.value } : { bold: itemBold, text: e.target.value };
                                       handleUpdateBlock(blockIdx, { items: newItems });
                                     }}
-                                    InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.8rem' } }}
+                                    InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.78rem' } }}
                                     sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                                   />
-                                  <IconButton size="small" onClick={() => {
-                                    const newItems = block.items.filter((_, idx) => idx !== itemIdx);
-                                    handleUpdateBlock(blockIdx, { items: newItems });
-                                  }} style={{ color: '#f44336' }}>
-                                    <DeleteIcon style={{ fontSize: '0.85rem' }} />
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={() => handleUpdateBlock(blockIdx, { items: block.items.filter((_, i) => i !== itemIdx) })}
+                                    style={{ color: 'rgba(255,255,255,0.3)', padding: '2px' }}
+                                  >
+                                    <DeleteIcon style={{ fontSize: '0.8rem' }} />
                                   </IconButton>
                                 </Box>
                               );
                             })}
                             <Button
                               size="small"
-                              variant="outlined"
-                              startIcon={<AddIcon />}
-                              onClick={() => {
-                                const newItems = [...(block.items || []), { bold: '', text: 'New list item' }];
-                                handleUpdateBlock(blockIdx, { items: newItems });
-                              }}
-                              style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.75rem', borderColor: 'var(--divider)', color: 'rgba(255,255,255,0.5)' }}
+                              onClick={() => handleUpdateBlock(blockIdx, { items: [...(block.items || []), { bold: '', text: 'New item' }] })}
+                              style={{ alignSelf: 'flex-start', textTransform: 'none', fontSize: '0.7rem', color: 'var(--primary-main)', fontWeight: 800 }}
                             >
-                              Add Bullet item
+                              + Add Bullet
                             </Button>
                           </Box>
                         )}
 
                         {block.type === 'callout' && (
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <Select
+                              fullWidth
                               size="small"
                               value={block.variant || 'info'}
                               onChange={(e) => handleUpdateBlock(blockIdx, { variant: e.target.value })}
-                              sx={{ width: '130px', color: 'var(--text-primary)', fontWeight: 800, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
+                              sx={{ color: 'var(--text-primary)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             >
-                              <MenuItem value="info">Info</MenuItem>
-                              <MenuItem value="warning">Warning</MenuItem>
-                              <MenuItem value="success">Success</MenuItem>
-                              <MenuItem value="error">Error</MenuItem>
+                              <MenuItem value="info">Info Callout (Blue)</MenuItem>
+                              <MenuItem value="warning">Warning Callout (Orange)</MenuItem>
+                              <MenuItem value="success">Success Callout (Green)</MenuItem>
+                              <MenuItem value="error">Error Callout (Red)</MenuItem>
                             </Select>
                             <TextField
                               fullWidth
                               multiline
                               rows={2}
-                              placeholder="Callout text details..."
+                              size="small"
+                              label="Callout Text"
                               value={block.text || ''}
                               onChange={(e) => handleUpdateBlock(blockIdx, { text: e.target.value })}
-                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.85rem' } }}
+                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.8rem' } }}
                               sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             />
                           </Box>
                         )}
 
                         {block.type === 'table' && (
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 800 }}>Table Config</Typography>
                             <TextField
                               fullWidth
                               size="small"
                               label="Headers (comma separated)"
                               value={(block.headers || []).join(', ')}
-                              onChange={(e) => {
-                                const newHeaders = e.target.value.split(',').map(s => s.trim());
-                                handleUpdateBlock(blockIdx, { headers: newHeaders });
-                              }}
-                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.8rem' } }}
+                              onChange={(e) => handleUpdateBlock(blockIdx, { headers: e.target.value.split(',').map(s => s.trim()) })}
+                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.75rem' } }}
                               sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             />
-                            <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 800 }}>Table Rows Grid Data</Typography>
-                            {(block.rows || []).map((row, rIdx) => (
-                              <Box key={rIdx} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                <Typography style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem', width: '24px' }}>R{rIdx+1}</Typography>
-                                {row.map((cell, cIdx) => {
-                                  const cellText = typeof cell === 'object' ? (cell.text || cell.bold || '') : cell;
-                                  return (
-                                    <TextField
-                                      key={cIdx}
-                                      size="small"
-                                      value={cellText}
-                                      onChange={(e) => {
-                                        const newRows = [...block.rows];
-                                        const newRow = [...newRows[rIdx]];
-                                        newRow[cIdx] = typeof cell === 'object' ? { ...cell, text: e.target.value } : e.target.value;
-                                        newRows[rIdx] = newRow;
-                                        handleUpdateBlock(blockIdx, { rows: newRows });
-                                      }}
-                                      InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.78rem' } }}
-                                      sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.05)' } }}
-                                    />
-                                  );
-                                })}
-                                <IconButton size="small" onClick={() => {
-                                  const newRows = block.rows.filter((_, idx) => idx !== rIdx);
-                                  handleUpdateBlock(blockIdx, { rows: newRows });
-                                }} style={{ color: '#f44336' }}>
-                                  <DeleteIcon style={{ fontSize: '0.85rem' }} />
-                                </IconButton>
-                              </Box>
-                            ))}
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => {
-                                const colsCount = block.headers?.length || 2;
-                                const newRow = Array(colsCount).fill('').map(() => ({ text: '' }));
-                                const newRows = [...(block.rows || []), newRow];
-                                handleUpdateBlock(blockIdx, { rows: newRows });
-                              }}
-                              style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.75rem', borderColor: 'var(--divider)', color: 'rgba(255,255,255,0.5)' }}
-                            >
-                              + Add Row
-                            </Button>
                           </Box>
                         )}
 
                         {block.type === 'mcq' && (
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              label="MCQ Question / Prompt"
-                              value={block.question || ''}
-                              onChange={(e) => handleUpdateBlock(blockIdx, { question: e.target.value })}
-                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.82rem' } }}
-                              sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
-                            />
-                            <RadioGroup
-                              value={block.correctOptionIndex}
-                              onChange={(e) => handleUpdateBlock(blockIdx, { correctOptionIndex: Number(e.target.value) })}
-                            >
-                              {(block.options || []).map((option, optIdx) => (
-                                <Box key={optIdx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                  <Radio value={optIdx} size="small" style={{ color: 'var(--primary-main)' }} />
-                                  <TextField
-                                    fullWidth
-                                    size="small"
-                                    placeholder={'Choice Option ' + (optIdx + 1)}
-                                    value={option}
-                                    onChange={(e) => {
-                                      const newOptions = [...block.options];
-                                      newOptions[optIdx] = e.target.value;
-                                      handleUpdateBlock(blockIdx, { options: newOptions });
-                                    }}
-                                    InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.8rem' } }}
-                                    sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
-                                  />
-                                </Box>
-                              ))}
-                            </RadioGroup>
-                          </Box>
-                        )}
-
-                        {(block.type === 'fill_code' || block.type === 'write_line') && (
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <Box style={{ display: 'flex', gap: '10px' }}>
-                              <Select
-                                size="small"
-                                value={block.type}
-                                onChange={(e) => handleUpdateBlock(blockIdx, { type: e.target.value })}
-                                sx={{ color: 'var(--text-primary)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
-                              >
-                                <MenuItem value="fill_code">Fill the Code</MenuItem>
-                                <MenuItem value="write_line">Write the Line</MenuItem>
-                              </Select>
-                              <TextField
-                                size="small"
-                                label="Language"
-                                value={block.language || 'javascript'}
-                                onChange={(e) => handleUpdateBlock(blockIdx, { language: e.target.value })}
-                                InputProps={{ style: { color: '#fff' } }}
-                                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
-                              />
-                            </Box>
-
-                            <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              {(block.codeLines || []).map((line, lineIdx) => (
-                                <Box key={lineIdx} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                  <Select
-                                    size="small"
-                                    value={line.type}
-                                    onChange={(e) => {
-                                      const newLines = [...block.codeLines];
-                                      newLines[lineIdx] = { 
-                                        type: e.target.value,
-                                        ...(e.target.value === 'code' ? { content: '' } : { expectedAnswer: '' })
-                                      };
-                                      handleUpdateBlock(blockIdx, { codeLines: newLines });
-                                    }}
-                                    sx={{ minWidth: '90px', color: 'var(--text-primary)', fontSize: '0.78rem' }}
-                                  >
-                                    <MenuItem value="code">Code</MenuItem>
-                                    <MenuItem value="input">Blank</MenuItem>
-                                  </Select>
-
-                                  {line.type === 'code' ? (
-                                    <TextField
-                                      fullWidth
-                                      size="small"
-                                      placeholder="code content..."
-                                      value={line.content || ''}
-                                      onChange={(e) => {
-                                        const newLines = [...block.codeLines];
-                                        newLines[lineIdx] = { ...newLines[lineIdx], content: e.target.value };
-                                        handleUpdateBlock(blockIdx, { codeLines: newLines });
-                                      }}
-                                      InputProps={{ style: { color: 'var(--text-primary)', fontFamily: 'monospace', fontSize: '0.78rem' } }}
-                                      sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.05)' } }}
-                                    />
-                                  ) : (
-                                    <TextField
-                                      fullWidth
-                                      size="small"
-                                      placeholder="answer..."
-                                      value={line.expectedAnswer || ''}
-                                      onChange={(e) => {
-                                        const newLines = [...block.codeLines];
-                                        newLines[lineIdx] = { ...newLines[lineIdx], expectedAnswer: e.target.value };
-                                        handleUpdateBlock(blockIdx, { codeLines: newLines });
-                                      }}
-                                      InputProps={{ style: { color: 'var(--primary-main)', fontWeight: 800, fontSize: '0.78rem' } }}
-                                      sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.05)' } }}
-                                    />
-                                  )}
-
-                                  <IconButton size="small" onClick={() => {
-                                    const newLines = block.codeLines.filter((_, idx) => idx !== lineIdx);
-                                    handleUpdateBlock(blockIdx, { codeLines: newLines });
-                                  }} style={{ color: '#f44336' }}>
-                                    <DeleteIcon style={{ fontSize: '0.85rem' }} />
-                                  </IconButton>
-                                </Box>
-                              ))}
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() => {
-                                  const newLines = [...(block.codeLines || []), { type: 'code', content: '' }];
-                                  handleUpdateBlock(blockIdx, { codeLines: newLines });
-                                }}
-                                style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.7rem', borderColor: 'var(--divider)', color: 'rgba(255,255,255,0.4)' }}
-                              >
-                                + Add Line
-                              </Button>
-                            </Box>
-                          </Box>
-                        )}
-
-                        {block.type === 'find_error' && (
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <TextField
-                              fullWidth
-                              multiline
-                              rows={3}
-                              label="Code snippet with error"
-                              value={block.code || ''}
-                              onChange={(e) => handleUpdateBlock(blockIdx, { code: e.target.value })}
-                              InputProps={{ style: { color: '#a3be8c', fontFamily: 'monospace', fontSize: '0.82rem' } }}
-                              sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
-                            />
-                            <Box style={{ display: 'flex', gap: '10px' }}>
-                              <TextField
-                                label="Line Number"
-                                type="number"
-                                size="small"
-                                value={block.errorLine || 1}
-                                onChange={(e) => handleUpdateBlock(blockIdx, { errorLine: Number(e.target.value) })}
-                                InputProps={{ style: { color: '#fff' } }}
-                                style={{ width: '100px' }}
-                              />
-                              <TextField
-                                fullWidth
-                                label="Expected Fix statement"
-                                size="small"
-                                value={block.expectedFix || ''}
-                                onChange={(e) => handleUpdateBlock(blockIdx, { expectedFix: e.target.value })}
-                                InputProps={{ style: { color: 'var(--text-primary)', fontFamily: 'monospace', fontSize: '0.8rem' } }}
-                              />
-                            </Box>
-                          </Box>
-                        )}
-
-                        {block.type === 'code_challenge' && (
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <TextField
                               fullWidth
                               multiline
                               rows={2}
-                              label="Problem Statement"
-                              value={block.problemDescription || ''}
-                              onChange={(e) => handleUpdateBlock(blockIdx, { problemDescription: e.target.value })}
-                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.82rem' } }}
+                              size="small"
+                              label="Quiz Question"
+                              value={block.question || ''}
+                              onChange={(e) => handleUpdateBlock(blockIdx, { question: e.target.value })}
+                              InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.8rem' } }}
+                              sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
                             />
-                            <TextField
-                              fullWidth
-                              multiline
-                              rows={3}
-                              label="Initial Code Template"
-                              value={block.initialCode || ''}
-                              onChange={(e) => handleUpdateBlock(blockIdx, { initialCode: e.target.value })}
-                              InputProps={{ style: { color: '#a3be8c', fontFamily: 'monospace', fontSize: '0.8rem' } }}
-                            />
-                            <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              {(block.testcases || []).map((tc, tcIdx) => (
-                                <Box key={tcIdx} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                  <TextField
-                                    size="small"
-                                    placeholder="Input (e.g. 2, 3)"
-                                    value={tc.input || ''}
-                                    onChange={(e) => {
-                                      const newTcs = [...block.testcases];
-                                      newTcs[tcIdx].input = e.target.value;
-                                      handleUpdateBlock(blockIdx, { testcases: newTcs });
-                                    }}
-                                    InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.78rem' } }}
-                                  />
-                                  <TextField
-                                    fullWidth
-                                    size="small"
-                                    placeholder="Output (e.g. 5)"
-                                    value={tc.expectedOutput || ''}
-                                    onChange={(e) => {
-                                      const newTcs = [...block.testcases];
-                                      newTcs[tcIdx].expectedOutput = e.target.value;
-                                      handleUpdateBlock(blockIdx, { testcases: newTcs });
-                                    }}
-                                    InputProps={{ style: { color: 'var(--text-primary)', fontSize: '0.78rem' } }}
-                                  />
-                                  <IconButton size="small" onClick={() => {
-                                    const newTcs = block.testcases.filter((_, idx) => idx !== tcIdx);
-                                    handleUpdateBlock(blockIdx, { testcases: newTcs });
-                                  }} style={{ color: '#f44336' }}>
-                                    <DeleteIcon style={{ fontSize: '0.85rem' }} />
-                                  </IconButton>
-                                </Box>
-                              ))}
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() => {
-                                  const newTcs = [...(block.testcases || []), { input: '', expectedOutput: '' }];
-                                  handleUpdateBlock(blockIdx, { testcases: newTcs });
-                                }}
-                                style={{ alignSelf: 'flex-start', textTransform: 'none', borderRadius: '6px', fontSize: '0.7rem', borderColor: 'var(--divider)', color: 'rgba(255,255,255,0.4)' }}
-                              >
-                                + Add Testcase
-                              </Button>
-                            </Box>
-                          </Box>
-                        )}
-
-                        {block.type === 'Cyber' && (
-                          <Box style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 800 }}>Choose Cybersecurity Lab Sandbox Block</Typography>
-                            <Select
-                              fullWidth
-                              value={block.value}
-                              onChange={(e) => handleUpdateBlock(blockIdx, { value: e.target.value })}
-                              sx={{ color: 'var(--text-primary)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' } }}
-                            >
-                              {CYBER_LABS.map(lab => (
-                                <MenuItem key={lab.value} value={lab.value}>{lab.label}</MenuItem>
-                              ))}
-                            </Select>
                           </Box>
                         )}
                       </Box>
@@ -2213,20 +1623,20 @@ const AdminDashboardContent = () => {
             </Box>
 
             {/* Layout Block Appender Drawer/Box */}
-            <Paper className="glass-panel" style={{ padding: '20px', border: '1px solid rgba(28, 176, 246, 0.25)', background: 'rgba(20, 20, 30, 0.6)', borderRadius: '16px' }}>
-              <Typography variant="subtitle2" style={{ fontWeight: 900, color: 'var(--primary-main)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <AddIcon />
+            <Paper className="glass-panel" style={{ padding: '12px', border: '1px solid rgba(28, 176, 246, 0.25)', background: 'rgba(20, 20, 30, 0.6)', borderRadius: '14px' }}>
+              <Typography variant="subtitle2" style={{ fontWeight: 900, color: 'var(--primary-main)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <AddIcon style={{ fontSize: '0.9rem' }} />
                 Append Slide Layout Block
               </Typography>
               <Grid container spacing={1}>
                 {[
                   { type: 'paragraph', label: 'Paragraph' },
                   { type: 'heading', label: 'Heading' },
-                  { type: 'bullet_list', label: 'Bullet List' },
-                  { type: 'callout', label: 'Callout Box' },
-                  { type: 'table', label: 'Grid Table' },
+                  { type: 'bullet_list', label: 'Bullets' },
+                  { type: 'callout', label: 'Callout' },
+                  { type: 'table', label: 'Table' },
                   { type: 'mcq', label: 'MCQ Quiz' },
-                  { type: 'fill_code', label: 'Coding Blank' },
+                  { type: 'fill_code', label: 'Code Blank' },
                   { type: 'find_error', label: 'Find Error' },
                   { type: 'code_challenge', label: 'Challenge' },
                   { type: 'Cyber', label: 'Cyber Lab' }
@@ -2239,17 +1649,17 @@ const AdminDashboardContent = () => {
                       onClick={() => handleAddBlock(item.type)}
                       style={{
                         textTransform: 'none',
-                        borderRadius: '8px',
+                        borderRadius: '6px',
                         color: 'var(--text-primary)',
-                        borderColor: 'var(--divider)',
+                        borderColor: 'rgba(255,255,255,0.1)',
                         background: 'rgba(255,255,255,0.01)',
-                        fontWeight: 750,
-                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
                         justifyContent: 'flex-start',
-                        padding: '8px 12px'
+                        padding: '6px 8px'
                       }}
                       onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary-main)'; e.currentTarget.style.background = 'rgba(28,176,246,0.05)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.background = 'rgba(255,255,255,0.01)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.01)'; }}
                     >
                       + {item.label}
                     </Button>
@@ -2257,6 +1667,367 @@ const AdminDashboardContent = () => {
                 ))}
               </Grid>
             </Paper>
+          </Grid>
+
+          {/* RIGHT PANEL: Authentic Real-Time Student View Simulator (Compact Width Preview) */}
+          <Grid item xs={12} md={7} lg={7.5}>
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px', height: '100%', position: 'sticky', top: '16px' }}>
+              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem' }}>
+                <VerifiedIcon style={{ fontSize: '1rem', color: 'var(--primary-main)' }} />
+                Real-Time Student View Simulator
+              </Typography>
+              
+              <Paper 
+                style={{
+                  flex: 1,
+                  background: '#070b14',
+                  border: '1px solid rgba(28, 176, 246, 0.3)',
+                  borderRadius: '20px',
+                  minHeight: '580px',
+                  maxHeight: 'calc(100vh - 100px)',
+                  maxWidth: '640px',
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                  boxShadow: '0 20px 50px rgba(0,0,0,0.6)'
+                }}
+              >
+                {/* Authentic Student Navigation Header Bar */}
+                <Box className="learning-header" style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(10, 15, 26, 0.8)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Chip 
+                        label={editingLesson.category?.toUpperCase() || 'LEARNING'} 
+                        size="small" 
+                        style={{ background: 'rgba(28,176,246,0.15)', color: 'var(--primary-main)', border: '1px solid rgba(28,176,246,0.3)', fontWeight: 800, fontSize: '0.62rem' }} 
+                      />
+                      <Typography style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 700, fontSize: '0.78rem' }}>
+                        {editingLesson.chapterName || 'Chapter'} • Lesson {editingLesson.orderIndex || 1}
+                      </Typography>
+                    </Box>
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Typography style={{ color: 'var(--primary-main)', fontWeight: 800, fontSize: '0.78rem' }}>
+                        Slide {activeSlideIndex + 1} of {editingLesson.pages.length}
+                      </Typography>
+                      <IconButton size="small" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.04)', padding: '3px' }}>
+                        <CloseIcon style={{ fontSize: '0.9rem' }} />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={((activeSlideIndex + 1) / (editingLesson.pages.length || 1)) * 100} 
+                    className="learning-progress-bar"
+                    style={{ height: '4px', borderRadius: '2px' }}
+                  />
+                </Box>
+
+                {/* Authentic Student Slide Deck Canvas */}
+                <Box style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+                  <div className="learning-slide-container" style={{ width: '100%', maxWidth: '560px' }}>
+                    <Paper className="learning-slide-paper glass-panel-strong" elevation={0} style={{ width: '100%', background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '20px', padding: '1.6rem' }}>
+                      {activeSlide.pageTitle && (
+                        <Typography variant="h4" className="slide-page-title" style={{ background: 'var(--hero-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: 800, marginBottom: '1.4rem', fontSize: '1.65rem' }}>
+                          {activeSlide.pageTitle}
+                        </Typography>
+                      )}
+                      
+                      <div className="slide-blocks-list" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        {(!activeSlide.blocks || activeSlide.blocks.length === 0) ? (
+                          <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', textAlign: 'center', gap: '12px' }}>
+                            <DatabaseIcon style={{ fontSize: '3rem', color: 'rgba(255,255,255,0.1)' }} />
+                            <Typography style={{ color: 'rgba(255,255,255,0.35)', fontStyle: 'italic', fontSize: '0.92rem' }}>
+                              This slide has no content blocks yet. Add blocks using the editor inspector on the left.
+                            </Typography>
+                          </Box>
+                        ) : (
+                          activeSlide.blocks.map((block, idx) => {
+                            switch (block.type) {
+                              case 'heading': {
+                                const level = block.level || 1;
+                                const HeadingTag = `h${level}`;
+                                return (
+                                  <Typography key={idx} variant={HeadingTag} className={`slide-heading slide-h${level}`} style={{ color: 'var(--text-primary)', fontWeight: 800, marginTop: level === 1 ? '1.2rem' : '0.8rem', marginBottom: '0.4rem', fontSize: level === 1 ? '1.65rem' : level === 2 ? '1.35rem' : '1.15rem' }}>
+                                    {block.text || 'Section Heading'}
+                                  </Typography>
+                                );
+                              }
+
+                              case 'paragraph':
+                                return (
+                                  <Typography key={idx} variant="body1" className="slide-paragraph" style={{ color: 'var(--text-secondary)', lineHeight: 1.8, fontSize: '1.02rem' }}>
+                                    {block.text || 'Paragraph body content...'}
+                                  </Typography>
+                                );
+
+                              case 'bullet_list':
+                                return (
+                                  <ul key={idx} className="slide-bullet-list" style={{ listStyle: 'none', paddingLeft: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', margin: '0' }}>
+                                    {(block.items || []).map((item, bulletIdx) => {
+                                      const itemText = typeof item === 'object' ? (item.text || '') : item;
+                                      const itemBold = typeof item === 'object' ? (item.bold || '') : '';
+                                      return (
+                                        <li key={bulletIdx} className="slide-bullet-item" style={{ position: 'relative', paddingLeft: '1.6rem', fontSize: '1.02rem', color: 'var(--text-primary)', lineHeight: 1.6 }}>
+                                          <span style={{ position: 'absolute', left: 0, color: 'var(--primary-main)', fontWeight: 900 }}>•</span>
+                                          {itemBold && <strong style={{ color: 'var(--primary-main)', fontWeight: 800, marginRight: '6px' }}>{itemBold}</strong>}
+                                          {itemText}
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                );
+
+                              case 'callout': {
+                                const variant = block.variant || 'info';
+                                const iconMap = {
+                                  info: <InfoIcon style={{ color: '#1CB0F6', fontSize: '1.4rem', flexShrink: 0 }} />,
+                                  warning: <WarningIcon style={{ color: '#ff9800', fontSize: '1.4rem', flexShrink: 0 }} />,
+                                  success: <SuccessIcon style={{ color: '#4caf50', fontSize: '1.4rem', flexShrink: 0 }} />,
+                                  error: <ErrorIcon style={{ color: '#f44336', fontSize: '1.4rem', flexShrink: 0 }} />
+                                };
+                                const colorMap = {
+                                  info: { border: '#1CB0F6', bg: 'rgba(28, 176, 246, 0.08)' },
+                                  warning: { border: '#ff9800', bg: 'rgba(255, 152, 0, 0.08)' },
+                                  success: { border: '#4caf50', bg: 'rgba(76, 175, 80, 0.08)' },
+                                  error: { border: '#f44336', bg: 'rgba(244, 67, 54, 0.08)' }
+                                };
+                                const conf = colorMap[variant] || colorMap.info;
+                                return (
+                                  <Box key={idx} className={`slide-callout ${variant}`} style={{ display: 'flex', gap: '14px', padding: '16px 20px', background: conf.bg, borderLeft: `4px solid ${conf.border}`, borderRadius: '0 12px 12px 0', alignItems: 'center' }}>
+                                    {iconMap[variant]}
+                                    <Typography variant="body2" style={{ color: 'var(--text-primary)', lineHeight: 1.6, fontSize: '0.95rem' }}>
+                                      {block.text || 'Callout information box details...'}
+                                    </Typography>
+                                  </Box>
+                                );
+                              }
+
+                              case 'table':
+                                return (
+                                  <Paper key={idx} className="slide-table-container glass-panel" elevation={0} style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(15, 20, 32, 0.6)' }}>
+                                    <table className="slide-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                      {(block.headers && block.headers.length > 0) && (
+                                        <thead style={{ background: 'rgba(28, 176, 246, 0.1)' }}>
+                                          <tr>
+                                            {block.headers.map((h, hIdx) => (
+                                              <th key={hIdx} style={{ padding: '12px 16px', color: 'var(--primary-main)', fontWeight: 800, fontSize: '0.88rem', borderBottom: '1px solid rgba(255,255,255,0.08)', textAlign: 'left' }}>
+                                                {h}
+                                              </th>
+                                            ))}
+                                          </tr>
+                                        </thead>
+                                      )}
+                                      <tbody>
+                                        {(block.rows || []).map((row, rowIdx) => (
+                                          <tr key={rowIdx} style={{ background: rowIdx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                                            {row.map((cell, cellIdx) => {
+                                              const cellText = typeof cell === 'object' ? (cell.text || cell.bold || '') : cell;
+                                              const isBold = typeof cell === 'object' && cell.bold !== undefined;
+                                              return (
+                                                <td key={cellIdx} style={{ padding: '12px 16px', color: 'var(--text-primary)', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.04)', fontWeight: isBold ? 800 : 400 }}>
+                                                  {isBold ? <strong>{cellText}</strong> : cellText}
+                                                </td>
+                                              );
+                                            })}
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </Paper>
+                                );
+
+                              case 'mcq':
+                                return (
+                                  <Paper key={idx} className="glass-panel" elevation={0} style={{ padding: '24px', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(28, 176, 246, 0.2)', borderRadius: '20px' }}>
+                                    <Typography style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '1.1rem', marginBottom: '16px', fontFamily: '"Outfit", sans-serif' }}>
+                                      {block.question || 'Multiple Choice Question'}
+                                    </Typography>
+                                    <Box style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                      {(block.options || []).map((opt, optIdx) => {
+                                        const isCorrect = block.correctOptionIndex === optIdx;
+                                        return (
+                                          <Box 
+                                            key={optIdx} 
+                                            style={{ 
+                                              display: 'flex', 
+                                              alignItems: 'center', 
+                                              padding: '14px 18px', 
+                                              borderRadius: '12px', 
+                                              border: isCorrect ? '1.5px solid #4caf50' : '1px solid rgba(255,255,255,0.08)', 
+                                              background: isCorrect ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255,255,255,0.02)',
+                                              position: 'relative'
+                                            }}
+                                          >
+                                            <Typography style={{ fontSize: '0.95rem', color: isCorrect ? '#4caf50' : 'var(--text-primary)', fontWeight: isCorrect ? 800 : 500 }}>
+                                              {optIdx + 1}. {opt}
+                                            </Typography>
+                                            {isCorrect && <SuccessIcon style={{ fontSize: '1.2rem', color: '#4caf50', marginLeft: 'auto' }} />}
+                                          </Box>
+                                        );
+                                      })}
+                                    </Box>
+                                  </Paper>
+                                );
+
+                              case 'fill_code':
+                              case 'write_line':
+                              case 'normal_code':
+                                return (
+                                  <Paper key={idx} className="slide-code-card" elevation={0} style={{ background: '#0a0f1d', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', overflow: 'hidden' }}>
+                                    <div className="code-card-header" style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <CodeIcon style={{ fontSize: '1.1rem', color: 'var(--primary-main)' }} />
+                                      <span style={{ color: 'var(--primary-main)', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                        Interactive Code ({block.language || 'cpp'})
+                                      </span>
+                                    </div>
+                                    <div className="code-card-body" style={{ padding: '16px', fontFamily: 'monospace', fontSize: '0.9rem' }}>
+                                      <Box style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
+                                        {(block.codeLines || []).map((line, lIdx) => {
+                                          if (line.type === 'code') {
+                                            return <span key={lIdx} style={{ color: '#e5e9f0', whiteSpace: 'pre' }}>{line.content}</span>;
+                                          } else {
+                                            return (
+                                              <span 
+                                                key={lIdx} 
+                                                style={{ 
+                                                  background: 'rgba(255, 152, 0, 0.15)', 
+                                                  color: '#ff9800', 
+                                                  borderBottom: '2px solid #ff9800', 
+                                                  padding: '2px 10px', 
+                                                  fontWeight: 800,
+                                                  borderRadius: '4px',
+                                                  fontSize: '0.85rem'
+                                                }}
+                                              >
+                                                [ {line.expectedAnswer || 'blank'} ]
+                                              </span>
+                                            );
+                                          }
+                                        })}
+                                      </Box>
+                                    </div>
+                                  </Paper>
+                                );
+
+                              case 'find_error':
+                              case 'code_challenge':
+                                return (
+                                  <Paper key={idx} className="glass-panel" elevation={0} style={{ background: '#090d16', border: '1px solid rgba(28, 176, 246, 0.3)', borderRadius: '16px', padding: '20px' }}>
+                                    <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                      <CodeIcon style={{ color: 'var(--primary-main)', fontSize: '1.2rem' }} />
+                                      <Typography style={{ color: 'var(--primary-main)', fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                        {block.type === 'find_error' ? 'Debug Syntax Error Challenge' : 'Coding Challenge Sandbox'} ({block.language || 'cpp'})
+                                      </Typography>
+                                    </Box>
+                                    {block.type === 'find_error' ? (
+                                      <Box>
+                                        <Typography style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '8px' }}>Locate and fix the syntax error:</Typography>
+                                        <pre style={{ margin: 0, padding: '14px', background: 'rgba(0,0,0,0.4)', borderRadius: '10px', color: '#e5e9f0', fontSize: '0.85rem', fontFamily: 'monospace', overflowX: 'auto' }}>
+                                          <code>{block.code}</code>
+                                        </pre>
+                                        <Typography style={{ color: '#ff9800', fontSize: '0.82rem', marginTop: '10px', fontWeight: 800 }}>Error Line: {block.errorLine} • Expected Fix: {block.expectedFix}</Typography>
+                                      </Box>
+                                    ) : (
+                                      <Box>
+                                        <Typography style={{ color: 'var(--text-primary)', fontSize: '0.92rem', marginBottom: '10px', lineHeight: 1.5 }}>
+                                          {block.problemDescription}
+                                        </Typography>
+                                        <pre style={{ margin: 0, padding: '14px', background: 'rgba(0,0,0,0.4)', borderRadius: '10px', color: '#a3be8c', fontSize: '0.85rem', fontFamily: 'monospace', overflowX: 'auto' }}>
+                                          <code>{block.initialCode}</code>
+                                        </pre>
+                                        <Typography style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginTop: '10px', fontWeight: 700 }}>
+                                          Mapped Testcases: {(block.testcases || []).length} validation cases
+                                        </Typography>
+                                      </Box>
+                                    )}
+                                  </Paper>
+                                );
+
+                              case 'Cyber':
+                                return (
+                                  <Paper 
+                                    key={idx} 
+                                    className="glass-panel" 
+                                    elevation={0}
+                                    style={{ 
+                                      padding: '24px', 
+                                      border: '1.5px solid rgba(28, 176, 246, 0.35)', 
+                                      borderRadius: '20px', 
+                                      background: 'linear-gradient(135deg, rgba(28, 176, 246, 0.08) 0%, rgba(10, 15, 30, 0.8) 100%)', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: '20px'
+                                    }}
+                                  >
+                                    <Avatar style={{ background: 'rgba(28, 176, 246, 0.2)', color: '#1CB0F6', width: '56px', height: '56px', border: '1px solid rgba(28, 176, 246, 0.4)' }}>
+                                      <LockIcon style={{ fontSize: '1.8rem' }} />
+                                    </Avatar>
+                                    <Box style={{ flex: 1 }}>
+                                      <Typography style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '1.1rem', fontFamily: '"Outfit", sans-serif' }}>
+                                        {(CYBER_LABS.find(l => l.value === block.value) || { label: 'Interactive Security Lab' }).label}
+                                      </Typography>
+                                      <Typography style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>
+                                        Embedded Cybersecurity Sandbox Component ({block.value})
+                                      </Typography>
+                                    </Box>
+                                    <Chip 
+                                      label="INTERACTIVE LAB" 
+                                      size="small" 
+                                      style={{ background: 'var(--hero-gradient)', color: '#fff', fontWeight: 900, fontSize: '0.65rem' }} 
+                                    />
+                                  </Paper>
+                                );
+
+                              default:
+                                return null;
+                            }
+                          })
+                        )}
+                      </div>
+                    </Paper>
+                  </div>
+                </Box>
+
+                {/* Authentic Student Footer Navigation Bar */}
+                <Box className="learning-content-footer glass-panel" style={{ padding: '14px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', background: 'rgba(10, 15, 26, 0.9)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    disabled={activeSlideIndex === 0}
+                    onClick={() => setActiveSlideIndex(prev => Math.max(0, prev - 1))}
+                    style={{
+                      borderRadius: '10px',
+                      borderColor: 'rgba(255,255,255,0.15)',
+                      color: activeSlideIndex === 0 ? 'rgba(255,255,255,0.2)' : 'var(--text-primary)',
+                      textTransform: 'none',
+                      fontWeight: 700
+                    }}
+                  >
+                    ← Previous
+                  </Button>
+
+                  <Typography style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', fontWeight: 700 }}>
+                    Page {activeSlideIndex + 1} of {editingLesson.pages.length}
+                  </Typography>
+
+                  <Button
+                    variant="contained"
+                    disabled={activeSlideIndex === editingLesson.pages.length - 1}
+                    onClick={() => setActiveSlideIndex(prev => Math.min(editingLesson.pages.length - 1, prev + 1))}
+                    style={{
+                      background: activeSlideIndex === editingLesson.pages.length - 1 ? 'rgba(255,255,255,0.1)' : 'var(--hero-gradient)',
+                      color: '#fff',
+                      fontWeight: 800,
+                      borderRadius: '10px',
+                      textTransform: 'none',
+                      padding: '8px 20px'
+                    }}
+                  >
+                    {activeSlideIndex === editingLesson.pages.length - 1 ? 'Finish Lesson' : 'Next →'}
+                  </Button>
+                </Box>
+              </Paper>
+            </Box>
           </Grid>
         </Grid>
       </Box>

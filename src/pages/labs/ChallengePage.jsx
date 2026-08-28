@@ -7,7 +7,10 @@ import {
   Button,
   IconButton,
   Paper,
-  Divider
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -263,127 +266,137 @@ export default function ChallengePage() {
                 </IconButton>
               </Box>
             </Box>
-
           </Box>
-
         </Box>
       </Box>
 
-      {/* Vulnerability report document sliding side-drawer overlay */}
-      {isReportOpen && (
-        <Box className="report-overlay">
-          <Box className="report-header">
-            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BugIcon style={{ color: 'var(--danger-main)' }} />
-              <Typography variant="subtitle1" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif' }}>
-                Vulnerability Disclosure Document
-              </Typography>
-            </Box>
-            <IconButton onClick={() => setIsReportOpen(false)}>
-              <CloseIcon />
-            </IconButton>
+      {/* Vulnerability report document Modal Popup */}
+      <Dialog
+        open={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          style: {
+            background: 'var(--background-paper)',
+            border: '1px solid var(--divider)',
+            borderRadius: '24px',
+            boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(16px)',
+            overflow: 'hidden'
+          }
+        }}
+      >
+        <DialogTitle style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', padding: '16px 24px' }}>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BugIcon style={{ color: 'var(--danger-main)', fontSize: '1.5rem' }} />
+            <Typography variant="h6" style={{ fontWeight: 900, fontFamily: '"Outfit", sans-serif', color: 'var(--text-primary)' }}>
+              Vulnerability Disclosure Document
+            </Typography>
           </Box>
-          <Box className="report-body">
-            <Box className="report-paper-doc">
-              <Typography variant="h6" style={{ fontWeight: 800, marginBottom: '14px', fontFamily: '"Outfit", sans-serif' }}>
-                XSS Reflected Vulnerability in FourOrFour Search Page
-              </Typography>
-              
-              <Box style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                <Chip size="small" label="Severity: Medium" color="warning" style={{ fontWeight: 800 }} />
-                <Chip size="small" label="Status: Draft" style={{ fontWeight: 800 }} />
-              </Box>
-
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Weakness Classification
-              </Typography>
-              <Typography variant="body2" style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.85rem', marginBottom: '14px' }}>
-                CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')
-              </Typography>
-
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Description Summary
-              </Typography>
-              <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5, marginBottom: '14px' }}>
-                The query parameter is reflected directly into the HTML body without validation or sanitization, letting users run arbitrary JavaScript inside the frame.
-              </Typography>
-
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Steps to Reproduce
-              </Typography>
-              <Box component="ol" style={{ paddingLeft: '20px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <Box component="li" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                  Navigate to http://xss-game.appspot.com/level1/frame
-                </Box>
-                <Box component="li" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                  Input payload: &lt;script&gt;alert(1)&lt;/script&gt; in the search field.
-                </Box>
-                <Box component="li" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                  Click the search button and observe the browser popup alert.
-                </Box>
-              </Box>
-
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>
-                References
-              </Typography>
-              <Box component="ul" style={{ paddingLeft: '20px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <Box component="li" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                  OWASP A03:2021-Injection
-                </Box>
-                <Box component="li" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                  CWE-79: Reflected Cross-Site Scripting
-                </Box>
-              </Box>
-
-              <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '6px' }}>
-                Attachments
-              </Typography>
-              <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <Box
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    background: 'rgba(0,0,0,0.03)',
-                    borderRadius: '8px',
-                    border: '1px solid var(--divider)'
-                  }}
-                >
-                  <Box style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <ReportIcon fontSize="small" style={{ color: 'var(--text-secondary)' }} />
-                    <Typography style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>xss_poc_exploit.js</Typography>
-                  </Box>
-                  <IconButton size="small" onClick={() => handleAlert('Download: xss_poc_exploit.js')}>
-                    <DownloadIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-                <Box
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    background: 'rgba(0,0,0,0.03)',
-                    borderRadius: '8px',
-                    border: '1px solid var(--divider)'
-                  }}
-                >
-                  <Box style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <ReportIcon fontSize="small" style={{ color: 'var(--text-secondary)' }} />
-                    <Typography style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>network_capture.pcap</Typography>
-                  </Box>
-                  <IconButton size="small" onClick={() => handleAlert('Download: network_capture.pcap')}>
-                    <DownloadIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              </Box>
-
+          <IconButton onClick={() => setIsReportOpen(false)}>
+            <CloseIcon style={{ color: 'var(--text-primary)' }} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent style={{ padding: '24px', maxHeight: '80vh', overflowY: 'auto' }}>
+          <Box className="report-paper-doc">
+            <Typography variant="h6" style={{ fontWeight: 800, marginBottom: '14px', fontFamily: '"Outfit", sans-serif' }}>
+              XSS Reflected Vulnerability in FourOrFour Search Page
+            </Typography>
+            
+            <Box style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <Chip size="small" label="Severity: Medium" color="warning" style={{ fontWeight: 800 }} />
+              <Chip size="small" label="Status: Draft" style={{ fontWeight: 800 }} />
             </Box>
-          </Box>
-        </Box>
-      )}
 
+            <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>
+              Weakness Classification
+            </Typography>
+            <Typography variant="body2" style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.85rem', marginBottom: '14px' }}>
+              CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')
+            </Typography>
+
+            <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>
+              Description Summary
+            </Typography>
+            <Typography variant="body2" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5, marginBottom: '14px' }}>
+              The query parameter is reflected directly into the HTML body without validation or sanitization, letting users run arbitrary JavaScript inside the frame.
+            </Typography>
+
+            <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>
+              Steps to Reproduce
+            </Typography>
+            <Box component="ol" style={{ paddingLeft: '20px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <Box component="li" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                Navigate to http://xss-game.appspot.com/level1/frame
+              </Box>
+              <Box component="li" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                Input payload: &lt;script&gt;alert(1)&lt;/script&gt; in the search field.
+              </Box>
+              <Box component="li" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                Click the search button and observe the browser popup alert.
+              </Box>
+            </Box>
+
+            <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>
+              References
+            </Typography>
+            <Box component="ul" style={{ paddingLeft: '20px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <Box component="li" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                OWASP A03:2021-Injection
+              </Box>
+              <Box component="li" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                CWE-79: Reflected Cross-Site Scripting
+              </Box>
+            </Box>
+
+            <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--primary-main)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '6px' }}>
+              Attachments
+            </Typography>
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <Box
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  background: 'rgba(0,0,0,0.03)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--divider)'
+                }}
+              >
+                <Box style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ReportIcon fontSize="small" style={{ color: 'var(--text-secondary)' }} />
+                  <Typography style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>xss_poc_exploit.js</Typography>
+                </Box>
+                <IconButton size="small" onClick={() => handleAlert('Download: xss_poc_exploit.js')}>
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Box>
+              <Box
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  background: 'rgba(0,0,0,0.03)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--divider)'
+                }}
+              >
+                <Box style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ReportIcon fontSize="small" style={{ color: 'var(--text-secondary)' }} />
+                  <Typography style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>network_capture.pcap</Typography>
+                </Box>
+                <IconButton size="small" onClick={() => handleAlert('Download: network_capture.pcap')}>
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </Box>
+
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

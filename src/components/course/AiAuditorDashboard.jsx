@@ -44,6 +44,36 @@ const auditFetch = async (url, options = {}) => {
  * Allows instructors to configure the AI Auditor, trigger manual runs,
  * view tech news summaries, and review/approve course content updates.
  */
+const BumbleBeeIcon = ({ className = '', size = 32 }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    style={{ filter: 'drop-shadow(0 0 10px rgba(250, 204, 21, 0.7))' }}
+  >
+    {/* Wings */}
+    <path d="M7 7C4.5 3.5 1.5 4.5 3 8C4.5 11.5 8 10.5 8.5 9" stroke="#60A5FA" strokeWidth="1.5" strokeLinecap="round" fill="rgba(96, 165, 250, 0.3)" />
+    <path d="M17 7C19.5 3.5 22.5 4.5 21 8C19.5 11.5 16 10.5 15.5 9" stroke="#60A5FA" strokeWidth="1.5" strokeLinecap="round" fill="rgba(96, 165, 250, 0.3)" />
+    {/* Body */}
+    <ellipse cx="12" cy="14.5" rx="5" ry="5.5" fill="#FACC15" stroke="#1E293B" strokeWidth="1.5" />
+    {/* Stripes */}
+    <path d="M7.5 13H16.5" stroke="#0F172A" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M8 16H16" stroke="#0F172A" strokeWidth="1.8" strokeLinecap="round" />
+    {/* Head & Eyes */}
+    <circle cx="12" cy="7.5" r="3" fill="#1E293B" />
+    <circle cx="10.8" cy="7" r="0.75" fill="#FFFFFF" />
+    <circle cx="13.2" cy="7" r="0.75" fill="#FFFFFF" />
+    {/* Antennae */}
+    <path d="M10.5 5L9 3" stroke="#FACC15" strokeWidth="1.2" strokeLinecap="round" />
+    <path d="M13.5 5L15 3" stroke="#FACC15" strokeWidth="1.2" strokeLinecap="round" />
+    {/* Stinger */}
+    <path d="M12 20L12 22" stroke="#FACC15" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
 export default function AiAuditorDashboard({ courseId, courseTitle, sections = [] }) {
   // --- STATE MANAGEMENT ---
   const [config, setConfig] = useState({
@@ -62,7 +92,7 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
   
   // Loading states
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
-  const [isLoadingReports, setIsLoadingReports] = useState(true);
+  const [, setIsLoadingReports] = useState(true);
   const [isAuditing, setIsAuditing] = useState(false);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [actioningId, setActioningId] = useState(null); // Tracks active suggestion index/action
@@ -461,9 +491,9 @@ export default function AiAuditorDashboard({ courseId, courseTitle, sections = [
       <div className="auditor-header">
         <div className="auditor-title-group">
           <div className="auditor-title-flex">
-            <Globe className="auditor-title-icon pulse" />
+            <BumbleBeeIcon className="auditor-title-icon pulse" size={32} />
             <h2 className="auditor-title">
-              AI Course Content Auditor
+              BumbleBee
             </h2>
           </div>
           <p className="auditor-subtitle">

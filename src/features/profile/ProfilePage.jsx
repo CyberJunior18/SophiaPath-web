@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -7,50 +7,37 @@ import {
   Grid,
   IconButton,
   LinearProgress,
-  useTheme,
   Container,
   Button,
-  Chip,
   Stack,
-  alpha,
   TextField,
   Alert,
-  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Tooltip
 } from '@mui/material';
 import {
-  Edit as EditIcon,
   EmojiEvents as TrophyIcon,
-  Timeline as PathIcon,
   School as CourseIcon,
   LocalFireDepartment as StreakIcon,
-  Share as ShareIcon,
-  GitHub as GitHubIcon,
-  LinkedIn as LinkedInIcon,
-  Twitter as TwitterIcon,
-  ArrowForward as ArrowForwardIcon,
-  CalendarToday as CalendarIcon,
+  Timer as TimerIcon,
+  TrendingUp as TrendingUpIcon,
+  Explore as ExploreIcon,
+  Check as CheckIcon,
+  ChevronRight as ChevronRightIcon,
+  Close as CloseIcon,
+  Bolt as BoltIcon,
   Person as PersonIcon,
   Fingerprint as FingerprintIcon,
-  PhotoCamera as CameraIcon,
-  CloudUpload as UploadIcon,
-  Delete as DeleteIcon,
-  Check as CheckIcon,
-  Bolt as BoltIcon
+  CalendarToday as CalendarIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { achievementsData } from '../../data/achievements';
-// Local date helper
-const safeFormatDate = (timestamp, options = {}, fallback = '') => {
-  if (!timestamp || timestamp === 'null' || timestamp === 'undefined') return fallback;
-  const date = new Date(timestamp);
-  if (isNaN(date.getTime())) return fallback;
-  if (Object.keys(options).length === 0) {
-    return date.toLocaleDateString();
-  }
-  return date.toLocaleDateString(undefined, options);
-};
 import './ProfilePage.css';
 
 const AVATAR_OPTIONS = [
@@ -60,13 +47,64 @@ const AVATAR_OPTIONS = [
   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80'
 ];
 
+const safeFormatDate = (timestamp, options = {}, fallback = 'Recently') => {
+  if (!timestamp || timestamp === 'null' || timestamp === 'undefined') return fallback;
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return fallback;
+  if (Object.keys(options).length === 0) {
+    return date.toLocaleDateString();
+  }
+  return date.toLocaleDateString(undefined, options);
+};
+
+const getRankName = (levelNum = 1, currentLevelName = '') => {
+  if (currentLevelName && currentLevelName !== 'Beginner') return currentLevelName;
+  const lvl = Number(levelNum) || 1;
+  if (lvl < 5) return currentLevelName || 'Beginner';
+  if (lvl < 10) return 'Learner';
+  if (lvl < 20) return 'Explorer';
+  if (lvl < 35) return 'Scholar';
+  if (lvl < 50) return 'Expert';
+  return 'Master';
+};
+
+const calculateLevelProgress = (levelNum = 1, xpNum = 0) => {
+  const level = Math.max(1, Number(levelNum) || 1);
+  const xp = Math.max(0, Number(xpNum) || 0);
+
+  const xpPerLevel = 100;
+  let baseXp = (level - 1) * xpPerLevel;
+  let targetXp = level * xpPerLevel;
+
+  if (xp < baseXp) {
+    baseXp = Math.floor(xp / xpPerLevel) * xpPerLevel;
+    targetXp = baseXp + xpPerLevel;
+  } else if (xp >= targetXp) {
+    targetXp = xp + (xpPerLevel - (xp % xpPerLevel));
+    baseXp = targetXp - xpPerLevel;
+  }
+
+  const currentLevelXp = Math.max(0, xp - baseXp);
+  const percent = Math.min(100, Math.max(0, Math.round((currentLevelXp / xpPerLevel) * 100)));
+  const xpNeeded = Math.max(0, targetXp - xp);
+
+  return {
+    level,
+    nextLevel: level + 1,
+    currentXp: xp,
+    targetXp,
+    xpInLevel: currentLevelXp,
+    xpNeeded,
+    percent
+  };
+};
+
 const ProfilePage = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const { user, updateProfile } = useAuth();
   const fileInputRef = useRef(null);
-  
-  const [isEditing, setIsEditing] = useState(false);
+
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
   const [courses, setCourses] = useState([]);
@@ -86,7 +124,7 @@ const ProfilePage = () => {
     loadCourses();
   }, []);
 
-  const resolvedAchievements = useState ? React.useMemo(() => {
+  const resolvedAchievements = useMemo(() => {
     if (!user) return [];
 
     const getCourseDomain = (title) => {
@@ -133,98 +171,96 @@ const ProfilePage = () => {
     return achievementsData.map(ach => {
       let currentValue = 0;
       switch (ach.id) {
-        // 📚 Course Progress
-        case 'ach-course-1': // First Step
+        case 'ach-course-1':
           currentValue = (user.registeredCourses || []).length >= 1 ? 1 : 0;
           break;
-        case 'ach-course-2': // Getting Somewhere
+        case 'ach-course-2': {
           const has50Percent = completedCoursesProgress.some(p => p.percent >= 50);
           currentValue = has50Percent ? 50 : 0;
           break;
-        case 'ach-course-3': // Finished What I Started
+        }
+        case 'ach-course-3': {
           const hasFinishedCourse = completedCoursesProgress.some(p => p.total > 0 && p.completed >= p.total);
           currentValue = hasFinishedCourse ? 1 : 0;
           break;
-        case 'ach-course-4': // On a Roll
+        }
+        case 'ach-course-4':
           currentValue = completedCoursesProgress.filter(p => p.total > 0 && p.completed >= p.total).length;
           break;
 
-        // 🧪 Quiz & Performance
-        case 'ach-quiz-1': // Tried My Best
+        case 'ach-quiz-1':
           currentValue = Object.keys(user.quizScores || {}).length >= 1 ? 1 : 0;
           break;
-        case 'ach-quiz-2': // Nailed It
+        case 'ach-quiz-2':
           currentValue = Object.values(user.quizScores || {}).some(s => Number(s) >= 100) ? 1 : 0;
           break;
-        case 'ach-quiz-3': // High Achiever
+        case 'ach-quiz-3':
           currentValue = Object.values(user.quizScores || {}).filter(s => Number(s) >= 90).length;
           break;
-        case 'ach-quiz-4': // Cover to Cover
+        case 'ach-quiz-4': {
           const hasFullyDone = completedCoursesProgress.some(p => p.total > 0 && p.completed >= p.total);
           currentValue = hasFullyDone ? 1 : 0;
           break;
+        }
 
-        // 💬 Social & Community
-        case 'ach-social-1': // Speak Up
+        case 'ach-social-1':
           currentValue = user.commentsCreatedCount || 0;
           break;
-        case 'ach-social-2': // Always Has Something to Say
+        case 'ach-social-2':
           currentValue = user.commentsCreatedCount || 0;
           break;
-        case 'ach-social-3': // Making an Impact
+        case 'ach-social-3':
           currentValue = user.postsApprovedCount || 0;
           break;
-        case 'ach-social-4': // Known Around Here
+        case 'ach-social-4':
           currentValue = user.postsApprovedCount || 0;
           break;
 
-        // ⚡ XP & Levels
-        case 'ach-xp-1': // Getting Started
+        case 'ach-xp-1':
           currentValue = user.xp || 0;
           break;
-        case 'ach-xp-2': // Making Moves
+        case 'ach-xp-2':
           currentValue = user.xp || 0;
           break;
-        case 'ach-xp-3': // Moving Up
+        case 'ach-xp-3':
           currentValue = user.level || 1;
           break;
-        case 'ach-xp-4': // At the Top
+        case 'ach-xp-4':
           currentValue = user.level || 1;
           break;
 
-        // 🔥 Streaks
-        case 'ach-streak-1': // Warming Up
+        case 'ach-streak-1':
           currentValue = user.streak || 0;
           break;
-        case 'ach-streak-2': // In the Zone
+        case 'ach-streak-2':
           currentValue = user.streak || 0;
           break;
-        case 'ach-streak-3': // Creature of Habit
+        case 'ach-streak-3':
           currentValue = user.streak || 0;
           break;
 
-        // 🎭 Roles & Account Age
-        case 'ach-role-1': // Day One
-        case 'ach-role-2': // Been Here Forever
+        case 'ach-role-1':
+        case 'ach-role-2': {
           const joinedDate = user.joinedDate ? new Date(user.joinedDate) : new Date();
           const diffDays = Math.floor((new Date() - joinedDate) / (1000 * 60 * 60 * 24));
           currentValue = diffDays >= 0 ? diffDays : 0;
           break;
-        case 'ach-role-3': // Teacher's Got the Floor
+        }
+        case 'ach-role-3':
           currentValue = Number(user.roleID) === 1 ? 1 : 0;
           break;
 
-        // 🏠 Engagement & Misc
-        case 'ach-eng-1': // Party Starter
+        case 'ach-eng-1':
           currentValue = user.groupsCreatedCount || 0;
           break;
-        case 'ach-eng-2': // Always Hosting
+        case 'ach-eng-2':
           currentValue = user.groupsCreatedCount || 0;
           break;
-        case 'ach-eng-3': // Bit of Everything
+        case 'ach-eng-3': {
           const domains = new Set((user.registeredCourses || []).map(getCourseDomain));
           currentValue = domains.size;
           break;
+        }
 
         default:
           currentValue = 0;
@@ -239,20 +275,20 @@ const ProfilePage = () => {
         targetValue
       };
     });
-  }, [user]) : [];
+  }, [user]);
 
-  const registeredCoursesProgress = useState ? React.useMemo(() => {
+  const registeredCoursesProgress = useMemo(() => {
     if (!user || !user.registeredCourses || courses.length === 0) return [];
-    
+
     return user.registeredCourses.map(title => {
       const course = courses.find(c => c.title.toLowerCase() === title.toLowerCase());
       if (!course) return { title, progress: 0, totalLessons: 0, completedLessons: 0 };
-      
-      const lessons = course.sections.flatMap(s => s.lessons || []);
+
+      const lessons = course.sections ? course.sections.flatMap(s => s.lessons || []) : [];
       const totalLessons = lessons.length;
       const completedLessons = lessons.filter(l => user.quizScores && user.quizScores[l.id] !== undefined).length;
       const progressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-      
+
       return {
         id: course.id,
         title: course.title,
@@ -263,58 +299,32 @@ const ProfilePage = () => {
         course
       };
     });
-  }, [user, courses]) : [];
+  }, [user, courses]);
 
-  const [editForm, setEditForm] = useState({
-    name: user?.name || '',
-    username: user?.username || '',
-    tag: user?.tag || '',
+  const [editForm, setEditForm] = useState(() => ({
+    name: user?.name || 'tester the 27th',
+    username: user?.username || 'tester27',
+    tag: user?.tag || 'Student',
     gender: user?.gender || 'Rather Not Say',
-    age: user?.age || '',
+    age: user?.age || 20,
     avatar: user?.avatar || AVATAR_OPTIONS[0]
-  });
+  }));
 
-  const [isCustomAvatar, setIsCustomAvatar] = useState(
-    user?.avatar ? !AVATAR_OPTIONS.includes(user.avatar) : false
-  );
   const [isDragging, setIsDragging] = useState(false);
   const [avatarError, setAvatarError] = useState('');
 
-  const [userData, setUserData] = useState({
-    name: user?.name || 'Learner',
-    email: user?.email || '',
-    role: user?.tag || 'Aspiring Full-Stack Developer',
-    location: 'New York, USA',
-    bio: 'Passionate about building scalable web applications and learning new technologies. Currently mastering React and Node.js.',
-    profileImage: user?.avatar || AVATAR_OPTIONS[0],
-    progress: 65,
-    streak: user?.streak || 0,
-    completedCourses: Object.keys(user?.quizScores || {}).length,
-    achievements: 0
-  });
-
-  useEffect(() => {
-    if (user) {
-      setUserData(prev => ({ 
-        ...prev, 
-        name: user.name,
-        role: user.tag || 'Aspiring Full-Stack Developer',
-        profileImage: user.avatar || AVATAR_OPTIONS[0],
-        completedCourses: Object.keys(user.quizScores || {}).length,
-        streak: user.streak || 0,
-        achievements: resolvedAchievements.filter(a => a.isUnlocked).length
-      }));
-      setEditForm({
-        name: user.name || '',
-        username: user.username || '',
-        tag: user.tag || '',
-        gender: user.gender || 'Rather Not Say',
-        age: user.age || '',
-        avatar: user.avatar || AVATAR_OPTIONS[0]
-      });
-      setIsCustomAvatar(user.avatar ? !AVATAR_OPTIONS.includes(user.avatar) : false);
-    }
-  }, [user, resolvedAchievements]);
+  const openEditModal = () => {
+    setEditForm({
+      name: user?.name || 'tester the 27th',
+      username: user?.username || 'tester27',
+      tag: user?.tag || 'Student',
+      gender: user?.gender || 'Rather Not Say',
+      age: user?.age || 20,
+      avatar: user?.avatar || AVATAR_OPTIONS[0]
+    });
+    setSaveError('');
+    setIsEditOpen(true);
+  };
 
   const handleFile = (file) => {
     if (!file) return;
@@ -333,7 +343,6 @@ const ProfilePage = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       setEditForm(prev => ({ ...prev, avatar: e.target.result }));
-      setIsCustomAvatar(true);
     };
     reader.readAsDataURL(file);
   };
@@ -368,15 +377,6 @@ const ProfilePage = () => {
     }
   };
 
-  const handleRemoveAvatar = () => {
-    setEditForm(prev => ({ ...prev, avatar: AVATAR_OPTIONS[0] }));
-    setIsCustomAvatar(false);
-    setAvatarError('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
   const handleSave = async (e) => {
     e.preventDefault();
     setSaveError('');
@@ -388,475 +388,297 @@ const ProfilePage = () => {
       return;
     }
 
-    if (!editForm.username.trim() || editForm.username.length < 4) {
-      setSaveError('Username must be at least 4 characters');
-      setSaving(false);
-      return;
-    }
-
-    if (editForm.age && (isNaN(editForm.age) || Number(editForm.age) <= 0)) {
-      setSaveError('Age must be a valid positive number');
+    if (!editForm.username.trim() || editForm.username.length < 3) {
+      setSaveError('Username must be at least 3 characters');
       setSaving(false);
       return;
     }
 
     const res = await updateProfile(editForm);
     if (res.success) {
-      setIsEditing(false);
+      setIsEditOpen(false);
     } else {
       setSaveError(res.message || 'Failed to update profile');
     }
     setSaving(false);
   };
 
-  const stats = [
-    { label: 'Streak', value: userData.streak || 0, icon: <StreakIcon />, color: theme.palette.warning.main },
-    { label: 'XP', value: user?.xp || 0, icon: <StreakIcon />, color: theme.palette.info.main },
-    { label: 'Trophies', value: userData.achievements || 0, icon: <TrophyIcon />, color: theme.palette.secondary.main },
-    { label: 'Path', value: `${user?.levelName || 'Beginner'} (Lvl ${user?.level || 1})`, icon: <PathIcon />, color: theme.palette.success.main },
-  ];
+  // Featured achievements list matching mobile style elements
+  const featuredAchievementIds = ['ach-course-1', 'ach-quiz-2', 'ach-streak-1', 'ach-quiz-1', 'ach-streak-3', 'ach-eng-3'];
 
-  const upcomingTasks = [
-    { title: 'Advanced React Patterns', desc: 'Hooks, HOCs, and Performance Optimization', time: '45 mins', icon: <CourseIcon /> },
-    { title: 'Database Design 101', desc: 'ER Diagrams and Normalization', time: '1.2 hrs', icon: <PathIcon /> },
-  ];
+  const featuredAchievements = featuredAchievementIds.map(id => {
+    const found = resolvedAchievements.find(a => a.id === id);
+    if (found) return found;
+
+    if (id === 'ach-course-1') {
+      return { id: 'ach-course-1', name: 'First Step', isUnlocked: true, color: 'var(--primary-main)', iconType: 'school' };
+    }
+    if (id === 'ach-quiz-2') {
+      return { id: 'ach-quiz-2', name: 'Perfect Score', isUnlocked: true, color: '#EAB308', iconType: 'trophy' };
+    }
+    if (id === 'ach-streak-1') {
+      return { id: 'ach-streak-1', name: '3-Day Streak', isUnlocked: false, color: '#FF5722', iconType: 'flame' };
+    }
+    if (id === 'ach-quiz-1') {
+      return { id: 'ach-quiz-1', name: 'Speed Learner', isUnlocked: false, color: 'var(--text-secondary)', iconType: 'timer' };
+    }
+    if (id === 'ach-streak-3') {
+      return { id: 'ach-streak-3', name: 'Consistent', isUnlocked: true, color: '#A855F7', iconType: 'trending' };
+    }
+    return { id: 'ach-eng-3', name: 'Course Explorer', isUnlocked: true, color: '#06B6D4', iconType: 'explore' };
+  });
+
+  const remainingCount = Math.max(0, resolvedAchievements.length - featuredAchievements.length);
+
+  const getAchievementThemeColor = (ach) => {
+    if (ach.id === 'ach-course-1') return { bg: 'rgba(var(--primary-main-rgb), 0.15)', border: 'var(--primary-main)', icon: 'var(--primary-main)' };
+    if (ach.id === 'ach-quiz-2') return { bg: 'rgba(234, 179, 8, 0.18)', border: '#EAB308', icon: '#EAB308' };
+    if (ach.id === 'ach-streak-1') return { bg: 'rgba(255, 87, 34, 0.18)', border: '#FF5722', icon: '#FF5722' };
+    if (ach.id === 'ach-quiz-1') return { bg: 'rgba(var(--divider-rgb), 0.15)', border: 'var(--divider)', icon: 'var(--text-secondary)' };
+    if (ach.id === 'ach-streak-3') return { bg: 'rgba(168, 85, 247, 0.18)', border: '#A855F7', icon: '#A855F7' };
+    if (ach.id === 'ach-eng-3') return { bg: 'rgba(6, 182, 212, 0.18)', border: '#06B6D4', icon: '#06B6D4' };
+    return { bg: 'rgba(var(--primary-main-rgb), 0.15)', border: 'var(--primary-main)', icon: 'var(--primary-main)' };
+  };
+
+  const getAchievementIcon = (ach) => {
+    const iconRef = ach.iconReference || ach.iconType;
+    if (iconRef === 'school' || ach.id === 'ach-course-1') return <CourseIcon sx={{ fontSize: 28 }} />;
+    if (iconRef === 'emoji_events' || iconRef === 'trophy' || ach.id === 'ach-quiz-2') return <TrophyIcon sx={{ fontSize: 28 }} />;
+    if (iconRef === 'local_fire_department' || iconRef === 'flame' || ach.id === 'ach-streak-1') return <StreakIcon sx={{ fontSize: 28 }} />;
+    if (iconRef === 'quiz' || iconRef === 'timer' || ach.id === 'ach-quiz-1') return <TimerIcon sx={{ fontSize: 28 }} />;
+    if (iconRef === 'trending_up' || iconRef === 'trending' || ach.id === 'ach-streak-3') return <TrendingUpIcon sx={{ fontSize: 28 }} />;
+    if (iconRef === 'explore' || ach.id === 'ach-eng-3') return <ExploreIcon sx={{ fontSize: 28 }} />;
+    return <TrophyIcon sx={{ fontSize: 28 }} />;
+  };
+
+  const completedCount = user?.quizScores ? Object.keys(user.quizScores).length : 133;
+  const userLevel = user?.level || 36;
+  const userStreak = user?.streak || 1;
+  const userName = user?.name || 'tester the 27th';
+  const userUsername = user?.username ? `@${user.username}` : '@tester27';
+  const userTag = user?.tag || 'Student';
+  const userAvatar = user?.avatar || AVATAR_OPTIONS[0];
+  const userXp = user?.xp || 3540;
+
+  const userRankName = useMemo(() => {
+    return getRankName(userLevel, user?.levelName);
+  }, [userLevel, user?.levelName]);
+
+  const levelStats = useMemo(() => {
+    return calculateLevelProgress(userLevel, userXp);
+  }, [userLevel, userXp]);
 
   return (
-    <Box className="profile-container">
-      <Container maxWidth="lg" className="profile-content">
-        <Grid container spacing={4}>
-          {/* Main Column: Profile, Stats, Achievements */}
-          <Grid item xs={12} md={8}>
-            <Stack spacing={4}>
-              <Paper className="profile-card">
-                {!isEditing ? (
-                <>
-                  <Box className="profile-avatar-container">
-                    <Avatar
-                      src={userData.profileImage}
-                      sx={{ 
-                        width: 180, 
-                        height: 180, 
-                        border: `8px solid ${theme.palette.background.paper}`}}
-                    />
-                  </Box>
-
-                  <Typography variant="h4" className="profile-name">
-                    {userData.name}
-                  </Typography>
-                  <Typography variant="body1" className="profile-role">
-                    {userData.role}
-                  </Typography>
-
-                  <Box className="profile-social">
-                    <IconButton className="profile-social-button">
-                      <GitHubIcon fontSize="medium" />
-                    </IconButton>
-                    <IconButton className="profile-social-button">
-                      <LinkedInIcon fontSize="medium" />
-                    </IconButton>
-                    <IconButton className="profile-social-button">
-                      <TwitterIcon fontSize="medium" />
-                    </IconButton>
-                  </Box>
-
-                  <Typography variant="body2" className="profile-bio">
-                    "{userData.bio}"
-                  </Typography>
-
-                  {/* Backend Meta Details */}
-                  <Stack spacing={2} sx={{ mb: 4, px: 2, textAlign: 'left' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <FingerprintIcon sx={{ color: theme.palette.text.secondary }} />
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Username</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>@{user?.username || 'learner'}</Typography>
-                      </Box>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <PersonIcon sx={{ color: theme.palette.text.secondary }} />
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Gender / Age</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {user?.gender || 'Rather Not Say'} • {user?.age || 20} years old
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <CalendarIcon sx={{ color: theme.palette.text.secondary }} />
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Joined</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {safeFormatDate(user?.joinedDate, { year: 'numeric', month: 'long', day: 'numeric' }, 'Recently')}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Stack>
-
-                  <Button 
-                    fullWidth 
-                    variant="contained" 
-                    startIcon={<EditIcon />}
-                    onClick={() => setIsEditing(true)}
-                    className="profile-share-button"
-                    sx={{ height: 50, mb: 2, borderRadius: 3 }}
-                  >
-                    Edit Profile
-                  </Button>
-                </>
-              ) : (
-                <Box component="form" onSubmit={handleSave} sx={{ p: 2, textAlign: 'left' }}>
-                  <Typography variant="h5" sx={{ mb: 3, fontWeight: 800, textAlign: 'center' }}>
-                    Edit Profile Info
-                  </Typography>
-
-                  {saveError && (
-                    <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
-                      {saveError}
-                    </Alert>
-                  )}
-
-                  {/* Custom Avatar Upload Zone (matching RegisterPage) */}
-                  <Box className="avatar-upload-section" sx={{ mb: 3 }}>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                    />
-                    
-                    <Box 
-                      className={`avatar-dropzone ${isDragging ? 'dragging' : ''}`}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                      onClick={triggerFileInput}
-                    >
-                      <Avatar
-                        src={editForm.avatar}
-                        className="avatar-preview"
-                        sx={{
-                          width: '100%',
-                          height: '100%'
-                        }}
-                      />
-                      <Box className="avatar-hover-overlay">
-                        <CameraIcon sx={{ fontSize: 32 }} />
-                      </Box>
-                    </Box>
-
-                    {avatarError && (
-                      <Alert severity="warning" className="avatar-error-alert" sx={{ mt: 1, py: 0, px: 2, borderRadius: 2 }}>
-                        {avatarError}
-                      </Alert>
-                    )}
-                  </Box>
-
-                  <TextField
-                    fullWidth
-                    label="Full Name"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    margin="normal"
-                    required
-                  />
-
-                  <TextField
-                    fullWidth
-                    label="Username"
-                    value={editForm.username}
-                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                    margin="normal"
-                    required
-                  />
-
-                  <TextField
-                    fullWidth
-                    label="Tag / Professional Role"
-                    value={editForm.tag}
-                    onChange={(e) => setEditForm({ ...editForm, tag: e.target.value })}
-                    margin="normal"
-                  />
-
-                  <Box sx={{ display: 'flex', gap: 2, mt: 1, mb: 2 }}>
-                    <TextField
-                      fullWidth
-                      label="Age"
-                      type="number"
-                      value={editForm.age}
-                      onChange={(e) => setEditForm({ ...editForm, age: e.target.value })}
-                      margin="normal"
-                      required
-                      inputProps={{ min: 1 }}
-                    />
-
-                    <TextField
-                      fullWidth
-                      select
-                      label="Gender"
-                      value={editForm.gender}
-                      onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
-                      margin="normal"
-                      SelectProps={{ native: true }}
-                      required
-                    >
-                      <option value="Rather Not Say">Rather Not Say</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                    </TextField>
-                  </Box>
-
-                  <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      type="submit"
-                      disabled={saving}
-                      sx={{ height: 50, borderRadius: 3 }}
-                    >
-                      {saving ? 'Saving...' : 'Save'}
-                    </Button>
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      onClick={() => {
-                        setIsEditing(false);
-                        setSaveError('');
-                        if (user) {
-                          setEditForm({
-                            name: user.name || '',
-                            username: user.username || '',
-                            tag: user.tag || '',
-                            gender: user.gender || 'Rather Not Say',
-                            age: user.age || '',
-                            avatar: user.avatar || AVATAR_OPTIONS[0]
-                          });
-                        }
-                      }}
-                      sx={{ height: 50, borderRadius: 3 }}
-                    >
-                      Cancel
-                    </Button>
-                  </Stack>
-                </Box>
-              )}
-            </Paper>
-
-            {/* Statistics Section */}
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, mb: 2, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
-                Statistics
-              </Typography>
-              <Grid container spacing={2}>
-                {[
-                  { label: 'Day streak', value: userData.streak || 0, icon: <StreakIcon fontSize="medium" />, color: 'orange' },
-                  { label: 'Total XP', value: user?.xp || 0, icon: <BoltIcon fontSize="medium" />, color: 'yellow' },
-                  { label: 'Current league', value: 'Ruby', icon: <TrophyIcon fontSize="medium" />, color: 'error' },
-                  { label: 'Top 3 finishes', value: userData.achievements || 0, icon: <TrophyIcon fontSize="medium" />, color: 'warning' },
-                ].map((stat, idx) => (
-                  <Grid item xs={12} sm={6} key={idx}>
-                    <Box sx={{ 
-                      p: 2.5, 
-                      borderRadius: 4, 
-                      border: '1px solid rgba(var(--divider-rgb), 0.5)',
-                      bgcolor: 'transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 2,
-                      transition: 'border-color 0.2s',
-                      '&:hover': { borderColor: `var(--${stat.color}-500)` }
-                    }}>
-                      <Box sx={{ color: `var(--${stat.color}-500)`, display: 'flex' }}>
-                        {stat.icon}
-                      </Box>
-                      <Box sx={{ textAlign: 'left' }}>
-                        <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1, color: 'var(--text-primary)' }}>{stat.value}</Typography>
-                        <Typography variant="caption" sx={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{stat.label}</Typography>
-                      </Box>
-                    </Box>
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-
-            {/* Achievements Collection Card */}
-            <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
-                  Achievements
-                </Typography>
-                <Button 
-                  size="small" 
-                  onClick={() => navigate('/achievements')}
-                  sx={{ textTransform: 'none', fontWeight: 700 }}
-                >
-                  View All
-                </Button>
+    <Box className="web-profile-wrapper">
+      <Container maxWidth="xl" className="web-profile-container">
+        
+        {/* SYSTEM THEME DESKTOP PROFILE HERO BANNER */}
+        <Paper className="web-profile-hero">
+          <Box className="web-hero-bg-glow" />
+          
+          <Box className="web-hero-content">
+            <Box className="web-hero-user-details">
+              <Box className="web-avatar-wrapper">
+                <Avatar src={userAvatar} className="web-avatar-img" />
               </Box>
-              
-              <Grid container spacing={2}>
-                {resolvedAchievements.map(ach => (
-                  <Grid item xs={6} sm={4} md={4} key={ach.id}>
-                    <Paper 
-                      sx={{ 
-                        p: 2, 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        textAlign: 'center', 
-                        border: '1px solid var(--divider)', 
-                        borderRadius: 3, 
-                        bgcolor: 'transparent',
-                        opacity: ach.isUnlocked ? 1 : 0.45,
-                        height: '100%',
-                        minHeight: '120px'
-                      }}
-                    >
-                      <Box 
-                        sx={{ 
-                          width: 48, 
-                          height: 48, 
-                          borderRadius: '50%', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center',
-                          mb: 1.5,
-                          flexShrink: 0,
-                          bgcolor: ach.isUnlocked ? `color-mix(in srgb, ${ach.associatedColor} 15%, transparent)` : 'rgba(255,255,255,0.03)',
-                          color: ach.isUnlocked ? ach.associatedColor : 'var(--text-disabled)',
-                          border: `2px solid ${ach.isUnlocked ? ach.associatedColor : 'var(--divider)'}`
-                        }}
-                      >
-                        {ach.iconReference === 'school' && <CourseIcon fontSize="medium" />}
-                        {ach.iconReference === 'trending_up' && <PathIcon fontSize="medium" />}
-                        {ach.iconReference === 'workspace_premium' && <TrophyIcon fontSize="medium" />}
-                        {ach.iconReference === 'military_tech' && <TrophyIcon fontSize="medium" />}
-                        {ach.iconReference === 'quiz' && <PathIcon fontSize="medium" />}
-                        {ach.iconReference === 'emoji_events' && <TrophyIcon fontSize="medium" />}
-                        {ach.iconReference === 'verified' && <CheckIcon fontSize="medium" />}
-                        {ach.iconReference === 'auto_stories' && <CourseIcon fontSize="medium" />}
-                        {ach.iconReference === 'chat_bubble_outline' && <ShareIcon fontSize="medium" />}
-                        {ach.iconReference === 'forum' && <ShareIcon fontSize="medium" />}
-                        {ach.iconReference === 'thumb_up' && <TrophyIcon fontSize="medium" />}
-                        {ach.iconReference === 'stars' && <TrophyIcon fontSize="medium" />}
-                        {ach.iconReference === 'star_outline' && <TrophyIcon fontSize="medium" />}
-                        {ach.iconReference === 'star' && <TrophyIcon fontSize="medium" />}
-                        {ach.iconReference === 'arrow_upward' && <ArrowForwardIcon fontSize="medium" />}
-                        {ach.iconReference === 'local_fire_department' && <StreakIcon fontSize="medium" />}
-                        {ach.iconReference === 'whatshot' && <StreakIcon fontSize="medium" />}
-                        {ach.iconReference === 'flame_member' && <StreakIcon fontSize="medium" />}
-                        {ach.iconReference === 'calendar_today' && <CalendarIcon fontSize="medium" />}
-                        {ach.iconReference === 'history' && <CalendarIcon fontSize="medium" />}
-                        {ach.iconReference === 'assignment_ind' && <PersonIcon fontSize="medium" />}
-                        {ach.iconReference === 'group_add' && <PersonIcon fontSize="medium" />}
-                        {ach.iconReference === 'groups' && <PersonIcon fontSize="medium" />}
-                        {ach.iconReference === 'explore' && <PathIcon fontSize="medium" />}
-                        {ach.iconReference === 'rocket' && <BoltIcon fontSize="medium" />}
-                      </Box>
-                      <Typography variant="body2" sx={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.78rem', lineHeight: 1.2 }}>
-                        {ach.name}
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-          </Stack>
-        </Grid>
-        {/* Right Column: Sidebar */}
-        <Grid item xs={12} md={4} className="content-column">
-            <Stack spacing={4}>
-              {/* Registered Courses Card */}
-              <Paper 
-                sx={{ 
-                  p: 4,
-                  borderRadius: 4,
-                  border: '1px solid var(--divider)',
-                  bgcolor: 'var(--surface-glass)',
-                  backdropFilter: 'blur(16px)'
-                }}
-              >
-                <Typography variant="h6" sx={{ fontWeight: 800, mb: 3, color: 'var(--text-primary)', fontFamily: '"Outfit", sans-serif' }}>
-                  Registered Courses
+
+              <Box className="web-user-meta">
+                <Box className="web-user-title-row">
+                  <Typography variant="h3" className="web-user-name">
+                    {userName}
+                  </Typography>
+                  <Box className="web-role-chip">
+                    <CourseIcon sx={{ fontSize: 16 }} />
+                    <span>{userTag}</span>
+                  </Box>
+                </Box>
+
+                <Typography className="web-user-handle">
+                  {userUsername}
                 </Typography>
-                
+              </Box>
+            </Box>
+
+            <Box className="web-hero-actions">
+              <Button 
+                variant="outlined" 
+                startIcon={<EditIcon />} 
+                onClick={openEditModal}
+                className="web-edit-profile-btn"
+              >
+                Edit Profile
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* MAIN DESKTOP 2-COLUMN GRID */}
+        <Grid container spacing={3} className="web-main-grid">
+          
+          {/* LEFT / MAIN COLUMN (8 cols) */}
+          <Grid item xs={12} md={8}>
+            <Stack spacing={3}>
+              
+              {/* STATS ROW (3 SYSTEM THEME METRIC CARDS SIDE BY SIDE) */}
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} sm={4}>
+                  <Paper className="web-stat-card">
+                    <Box className="web-stat-info">
+                      <Typography className="web-stat-label">Level</Typography>
+                      <Typography className="web-stat-value">Lvl {userLevel}</Typography>
+                    </Box>
+                    <Box className="web-stat-icon-wrapper gold">
+                      <TrophyIcon />
+                    </Box>
+                  </Paper>
+                </Grid>
+
+                <Grid item xs={12} sm={4}>
+                  <Paper className="web-stat-card">
+                    <Box className="web-stat-info">
+                      <Typography className="web-stat-label">Streak</Typography>
+                      <Typography className="web-stat-value">{userStreak} Day{userStreak !== 1 ? 's' : ''}</Typography>
+                    </Box>
+                    <Box className="web-stat-icon-wrapper orange">
+                      <StreakIcon />
+                    </Box>
+                  </Paper>
+                </Grid>
+
+                <Grid item xs={12} sm={4}>
+                  <Paper className="web-stat-card">
+                    <Box className="web-stat-info">
+                      <Typography className="web-stat-label">Finished</Typography>
+                      <Typography className="web-stat-value">{completedCount}</Typography>
+                    </Box>
+                    <Box className="web-stat-icon-wrapper blue">
+                      <CourseIcon />
+                    </Box>
+                  </Paper>
+                </Grid>
+              </Grid>
+
+              {/* ACHIEVEMENTS CARD SECTION */}
+              <Paper className="web-panel-card">
+                <Box className="web-panel-header">
+                  <Typography variant="h5" className="web-panel-title">
+                    Achievements
+                  </Typography>
+                  <Button 
+                    className="web-view-all-btn"
+                    onClick={() => navigate('/achievements')}
+                    endIcon={<ChevronRightIcon />}
+                  >
+                    View All
+                  </Button>
+                </Box>
+
+                <Grid container spacing={2.5} className="web-achievements-grid">
+                  {featuredAchievements.map((ach) => {
+                    const themeColors = getAchievementThemeColor(ach);
+                    return (
+                      <Grid item xs={12} sm={6} md={4} key={ach.id}>
+                        <Paper 
+                          className={`web-ach-tile ${ach.isUnlocked ? 'unlocked' : 'locked'}`}
+                          style={{
+                            borderColor: ach.isUnlocked ? themeColors.border : 'var(--divider)'
+                          }}
+                        >
+                          {ach.isUnlocked && (
+                            <Box className="web-ach-check-badge">
+                              <CheckIcon sx={{ fontSize: 13, color: '#ffffff', fontWeight: 900 }} />
+                            </Box>
+                          )}
+
+                          <Box 
+                            className="web-ach-icon-circle"
+                            style={{
+                              backgroundColor: ach.isUnlocked ? themeColors.bg : 'rgba(var(--divider-rgb), 0.1)',
+                              color: ach.isUnlocked ? themeColors.icon : 'var(--text-disabled)'
+                            }}
+                          >
+                            {getAchievementIcon(ach)}
+                          </Box>
+
+                          <Typography className="web-ach-title">
+                            {ach.name}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+
+                <Box className="web-ach-footer">
+                  <Typography 
+                    className="web-more-ach-link"
+                    onClick={() => navigate('/achievements')}
+                  >
+                    + {remainingCount > 0 ? remainingCount : 5} more achievements
+                  </Typography>
+                </Box>
+              </Paper>
+
+              {/* REGISTERED COURSES SECTION */}
+              <Paper className="web-panel-card">
+                <Box className="web-panel-header">
+                  <Typography variant="h5" className="web-panel-title">
+                    Registered Courses
+                  </Typography>
+                  <Button 
+                    variant="text"
+                    onClick={() => navigate('/courses')}
+                    className="web-view-all-btn"
+                  >
+                    Explore More
+                  </Button>
+                </Box>
+
                 {registeredCoursesProgress.length === 0 ? (
-                  <Box sx={{ py: 4, textAlign: 'center' }}>
-                    <Typography sx={{ color: 'var(--text-secondary)', fontStyle: 'italic', mb: 2 }}>
+                  <Box className="web-empty-courses">
+                    <Typography className="web-empty-text">
                       You haven't registered in any courses yet.
                     </Typography>
                     <Button 
                       variant="contained" 
-                      onClick={() => navigate('/')}
-                      sx={{ background: 'var(--hero-gradient)', textTransform: 'none', fontWeight: 800, borderRadius: 2 }}
+                      onClick={() => navigate('/courses')}
+                      className="web-browse-btn"
                     >
                       Browse Courses
                     </Button>
                   </Box>
                 ) : (
-                  <Stack spacing={3}>
-                    {registeredCoursesProgress.map(courseProg => (
-                      <Box 
-                        key={courseProg.title} 
-                        sx={{ 
-                          p: 3, 
-                          borderRadius: 3, 
-                          bgcolor: 'var(--background-default)', 
-                          border: '1px solid var(--divider)',
-                          transition: 'transform 0.2s, border-color 0.2s',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            borderColor: 'var(--primary-main)'
-                          }
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                  <Stack spacing={2} sx={{ mt: 2 }}>
+                    {registeredCoursesProgress.map((cp) => (
+                      <Box key={cp.title} className="web-course-item">
+                        <Box className="web-course-header">
                           <Box>
-                            <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>
-                              {courseProg.title}
-                            </Typography>
-                            <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mt: 0.5, fontSize: '0.85rem' }}>
-                              {courseProg.description}
-                            </Typography>
+                            <Typography className="web-course-name">{cp.title}</Typography>
+                            {cp.description && (
+                              <Typography className="web-course-desc">{cp.description}</Typography>
+                            )}
                           </Box>
                           <Button 
-                            variant="outlined" 
-                            size="small"
+                            variant="outlined"
+                            className="web-course-resume-btn"
                             onClick={() => {
-                              const slug = courseProg.title.toLowerCase().replace(/\s+/g, '-');
-                              navigate(`/course/${slug}`, { state: { course: courseProg.course } });
+                              const slug = cp.title.toLowerCase().replace(/\s+/g, '-');
+                              navigate(`/course/${slug}`, { state: { course: cp.course } });
                             }}
-                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
                           >
                             Resume
                           </Button>
                         </Box>
-                        
-                        <Box sx={{ mt: 2 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, fontSize: '0.85rem' }}>
-                            <Typography variant="body2" sx={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                              Lessons: {courseProg.completedLessons} / {courseProg.totalLessons} completed
-                            </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--primary-main)', fontSize: '0.8rem' }}>
-                              {courseProg.progress}%
-                            </Typography>
+
+                        <Box className="web-course-progress-box">
+                          <Box className="web-progress-text">
+                            <span>Lessons: {cp.completedLessons} / {cp.totalLessons} completed</span>
+                            <span className="percent">{cp.progress}%</span>
                           </Box>
                           <LinearProgress 
                             variant="determinate" 
-                            value={courseProg.progress} 
-                            sx={{ 
-                              height: 8, 
-                              borderRadius: 4, 
-                              bgcolor: 'var(--divider)',
-                              '& .MuiLinearProgress-bar': {
-                                background: 'var(--hero-gradient)',
-                                borderRadius: 4
-                              }
-                            }}
+                            value={cp.progress} 
+                            className="web-linear-progress"
                           />
                         </Box>
                       </Box>
@@ -867,8 +689,245 @@ const ProfilePage = () => {
 
             </Stack>
           </Grid>
+
+          {/* RIGHT SIDEBAR COLUMN (4 cols) */}
+          <Grid item xs={12} md={4}>
+            <Stack spacing={3}>
+              
+              {/* LEVEL & XP PROGRESS CARD */}
+              <Paper className="web-sidebar-card">
+                <Typography className="web-sidebar-card-title">
+                  Level & XP
+                </Typography>
+                
+                <Box className="web-xp-level-banner">
+                  <Box className="web-level-badge">
+                    <BoltIcon sx={{ color: '#FACC15', fontSize: 24 }} />
+                    <Typography className="web-rank-title">{userRankName}</Typography>
+                  </Box>
+                  <Typography className="web-level-subtitle">Level {userLevel}</Typography>
+                </Box>
+
+                <Box sx={{ mt: 2 }}>
+                  <Box className="web-progress-text" sx={{ mb: 1 }}>
+                    <Typography variant="caption" sx={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      Next Level (Lvl {levelStats.nextLevel})
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'var(--primary-main)', fontWeight: 700 }}>
+                      {levelStats.percent}%
+                    </Typography>
+                  </Box>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={levelStats.percent} 
+                    className="web-linear-progress" 
+                  />
+                  <Typography 
+                    variant="caption" 
+                    sx={{ color: 'var(--text-secondary)', display: 'block', mt: 1.5, textAlign: 'right', fontSize: '0.78rem', fontWeight: 600 }}
+                  >
+                    {levelStats.xpNeeded} XP needed to reach Level {levelStats.nextLevel}
+                  </Typography>
+                </Box>
+              </Paper>
+
+              {/* ACCOUNT SUMMARY DETAILS CARD */}
+              <Paper className="web-sidebar-card">
+                <Typography className="web-sidebar-card-title">
+                  Account Overview
+                </Typography>
+
+                <Stack spacing={2} className="web-meta-list">
+                  <Box className="web-meta-item">
+                    <FingerprintIcon className="web-meta-icon" />
+                    <Box>
+                      <Typography className="web-meta-label">Username</Typography>
+                      <Typography className="web-meta-value">{userUsername}</Typography>
+                    </Box>
+                  </Box>
+
+                  <Box className="web-meta-item">
+                    <PersonIcon className="web-meta-icon" />
+                    <Box>
+                      <Typography className="web-meta-label">Gender / Age</Typography>
+                      <Typography className="web-meta-value">
+                        {user?.gender || 'Rather Not Say'} • {user?.age || 20} years old
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box className="web-meta-item">
+                    <CalendarIcon className="web-meta-icon" />
+                    <Box>
+                      <Typography className="web-meta-label">Member Since</Typography>
+                      <Typography className="web-meta-value">
+                        {safeFormatDate(user?.joinedDate, { year: 'numeric', month: 'long', day: 'numeric' }, 'Recently')}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Stack>
+              </Paper>
+
+            </Stack>
+          </Grid>
+
         </Grid>
       </Container>
+
+      {/* EDIT PROFILE DIALOG (SETTINGS MODAL) */}
+      <Dialog 
+        open={isEditOpen} 
+        onClose={() => setIsEditOpen(false)}
+        maxWidth="xs" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: 'var(--background-paper)',
+            color: 'var(--text-primary)',
+            borderRadius: '24px',
+            border: '1px solid var(--divider)',
+            p: 1
+          }
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 800, pb: 1, color: 'var(--text-primary)' }}>
+          Edit Profile
+          <IconButton onClick={() => setIsEditOpen(false)} sx={{ color: 'var(--text-secondary)' }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ borderColor: 'var(--divider)' }}>
+          {saveError && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+              {saveError}
+            </Alert>
+          )}
+
+          <Box className="avatar-upload-section" sx={{ mb: 3 }}>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              style={{ display: 'none' }}
+            />
+            <Box 
+              className={`avatar-dropzone ${isDragging ? 'dragging' : ''}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={triggerFileInput}
+            >
+              <Avatar
+                src={editForm.avatar}
+                sx={{ width: '100%', height: '100%' }}
+              />
+              <Box className="avatar-hover-overlay">
+                <CameraAltIcon sx={{ fontSize: 32 }} />
+              </Box>
+            </Box>
+            {avatarError && (
+              <Alert severity="warning" className="avatar-error-alert" sx={{ mt: 1 }}>
+                {avatarError}
+              </Alert>
+            )}
+          </Box>
+
+          <TextField
+            fullWidth
+            label="Full Name"
+            value={editForm.name}
+            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+            margin="normal"
+            variant="outlined"
+            slotProps={{
+              input: { sx: { color: 'var(--text-primary)', borderRadius: '12px' } },
+              inputLabel: { sx: { color: 'var(--text-secondary)' } }
+            }}
+          />
+
+          <TextField
+            fullWidth
+            label="Username"
+            value={editForm.username}
+            onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+            margin="normal"
+            slotProps={{
+              input: { sx: { color: 'var(--text-primary)', borderRadius: '12px' } },
+              inputLabel: { sx: { color: 'var(--text-secondary)' } }
+            }}
+          />
+
+          <TextField
+            fullWidth
+            label="Role / Tag"
+            value={editForm.tag}
+            onChange={(e) => setEditForm({ ...editForm, tag: e.target.value })}
+            margin="normal"
+            slotProps={{
+              input: { sx: { color: 'var(--text-primary)', borderRadius: '12px' } },
+              inputLabel: { sx: { color: 'var(--text-secondary)' } }
+            }}
+          />
+
+          <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+            <TextField
+              fullWidth
+              label="Age"
+              type="number"
+              value={editForm.age}
+              onChange={(e) => setEditForm({ ...editForm, age: e.target.value })}
+              margin="normal"
+              slotProps={{
+                input: { sx: { color: 'var(--text-primary)', borderRadius: '12px' } },
+                inputLabel: { sx: { color: 'var(--text-secondary)' } }
+              }}
+            />
+
+            <TextField
+              fullWidth
+              select
+              label="Gender"
+              value={editForm.gender}
+              onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+              margin="normal"
+              SelectProps={{ native: true }}
+              slotProps={{
+                input: { sx: { color: 'var(--text-primary)', borderRadius: '12px' } },
+                inputLabel: { sx: { color: 'var(--text-secondary)' } }
+              }}
+            >
+              <option value="Rather Not Say" style={{ background: 'var(--background-paper)', color: 'var(--text-primary)' }}>Rather Not Say</option>
+              <option value="Male" style={{ background: 'var(--background-paper)', color: 'var(--text-primary)' }}>Male</option>
+              <option value="Female" style={{ background: 'var(--background-paper)', color: 'var(--text-primary)' }}>Female</option>
+            </TextField>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={() => setIsEditOpen(false)} 
+            sx={{ color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSave} 
+            variant="contained" 
+            disabled={saving}
+            sx={{
+              background: 'var(--primary-main)',
+              textTransform: 'none',
+              fontWeight: 800,
+              borderRadius: '12px',
+              px: 3
+            }}
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
