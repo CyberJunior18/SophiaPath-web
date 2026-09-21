@@ -20,13 +20,12 @@
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  padding: 1rem;
-  border-radius: 32px;
+  padding: 0.85rem 1.25rem;
+  border-radius: 24px;
   position: relative;
   overflow: hidden;
-  gap: 1.5rem;
+  gap: 0.75rem;
   width: 100%;
-  padding-top: 0%;
 }
 
 
@@ -75,15 +74,15 @@
 
 
 .learning-intro-search {
-  margin-top: 1.5rem;
+  margin-top: 0;
   width: 100%;
   max-width: 100%;
 }
 
 
 .learning-search-field .MuiOutlinedInput-root {
-  min-height: 60px;
-  border-radius: 20px;
+  min-height: 48px;
+  border-radius: 16px;
   background: var(--surface-glass);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -107,8 +106,8 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
-  gap: 0.8rem;
-  margin-top: 1.25rem;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
 }
 
 
@@ -270,13 +269,11 @@
   opacity: 0.95;
 }
 
-.cs-icon-bg,
-.philosophy-icon-bg {
+.cs-icon-bg {
   transform: scale(1.4);
 }
 
-.learning-course-card:hover .cs-icon-bg,
-.learning-course-card:hover .philosophy-icon-bg {
+.learning-course-card:hover .cs-icon-bg {
   transform: scale(1.5);
 }
 
@@ -325,37 +322,7 @@
   overflow: hidden;
 }
 
-.learning-course-icon-wrapper.philosophy-icon,
-.learning-course-icon.philosophy-icon {
-  background-image: url('../assets/philosophy.png');
-  background-size: cover;
-  background-position: center;
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
 
-.learning-course-icon-wrapper.philosophy-icon::before,
-.learning-course-icon.philosophy-icon::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  transition: background 0.3s ease;
-  z-index: 0;
-}
-
-.learning-course-card:hover .philosophy-icon::before {
-  background: rgba(0, 0, 0, 0.35);
-}
-
-.learning-course-icon-wrapper.philosophy-icon svg,
-.learning-course-icon.philosophy-icon svg {
-  position: relative;
-  z-index: 1;
-  color: #ffffff !important;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
-}
 
 
 .learning-course-title {
@@ -530,6 +497,7 @@
   /* spacious margin below description to prevent overlapping the badge */
   line-height: 1.65 !important;
   color: var(--text-secondary) !important;
+  display: block !important;
 }
 
 .lab-card .cyber-badge {
@@ -539,6 +507,122 @@
   padding: 0.45rem 0.9rem !important;
   font-size: 0.72rem !important;
   border-radius: 12px !important;
+}
+
+/* ==========================================================================
+   Computer Science Labs Detail View Styles (applied strictly inside CS labs)
+   ========================================================================== */
+
+.cs-detail-mode .lab-card {
+  padding: 1.5rem 1.4rem !important;
+  border-radius: 32px !important;
+  box-shadow: none !important;
+}
+
+.cs-detail-mode .lab-card:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(var(--primary-main-rgb), 0.35) !important;
+  box-shadow: none !important;
+}
+
+.cs-detail-mode .lab-card.is-disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(40%) !important;
+  pointer-events: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.cs-detail-mode .lab-card.is-disabled:hover {
+  transform: none !important;
+  border-color: var(--divider) !important;
+  box-shadow: none !important;
+}
+
+.cs-detail-mode .lab-card .learning-course-arrow {
+  display: none !important;
+}
+
+.cs-detail-mode .lab-card .learning-course-description {
+  display: none !important;
+}
+
+.cs-detail-mode .lab-card .learning-course-icon {
+  width: 5.5rem !important;
+  height: 5.5rem !important;
+  border-radius: 26px !important;
+  background: rgba(var(--primary-main-rgb), 0.16) !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--primary-main) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.3s ease !important;
+  transform: none !important;
+}
+
+.cs-detail-mode .lab-card:hover .learning-course-icon {
+  transform: none !important;
+  background: rgba(var(--primary-main-rgb), 0.22) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.cs-detail-mode .lab-card .learning-course-icon svg {
+  width: 2.6rem !important;
+  height: 2.6rem !important;
+  display: block !important;
+}
+
+.cs-detail-mode .lab-card .learning-course-card-top {
+  margin-bottom: 1.2rem !important;
+  gap: 0.6rem !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+  min-height: 205px !important;
+}
+
+.cs-detail-mode .lab-card .lab-card-image-wrapper {
+  width: 100% !important;
+  max-width: 300px !important;
+  height: 205px !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  border: 1px solid var(--divider) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px 12px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  transition: border-color 0.2s ease !important;
+}
+
+.cs-detail-mode .lab-card:hover .lab-card-image-wrapper {
+  border-color: rgba(var(--primary-main-rgb), 0.35) !important;
+}
+
+.cs-detail-mode .lab-card .lab-card-image {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+.cs-detail-mode .lab-card .learning-course-title {
+  margin: 0 0 1rem 0 !important;
+  font-weight: 800 !important;
+  font-size: 1.25rem !important;
+  line-height: 1.3 !important;
+  color: var(--text-primary) !important;
+  transform: none !important;
 }
 
 @keyframes fadeInSlideUp {
@@ -634,4 +718,138 @@
   .learning-intro {
     padding: 1.5rem 1rem;
   }
+}
+
+/* Use Case Diagram Interactive Connection Handles */
+.usecase-actor-card,
+.usecase-bubble-card {
+  position: relative;
+}
+
+.usecase-connect-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary-main);
+  border: 2px solid var(--background-paper);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.35);
+  cursor: crosshair !important;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  z-index: 15;
+}
+
+.usecase-actor-card:hover .usecase-connect-handle,
+.usecase-bubble-card:hover .usecase-connect-handle {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.usecase-connect-handle:hover {
+  transform: scale(1.35) !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 10px var(--primary-main);
+}
+
+.usecase-connect-handle.port-left {
+  left: -7px;
+  top: calc(50% - 7px);
+}
+
+.usecase-connect-handle.port-right {
+  right: -7px;
+  top: calc(50% - 7px);
+}
+
+.activity-connect-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary-main);
+  border: 2px solid var(--background-paper);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.35);
+  cursor: crosshair !important;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  z-index: 15;
+}
+
+.activity-node-card:hover .activity-connect-handle {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.activity-connect-handle:hover {
+  transform: scale(1.35) !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 10px var(--primary-main);
+}
+
+.activity-connect-handle.port-top {
+  top: -7px;
+  left: calc(50% - 7px);
+}
+
+.activity-connect-handle.port-bottom {
+  bottom: -7px;
+  left: calc(50% - 7px);
+}
+
+.activity-connect-handle.port-left {
+  left: -7px;
+  top: calc(50% - 7px);
+}
+
+.activity-connect-handle.port-right {
+  right: -7px;
+  top: calc(50% - 7px);
+}
+
+/* Diagram Connector & Arrow Interactive Click/Hover Styles */
+.er-rel-group,
+.usecase-link-group,
+.activity-transition-group,
+.sequence-message-group,
+.gantt-dependency-group {
+  cursor: pointer !important;
+}
+
+.diagram-hit-area {
+  stroke: transparent !important;
+  fill: none !important;
+  opacity: 0 !important;
+  filter: none !important;
+  pointer-events: auto !important;
+}
+
+.er-rel-group:hover path:not(.diagram-hit-area),
+.er-rel-group:hover polygon:not(.diagram-hit-area),
+.usecase-link-group:hover path:not(.diagram-hit-area),
+.activity-transition-group:hover path:not(.diagram-hit-area),
+.sequence-message-group:hover line:not(.diagram-hit-area),
+.sequence-message-group:hover polygon:not(.diagram-hit-area),
+.gantt-dependency-group:hover path:not(.diagram-hit-area),
+.gantt-dependency-group:hover polygon:not(.diagram-hit-area) {
+  stroke: #ef4444 !important;
+  opacity: 0.8 !important;
+  filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.45)) !important;
+  transition: stroke 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
+}
+
+.sequence-message-group:hover polygon:not(.diagram-hit-area),
+.gantt-dependency-group:hover polygon:not(.diagram-hit-area) {
+  fill: #ef4444 !important;
+}
+
+.er-rel-group:hover text,
+.sequence-message-group:hover text,
+.usecase-link-group:hover text,
+.activity-transition-group:hover text {
+  fill: #ef4444 !important;
+  opacity: 0.85 !important;
+  transition: fill 0.15s ease, opacity 0.15s ease;
 }

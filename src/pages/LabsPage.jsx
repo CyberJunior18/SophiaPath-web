@@ -29,7 +29,10 @@ import {
   Brain,
   HelpCircle,
   Ship,
-  Compass
+  Compass,
+  GitBranch,
+  Calendar,
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './LearningPage.css'; // Reuse the excellent glassmorphic dashboard styles
@@ -39,34 +42,77 @@ import { CppPlaygroundDialog } from '../components/CppPlaygroundDialog';
 import { JavaOopUmlPlayground } from '../components/JavaOopUmlPlayground';
 import { SoftwareEngineeringLab } from '../components/SoftwareEngineeringLab';
 
+// Diagram screenshots from assets/labs
+import useCaseDiagramImg from '../assets/labs/activityDiagram.png';
+import activityDiagramImg from '../assets/labs/activityFlowModel.png';
+import ganttChartImg from '../assets/labs/ghantChart.png';
+
 const labsData = [
   {
     title: "Computer Science",
-    description: "Dive into low-level runtime execution systems, standard terminal compilation, and object-oriented class diagrams.",
+    description: "Dive into runtime compiler execution systems, object-oriented UML class diagrams, and software engineering modeling architectures.",
     category: "Computer Science",
     iconKey: "cs",
-    labsCount: 3,
+    labsCount: 7,
     labs: [
       {
         id: 'cpp',
         title: 'C++ Playground',
-        description: 'Write, compile, and run C++ code with simulated standard terminal outputs and OOP templates.',
+        description: 'Write, compile, and run C++ code with simulated standard terminal outputs, memory inspection, and runtime tracing.',
         path: 'dialog:cpp',
-        iconName: 'terminal'
+        iconName: 'terminal',
+        course: 'C++ Basics'
       },
       {
         id: 'java-uml',
-        title: 'Java-UML Playground',
-        description: 'Write Java classes and see them rendered into inheritance and relationship structures in real time.',
+        title: 'Java OOP & UML Diagram Lab',
+        description: 'Write Java classes and see them rendered into inheritance, method signatures, and class relationship structures in real time.',
         path: 'dialog:java-uml',
-        iconName: 'activity'
+        iconName: 'layers',
+        course: 'OOP'
       },
       {
-        id: 'swe-diagrams',
-        title: 'Software Engineering Lab',
-        description: 'Design ER Diagrams, Use Cases, Sequence Diagrams, and Gantt charts with a live visualizer.',
-        path: 'dialog:swe-diagrams',
-        iconName: 'wrench'
+        id: 'swe-usecase',
+        title: 'Use Case Diagram',
+        description: 'Model system boundaries, actors, use cases, include/extend relationships, and user interactions.',
+        path: 'dialog:swe:usecase',
+        iconName: 'user',
+        image: useCaseDiagramImg,
+        course: 'Software Engineering'
+      },
+      {
+        id: 'swe-activity',
+        title: 'Activity Diagram',
+        description: 'Construct control flow graphs, swimlanes, decision diamonds, fork/join branches, and step through workflow simulations.',
+        path: 'dialog:swe:activity',
+        iconName: 'branch',
+        image: activityDiagramImg,
+        course: 'Software Engineering'
+      },
+      {
+        id: 'swe-sequence',
+        title: 'Sequence Diagram Modeler',
+        description: 'Trace object lifelines, asynchronous/synchronous messages, activation boxes, and system interaction sequences.',
+        path: 'dialog:swe:sequence',
+        iconName: 'code',
+        course: 'Software Engineering'
+      },
+      {
+        id: 'swe-gantt',
+        title: 'Gantt Chart',
+        description: 'Schedule project milestones, sprint tasks, critical paths, and duration timelines with interactive visual controls.',
+        path: 'dialog:swe:gantt',
+        iconName: 'calendar',
+        image: ganttChartImg,
+        course: 'Software Engineering'
+      },
+      {
+        id: 'swe-er',
+        title: 'ER Diagram',
+        description: 'Design entity-relationship schemas, primary/foreign keys, and cardinalities with automated layout algorithms.',
+        path: 'dialog:swe:er',
+        iconName: 'database',
+        course: 'Software Engineering'
       }
     ]
   },
@@ -75,7 +121,7 @@ const labsData = [
     description: "Launch direct penetration testing suites, exploit simulation tools, and defensive network monitors.",
     category: "Security",
     iconKey: "security",
-    labsCount: 11,
+    labsCount: 22,
     labs: []
   },
   {
@@ -93,27 +139,73 @@ const SEARCHABLE_LABS = [
   {
     id: 'cpp',
     title: 'C++ Playground',
-    description: 'Write, compile, and run C++ code with simulated standard terminal outputs and OOP templates.',
+    description: 'Write, compile, and run C++ code with simulated standard terminal outputs, memory inspection, and runtime tracing.',
     path: 'dialog:cpp',
     iconName: 'terminal',
+    course: 'C++ Basics',
     labCategoryTitle: 'Computer Science',
     category: 'Computer Science'
   },
   {
     id: 'java-uml',
-    title: 'Java-UML Playground',
-    description: 'Write Java classes and see them rendered into inheritance and relationship structures in real time.',
+    title: 'Java OOP & UML Diagram Lab',
+    description: 'Write Java classes and see them rendered into inheritance, method signatures, and class relationship structures in real time.',
     path: 'dialog:java-uml',
-    iconName: 'activity',
+    iconName: 'layers',
+    course: 'OOP',
     labCategoryTitle: 'Computer Science',
     category: 'Computer Science'
   },
   {
-    id: 'swe-diagrams',
-    title: 'Software Engineering Lab',
-    description: 'Design ER Diagrams, Use Cases, Sequence Diagrams, and Gantt charts with a live visualizer.',
-    path: 'dialog:swe-diagrams',
-    iconName: 'wrench',
+    id: 'swe-usecase',
+    title: 'Use Case Diagram',
+    description: 'Model system boundaries, actors, use cases, include/extend relationships, and user interactions.',
+    path: 'dialog:swe:usecase',
+    iconName: 'user',
+    image: useCaseDiagramImg,
+    course: 'Software Engineering',
+    labCategoryTitle: 'Computer Science',
+    category: 'Computer Science'
+  },
+  {
+    id: 'swe-activity',
+    title: 'Activity Diagram',
+    description: 'Construct control flow graphs, swimlanes, decision diamonds, fork/join branches, and step through workflow simulations.',
+    path: 'dialog:swe:activity',
+    iconName: 'branch',
+    image: activityDiagramImg,
+    course: 'Software Engineering',
+    labCategoryTitle: 'Computer Science',
+    category: 'Computer Science'
+  },
+  {
+    id: 'swe-sequence',
+    title: 'Sequence Diagram Modeler',
+    description: 'Trace object lifelines, asynchronous/synchronous messages, activation boxes, and system interaction sequences.',
+    path: 'dialog:swe:sequence',
+    iconName: 'code',
+    course: 'Software Engineering',
+    labCategoryTitle: 'Computer Science',
+    category: 'Computer Science'
+  },
+  {
+    id: 'swe-gantt',
+    title: 'Gantt Chart',
+    description: 'Schedule project milestones, sprint tasks, critical paths, and duration timelines with interactive visual controls.',
+    path: 'dialog:swe:gantt',
+    iconName: 'calendar',
+    image: ganttChartImg,
+    course: 'Software Engineering',
+    labCategoryTitle: 'Computer Science',
+    category: 'Computer Science'
+  },
+  {
+    id: 'swe-er',
+    title: 'ER Diagram',
+    description: 'Design entity-relationship schemas, primary/foreign keys, and cardinalities with automated layout algorithms.',
+    path: 'dialog:swe:er',
+    iconName: 'database',
+    course: 'Software Engineering',
     labCategoryTitle: 'Computer Science',
     category: 'Computer Science'
   },
@@ -209,11 +301,110 @@ const SEARCHABLE_LABS = [
     category: 'Security'
   },
   {
+    id: 'caesar',
+    title: 'Caesar Cipher Explorer',
+    description: 'Interactive visualization of rotational Caesar cipher shifts, encryption tables, and frequency analysis.',
+    path: '/cyber-lab?tab=caesar',
+    iconName: 'lock',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
+  {
+    id: 'vigenere',
+    title: 'Vigenère Cipher Explorer',
+    description: 'Polyalphabetic substitution cipher matrix visualizer with dynamic keyword repeating shifts.',
+    path: '/cyber-lab?tab=vigenere',
+    iconName: 'lock',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
+  {
+    id: 'enigma',
+    title: 'Enigma Machine Simulator',
+    description: 'Full simulation of WWII military Enigma rotors, reflector stepping mechanics, and plugboard cross-wiring.',
+    path: '/cyber-lab?tab=enigma',
+    iconName: 'lock',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
+  {
+    id: 'rsa',
+    title: 'RSA Asymmetric Key Visualizer',
+    description: 'Prime factorization, modular exponentiation, public/private keypair computation, and payload encryption.',
+    path: '/cyber-lab?tab=rsa',
+    iconName: 'lock',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
+  {
+    id: 'base64',
+    title: 'Base64 Encoding Visualizer',
+    description: 'Step-by-step binary bit-grouping (6-bit chunking) and ASCII-to-Base64 radix table translation.',
+    path: '/cyber-lab?tab=base64',
+    iconName: 'activity',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
+  {
+    id: 'xor',
+    title: 'Bitwise XOR Cipher Visualizer',
+    description: 'Inspect bitwise truth tables, byte-level XOR keystream operations, and reversible cipher logic.',
+    path: '/cyber-lab?tab=xor',
+    iconName: 'activity',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
+  {
     id: 'cyberchef',
     title: 'GCHQ CyberChef Tool Suite',
     description: 'Directly invoke GCHQ\'s CyberChef utility kitchen to perform data carving and hex decoding recipes.',
     path: '/cyber-lab?tab=cyberchef',
     iconName: 'wrench',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
+  {
+    id: 'gtfobins',
+    title: 'GTFOBins Privilege Escalation',
+    description: 'Curated list of Unix binaries used to bypass local security restrictions in misconfigured systems.',
+    path: '/cyber-lab?tab=gtfobins',
+    iconName: 'terminal',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
+  {
+    id: 'revshells',
+    title: 'Reverse Shell Generator',
+    description: 'Interactive one-liner generator for bash, python, nc, powershell, and socat reverse connections.',
+    path: '/cyber-lab?tab=revshells',
+    iconName: 'terminal',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
+  {
+    id: 'jwt',
+    title: 'JWT Token Decoder & Debugger',
+    description: 'Decode, verify, and inspect JSON Web Tokens headers, payloads, and digital signatures in real time.',
+    path: '/cyber-lab?tab=jwt',
+    iconName: 'key',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
+  {
+    id: 'explainshell',
+    title: 'ExplainShell Command Breakdown',
+    description: 'Interactive manual page analyzer that explains complex command-line syntax and flags argument-by-argument.',
+    path: '/cyber-lab?tab=explainshell',
+    iconName: 'terminal',
+    labCategoryTitle: 'Cybersecurity',
+    category: 'Security'
+  },
+  {
+    id: 'challenge',
+    title: 'Google XSS Game Sandbox',
+    description: 'Interactive six-level real-world web exploitation challenge targeting reflected and stored XSS vectors.',
+    path: '/cyber-lab?tab=challenge',
+    iconName: 'activity',
     labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
@@ -226,117 +417,78 @@ const SEARCHABLE_LABS = [
     labCategoryTitle: 'Cybersecurity',
     category: 'Security'
   },
-  // Philosophy
-  {
-    id: 'dialogue',
-    title: 'Socrates AI Cognitive Dialogue',
-    description: 'Engage with the Socrates AI agent to challenge cognitive biases, examine logical contradictions, and refine ethical definitions.',
-    path: '/philosophy-lab?tab=0',
-    iconName: 'brain',
-    labCategoryTitle: 'Philosophy',
-    category: 'Humanities'
-  },
-  {
-    id: 'fallacy',
-    title: 'Cognitive Fallacy Matcher',
-    description: 'Analyze real-world arguments, identify logical fallacies, and map them to their correct classical definitions.',
-    path: '/philosophy-lab?tab=1',
-    iconName: 'help',
-    labCategoryTitle: 'Philosophy',
-    category: 'Humanities'
-  },
-  {
-    id: 'theseus',
-    title: 'Identity Paradox: Ship of Theseus',
-    description: 'Experiment with identity paradoxes. Replace physical components and analyze the continuity of identity over time.',
-    path: '/philosophy-lab?tab=2',
-    iconName: 'ship',
-    labCategoryTitle: 'Philosophy',
-    category: 'Humanities'
-  },
-  {
-    id: 'trolley',
-    title: 'Trolley Dilemma Matrix',
-    description: 'Evaluate classic moral dilemmas under utilitarianism, deontology, and virtue ethics with live decision matrices.',
-    path: '/philosophy-lab?tab=3',
-    iconName: 'compass',
-    labCategoryTitle: 'Philosophy',
-    category: 'Humanities'
-  },
-  {
-    id: 'cave',
-    title: "Allegory of Forms: Plato's Cave",
-    description: 'Journey from sensory shadows to objective enlightenment. Explore classical epistemological models in an interactive format.',
-    path: '/philosophy-lab?tab=4',
-    iconName: 'brain',
-    labCategoryTitle: 'Philosophy',
-    category: 'Humanities'
-  },
-  {
-    id: 'political',
-    title: 'Geopolitical Compass',
-    description: 'Map socio-economic ideological axes and explore political theory on a formal two-dimensional grid.',
-    path: '/philosophy-lab?tab=5',
-    iconName: 'compass',
-    labCategoryTitle: 'Philosophy',
-    category: 'Humanities'
-  },
-  {
-    id: 'religions',
-    title: 'Religion Tree Map',
-    description: 'Explore the historical relationships, lineages, and core beliefs of major faith traditions in an interactive tree.',
-    path: '/philosophy-lab?tab=6',
-    iconName: 'compass',
-    labCategoryTitle: 'Philosophy',
-    category: 'Humanities'
-  }
 ];
 
-const getLabIcon = (iconName) => {
+const getLabIcon = (iconName, size = 24) => {
   switch (iconName) {
     case 'code':
-      return <Code size={24} />;
+      return <Code size={size} />;
     case 'database':
-      return <Database size={24} />;
+      return <Database size={size} />;
     case 'terminal':
-      return <Terminal size={24} />;
+      return <Terminal size={size} />;
     case 'globe':
-      return <Globe size={24} />;
+      return <Globe size={size} />;
     case 'key':
-      return <KeyRound size={24} />;
+      return <KeyRound size={size} />;
     case 'lock':
-      return <Lock size={24} />;
+      return <Lock size={size} />;
     case 'user':
-      return <User size={24} />;
+      return <User size={size} />;
     case 'userx':
-      return <UserX size={24} />;
+      return <UserX size={size} />;
     case 'activity':
-      return <Activity size={24} />;
+      return <Activity size={size} />;
     case 'wrench':
-      return <Wrench size={24} />;
+      return <Wrench size={size} />;
     case 'brain':
-      return <Brain size={24} />;
+      return <Brain size={size} />;
     case 'help':
-      return <HelpCircle size={24} />;
+      return <HelpCircle size={size} />;
     case 'ship':
-      return <Ship size={24} />;
+      return <Ship size={size} />;
     case 'compass':
-      return <Compass size={24} />;
+      return <Compass size={size} />;
+    case 'branch':
+      return <GitBranch size={size} />;
+    case 'calendar':
+      return <Calendar size={size} />;
+    case 'layers':
+      return <Layers size={size} />;
     default:
-      return <Code size={24} />;
+      return <Code size={size} />;
   }
+};
+
+const getLabImage = (lab) => {
+  if (!lab) return null;
+  // Explicit instruction: leave erdiagram as it is
+  if (lab.id === 'swe-er' || (lab.title && lab.title.toLowerCase().includes('er diagram'))) {
+    return null;
+  }
+  if (lab.image) return lab.image;
+  if (lab.id === 'swe-usecase' || (lab.title && lab.title.toLowerCase().includes('use case'))) {
+    return useCaseDiagramImg;
+  }
+  if (lab.id === 'swe-activity' || (lab.title && lab.title.toLowerCase().includes('activity'))) {
+    return activityDiagramImg;
+  }
+  if (lab.id === 'swe-gantt' || (lab.title && (lab.title.toLowerCase().includes('gantt') || lab.title.toLowerCase().includes('ghant')))) {
+    return ganttChartImg;
+  }
+  return null;
 };
 
 const getLabGroupIcon = (iconKey) => {
   switch (iconKey) {
     case 'cs':
-      return <CodeIcon />;
+      return <CodeIcon style={{ fontSize: '2.4rem' }} />;
     case 'security':
-      return <SecurityIcon />;
+      return <SecurityIcon style={{ fontSize: '2.4rem' }} />;
     case 'philosophy':
-      return <PsychologyIcon />;
+      return <PsychologyIcon style={{ fontSize: '2.4rem' }} />;
     default:
-      return <CodeIcon />;
+      return <CodeIcon style={{ fontSize: '2.4rem' }} />;
   }
 };
 
@@ -349,6 +501,7 @@ const LabsPage = () => {
   const [isCppOpen, setIsCppOpen] = useState(false);
   const [isJavaUmlOpen, setIsJavaUmlOpen] = useState(false);
   const [isSweOpen, setIsSweOpen] = useState(false);
+  const [sweInitialTab, setSweInitialTab] = useState('er');
 
   // Read URL query parameter for active lab to ensure persistence on refresh
   const [selectedLabGroup, setSelectedLabGroup] = useState(() => {
@@ -383,18 +536,46 @@ const LabsPage = () => {
     window.history.pushState(null, '', newUrl);
   };
 
-  // Get active selected lab object (only CS supports drill-down now)
+  // Get active selected lab object (defaults to null on landing)
   const activeLabGroupObj = useMemo(() => {
     if (!selectedLabGroup) return null;
     return labsData.find(c => c.title.toLowerCase() === selectedLabGroup.toLowerCase()) || null;
   }, [selectedLabGroup]);
 
-  // Compute all matching labs (for search query or category filter)
+  // Hide C++, Java/OOP, and Sequence diagram labs from the diagram grid
+  const isVisibleLab = (lab) => lab.id !== 'cpp' && lab.id !== 'java-uml' && lab.id !== 'swe-sequence';
+
+  // Check if a specific lab is disabled
+  const isLabDisabled = (lab) => lab.id === 'swe-er';
+
+  // Compute matching labs for active detail view (filters by search query)
+  const displayedLabs = useMemo(() => {
+    if (!activeLabGroupObj) return [];
+    const baseLabs = (activeLabGroupObj.labs || []).filter(isVisibleLab);
+    const filtered = baseLabs.filter(lab => {
+      const matchesSearch =
+        !searchQuery.trim() ||
+        lab.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (lab.description && lab.description.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      return matchesSearch;
+    });
+
+    // Ensure disabled ("Coming Soon") labs are always placed at the very end
+    return [...filtered].sort((a, b) => {
+      const aDisabled = isLabDisabled(a) ? 1 : 0;
+      const bDisabled = isLabDisabled(b) ? 1 : 0;
+      return aDisabled - bDisabled;
+    });
+  }, [activeLabGroupObj, searchQuery]);
+
+  // Compute all matching labs across all domains (for search query or category filter)
   const filteredLabsAcrossAll = useMemo(() => {
     return SEARCHABLE_LABS.filter(lab => {
       const matchesSearch =
+        !searchQuery.trim() ||
         lab.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lab.description.toLowerCase().includes(searchQuery.toLowerCase());
+        (lab.description && lab.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesCategory =
         activeCategory === 'All' ||
@@ -409,7 +590,12 @@ const LabsPage = () => {
       setIsCppOpen(true);
     } else if (path === 'dialog:java-uml') {
       setIsJavaUmlOpen(true);
+    } else if (path.startsWith('dialog:swe:')) {
+      const tab = path.replace('dialog:swe:', '');
+      setSweInitialTab(tab);
+      setIsSweOpen(true);
     } else if (path === 'dialog:swe-diagrams') {
+      setSweInitialTab('er');
       setIsSweOpen(true);
     } else {
       navigate(path);
@@ -430,7 +616,8 @@ const LabsPage = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="learning-search-field"
               InputProps={{
-                startAdornment: <SearchIcon className="learning-search-icon" />}}
+                startAdornment: <SearchIcon className="learning-search-icon" />
+              }}
             />
           </div>
 
@@ -453,15 +640,16 @@ const LabsPage = () => {
       {/* RENDER VIEWS WITH SMOOTH MOTION TRANSITIONS */}
       <AnimatePresence mode="wait">
         {activeLabGroupObj && !isSearchingOrFiltering ? (
-          /* COMPUTER SCIENCE LAB DETAIL MODE */
+          /* COMPUTER SCIENCE LAB DETAIL MODE WITH LIVE SEARCH */
           <motion.div
             key="cs-detail-mode"
-            initial={{ opacity: 0, y: 15 }}
+            className="cs-detail-mode"
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
           >
-            {/* Back Button is now inside the animated card container to transition smoothly */}
+            {/* Back Button */}
             <Box style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
               <IconButton
                 onClick={() => handleSelectLabGroup(null)}
@@ -474,43 +662,69 @@ const LabsPage = () => {
               >
                 <ArrowBackIcon />
               </IconButton>
-              <Typography variant="body1" style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
+              <Typography
+                variant="body1"
+                style={{ color: 'var(--text-secondary)', fontWeight: 500, cursor: 'pointer' }}
+                onClick={() => handleSelectLabGroup(null)}
+              >
                 Back to Labs
               </Typography>
             </Box>
 
             <section className="learning-section">
-              <div className="learning-course-grid">
-                {activeLabGroupObj.labs.map((lab) => (
-                  <Paper
-                    key={lab.id}
-                    className="learning-course-card glass-panel lab-card"
-                    elevation={0}
-                    onClick={() => handleLabClick(lab.path)}
-                  >
-                    <ArrowOutwardIcon className="learning-course-arrow" />
-                    <div className="learning-course-card-top">
-                      <div className="learning-course-icon">
-                        {getLabIcon(lab.iconName)}
-                      </div>
-                    </div>
+              {displayedLabs.length > 0 ? (
+                <div className="learning-course-grid">
+                  {displayedLabs.map((lab) => {
+                    const disabled = isLabDisabled(lab);
+                    return (
+                      <Paper
+                        key={lab.id}
+                        className={`learning-course-card glass-panel lab-card cs-lab-card ${disabled ? 'is-disabled' : ''}`}
+                        elevation={0}
+                        onClick={() => !disabled && handleLabClick(lab.path)}
+                        style={disabled ? { opacity: 0.45, cursor: 'not-allowed' } : {}}
+                      >
+                        <div className="learning-course-card-top">
+                          {(() => {
+                            const labImg = getLabImage(lab);
+                            if (labImg) {
+                              return (
+                                <div className="lab-card-image-wrapper" style={disabled ? { filter: 'grayscale(60%)' } : {}}>
+                                  <img src={labImg} alt={lab.title} className="lab-card-image" />
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className="learning-course-icon" style={disabled ? { filter: 'grayscale(60%)' } : {}}>
+                                {getLabIcon(lab.iconName)}
+                              </div>
+                            );
+                          })()}
+                        </div>
 
-                    <Typography variant="h5" className="learning-course-title">
-                      {lab.title}
-                    </Typography>
-                    <Typography variant="body2" className="learning-course-description">
-                      {lab.description}
-                    </Typography>
-                    <div className="cyber-badge" style={{
-                      background: 'color-mix(in srgb, var(--primary-main) 12%, transparent)',
-                      color: 'var(--primary-main)',
-                      border: '1px solid color-mix(in srgb, var(--primary-main) 22%, transparent)'
-                    }}>
-                      {activeLabGroupObj.category}
-                    </div>
-                  </Paper>
-                ))}
-              </div>
+                        <Typography variant="h5" className="learning-course-title" style={disabled ? { opacity: 0.8 } : {}}>
+                          {lab.title}
+                        </Typography>
+                        <div className="cyber-badge" style={{
+                          background: disabled ? 'rgba(255, 179, 0, 0.12)' : 'color-mix(in srgb, var(--primary-main) 12%, transparent)',
+                          color: disabled ? '#ffb300' : 'var(--primary-main)',
+                          border: `1px solid ${disabled ? 'rgba(255, 179, 0, 0.3)' : 'color-mix(in srgb, var(--primary-main) 22%, transparent)'}`,
+                          letterSpacing: '0.04em'
+                        }}>
+                          {disabled ? 'Coming Soon' : (lab.course || activeLabGroupObj.category)}
+                        </div>
+                      </Paper>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Paper className="learning-empty-state glass-panel" elevation={0} style={{ width: '100%', padding: '40px', textAlign: 'center' }}>
+                  <Typography variant="h6">No interactive labs found for your search query.</Typography>
+                  <Typography variant="body2" style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>
+                    Try typing a different keyword in the search bar.
+                  </Typography>
+                </Paper>
+              )}
             </section>
           </motion.div>
         ) : isSearchingOrFiltering ? (
@@ -613,7 +827,7 @@ const LabsPage = () => {
                       color: 'var(--primary-main)',
                       border: '1px solid color-mix(in srgb, var(--primary-main) 22%, transparent)'
                     }}>
-                      {col.labsCount} {col.title === 'Computer Science' ? 'Playgrounds' : 'Labs'}
+                      {col.labsCount} {col.title === 'Computer Science' ? 'Labs & Playgrounds' : 'Labs'}
                     </div>
                   </Paper>
                 ))}
@@ -624,22 +838,30 @@ const LabsPage = () => {
       </AnimatePresence>
 
       {/* RENDER THE HIGH-FIDELITY BUILT-IN PLAYGROUND DIALOGS */}
-      <CppPlaygroundDialog
-        open={isCppOpen}
-        onClose={() => setIsCppOpen(false)}
-        initialCode={`#include <iostream>\n\nint main() {\n    std::cout << "Hello SophiaPath C++!" << std::endl;\n    return 0;\n}`}
-      />
+      {isCppOpen && (
+        <CppPlaygroundDialog
+          open={isCppOpen}
+          onClose={() => setIsCppOpen(false)}
+          initialCode={`#include <iostream>\n\nint main() {\n    std::cout << "Hello SophiaPath C++!" << std::endl;\n    return 0;\n}`}
+        />
+      )}
 
-      <JavaOopUmlPlayground
-        open={isJavaUmlOpen}
-        onClose={() => setIsJavaUmlOpen(false)}
-        initialCode={`public class Person {\n    private String name;\n    private int age;\n    \n    public void speak() {\n        System.out.println("Hello!");\n    }\n}\n\npublic class Student extends Person {\n    private String studentId;\n    private double gpa;\n}`}
-      />
+      {isJavaUmlOpen && (
+        <JavaOopUmlPlayground
+          open={isJavaUmlOpen}
+          onClose={() => setIsJavaUmlOpen(false)}
+          initialCode={`public class Person {\n    private String name;\n    private int age;\n    \n    public void speak() {\n        System.out.println("Hello!");\n    }\n}\n\npublic class Student extends Person {\n    private String studentId;\n    private double gpa;\n}`}
+        />
+      )}
 
-      <SoftwareEngineeringLab
-        open={isSweOpen}
-        onClose={() => setIsSweOpen(false)}
-      />
+      {isSweOpen && (
+        <SoftwareEngineeringLab
+          open={isSweOpen}
+          initialTab={sweInitialTab}
+          hideDiagramSelector={true}
+          onClose={() => setIsSweOpen(false)}
+        />
+      )}
     </Box>
   );
 };

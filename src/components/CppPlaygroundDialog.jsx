@@ -11,7 +11,8 @@ import {
   Typography,
   Paper,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Tooltip
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -20,10 +21,19 @@ import {
   Terminal as TerminalIcon,
   Refresh as ResetIcon,
   GetApp as DownloadIcon,
-  FileUpload as UploadIcon
+  FileUpload as UploadIcon,
+  Memory as MemoryIcon,
+  ViewSidebar as SplitIcon,
+  FastForward as StepNextIcon,
+  FastRewind as StepPrevIcon,
+  Pause as PauseIcon
 } from '@mui/icons-material';
 import Editor from '@monaco-editor/react';
 import html2canvas from 'html2canvas';
+import { traceCppExecution } from './cppMemoryTracer';
+import { CppMemoryInspectorView } from './CppMemoryInspectorView';
+import { convertCppToPseudocode } from './cppFlowchartEngine';
+import { CppFlowchartRenderer } from './CppFlowchartRenderer';
 
 const validateCppSyntax = (cppCode) => {
   let line = 1;
@@ -759,6 +769,10 @@ export const translateCppToJsAsync = (cppCode) => {
     .replace(/\/\/.*$/gm, "")
     .replace(/\/\*[\s\S]*?\*\//g, "");
 
+  // Strip #include and using namespace std;
+  code = code.replace(/#include\s*<[^>]+>/g, "");
+  code = code.replace(/using\s+namespace\s+std\s*;/g, "");
+
   // Replace string and character literals with placeholders to make translation safe
   const stringLiterals = [];
   code = code.replace(/"(\\.|[^"\\])*"/g, (match) => {
@@ -770,14 +784,105 @@ export const translateCppToJsAsync = (cppCode) => {
     return `__STR_LITERAL_${stringLiterals.length - 1}__`;
   });
 
-  // 2. Find int main()
-  const mainBodyMatch = /int\s+main\s*\(\s*\)\s*\{([\s\S]*)\}/.exec(code);
-  let body = mainBodyMatch[1].trim();
+  // Remove forward declarations e.g. int test(int a);
+  code = code.replace(/^\s*(?:void|int|double|float|bool|string|char)\s+[a-zA-Z_]\w*\s*\([^)]*\)\s*;/gm, "");
 
-  // 3. Remove standard return statement
-  body = body.replace(/\breturn\s+0\s*;/g, "");
+  // Helper to translate statements inside function / main bodies
+  const translateBlock = (blockCode) => {
+    let body = blockCode;
+    body = body.replace(/std::cout/g, "cout").replace(/std::cin/g, "cin").replace(/std::endl/g, "endl");
 
-  // 4. Set up helper variables and context in the generated JS
+    // Replace cin >> ...
+    const cinRegex = /cin\s*(>>\s*[a-zA-Z_][a-zA-Z0-9_]*\s*)+;/g;
+    body = body.replace(cinRegex, (match) => {
+      const vars = match.split('>>').slice(1).map(v => v.replace(/;$/, '').trim());
+      return vars.map(v => `${v} = await readInput();`).join(' ');
+    });
+
+    // Replace cout << ...
+    const coutRegex = /cout\s*(<<\s*[^;]+)+;/g;
+    body = body.replace(coutRegex, (match) => {
+      const parts = match.split('<<').slice(1).map(p => p.replace(/;$/, '').trim());
+      const pushes = parts.map(part => {
+        if (part === 'endl' || part === '"\\n"' || part === "'\\n'") {
+          return `onStdout("\\n");`;
+        }
+        return `onStdout(${part});`;
+      });
+      return pushes.join(' ');
+    });
+
+    // Replace variable declarations: int x = 10; -> let x = 10;
+    const typeDeclRegex = /\b(int|double|float|string|bool|char|auto)\s+(\*?\s*[a-zA-Z_]\w*)/g;
+    body = body.replace(typeDeclRegex, (match, type, varName) => {
+      return `let ${varName.replace(/^\*/, '').trim()}`;
+    });
+
+    return body;
+  };
+
+  // Find all functions: [returnType, name, params, body]
+  let functionsJs = '';
+  let mainBody = '';
+
+  const funcHeaderRegex = /(void|int|double|float|bool|string|char)\s+([a-zA-Z_]\w*)\s*\(([^)]*)\)\s*\{/g;
+  let match;
+
+  const functions = [];
+  while ((match = funcHeaderRegex.exec(code)) !== null) {
+    const returnType = match[1];
+    const funcName = match[2];
+    const rawParams = match[3];
+    const startIndex = match.index;
+    const bodyStartIndex = startIndex + match[0].length;
+
+    // Find matching closing brace
+    let depth = 1;
+    let endIndex = bodyStartIndex;
+    while (depth > 0 && endIndex < code.length) {
+      if (code[endIndex] === '{') depth++;
+      else if (code[endIndex] === '}') depth--;
+      endIndex++;
+    }
+
+    const funcBody = code.slice(bodyStartIndex, endIndex - 1);
+    functions.push({
+      returnType,
+      name: funcName,
+      rawParams,
+      body: funcBody
+    });
+  }
+
+  functions.forEach(fn => {
+    if (fn.name === 'main') {
+      let mBody = fn.body.replace(/\breturn\s+0\s*;/g, "");
+      mainBody = translateBlock(mBody);
+    } else {
+      const params = fn.rawParams
+        .split(',')
+        .map(p => p.trim())
+        .filter(Boolean)
+        .map(p => p.replace(/^(int|double|float|bool|string|char)\s+&?/, '').trim())
+        .join(', ');
+
+      const translatedFuncBody = translateBlock(fn.body);
+      functionsJs += `
+        function ${fn.name}(${params}) {
+          ${translatedFuncBody}
+        }
+      `;
+    }
+  });
+
+  // Fallback if main wasn't detected by header regex
+  if (!mainBody && code.includes('main')) {
+    const mainBodyMatch = /int\s+main\s*\(\s*\)\s*\{([\s\S]*)\}/.exec(code);
+    if (mainBodyMatch) {
+      mainBody = translateBlock(mainBodyMatch[1].replace(/\breturn\s+0\s*;/g, ""));
+    }
+  }
+
   let js = `
     const readInput = async () => {
       const token = await onReadInput();
@@ -787,40 +892,9 @@ export const translateCppToJsAsync = (cppCode) => {
       }
       return token;
     };
+    ${functionsJs}
+    ${mainBody}
   `;
-
-  // 5. Clean namespace prefixes
-  body = body.replace(/std::cout/g, "cout").replace(/std::cin/g, "cin").replace(/std::endl/g, "endl");
-
-  // 6. Translate C++ variable declarations
-  const types = ['int', 'double', 'float', 'string', 'bool', 'char', 'auto'];
-  types.forEach(type => {
-    const regex = new RegExp(`\\b${type}\\b`, 'g');
-    body = body.replace(regex, 'let');
-  });
-
-  // 7. Translate cin >> var1 >> var2;
-  const cinRegex = /cin\s*(>>\s*[a-zA-Z_][a-zA-Z0-9_]*\s*)+;/g;
-  body = body.replace(cinRegex, (match) => {
-    const vars = match.split('>>').slice(1).map(v => v.replace(/;$/, '').trim());
-    return vars.map(v => `${v} = await readInput();`).join(' ');
-  });
-
-  // 8. Translate cout << var1 << "string" << endl;
-  const coutRegex = /cout\s*(<<\s*[^;]+)+;/g;
-  body = body.replace(coutRegex, (match) => {
-    const parts = match.split('<<').slice(1).map(p => p.replace(/;$/, '').trim());
-    const pushes = parts.map(part => {
-      if (part === 'endl' || part === '"\\n"' || part === "'\\n'") {
-        return `onStdout("\\n");`;
-      }
-      return `onStdout(${part});`;
-    });
-    return pushes.join(' ');
-  });
-
-  // Append translated body
-  js += "\n" + body;
 
   // Restore string literals
   stringLiterals.forEach((str, idx) => {
@@ -1039,280 +1113,6 @@ const normalizeCppCode = (cppCode) => {
     .filter(line => line.length > 0);
 };
 
-const convertCppToPseudocode = (cppCode) => {
-  if (!cppCode) return 'START\nEND';
-
-  const lines = normalizeCppCode(cppCode);
-  const pseudocode = ['START'];
-  const stack = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
-
-    // Skip boilerplates
-    if (
-      line.startsWith('#') ||
-      line.startsWith('using') ||
-      line.startsWith('int main') ||
-      line === '{'
-    ) {
-      continue;
-    }
-
-    // Stop at return
-    if (line.startsWith('return')) {
-      continue;
-    }
-
-    // Handle block closing
-    if (line === '}') {
-      const nextLine = lines[i + 1] ? lines[i + 1].trim().toLowerCase() : '';
-      const isElse = nextLine.startsWith('else');
-
-      if (stack.length > 0) {
-        const top = stack[stack.length - 1];
-        if (top === 'IF') {
-          if (!isElse) {
-            stack.pop();
-            pseudocode.push('END IF');
-          }
-        } else if (top === 'WHILE') {
-          stack.pop();
-          pseudocode.push('END WHILE');
-        } else if (top === 'FOR') {
-          stack.pop();
-          pseudocode.push('END FOR');
-        } else {
-          stack.pop();
-        }
-      }
-      continue;
-    }
-
-    // Clean standard prefixes std:: and spaces
-    let parsed = line.replace(/std::/g, '').trim();
-
-    // Convert IF statement
-    if (parsed.startsWith('if')) {
-      const condMatch = /if\s*\((.*)\)/.exec(parsed);
-      const cond = condMatch ? condMatch[1].trim() : parsed.replace(/^if\s*/, '');
-      stack.push('IF');
-      pseudocode.push(`IF ${cond}`);
-      continue;
-    }
-
-    // Convert ELSE IF statement
-    if (parsed.startsWith('else if')) {
-      const condMatch = /else if\s*\((.*)\)/.exec(parsed);
-      const cond = condMatch ? condMatch[1].trim() : parsed.replace(/^else if\s*/, '');
-      pseudocode.push(`ELSE IF ${cond}`);
-      continue;
-    }
-
-    // Convert ELSE statement
-    if (parsed.startsWith('else')) {
-      pseudocode.push('ELSE');
-      continue;
-    }
-
-    // Convert WHILE statement
-    if (parsed.startsWith('while')) {
-      const condMatch = /while\s*\((.*)\)/.exec(parsed);
-      const cond = condMatch ? condMatch[1].trim() : parsed.replace(/^while\s*/, '');
-      stack.push('WHILE');
-      pseudocode.push(`WHILE ${cond}`);
-      continue;
-    }
-
-    // Convert FOR statement
-    if (parsed.startsWith('for')) {
-      const condMatch = /for\s*\((.*)\)/.exec(parsed);
-      const cond = condMatch ? condMatch[1].trim() : parsed.replace(/^for\s*/, '');
-      stack.push('FOR');
-      pseudocode.push(`FOR ${cond}`);
-      continue;
-    }
-
-    // Convert declarations like int x = 10;
-    if (/^(int|double|float|string|bool|char|auto)\s+/.test(parsed)) {
-      parsed = parsed.replace(/^(int|double|float|string|bool|char|auto)\s+/, 'DECLARE ');
-    }
-
-    // Convert cout and printf
-    if (parsed.startsWith('cout')) {
-      const parts = parsed.split('<<').slice(1);
-      const outputParts = parts
-        .map(p => p.trim().replace(/;$/, ''))
-        .filter(p => p !== 'endl' && p !== '"\\n"' && p !== "'\\n'");
-      if (outputParts.length > 0) {
-        parsed = `PRINT ${outputParts.join(' + ')}`;
-      } else {
-        continue;
-      }
-    } else if (parsed.startsWith('printf')) {
-      const printfMatch = /printf\s*\((.*)\)/.exec(parsed);
-      if (printfMatch) {
-        parsed = `PRINT ${printfMatch[1].trim()}`;
-      }
-    }
-
-    // Convert cin
-    if (parsed.startsWith('cin')) {
-      const parts = parsed.split('>>').slice(1).map(p => p.trim().replace(/;$/, ''));
-      parsed = `INPUT ${parts.join(', ')}`;
-    }
-
-    // Clean up trailing semicolons
-    parsed = parsed.replace(/;$/, '').trim();
-
-    if (parsed) {
-      pseudocode.push(parsed);
-    }
-  }
-
-  // Empty remaining stack items just in case
-  while (stack.length > 0) {
-    const top = stack.pop();
-    if (top === 'IF') pseudocode.push('END IF');
-    else if (top === 'WHILE') pseudocode.push('END WHILE');
-    else if (top === 'FOR') pseudocode.push('END FOR');
-  }
-
-  pseudocode.push('END');
-  return pseudocode.join('\n');
-};
-
-const parsePseudocodeToTree = (pseudocodeText) => {
-  if (!pseudocodeText) return [];
-
-  const lines = pseudocodeText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
-  const parseHelper = (index) => {
-    const result = [];
-    let i = index;
-
-    while (i < lines.length) {
-      const line = lines[i];
-      const upper = line.toUpperCase();
-
-      if (
-        upper.startsWith('ELSE IF') ||
-        upper.startsWith('ELSE') ||
-        upper.startsWith('END IF') ||
-        upper.startsWith('END WHILE') ||
-        upper.startsWith('END FOR') ||
-        upper.startsWith('END LOOP')
-      ) {
-        break;
-      }
-
-      if (upper.startsWith('IF ')) {
-        const condition = line.replace(/^IF\s+/i, '').trim();
-        const node = {
-          type: 'branch',
-          condition: condition,
-          trueBranch: [],
-          falseBranch: [],
-          color: '#FF9F43'
-        };
-
-        i++; // move past IF
-
-        // Parse true branch
-        const trueRes = parseHelper(i);
-        node.trueBranch = trueRes.nodes;
-        i = trueRes.nextIndex;
-
-        // Now we are at ELSE IF, ELSE, or END IF
-        if (i < lines.length && lines[i].toUpperCase().startsWith('ELSE IF')) {
-          const elseIfLine = lines[i].replace(/^ELSE IF\s+/i, 'IF ');
-          lines[i] = elseIfLine;
-
-          const falseRes = parseHelper(i);
-          node.falseBranch = falseRes.nodes;
-          i = falseRes.nextIndex;
-        } else if (i < lines.length && lines[i].toUpperCase() === 'ELSE') {
-          i++; // move past ELSE
-          const falseRes = parseHelper(i);
-          node.falseBranch = falseRes.nodes;
-          i = falseRes.nextIndex;
-        }
-
-        // Move past END IF
-        if (i < lines.length && lines[i].toUpperCase() === 'END IF') {
-          i++;
-        }
-
-        result.push(node);
-      } else if (upper.startsWith('WHILE ') || upper.startsWith('FOR ') || upper.startsWith('LOOP ')) {
-        const condition = line;
-        const node = {
-          type: 'loop',
-          condition: condition,
-          body: [],
-          color: '#8B5CF6'
-        };
-
-        i++; // move past WHILE/FOR/LOOP
-
-        // Parse loop body
-        const bodyRes = parseHelper(i);
-        node.body = bodyRes.nodes;
-        i = bodyRes.nextIndex;
-
-        // Move past END WHILE / END FOR / END LOOP
-        if (i < lines.length && (
-          lines[i].toUpperCase().startsWith('END WHILE') ||
-          lines[i].toUpperCase().startsWith('END FOR') ||
-          lines[i].toUpperCase().startsWith('END LOOP')
-        )) {
-          i++;
-        }
-
-        result.push(node);
-      } else if (upper === 'END WHILE' || upper === 'END FOR' || upper === 'END LOOP') {
-        i++; // skip loop endings
-      } else {
-        let type = 'process';
-        let label = line;
-        let color = 'rgba(255, 255, 255, 0.4)';
-        let shape = 'rectangle';
-
-        if (upper.startsWith('START') || upper.startsWith('BEGIN')) {
-          type = 'terminal';
-          label = 'START';
-          color = '#3DDC97'; // green
-          shape = 'oval';
-        } else if (upper.startsWith('END') || upper.startsWith('STOP')) {
-          type = 'terminal';
-          label = 'END';
-          color = '#FF647C'; // red
-          shape = 'oval';
-        } else if (
-          upper.startsWith('PRINT') ||
-          upper.startsWith('OUTPUT') ||
-          upper.startsWith('DISPLAY') ||
-          upper.startsWith('WRITE') ||
-          upper.startsWith('INPUT') ||
-          upper.startsWith('READ') ||
-          upper.startsWith('GET')
-        ) {
-          type = 'io';
-          label = line;
-          color = '#1CB0F6'; // light blue
-          shape = 'parallelogram';
-        }
-
-        result.push({ type, label, color, shape });
-        i++;
-      }
-    }
-
-    return { nodes: result, nextIndex: i };
-  };
-
-  return parseHelper(0).nodes;
-};
 const DEFAULT_STARTER = `#include <iostream>
 using namespace std;
 
@@ -1327,6 +1127,8 @@ int main() {
     
     return 0;
 }`;
+
+const ENABLE_FLOWCHART_LAB = false;
 
 export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
   const theme = useTheme();
@@ -1365,6 +1167,179 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
   const [isWaitingForInput, setIsWaitingForInput] = useState(false);
   const [currentInputVal, setCurrentInputVal] = useState('');
   const inputResolverRef = useRef(null);
+  const terminalInputRef = useRef(null);
+
+  useEffect(() => {
+    if (isWaitingForInput && terminalInputRef.current) {
+      setTimeout(() => {
+        terminalInputRef.current?.focus();
+      }, 50);
+    }
+  }, [isWaitingForInput]);
+
+  // Memory Inspector & Line-by-Line Stepper States
+  const [viewMode, setViewMode] = useState('terminal'); // 'terminal' | 'memory' | 'split'
+  const [executionSteps, setExecutionSteps] = useState([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+
+  const monacoEditorRef = useRef(null);
+  const monacoInstanceRef = useRef(null);
+  const decorationsRef = useRef([]);
+  const autoPlayIntervalRef = useRef(null);
+
+  const handleEditorMount = (editor, monaco) => {
+    monacoEditorRef.current = editor;
+    monacoInstanceRef.current = monaco;
+  };
+
+  const updateEditorLineHighlight = (lineNum) => {
+    if (!monacoEditorRef.current || !monacoInstanceRef.current) return;
+    const monaco = monacoInstanceRef.current;
+    if (!lineNum || lineNum <= 0) {
+      decorationsRef.current = monacoEditorRef.current.deltaDecorations(decorationsRef.current, []);
+      return;
+    }
+
+    decorationsRef.current = monacoEditorRef.current.deltaDecorations(decorationsRef.current, [
+      {
+        range: new monaco.Range(lineNum, 1, lineNum, 1),
+        options: {
+          isWholeLine: true,
+          className: 'monaco-executing-line-bg',
+          glyphMarginClassName: 'monaco-executing-line-glyph',
+          overviewRuler: {
+            color: '#3DDC97',
+            position: monaco.editor.OverviewRulerLane.Full
+          }
+        }
+      }
+    ]);
+    monacoEditorRef.current.revealLineInCenter(lineNum);
+  };
+
+  const handleStartStepping = () => {
+    setIsAutoPlaying(false);
+    setIsRunning(false);
+    setIsWaitingForInput(false);
+    if (autoPlayIntervalRef.current) {
+      clearInterval(autoPlayIntervalRef.current);
+      autoPlayIntervalRef.current = null;
+    }
+
+    try {
+      const steps = traceCppExecution(code);
+      if (!steps || steps.length === 0) {
+        setExecutionSteps([]);
+        setCurrentStepIndex(0);
+        updateEditorLineHighlight(null);
+        setTerminalOutput('Terminal reset. Ready.\n');
+        return;
+      }
+      setExecutionSteps(steps);
+      setCurrentStepIndex(0);
+      setViewMode(prev => prev === 'terminal' ? 'memory' : prev);
+      updateEditorLineHighlight(steps[0].lineNumber);
+      setTerminalOutput(steps[0].stdout !== undefined ? steps[0].stdout : 'Terminal reset. Ready.\n');
+    } catch (err) {
+      setTerminalOutput(prev => prev + `\n❌ SYNTAX / TRACING ERROR: ${err.message}\n`);
+    }
+  };
+
+  const handleStepNext = () => {
+    if (executionSteps.length === 0) {
+      handleStartStepping();
+      return;
+    }
+    if (currentStepIndex < executionSteps.length - 1) {
+      const nextIdx = currentStepIndex + 1;
+      setCurrentStepIndex(nextIdx);
+      const step = executionSteps[nextIdx];
+      updateEditorLineHighlight(step.lineNumber);
+      if (step.stdout !== undefined) {
+        setTerminalOutput(step.stdout || 'Terminal ready.');
+      }
+    } else {
+      setIsAutoPlaying(false);
+    }
+  };
+
+  const handleStepPrev = () => {
+    if (currentStepIndex > 0) {
+      const prevIdx = currentStepIndex - 1;
+      setCurrentStepIndex(prevIdx);
+      const step = executionSteps[prevIdx];
+      updateEditorLineHighlight(step.lineNumber);
+      if (step.stdout !== undefined) {
+        setTerminalOutput(step.stdout || 'Terminal ready.');
+      }
+    }
+  };
+
+  const handleRunAllSteps = () => {
+    try {
+      const steps = traceCppExecution(code);
+      if (steps.length === 0) return;
+      setExecutionSteps(steps);
+      const lastIdx = steps.length - 1;
+      setCurrentStepIndex(lastIdx);
+      updateEditorLineHighlight(steps[lastIdx].lineNumber);
+      if (steps[lastIdx].stdout !== undefined) {
+        setTerminalOutput(steps[lastIdx].stdout || 'Program executed successfully.');
+      }
+      setIsAutoPlaying(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleToggleAutoPlay = () => {
+    if (isAutoPlaying) {
+      setIsAutoPlaying(false);
+    } else {
+      if (executionSteps.length === 0 || currentStepIndex >= executionSteps.length - 1) {
+        try {
+          const steps = traceCppExecution(code);
+          if (steps.length === 0) return;
+          setExecutionSteps(steps);
+          setCurrentStepIndex(0);
+          setViewMode(prev => prev === 'terminal' ? 'memory' : prev);
+          updateEditorLineHighlight(steps[0].lineNumber);
+        } catch (err) {
+          return;
+        }
+      }
+      setIsAutoPlaying(true);
+    }
+  };
+
+  useEffect(() => {
+    if (isAutoPlaying) {
+      autoPlayIntervalRef.current = setInterval(() => {
+        setCurrentStepIndex((prev) => {
+          if (prev < executionSteps.length - 1) {
+            const nextIdx = prev + 1;
+            const step = executionSteps[nextIdx];
+            updateEditorLineHighlight(step?.lineNumber);
+            if (step?.stdout !== undefined) {
+              setTerminalOutput(step.stdout || 'Terminal ready.');
+            }
+            return nextIdx;
+          } else {
+            setIsAutoPlaying(false);
+            return prev;
+          }
+        });
+      }, 750);
+    } else {
+      if (autoPlayIntervalRef.current) {
+        clearInterval(autoPlayIntervalRef.current);
+      }
+    }
+    return () => {
+      if (autoPlayIntervalRef.current) clearInterval(autoPlayIntervalRef.current);
+    };
+  }, [isAutoPlaying, executionSteps]);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -1376,6 +1351,10 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
     setTerminalOutput('Terminal ready. Click "RUN CODE" to execute.');
     setActiveTab('compiler');
     setPseudocode('');
+    setExecutionSteps([]);
+    setCurrentStepIndex(0);
+    setIsAutoPlaying(false);
+    updateEditorLineHighlight(0);
   }, [initialCode, open]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -1385,20 +1364,48 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
     setIsWaitingForInput(false);
     setCurrentInputVal('');
 
+    let executionTimeoutId = null;
+    let rejectExecutionFn = null;
+
+    const resetExecutionTimeout = () => {
+      if (executionTimeoutId) clearTimeout(executionTimeoutId);
+      executionTimeoutId = setTimeout(() => {
+        if (rejectExecutionFn) {
+          rejectExecutionFn(new Error("Execution Timed Out (Possible Infinite Loop)"));
+        }
+      }, 15000);
+    };
+
     try {
+      try {
+        const steps = traceCppExecution(code);
+        setExecutionSteps(steps);
+        if (steps.length > 0) {
+          setCurrentStepIndex(steps.length - 1);
+          updateEditorLineHighlight(steps[steps.length - 1].lineNumber);
+        }
+      } catch {
+        // Fallback gracefully
+      }
+
       const onStdout = (text) => {
         setTerminalOutput(prev => prev + text);
       };
 
       const onReadInput = () => {
+        if (executionTimeoutId) clearTimeout(executionTimeoutId); // Pause timeout while waiting for user!
         return new Promise((resolve) => {
           setIsWaitingForInput(true);
-          inputResolverRef.current = resolve;
+          inputResolverRef.current = (userInput) => {
+            resetExecutionTimeout(); // Resume timeout after input is provided
+            resolve(userInput);
+          };
         });
       };
 
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Execution Timed Out (Possible Infinite Loop or unresolved input stream)")), 10000);
+        rejectExecutionFn = reject;
+        resetExecutionTimeout();
       });
 
       await Promise.race([
@@ -1409,6 +1416,7 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
     } catch (err) {
       setTerminalOutput(prev => prev + `\n❌ COMPILATION / RUNTIME ERROR: ${err.message}\n`);
     } finally {
+      if (executionTimeoutId) clearTimeout(executionTimeoutId);
       setIsRunning(false);
       setIsWaitingForInput(false);
     }
@@ -1466,478 +1474,6 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
     setPseudocode(convertCppToPseudocode(code));
   };
 
-  const renderDownArrow = () => (
-    <svg width="24" height="34" viewBox="0 0 24 34" style={{ margin: '4px 0', color: 'rgba(255,255,255,0.15)' }}>
-      <path d="M12 0L12 30" stroke="currentColor" strokeWidth="2" strokeDasharray="3,3" />
-      <path d="M7 25L12 30L17 25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-
-  const renderStandardNode = (node) => {
-    if (node.shape === 'oval') {
-      return (
-        <Box
-          style={{
-            width: '130px',
-            height: '42px',
-            borderRadius: '21px',
-            border: `2px solid ${node.color}`,
-            background: `rgba(${node.color === '#3DDC97' ? '61,220,151' : '255,100,124'}, 0.12)`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'}}
-        >
-          <Typography variant="body2" style={{ fontFamily: '"Roboto Mono", monospace', fontWeight: 800, color: '#fff' }}>
-            {node.label}
-          </Typography>
-        </Box>
-      );
-    } else if (node.shape === 'parallelogram') {
-      return (
-        <Box
-          style={{
-            width: '190px',
-            height: '48px',
-            background: 'rgba(28, 176, 246, 0.08)',
-            border: `2.5px solid ${node.color}`,
-            transform: 'skewX(-15deg)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '6px'}}
-        >
-          <Typography
-            variant="caption"
-            style={{
-              fontFamily: '"Roboto Mono", monospace',
-              fontWeight: 700,
-              color: '#fff',
-              transform: 'skewX(15deg)',
-              padding: '0 12px',
-              textAlign: 'center',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              maxWidth: '160px'
-            }}
-          >
-            {node.label}
-          </Typography>
-        </Box>
-      );
-    } else if (node.shape === 'diamond') {
-      return (
-        <Box
-          style={{
-            width: '110px',
-            height: '110px',
-            background: 'rgba(255, 159, 67, 0.08)',
-            border: `2.5px solid ${node.color}`,
-            transform: 'rotate(45deg)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '8px',
-            margin: '10px 0'}}
-        >
-          <Typography
-            variant="caption"
-            style={{
-              fontFamily: '"Roboto Mono", monospace',
-              fontWeight: 800,
-              color: '#fff',
-              transform: 'rotate(-45deg)',
-              textAlign: 'center',
-              fontSize: '0.75rem',
-              lineHeight: 1.2,
-              padding: '10px',
-              maxWidth: '90px',
-              wordBreak: 'break-word'
-            }}
-          >
-            {node.label}
-          </Typography>
-        </Box>
-      );
-    } else {
-      // Rectangle Process
-      return (
-        <Box
-          style={{
-            width: '190px',
-            height: '48px',
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '2.5px solid rgba(255, 255, 255, 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '8px'}}
-        >
-          <Typography
-            variant="caption"
-            style={{
-              fontFamily: '"Roboto Mono", monospace',
-              fontWeight: 700,
-              color: '#e0e0e0',
-              padding: '0 12px',
-              textAlign: 'center',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              maxWidth: '170px'
-            }}
-          >
-            {node.label}
-          </Typography>
-        </Box>
-      );
-    }
-  };
-
-  const renderBranchNode = (node) => {
-    return (
-      <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', margin: '15px 0' }}>
-        {/* Decision Diamond */}
-        <Box
-          style={{
-            width: '110px',
-            height: '110px',
-            background: 'rgba(255, 159, 67, 0.08)',
-            border: '2.5px solid #FF9F43',
-            transform: 'rotate(45deg)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '8px',
-            
-            zIndex: 2
-          }}
-        >
-          <Typography
-            variant="caption"
-            style={{
-              fontFamily: '"Roboto Mono", monospace',
-              fontWeight: 800,
-              color: '#fff',
-              transform: 'rotate(-45deg)',
-              textAlign: 'center',
-              fontSize: '0.75rem',
-              lineHeight: 1.2,
-              padding: '10px',
-              maxWidth: '90px',
-              wordBreak: 'break-word'
-            }}
-          >
-            {node.condition}
-          </Typography>
-        </Box>
-
-        {/* Vertical line from diamond to split point */}
-        <Box style={{ width: '2px', height: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-
-        {/* Split Rows Container */}
-        <Box style={{ display: 'flex', width: '100%', position: 'relative', marginTop: '-2px' }}>
-
-          {/* Horizontal Connecting Line (Dashed) */}
-          <Box style={{
-            position: 'absolute',
-            top: '0',
-            left: '25%',
-            right: '25%',
-            height: '2px',
-            borderTop: '2px dashed rgba(255, 255, 255, 0.15)',
-            zIndex: 1
-          }} />
-
-          {/* Left Column (True Branch - YES) */}
-          <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative', paddingRight: '10px' }}>
-            {/* Vertical line from horizontal line down */}
-            <Box style={{ width: '2px', height: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-
-            {/* YES Label Chip */}
-            <Box style={{
-              background: 'rgba(61, 220, 151, 0.12)',
-              border: '1px solid #3DDC97',
-              borderRadius: '12px',
-              padding: '2px 8px',
-              marginBottom: '15px'}}>
-              <Typography variant="caption" style={{ color: '#3DDC97', fontWeight: 800, fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                YES ✔️
-              </Typography>
-            </Box>
-
-            {/* Recursive Render of True Branch */}
-            <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-              {node.trueBranch && node.trueBranch.length > 0 ? (
-                renderTreeNodes(node.trueBranch)
-              ) : (
-                <Box style={{
-                  width: '80px',
-                  height: '30px',
-                  border: '1.5px dashed rgba(255,255,255,0.15)',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.65rem' }}>
-                    pass
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-
-            {/* Bottom vertical line to merge */}
-            <Box style={{ width: '2px', flexGrow: 1, minHeight: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-          </Box>
-
-          {/* Right Column (False Branch - NO) */}
-          <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative', paddingLeft: '10px' }}>
-            {/* Vertical line from horizontal line down */}
-            <Box style={{ width: '2px', height: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-
-            {/* NO Label Chip */}
-            <Box style={{
-              background: 'rgba(255, 100, 124, 0.12)',
-              border: '1px solid #FF647C',
-              borderRadius: '12px',
-              padding: '2px 8px',
-              marginBottom: '15px'}}>
-              <Typography variant="caption" style={{ color: '#FF647C', fontWeight: 800, fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                NO ❌
-              </Typography>
-            </Box>
-
-            {/* Recursive Render of False Branch */}
-            <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-              {node.falseBranch && node.falseBranch.length > 0 ? (
-                renderTreeNodes(node.falseBranch)
-              ) : (
-                <Box style={{
-                  width: '80px',
-                  height: '30px',
-                  border: '1.5px dashed rgba(255,255,255,0.15)',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.65rem' }}>
-                    pass
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-
-            {/* Bottom vertical line to merge */}
-            <Box style={{ width: '2px', flexGrow: 1, minHeight: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-          </Box>
-
-        </Box>
-
-        {/* Bottom Horizontal Merge Line (Dashed) */}
-        <Box style={{ display: 'flex', width: '100%', position: 'relative', height: '2px', marginTop: '-2px' }}>
-          <Box style={{
-            position: 'absolute',
-            bottom: '0',
-            left: '25%',
-            right: '25%',
-            height: '2px',
-            borderTop: '2px dashed rgba(255, 255, 255, 0.15)',
-            zIndex: 1
-          }} />
-        </Box>
-
-        {/* Final dropdown arrow from merge point */}
-        <Box style={{ width: '2px', height: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-      </Box>
-    );
-  };
-
-  const renderLoopNode = (node) => {
-    return (
-      <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', margin: '15px 0' }}>
-        {/* Loop Diamond */}
-        <Box
-          style={{
-            width: '110px',
-            height: '110px',
-            background: 'rgba(139, 92, 246, 0.08)',
-            border: '2.5px solid #8B5CF6',
-            transform: 'rotate(45deg)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '8px',
-            
-            zIndex: 2
-          }}
-        >
-          <Typography
-            variant="caption"
-            style={{
-              fontFamily: '"Roboto Mono", monospace',
-              fontWeight: 800,
-              color: '#fff',
-              transform: 'rotate(-45deg)',
-              textAlign: 'center',
-              fontSize: '0.75rem',
-              lineHeight: 1.2,
-              padding: '10px',
-              maxWidth: '90px',
-              wordBreak: 'break-word'
-            }}
-          >
-            {node.condition}
-          </Typography>
-        </Box>
-
-        {/* Horizontal split for Loop Body vs. Exit */}
-        <Box style={{ display: 'flex', width: '100%', position: 'relative', marginTop: '10px' }}>
-
-          {/* Connecting line */}
-          <Box style={{
-            position: 'absolute',
-            top: '0',
-            left: '25%',
-            right: '25%',
-            height: '2px',
-            borderTop: '2px dashed rgba(255, 255, 255, 0.15)',
-            zIndex: 1
-          }} />
-
-          {/* Left Column: Loop Body (True) */}
-          <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative', paddingRight: '10px', borderLeft: '2px dashed rgba(139, 92, 246, 0.25)', borderRadius: '8px 0 0 8px', marginLeft: '5px' }}>
-            <Box style={{ width: '2px', height: '15px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-
-            <Box style={{
-              background: 'rgba(139, 92, 246, 0.12)',
-              border: '1px solid #8B5CF6',
-              borderRadius: '12px',
-              padding: '2px 8px',
-              marginBottom: '15px'
-            }}>
-              <Typography variant="caption" style={{ color: '#8B5CF6', fontWeight: 800, fontSize: '0.65rem' }}>
-                LOOP BODY ✔️
-              </Typography>
-            </Box>
-
-            <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-              {node.body && node.body.length > 0 ? (
-                renderTreeNodes(node.body)
-              ) : (
-                <Box style={{
-                  width: '80px',
-                  height: '30px',
-                  border: '1.5px dashed rgba(255,255,255,0.15)',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.65rem' }}>
-                    pass
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-
-            {/* Arrow looping back up */}
-            <Box style={{ width: '2px', flexGrow: 1, minHeight: '20px', borderLeft: '2px dashed rgba(139, 92, 246, 0.5)', zIndex: 1 }} />
-            <Typography variant="caption" style={{ color: '#8B5CF6', fontSize: '0.6rem', fontWeight: 800, marginTop: '-5px', marginBottom: '10px' }}>
-              ▲ loop back
-            </Typography>
-          </Box>
-
-          {/* Right Column: Loop Exit (False) */}
-          <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative', paddingLeft: '10px' }}>
-            <Box style={{ width: '2px', height: '15px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-
-            <Box style={{
-              background: 'rgba(255, 100, 124, 0.12)',
-              border: '1px solid #FF647C',
-              borderRadius: '12px',
-              padding: '2px 8px',
-              marginBottom: '15px'
-            }}>
-              <Typography variant="caption" style={{ color: '#FF647C', fontWeight: 800, fontSize: '0.65rem' }}>
-                EXIT ❌
-              </Typography>
-            </Box>
-
-            <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '40px' }}>
-              <Typography variant="caption" style={{ color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', fontSize: '0.7rem' }}>
-                Exit Loop
-              </Typography>
-            </Box>
-
-            <Box style={{ width: '2px', flexGrow: 1, minHeight: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-          </Box>
-
-        </Box>
-
-        {/* Bottom Horizontal Merge Line (Dashed) */}
-        <Box style={{ display: 'flex', width: '100%', position: 'relative', height: '2px', marginTop: '-2px' }}>
-          <Box style={{
-            position: 'absolute',
-            bottom: '0',
-            left: '25%',
-            right: '25%',
-            height: '2px',
-            borderTop: '2px dashed rgba(255, 255, 255, 0.15)',
-            zIndex: 1
-          }} />
-        </Box>
-
-        {/* Final arrow down from loop exit merge */}
-        <Box style={{ width: '2px', height: '20px', borderLeft: '2px dashed rgba(255, 255, 255, 0.15)', zIndex: 1 }} />
-      </Box>
-    );
-  };
-
-  const renderTreeNodes = (nodes) => {
-    if (!nodes || nodes.length === 0) return null;
-
-    return nodes.map((node, idx) => {
-      const isLast = idx === nodes.length - 1;
-      let element = null;
-
-      if (node.type === 'branch') {
-        element = renderBranchNode(node);
-      } else if (node.type === 'loop') {
-        element = renderLoopNode(node);
-      } else {
-        element = renderStandardNode(node);
-      }
-
-      return (
-        <React.Fragment key={idx}>
-          {element}
-          {!isLast && renderDownArrow()}
-        </React.Fragment>
-      );
-    });
-  };
-
-  const renderFlowchartNodes = () => {
-    const treeNodes = parsePseudocodeToTree(pseudocode);
-    if (treeNodes.length === 0) {
-      return (
-        <Box style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
-          <Typography variant="body2" style={{ color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', textAlign: 'center' }}>
-            Write some pseudocode on the left or click "Sync from C++" to draw the flowchart!
-          </Typography>
-        </Box>
-      );
-    }
-
-    return (
-      <Box id="flowchart-capture-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', padding: '10px 0' }}>
-        {renderTreeNodes(treeNodes)}
-      </Box>
-    );
-  };
-
   return (
     <Dialog
       open={open}
@@ -1975,44 +1511,48 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
           </Typography>
         </Box>
 
-        {/* Switcher tabs */}
-        <Box style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-          <button
-            onClick={() => setActiveTab('compiler')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'compiler' ? 'var(--primary-main)' : 'transparent',
-              color: activeTab === 'compiler' ? '#fff' : 'var(--text-secondary)',
-              fontSize: '0.8rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              transition: 'all 0.25s ease'
-            }}
-          >
-            C++ Compiler
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('flowchart');
-              setPseudocode(convertCppToPseudocode(code));
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'flowchart' ? 'var(--primary-main)' : 'transparent',
-              color: activeTab === 'flowchart' ? '#fff' : 'var(--text-secondary)',
-              fontSize: '0.8rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              transition: 'all 0.25s ease'
-            }}
-          >
-            Pseudocode & Flowchart Lab
-          </button>
-        </Box>
+        {/* Flowchart tab switch feature flag (kept for future release) */}
+        {ENABLE_FLOWCHART_LAB && (
+          <Box style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <button
+              onClick={() => setActiveTab('compiler')}
+              style={{
+                padding: 'clamp(6px, 0.9vh, 10px) clamp(12px, 1.2vw, 20px)',
+                borderRadius: '9px',
+                border: 'none',
+                background: activeTab === 'compiler' ? 'var(--primary-main)' : 'transparent',
+                color: activeTab === 'compiler' ? '#fff' : 'var(--text-secondary)',
+                fontSize: 'clamp(0.8rem, 0.85vw, 0.92rem)',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.25s ease',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              C++ Compiler
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('flowchart');
+                setPseudocode(convertCppToPseudocode(code));
+              }}
+              style={{
+                padding: 'clamp(6px, 0.9vh, 10px) clamp(12px, 1.2vw, 20px)',
+                borderRadius: '9px',
+                border: 'none',
+                background: activeTab === 'flowchart' ? 'var(--primary-main)' : 'transparent',
+                color: activeTab === 'flowchart' ? '#fff' : 'var(--text-secondary)',
+                fontSize: 'clamp(0.8rem, 0.85vw, 0.92rem)',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.25s ease',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Pseudocode & Flowchart Lab
+            </button>
+          </Box>
+        )}
 
         <IconButton onClick={onClose} style={{ color: 'var(--text-secondary)' }}>
           <CloseIcon />
@@ -2021,22 +1561,60 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
 
       <DialogContent style={{ padding: '20px 24px', overflowY: 'hidden', display: 'flex', flexDirection: 'column', height: '100%', flexGrow: 1 }}>
         {activeTab === 'compiler' ? (
-          <Box style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '24px', flexGrow: 1, minHeight: 0, alignItems: 'stretch', height: '100%' }}>
+          <Box style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '20px', flexGrow: 1, minHeight: 0, alignItems: 'stretch', height: '100%' }}>
             {/* Editor Column */}
-            <Box style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0, height: '100%' }}>
-              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '36px' }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Source Code Editor
-                </Typography>
-                <Box style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <IconButton size="small" onClick={handleCopy} title="Copy Code" style={{ color: 'var(--primary-main)' }}>
-                    <CopyIcon fontSize="small" />
+            <Box style={{ flex: viewMode === 'split' ? 1.12 : 1.2, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0, height: '100%', transition: 'flex 0.3s ease' }}>
+              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '36px', flexWrap: 'wrap', gap: '6px' }}>
+                <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Source Code Editor
+                  </Typography>
+                  {isWaitingForInput ? (
+                    <span
+                      style={{
+                        fontSize: 'clamp(0.65rem, 0.72vw, 0.75rem)',
+                        fontWeight: 800,
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        background: 'rgba(245, 158, 11, 0.2)',
+                        color: '#F59E0B',
+                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      ⌨️ Waiting for Input
+                    </span>
+                  ) : (isRunning || isAutoPlaying) ? (
+                    <span
+                      style={{
+                        fontSize: 'clamp(0.65rem, 0.72vw, 0.75rem)',
+                        fontWeight: 800,
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        background: 'rgba(255, 107, 107, 0.15)',
+                        color: '#FF6B6B',
+                        border: '1px solid rgba(255, 107, 107, 0.3)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em'
+                      }}
+                    >
+                      Locked (Running)
+                    </span>
+                  ) : null}
+                </Box>
+                <Box style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
+                  <IconButton size="small" onClick={handleCopy} title="Copy Code" style={{ color: 'var(--primary-main)', padding: 'clamp(4px, 0.6vh, 8px)' }}>
+                    <CopyIcon style={{ fontSize: 'clamp(18px, 1.2vw, 22px)' }} />
                   </IconButton>
-                  <IconButton size="small" onClick={handleDownloadFile} title="Download C++ File" style={{ color: 'var(--success-main)' }}>
-                    <DownloadIcon fontSize="small" />
+                  <IconButton size="small" onClick={handleDownloadFile} title="Download C++ File" style={{ color: 'var(--success-main)', padding: 'clamp(4px, 0.6vh, 8px)' }}>
+                    <DownloadIcon style={{ fontSize: 'clamp(18px, 1.2vw, 22px)' }} />
                   </IconButton>
-                  <IconButton size="small" onClick={() => fileInputRef.current?.click()} title="Import C++ File" style={{ color: 'var(--orange-500)' }}>
-                    <UploadIcon fontSize="small" />
+                  <IconButton size="small" disabled={isRunning || isAutoPlaying} onClick={() => fileInputRef.current?.click()} title="Import C++ File" style={{ color: (isRunning || isAutoPlaying) ? 'var(--text-disabled)' : 'var(--orange-500)', padding: 'clamp(4px, 0.6vh, 8px)' }}>
+                    <UploadIcon style={{ fontSize: 'clamp(18px, 1.2vw, 22px)' }} />
                   </IconButton>
                   <input
                     type="file"
@@ -2045,8 +1623,8 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                     accept=".cpp,.h,.txt"
                     style={{ display: 'none' }}
                   />
-                  <IconButton size="small" onClick={handleReset} title="Reset Template" style={{ color: 'var(--text-secondary)' }}>
-                    <ResetIcon fontSize="small" />
+                  <IconButton size="small" disabled={isRunning || isAutoPlaying} onClick={handleReset} title="Reset Template" style={{ color: (isRunning || isAutoPlaying) ? 'var(--text-disabled)' : 'var(--text-secondary)', padding: 'clamp(4px, 0.6vh, 8px)' }}>
+                    <ResetIcon style={{ fontSize: 'clamp(18px, 1.2vw, 22px)' }} />
                   </IconButton>
                 </Box>
               </Box>
@@ -2063,7 +1641,12 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   height="100%"
                   language="cpp"
                   value={code}
-                  onChange={(val) => setCode(val || '')}
+                  onChange={(val) => {
+                    if (!isRunning && !isAutoPlaying) {
+                      setCode(val || '');
+                    }
+                  }}
+                  onMount={handleEditorMount}
                   theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
                   options={{
                     fontSize: 13,
@@ -2071,94 +1654,349 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                     automaticLayout: true,
                     scrollBeyondLastLine: false,
                     padding: { top: 12, bottom: 12 },
-                    lineNumbersMinChars: 3
+                    lineNumbersMinChars: 3,
+                    glyphMargin: true,
+                    readOnly: isRunning || isAutoPlaying,
+                    domReadOnly: isRunning || isAutoPlaying
                   }}
                 />
               </Box>
             </Box>
 
-            {/* Console / Terminal Column */}
-            <Box style={{ flex: 0.8, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0, height: '100%' }}>
-              {/* Output terminal header with Run button */}
-              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '36px' }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Interactive Terminal Output
-                </Typography>
-                <Button
-                  variant="contained"
-                  disabled={isRunning}
-                  onClick={handleRun}
-                  startIcon={<PlayIcon />}
-                  size="small"
-                  style={{
-                    padding: '6px 16px',
-                    borderRadius: '8px',
-                    fontWeight: 800,
-                    textTransform: 'none',
-                    background: 'var(--hero-gradient)',
-                    color: '#fff',
-                    fontSize: '0.78rem',
-                    boxShadow: 'none'
-                  }}
-                >
-                  {isRunning ? "RUNNING..." : "RUN CODE"}
-                </Button>
+            {/* Console / Terminal & Memory Visualizer Column */}
+            <Box style={{ flex: viewMode === 'split' ? 1.7 : 1.1, display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0, height: '100%', transition: 'flex 0.3s ease' }}>
+              {/* Output terminal / Memory header with Run & Step buttons */}
+              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '36px', flexWrap: 'wrap', gap: '8px' }}>
+                {/* View Mode Switcher */}
+                <Box style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+                  <button
+                    onClick={() => setViewMode('terminal')}
+                    style={{
+                      padding: 'clamp(5px, 0.7vh, 8px) clamp(10px, 0.9vw, 16px)',
+                      borderRadius: '7px',
+                      border: 'none',
+                      background: viewMode === 'terminal' ? 'var(--primary-main)' : 'transparent',
+                      color: viewMode === 'terminal' ? '#fff' : 'var(--text-secondary)',
+                      fontSize: 'clamp(0.76rem, 0.8vw, 0.88rem)',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <TerminalIcon style={{ fontSize: 'clamp(14px, 1vw, 18px)' }} /> Terminal
+                  </button>
+                  <button
+                    onClick={() => {
+                      setViewMode('memory');
+                      if (executionSteps.length === 0) handleStartStepping();
+                    }}
+                    style={{
+                      padding: 'clamp(5px, 0.7vh, 8px) clamp(10px, 0.9vw, 16px)',
+                      borderRadius: '7px',
+                      border: 'none',
+                      background: viewMode === 'memory' ? 'var(--primary-main)' : 'transparent',
+                      color: viewMode === 'memory' ? '#fff' : 'var(--text-secondary)',
+                      fontSize: 'clamp(0.76rem, 0.8vw, 0.88rem)',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <MemoryIcon style={{ fontSize: 'clamp(14px, 1vw, 18px)' }} /> Memory
+                  </button>
+                  <button
+                    onClick={() => {
+                      setViewMode('split');
+                      if (executionSteps.length === 0) handleStartStepping();
+                    }}
+                    title="Split View (Side by Side)"
+                    style={{
+                      padding: 'clamp(5px, 0.7vh, 8px) clamp(10px, 0.9vw, 16px)',
+                      borderRadius: '7px',
+                      border: 'none',
+                      background: viewMode === 'split' ? 'var(--primary-main)' : 'transparent',
+                      color: viewMode === 'split' ? '#fff' : 'var(--text-secondary)',
+                      fontSize: 'clamp(0.76rem, 0.8vw, 0.88rem)',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <SplitIcon style={{ fontSize: 'clamp(14px, 1vw, 18px)' }} /> Split
+                  </button>
+                </Box>
+
+                <Box style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0, flexWrap: 'nowrap' }}>
+                  {/* Step Count Badge */}
+                  <span
+                    style={{
+                      padding: 'clamp(5px, 0.7vh, 8px) clamp(10px, 0.9vw, 15px)',
+                      borderRadius: '7px',
+                      background: 'var(--primary-main)',
+                      color: '#fff',
+                      fontWeight: 800,
+                      fontSize: 'clamp(0.76rem, 0.8vw, 0.88rem)',
+                      fontFamily: '"Roboto Mono", monospace',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {executionSteps.length > 0 ? `${currentStepIndex + 1}/${executionSteps.length}` : '1/1'}
+                  </span>
+
+                  {/* Step Control Buttons (Prev, Auto, Next, Reset) */}
+                  <Box style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--divider)', borderRadius: '8px', padding: '2px 4px' }}>
+                    <Tooltip title="Previous Line">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={handleStepPrev}
+                          disabled={currentStepIndex <= 0 || executionSteps.length === 0}
+                          style={{ color: currentStepIndex > 0 ? 'var(--text-primary)' : 'var(--text-disabled)', padding: 'clamp(4px, 0.6vh, 7px)' }}
+                        >
+                          <StepPrevIcon style={{ fontSize: 'clamp(17px, 1.1vw, 21px)' }} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+
+                    <Tooltip title={isAutoPlaying ? "Pause Auto-Run" : "Auto-Run (Line by Line)"}>
+                      <IconButton
+                        size="small"
+                        onClick={handleToggleAutoPlay}
+                        style={{
+                          padding: 'clamp(4px, 0.6vh, 7px)',
+                          color: isAutoPlaying ? '#FF6B6B' : '#38BDF8',
+                          background: isAutoPlaying ? 'rgba(255, 107, 107, 0.12)' : 'rgba(56, 189, 248, 0.12)'
+                        }}
+                      >
+                        {isAutoPlaying ? <PauseIcon style={{ fontSize: 'clamp(17px, 1.1vw, 21px)' }} /> : <PlayIcon style={{ fontSize: 'clamp(17px, 1.1vw, 21px)' }} />}
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title="Next Line">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={handleStepNext}
+                          disabled={executionSteps.length > 0 && currentStepIndex >= executionSteps.length - 1}
+                          style={{ color: (executionSteps.length === 0 || currentStepIndex < executionSteps.length - 1) ? 'var(--text-primary)' : 'var(--text-disabled)', padding: 'clamp(4px, 0.6vh, 7px)' }}
+                        >
+                          <StepNextIcon style={{ fontSize: 'clamp(17px, 1.1vw, 21px)' }} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+
+                    <Tooltip title="Restart to Line 1">
+                      <IconButton size="small" onClick={handleStartStepping} style={{ color: 'var(--text-secondary)', padding: 'clamp(4px, 0.6vh, 7px)' }}>
+                        <ResetIcon style={{ fontSize: 'clamp(17px, 1.1vw, 21px)' }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+
+                  <Button
+                    variant="contained"
+                    disabled={isRunning}
+                    onClick={handleRun}
+                    startIcon={<PlayIcon style={{ fontSize: 'clamp(16px, 1.1vw, 20px)' }} />}
+                    size="small"
+                    style={{
+                      padding: 'clamp(6px, 0.8vh, 10px) clamp(14px, 1.3vw, 22px)',
+                      borderRadius: '8px',
+                      fontWeight: 800,
+                      textTransform: 'none',
+                      background: 'var(--hero-gradient)',
+                      color: '#fff',
+                      fontSize: 'clamp(0.78rem, 0.85vw, 0.92rem)',
+                      boxShadow: 'none',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {isRunning ? "RUNNING..." : "RUN ALL"}
+                  </Button>
+                </Box>
               </Box>
               
-              <Paper
-                elevation={0}
-                style={{
-                  flexGrow: 1,
-                  padding: '16px',
-                  backgroundColor: '#0c0d12',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  fontFamily: '"Roboto Mono", monospace',
-                  fontSize: '0.82rem',
-                  color: '#3DDC97',
-                  whiteSpace: 'pre-wrap',
-                  overflowY: 'auto',
-                  height: '100%',
-                  minHeight: '350px',
-                  
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'flex-start'
-                }}
-              >
-                <div style={{ flexGrow: 1, overflowY: 'auto' }}>
-                  {terminalOutput}
-                  {isWaitingForInput && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                      <span style={{ color: '#FF9F43', fontWeight: 800 }}>{`> `}</span>
-                      <input
-                        type="text"
-                        value={currentInputVal}
-                        onChange={(e) => setCurrentInputVal(e.target.value)}
-                        onKeyDown={handleInputSubmit}
-                        autoFocus
-                        placeholder="Type input and press Enter..."
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          outline: 'none',
-                          color: '#3DDC97',
-                          fontFamily: '"Roboto Mono", monospace',
-                          fontSize: '0.82rem',
-                          flexGrow: 1,
-                          caretColor: '#3DDC97'
-                        }}
-                      />
+              {/* Content Panel based on viewMode */}
+              {viewMode === 'memory' ? (
+                <Paper
+                  elevation={0}
+                  style={{
+                    flexGrow: 1,
+                    padding: '12px',
+                    backgroundColor: '#0c0d12',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    overflowY: 'auto',
+                    height: '100%',
+                    minHeight: '350px'
+                  }}
+                >
+                  <CppMemoryInspectorView
+                    currentStep={currentStepIndex}
+                    totalSteps={executionSteps.length || 1}
+                    stepData={executionSteps[currentStepIndex]}
+                    onStepNext={handleStepNext}
+                    onStepPrev={handleStepPrev}
+                    onRunAll={handleRunAllSteps}
+                    onReset={handleStartStepping}
+                    isAutoPlaying={isAutoPlaying}
+                    onToggleAutoPlay={handleToggleAutoPlay}
+                  />
+                </Paper>
+              ) : viewMode === 'split' ? (
+                <Box style={{ flexGrow: 1, display: 'flex', flexDirection: 'row', gap: '14px', height: '100%', minHeight: 0, alignItems: 'stretch' }}>
+                  {/* Column 1: Memory Inspector View */}
+                  <Paper
+                    elevation={0}
+                    style={{
+                      flex: 1.15,
+                      padding: '12px',
+                      backgroundColor: '#0c0d12',
+                      borderRadius: '16px',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      overflowY: 'auto',
+                      height: '100%',
+                      minHeight: 0
+                    }}
+                  >
+                    <CppMemoryInspectorView
+                      currentStep={currentStepIndex}
+                      totalSteps={executionSteps.length || 1}
+                      stepData={executionSteps[currentStepIndex]}
+                      onStepNext={handleStepNext}
+                      onStepPrev={handleStepPrev}
+                      onRunAll={handleRunAllSteps}
+                      onReset={handleStartStepping}
+                      isAutoPlaying={isAutoPlaying}
+                      onToggleAutoPlay={handleToggleAutoPlay}
+                    />
+                  </Paper>
+
+                  {/* Column 2: Terminal Output View */}
+                  <Paper
+                    elevation={0}
+                    style={{
+                      flex: 0.85,
+                      padding: '14px',
+                      backgroundColor: '#0c0d12',
+                      borderRadius: '16px',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      fontFamily: '"Roboto Mono", monospace',
+                      fontSize: '0.8rem',
+                      color: '#3DDC97',
+                      whiteSpace: 'pre-wrap',
+                      overflowY: 'auto',
+                      height: '100%',
+                      minHeight: 0,
+                      display: 'flex',
+                      flexDirection: 'column'
+                    }}
+                  >
+                    <Box style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <TerminalIcon style={{ fontSize: '15px', color: 'var(--text-secondary)' }} />
+                      <Typography variant="caption" style={{ color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Interactive Output
+                      </Typography>
+                    </Box>
+
+                    <div style={{ flexGrow: 1, overflowY: 'auto' }}>
+                      {terminalOutput}
+                      {isWaitingForInput && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', background: 'rgba(245, 158, 11, 0.08)', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                          <span style={{ color: '#FF9F43', fontWeight: 800 }}>{`> `}</span>
+                          <input
+                            ref={terminalInputRef}
+                            type="text"
+                            value={currentInputVal}
+                            onChange={(e) => setCurrentInputVal(e.target.value)}
+                            onKeyDown={handleInputSubmit}
+                            autoFocus
+                            placeholder="Type input and press Enter..."
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              outline: 'none',
+                              color: '#3DDC97',
+                              fontFamily: '"Roboto Mono", monospace',
+                              fontSize: '0.8rem',
+                              flexGrow: 1,
+                              caretColor: '#3DDC97'
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </Paper>
+                  </Paper>
+                </Box>
+              ) : (
+                <Paper
+                  elevation={0}
+                  style={{
+                    flexGrow: 1,
+                    padding: '16px',
+                    backgroundColor: '#0c0d12',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    fontFamily: '"Roboto Mono", monospace',
+                    fontSize: '0.82rem',
+                    color: '#3DDC97',
+                    whiteSpace: 'pre-wrap',
+                    overflowY: 'auto',
+                    height: '100%',
+                    minHeight: '350px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-start'
+                  }}
+                >
+                  <div style={{ flexGrow: 1, overflowY: 'auto' }}>
+                    {terminalOutput}
+                    {isWaitingForInput && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', background: 'rgba(245, 158, 11, 0.08)', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                        <span style={{ color: '#FF9F43', fontWeight: 800 }}>{`> `}</span>
+                        <input
+                          ref={terminalInputRef}
+                          type="text"
+                          value={currentInputVal}
+                          onChange={(e) => setCurrentInputVal(e.target.value)}
+                          onKeyDown={handleInputSubmit}
+                          autoFocus
+                          placeholder="Type input and press Enter..."
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            outline: 'none',
+                            color: '#3DDC97',
+                            fontFamily: '"Roboto Mono", monospace',
+                            fontSize: '0.82rem',
+                            flexGrow: 1,
+                            caretColor: '#3DDC97'
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </Paper>
+              )}
             </Box>
           </Box>
         ) : (
           <Box style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '20px', flexGrow: 1, minHeight: 0, alignItems: 'stretch', height: '100%' }}>
             {/* Pseudocode Editor Panel */}
-            <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
+            <Box style={{ flex: 0.75, display: 'flex', flexDirection: 'column', gap: '12px', height: '100%', minWidth: 0 }}>
               <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '36px' }}>
                 <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Pseudocode Editor
@@ -2201,25 +2039,26 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
             </Box>
 
             {/* Visual Flowchart Display Panel */}
-            <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
-              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '36px' }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <Box style={{ flex: 1.35, display: 'flex', flexDirection: 'column', gap: '12px', height: '100%', minWidth: 0 }}>
+              <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '36px', flexWrap: 'wrap', gap: '6px' }}>
+                <Typography variant="subtitle2" style={{ fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>
                   Flowchart Visualizer
                 </Typography>
-                <Box style={{ display: 'flex', gap: '8px' }}>
+                <Box style={{ display: 'flex', gap: '8px', flexShrink: 0, flexWrap: 'nowrap' }}>
                   <Button
                     variant="outlined"
                     onClick={handleDownloadPng}
-                    startIcon={<DownloadIcon />}
+                    startIcon={<DownloadIcon style={{ fontSize: 'clamp(15px, 1.1vw, 19px)' }} />}
                     size="small"
                     style={{
-                      padding: '5px 12px',
+                      padding: 'clamp(5px, 0.7vh, 9px) clamp(12px, 1.1vw, 18px)',
                       borderRadius: '8px',
                       fontWeight: 800,
                       textTransform: 'none',
                       borderColor: 'var(--primary-main)',
                       color: 'var(--primary-main)',
-                      fontSize: '0.72rem'
+                      fontSize: 'clamp(0.76rem, 0.8vw, 0.88rem)',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     Download PNG
@@ -2227,42 +2066,24 @@ export const CppPlaygroundDialog = ({ open, onClose, initialCode }) => {
                   <Button
                     variant="outlined"
                     onClick={handleGenerateFromCpp}
-                    startIcon={<ResetIcon />}
+                    startIcon={<ResetIcon style={{ fontSize: 'clamp(15px, 1.1vw, 19px)' }} />}
                     size="small"
                     style={{
-                      padding: '5px 12px',
+                      padding: 'clamp(5px, 0.7vh, 9px) clamp(12px, 1.1vw, 18px)',
                       borderRadius: '8px',
                       fontWeight: 800,
                       textTransform: 'none',
                       borderColor: 'var(--primary-main)',
                       color: 'var(--primary-main)',
-                      fontSize: '0.72rem'
+                      fontSize: 'clamp(0.76rem, 0.8vw, 0.88rem)',
+                      whiteSpace: 'nowrap'
                     }}
                   >
-                    Sync from C++
+                    Sync C++
                   </Button>
                 </Box>
               </Box>
-              <Paper
-                elevation={0}
-                style={{
-                  flexGrow: 1,
-                  height: '100%',
-                  minHeight: '320px',
-                  padding: '20px',
-                  backgroundColor: theme.palette.mode === 'dark' ? '#0A0C16' : '#FAFAFC',
-                  borderRadius: '16px',
-                  border: '1px solid var(--divider)',
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center'}}
-              >
-                {renderFlowchartNodes()}
-              </Paper>
-              <Typography variant="caption" style={{ color: 'var(--text-secondary)', textAlign: 'center', display: 'block', marginTop: '4px' }}>
-                Green = START/END, Blue = Input/Output, Grey = Process, Orange/Purple = Branch.
-              </Typography>
+              <CppFlowchartRenderer pseudocodeText={pseudocode} onDownloadPng={handleDownloadPng} />
             </Box>
           </Box>
         )}
